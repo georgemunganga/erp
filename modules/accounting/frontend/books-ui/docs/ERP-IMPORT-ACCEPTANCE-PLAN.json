@@ -1,0 +1,387 @@
+{
+  "status": "AUTHORED_UI_IMPORT_ACCEPTANCE_NOT_EXECUTED",
+  "importCommit": "cb51fa9bb3025d6a8ff0633892d05f9e00f22edb",
+  "importTree": "e747461ee65837fc46813e15d9906a4f13727ac0",
+  "importedTrackedFiles": 69,
+  "workflowFixtureCount": 124,
+  "workflowFixtureIdsSha256": "d2fcc1e09129ee59420744fe824c3450919b04020f2b105c38c383f2f03b4497",
+  "baselineFiles": [
+    {
+      "path": "modules/accounting/frontend/books-ui/.gitignore",
+      "gitBlob": "82c9769ba346077a22896781f7df631b5b6c06c5",
+      "mode": "100644"
+    },
+    {
+      "path": "modules/accounting/frontend/books-ui/README.md",
+      "gitBlob": "f584b84ca98e69063a00b5e69ab693403375a196",
+      "mode": "100644"
+    },
+    {
+      "path": "modules/accounting/frontend/books-ui/TODO.md",
+      "gitBlob": "31ce0ae610434a4ee04c01b911cb76ac41d373e4",
+      "mode": "100644"
+    },
+    {
+      "path": "modules/accounting/frontend/books-ui/app.config.ts",
+      "gitBlob": "eec894a1d19c4f1335065506ab49d0a2e7310aa3",
+      "mode": "100644"
+    },
+    {
+      "path": "modules/accounting/frontend/books-ui/docs/books-coverage-plan.md",
+      "gitBlob": "7d6dae36266e7b9967878204f1728416fab8579f",
+      "mode": "100644"
+    },
+    {
+      "path": "modules/accounting/frontend/books-ui/docs/capture-protocol.md",
+      "gitBlob": "1c6d8232c10489bd7e3eacf0f15793ee2cd4384a",
+      "mode": "100644"
+    },
+    {
+      "path": "modules/accounting/frontend/books-ui/docs/domains/accountant.md",
+      "gitBlob": "f47f10f0849d572bbb677a93b1291b455f49aeef",
+      "mode": "100644"
+    },
+    {
+      "path": "modules/accounting/frontend/books-ui/docs/domains/banking.md",
+      "gitBlob": "4513d2a8a4565daf2cd8aeac81c829421f8c4cfb",
+      "mode": "100644"
+    },
+    {
+      "path": "modules/accounting/frontend/books-ui/docs/domains/itemsprojects.md",
+      "gitBlob": "2dd5213aa1eef2054fc54bd04b55f49ff6baaa38",
+      "mode": "100644"
+    },
+    {
+      "path": "modules/accounting/frontend/books-ui/docs/domains/purchases.md",
+      "gitBlob": "d6e2d7adaba0921b8c409035ed9130fe3d59e97c",
+      "mode": "100644"
+    },
+    {
+      "path": "modules/accounting/frontend/books-ui/docs/domains/reportssettings.md",
+      "gitBlob": "1378e792dd74b4e12f68a0f1c9e21ffa6a9a3368",
+      "mode": "100644"
+    },
+    {
+      "path": "modules/accounting/frontend/books-ui/docs/domains/sales.md",
+      "gitBlob": "5f5e1c38a274a78b48e8bd17189758e9b5fd646a",
+      "mode": "100644"
+    },
+    {
+      "path": "modules/accounting/frontend/books-ui/docs/interaction-coverage-plan.md",
+      "gitBlob": "81dc1e69ca3c782c2b146a851c53f5e5515d3098",
+      "mode": "100644"
+    },
+    {
+      "path": "modules/accounting/frontend/books-ui/docs/reference-manifest.json",
+      "gitBlob": "d878d7ce2adf17f4ec4307493a60622d570e6809",
+      "mode": "100644"
+    },
+    {
+      "path": "modules/accounting/frontend/books-ui/docs/verified-screen-patterns.md",
+      "gitBlob": "4c3c212908dd9ff3d7c435bf8dd935275f781c6f",
+      "mode": "100644"
+    },
+    {
+      "path": "modules/accounting/frontend/books-ui/docs/workflow-depth/README.md",
+      "gitBlob": "a2b0e5e69cc88fcb630527f2e5ae25647cb80478",
+      "mode": "100644"
+    },
+    {
+      "path": "modules/accounting/frontend/books-ui/docs/workflow-depth/accountant.md",
+      "gitBlob": "b27e85d76cc46fd27202e3de4bf5076d9132351d",
+      "mode": "100644"
+    },
+    {
+      "path": "modules/accounting/frontend/books-ui/docs/workflow-depth/banking.md",
+      "gitBlob": "72c64232d6d0bb8948d808be8a3278525af19960",
+      "mode": "100644"
+    },
+    {
+      "path": "modules/accounting/frontend/books-ui/docs/workflow-depth/engine-test-results.json",
+      "gitBlob": "bec131c9f6fbb17984fe197488937fe6d0c7721c",
+      "mode": "100644"
+    },
+    {
+      "path": "modules/accounting/frontend/books-ui/docs/workflow-depth/items-projects.md",
+      "gitBlob": "bd3cae096ae831af872572ad52019cc0ea5d38ed",
+      "mode": "100644"
+    },
+    {
+      "path": "modules/accounting/frontend/books-ui/docs/workflow-depth/purchases.md",
+      "gitBlob": "08801f5e4d3bdfc5f93b1c1810ad8366f92c395d",
+      "mode": "100644"
+    },
+    {
+      "path": "modules/accounting/frontend/books-ui/docs/workflow-depth/sales.md",
+      "gitBlob": "0f7f9562d86b8192ec3638b3f583e25de752bf4d",
+      "mode": "100644"
+    },
+    {
+      "path": "modules/accounting/frontend/books-ui/docs/workflow-depth/settings-reports.md",
+      "gitBlob": "6dd5306350480c3ba9ecf9672b9ad5adb02561bf",
+      "mode": "100644"
+    },
+    {
+      "path": "modules/accounting/frontend/books-ui/docs/workflow-depth/validation-summary.md",
+      "gitBlob": "33de93e184ecc6b31829cba4736a433489998156",
+      "mode": "100644"
+    },
+    {
+      "path": "modules/accounting/frontend/books-ui/docs/workflow-depth/workflow-inventory.json",
+      "gitBlob": "6446df45aff30acb0057b22f3a15aa25f89dbec7",
+      "mode": "100644"
+    },
+    {
+      "path": "modules/accounting/frontend/books-ui/docs/workflow-depth/workflow-inventory.md",
+      "gitBlob": "6e0afd40019f5dbe8f62f1b6a11aa036a571c08c",
+      "mode": "100644"
+    },
+    {
+      "path": "modules/accounting/frontend/books-ui/index.html",
+      "gitBlob": "0b5fd2992812abd46e0049fadebc66e7c9a61f43",
+      "mode": "100644"
+    },
+    {
+      "path": "modules/accounting/frontend/books-ui/package.json",
+      "gitBlob": "30996397f6ead0bc8f59c88c0f11ae9757848e13",
+      "mode": "100644"
+    },
+    {
+      "path": "modules/accounting/frontend/books-ui/plan.md",
+      "gitBlob": "aca0b8949c0dc14baa0d1f3dbd08f6c76d6287ab",
+      "mode": "100644"
+    },
+    {
+      "path": "modules/accounting/frontend/books-ui/playwright.config.ts",
+      "gitBlob": "12428b618173b0604e62b1b1e37f90be9a570fbb",
+      "mode": "100644"
+    },
+    {
+      "path": "modules/accounting/frontend/books-ui/pnpm-lock.yaml",
+      "gitBlob": "da331918a4fb22883a5a248b63f46749ced0ca60",
+      "mode": "100644"
+    },
+    {
+      "path": "modules/accounting/frontend/books-ui/pnpm-workspace.yaml",
+      "gitBlob": "e4909066aa5dfe0db4a9e3205d51ed5423eb9d4a",
+      "mode": "100644"
+    },
+    {
+      "path": "modules/accounting/frontend/books-ui/public/books-demo-mark.svg",
+      "gitBlob": "a56bfb6778a06a57779fd32135bc43b4551b0942",
+      "mode": "100644"
+    },
+    {
+      "path": "modules/accounting/frontend/books-ui/public/manus-routes.json",
+      "gitBlob": "6bdb29e7276c05b14530cd9fc16db7079cf529ea",
+      "mode": "100644"
+    },
+    {
+      "path": "modules/accounting/frontend/books-ui/scripts/test-workflow-engine.mjs",
+      "gitBlob": "0f689352fb97012fed3afc8cbf1d2f6c1e20fb33",
+      "mode": "100644"
+    },
+    {
+      "path": "modules/accounting/frontend/books-ui/src/App.tsx",
+      "gitBlob": "9ca6fc685cda6d9f22459312f634c5c5092b105d",
+      "mode": "100644"
+    },
+    {
+      "path": "modules/accounting/frontend/books-ui/src/components/AppShell.tsx",
+      "gitBlob": "b167e5590cb3fa2770b3b8b9372fd8ea89beae62",
+      "mode": "100644"
+    },
+    {
+      "path": "modules/accounting/frontend/books-ui/src/components/Primitives.tsx",
+      "gitBlob": "d3926a1826b8004fb1d56dde19dee26c57fbf2f4",
+      "mode": "100644"
+    },
+    {
+      "path": "modules/accounting/frontend/books-ui/src/data.ts",
+      "gitBlob": "1b8acf1919961b5fde5eb863d9240a3191d69e31",
+      "mode": "100644"
+    },
+    {
+      "path": "modules/accounting/frontend/books-ui/src/main.tsx",
+      "gitBlob": "b9644a562c78cf6b9d73c1d52d3134e294d416af",
+      "mode": "100644"
+    },
+    {
+      "path": "modules/accounting/frontend/books-ui/src/screens/Dashboard.tsx",
+      "gitBlob": "76ec25f25b2b9494acde24f3c3b857a65d62f6d2",
+      "mode": "100644"
+    },
+    {
+      "path": "modules/accounting/frontend/books-ui/src/screens/ItemDetail.tsx",
+      "gitBlob": "3d06ef32dd334bffacf7fc877e50201c10d3e079",
+      "mode": "100644"
+    },
+    {
+      "path": "modules/accounting/frontend/books-ui/src/screens/ListScreen.tsx",
+      "gitBlob": "ad59980892349f4a845a808a74a6ca6dc0643468",
+      "mode": "100644"
+    },
+    {
+      "path": "modules/accounting/frontend/books-ui/src/screens/ReportsWorkspace.tsx",
+      "gitBlob": "430585d2793ec8624ccaad9367851abe4a344330",
+      "mode": "100644"
+    },
+    {
+      "path": "modules/accounting/frontend/books-ui/src/screens/SettingsWorkspace.tsx",
+      "gitBlob": "e79a312c632fa7dd691dd51d5747862673d61fa9",
+      "mode": "100644"
+    },
+    {
+      "path": "modules/accounting/frontend/books-ui/src/state/WorkspaceContext.tsx",
+      "gitBlob": "caccd005357fde0bfc40c03f55ea32876d2647f9",
+      "mode": "100644"
+    },
+    {
+      "path": "modules/accounting/frontend/books-ui/src/styles.css",
+      "gitBlob": "019c8bfa607ffa90897bfc7c7d9e017090c9c65e",
+      "mode": "100644"
+    },
+    {
+      "path": "modules/accounting/frontend/books-ui/src/types.ts",
+      "gitBlob": "fa2f35823c1838402ba2480e13db6a66b895f79e",
+      "mode": "100644"
+    },
+    {
+      "path": "modules/accounting/frontend/books-ui/src/vite-env.d.ts",
+      "gitBlob": "11f02fe2a0061d6e6e1f271b21da95423b448b32",
+      "mode": "100644"
+    },
+    {
+      "path": "modules/accounting/frontend/books-ui/src/workflows/WorkflowFields.tsx",
+      "gitBlob": "4a9c97c5ecc82c0d07ebcfc3c43171f9c180e36e",
+      "mode": "100644"
+    },
+    {
+      "path": "modules/accounting/frontend/books-ui/src/workflows/WorkflowWorkbench.tsx",
+      "gitBlob": "513393e5061669ba431eabdcf9cd973a41b2d54f",
+      "mode": "100644"
+    },
+    {
+      "path": "modules/accounting/frontend/books-ui/src/workflows/WorkspaceViews.tsx",
+      "gitBlob": "c294168ff60fe55248d1af7d5e32d9b870e7dbae",
+      "mode": "100644"
+    },
+    {
+      "path": "modules/accounting/frontend/books-ui/src/workflows/contracts.ts",
+      "gitBlob": "15539b53390c2819e128fa9e3bc706d088476231",
+      "mode": "100644"
+    },
+    {
+      "path": "modules/accounting/frontend/books-ui/src/workflows/criteria.ts",
+      "gitBlob": "7574f06df34edea0bb3532e5e304f7e173d76999",
+      "mode": "100644"
+    },
+    {
+      "path": "modules/accounting/frontend/books-ui/src/workflows/domains/accountant.ts",
+      "gitBlob": "3e1717312692732d36d34e6872e176318dec32e1",
+      "mode": "100644"
+    },
+    {
+      "path": "modules/accounting/frontend/books-ui/src/workflows/domains/banking.ts",
+      "gitBlob": "3875d530ea1c2876ab3a0a16aef62d12645f6311",
+      "mode": "100644"
+    },
+    {
+      "path": "modules/accounting/frontend/books-ui/src/workflows/domains/items-projects.ts",
+      "gitBlob": "4f4bc504455c63c01c6ac2c83945b0bea666d39b",
+      "mode": "100644"
+    },
+    {
+      "path": "modules/accounting/frontend/books-ui/src/workflows/domains/purchases.ts",
+      "gitBlob": "fb4656a3b89da7acba45ac3ac128de7147293c17",
+      "mode": "100644"
+    },
+    {
+      "path": "modules/accounting/frontend/books-ui/src/workflows/domains/sales.ts",
+      "gitBlob": "3ce745d4a800a738848995a6068a163e8e6d5972",
+      "mode": "100644"
+    },
+    {
+      "path": "modules/accounting/frontend/books-ui/src/workflows/domains/settings-reports.ts",
+      "gitBlob": "b633271d30c8cf3a7455d123cdf89046e6e90528",
+      "mode": "100644"
+    },
+    {
+      "path": "modules/accounting/frontend/books-ui/src/workflows/engine.ts",
+      "gitBlob": "2e0861d95ff81478bb2af880d45bedadec77c2f6",
+      "mode": "100644"
+    },
+    {
+      "path": "modules/accounting/frontend/books-ui/src/workflows/registry.ts",
+      "gitBlob": "03e044660618b629a74e6968c2a9d9d5a4cdc656",
+      "mode": "100644"
+    },
+    {
+      "path": "modules/accounting/frontend/books-ui/src/workflows/store.tsx",
+      "gitBlob": "0d47ec5390554faf2f19b0b3058c37fb6eababb9",
+      "mode": "100644"
+    },
+    {
+      "path": "modules/accounting/frontend/books-ui/src/workflows/validation.ts",
+      "gitBlob": "a908e678583b32269015a16c5205ea8047a360d8",
+      "mode": "100644"
+    },
+    {
+      "path": "modules/accounting/frontend/books-ui/src/workflows/workflow.css",
+      "gitBlob": "c2d429393136458484bcc1fdea2c641613ec7d29",
+      "mode": "100644"
+    },
+    {
+      "path": "modules/accounting/frontend/books-ui/tests/fixtures/workflow-cases.json",
+      "gitBlob": "dfd4af0e02f9149026679f11a3df99a933e06e21",
+      "mode": "100644"
+    },
+    {
+      "path": "modules/accounting/frontend/books-ui/tests/workflows.spec.ts",
+      "gitBlob": "48e0c0efe97959afe8b5037e77956f538e056e67",
+      "mode": "100644"
+    },
+    {
+      "path": "modules/accounting/frontend/books-ui/tsconfig.json",
+      "gitBlob": "b9df6cdc5cd706dde1ebeb75337490c37b9f792a",
+      "mode": "100644"
+    },
+    {
+      "path": "modules/accounting/frontend/books-ui/vite.config.ts",
+      "gitBlob": "7967c862b4bd0e68c938ade5f5ba2edbc25a4f47",
+      "mode": "100644"
+    }
+  ],
+  "newIntegrationCases": 8,
+  "sourceFiles": [
+    {
+      "path": "modules/accounting/frontend/books-ui/tests/erp-integration.spec.ts",
+      "sha256": "0d3906e2819e2b6353eb813f394fc93c7788c33836400cf824ea62c6e2775866"
+    },
+    {
+      "path": "modules/accounting/frontend/books-ui/tests/erp-fixtures/public-context.ts",
+      "sha256": "ab0f367d49c04a349228648c6c870c4c476d6f5644c866746f4ba36e71d557d4"
+    },
+    {
+      "path": "modules/accounting/frontend/books-ui/playwright.erp.config.ts",
+      "sha256": "1e66d66aa3a8e1f2a0ae874e87ba62d6b1a65a7f939cb6c48eeb09668629f6b3"
+    },
+    {
+      "path": "modules/accounting/frontend/books-ui/docs/ERP-IMPORT-ACCEPTANCE-PLAN.md",
+      "sha256": "5cce2cd570d4c14bf38b60670cef898cea7fdc1c30fab796b4994fa2d562a0a7"
+    }
+  ],
+  "actualResults": {
+    "typecheck": null,
+    "build": null,
+    "engine": null,
+    "originalBrowserSuite": null,
+    "erpMockBrowserSuite": null
+  },
+  "limits": [
+    "No tests/build/browser executed by the author.",
+    "Mocked Core GETs are not live authentication proof.",
+    "Browser-local sample operations are not durable accounting records or backend workflow implementation.",
+    "No production, backend, migration, role or bank changes."
+  ]
+}

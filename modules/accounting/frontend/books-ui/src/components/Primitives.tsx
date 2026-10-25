@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import { X } from "lucide-react";
 import type { ButtonHTMLAttributes, ReactNode } from "react";
+import { Button as ErpButton, Card as ErpCard } from "@amizopower/erp-ui";
 import type { DemoStatus } from "../types";
 
 export function Button({
@@ -12,12 +13,9 @@ export function Button({
   variant?: "primary" | "secondary" | "ghost" | "danger";
   size?: "sm" | "md";
 }) {
-  return (
-    <button
-      className={`button button-${variant} button-${size} ${className}`.trim()}
-      {...props}
-    />
-  );
+  const erpVariant = variant === "primary" ? "default" : variant === "danger" ? "destructive" : variant === "secondary" ? "outline" : "ghost";
+  return <ErpButton variant={erpVariant} size={size === "md" ? "default" : "sm"}
+    className={`button button-${variant} button-${size} ${className}`.trim()} {...props} />;
 }
 
 export function PageHeading({
@@ -84,7 +82,7 @@ export function Panel({
   className?: string;
 }) {
   return (
-    <section className={`panel ${className}`.trim()}>
+    <ErpCard className={`panel ${className}`.trim()}>
       {(title || action) && (
         <div className="panel-heading">
           {title && <h2>{title}</h2>}
@@ -92,7 +90,7 @@ export function Panel({
         </div>
       )}
       {children}
-    </section>
+    </ErpCard>
   );
 }
 

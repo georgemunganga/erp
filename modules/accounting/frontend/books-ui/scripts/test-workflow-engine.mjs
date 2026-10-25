@@ -1,5 +1,7 @@
 import { createServer } from 'vite';
-import { writeFileSync } from 'node:fs';
+import { writeFileSync, mkdirSync } from 'node:fs';
+import { join, dirname } from 'node:path';
+const recordResult = (file, content) => { const target = process.env.ACCOUNTING_ENGINE_RESULTS_DIR ? join(process.env.ACCOUNTING_ENGINE_RESULTS_DIR, file) : file; mkdirSync(dirname(target), { recursive: true }); writeFileSync(target, content); };
 import assert from 'node:assert/strict';
 const server = await createServer({ server: { middlewareMode: true }, appType: 'custom' });
 try {
@@ -86,13 +88,13 @@ try {
   const itemImport=allFlows.find(flow=>flow.id==='import-items');const itemSetup=setup(itemImport);const itemValues=makeValues(itemImport,itemSetup.workspace,itemSetup.store);Object.assign(itemValues,{csv:'name,quantity,rate\nImported fictional item,7,123',quantity:7,rate:123,category:'Sample inventory',description:'Imported locally'});const itemResult=executeWorkflow(itemImport,itemValues,itemSetup.workspace,itemSetup.store);assert.equal(itemResult.workspace.items[0].stock,7,'Item import must apply mapped quantity');assert.equal(itemResult.workspace.items[0].category,'Sample inventory','Item import must apply selected category default');negative.push('Item import defaults and stock mapping');
   for (const flow of allFlows) for (const next of flow.nextFlowIds || []) if(!allFlows.some(candidate=>candidate.id===next)) failures.push({id:flow.id,error:'Broken next workflow: '+next});
   const manifest={routes:[{path:'/',title:'Dashboard'},...moduleSpecs.map(spec=>({path:spec.path,title:spec.title})),...moduleSpecs.filter(spec=>spec.createPath).map(spec=>({path:spec.createPath,title:'Create '+spec.entityLabel})),...['/items/:itemId','/records/:moduleKey/:recordId','/workflows','/workflows/:flowId','/workflow-results/:receiptId','/workflow-resources/:artifactId','/banking','/chart-of-accounts','/transaction-locking','/reports','/reports/:reportSlug','/documents','/settings','/settings/general','/settings/templates','/settings/automation'].map(path=>({path}))]};
-  writeFileSync('public/manus-routes.json',JSON.stringify(manifest,null,2)+'\n');
-  writeFileSync('tests/fixtures/workflow-cases.json',JSON.stringify(fixtures,null,2)+'\n');
+  recordResult('public/manus-routes.json',JSON.stringify(manifest,null,2)+'\n');
+  recordResult('tests/fixtures/workflow-cases.json',JSON.stringify(fixtures,null,2)+'\n');
   const summary={registered:allFlows.length,passed:passed.length,negativeChecks:negative,failures,domainCounts:Object.fromEntries([...new Set(allFlows.map(x=>x.domain))].map(domain=>[domain,allFlows.filter(x=>x.domain===domain).length]))};
-  writeFileSync('docs/workflow-depth/engine-test-results.json',JSON.stringify(summary,null,2)+'\n');
-  writeFileSync('docs/workflow-depth/workflow-inventory.json',JSON.stringify(allFlows,null,2)+'\n');
+  recordResult('docs/workflow-depth/engine-test-results.json',JSON.stringify(summary,null,2)+'\n');
+  recordResult('docs/workflow-depth/workflow-inventory.json',JSON.stringify(allFlows,null,2)+'\n');
   const lines=['# Registered workflow inventory','',`Generated from the live application registry: ${allFlows.length} locally executable workflows. This is a simulation catalog, not evidence that every path was inspected or completed in the selected Zoho tenant. See \`../reference-manifest.json\` for tenant evidence labels.`,''];
   for(const domain of [...new Set(allFlows.map(flow=>flow.domain))]){lines.push(`## ${domain}`,'');for(const flow of allFlows.filter(item=>item.domain===domain)){const steps=flow.steps.map(step=>`${step.title} (${step.fields.map(field=>`${field.label}${field.required?'*':''}`).join(', ')||'confirmation'})`).join(' → ');lines.push(`### \`${flow.id}\` · ${flow.title}`,'',`**Route:** \`/workflows/${flow.id}\` · **Effect:** \`${flow.effect.kind}${flow.effect.entity?` → ${flow.effect.entity}`:''}${flow.effect.target?` → ${flow.effect.target}`:''}${flow.effect.collection?` → ${flow.effect.collection}`:''}\` · **Registry evidence label:** ${flow.evidence}`,'',steps,``,flow.description,flow.completionMessage,...(flow.nextFlowIds?.length?[`**Next:** ${flow.nextFlowIds.map(id=>`\`${id}\``).join(', ')}`]:[]),'');}}
-  writeFileSync('docs/workflow-depth/workflow-inventory.md',lines.join('\n')+'\n');console.log(JSON.stringify(summary,null,2));
+  recordResult('docs/workflow-depth/workflow-inventory.md',lines.join('\n')+'\n');console.log(JSON.stringify(summary,null,2));
   if(failures.length) process.exitCode=1;
 } finally { await server.close(); }

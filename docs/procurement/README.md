@@ -1,5 +1,7 @@
 # Procurement documentation
 
+[Gap implementation and UAT plan](gap-closure/PROCUREMENT-IMPLEMENTATION-AND-UAT-PLAN-20261025.md) traces all 55 audited findings to existing cloned UI controls, backend owners, bounded implementation/integration/testing/deployment tasks, dependencies and acceptance criteria.
+
 [25 October Zoho manuals gap audit](audits/2026-10-25-zoho-manual-comparison/README.md) compares 164 distinct help guides and the linked FAQs with our source, specifications, bounded verification and live routes. It includes the per-manual matrix, 55 grouped findings, field/settings crosswalks and a closure roadmap. This is the current audit; older dated baseline claims below remain historical.
 
 [PROC-00 Procurement Module Architecture and Capability Map](PROC-00-PROCUREMENT-MODULE-ARCHITECTURE-AND-CAPABILITY-MAP.md) is the current draft master document. It defines the module boundary, 12 parent capability groups, line-level request routing, shared ERP dependencies, data ownership, and documentation/build sequence.

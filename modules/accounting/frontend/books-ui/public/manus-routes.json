@@ -1,200 +1,203 @@
 {
   "routes": [
     {
-      "path": "/",
+      "path": "/accounting/workspace/",
       "title": "Dashboard"
     },
     {
-      "path": "/items",
+      "path": "/accounting/workspace/items",
       "title": "Items"
     },
     {
-      "path": "/customers",
+      "path": "/accounting/workspace/customers",
       "title": "Customers"
     },
     {
-      "path": "/quotes",
+      "path": "/accounting/workspace/quotes",
       "title": "Quotes"
     },
     {
-      "path": "/invoices",
+      "path": "/accounting/workspace/invoices",
       "title": "Invoices"
     },
     {
-      "path": "/recurring-invoices",
+      "path": "/accounting/workspace/recurring-invoices",
       "title": "Recurring Invoices"
     },
     {
-      "path": "/payments-received",
+      "path": "/accounting/workspace/payments-received",
       "title": "Payments Received"
     },
     {
-      "path": "/credit-notes",
+      "path": "/accounting/workspace/credit-notes",
       "title": "Credit Notes"
     },
     {
-      "path": "/vendors",
+      "path": "/accounting/workspace/vendors",
       "title": "Vendors"
     },
     {
-      "path": "/expenses",
+      "path": "/accounting/workspace/expenses",
       "title": "Expenses"
     },
     {
-      "path": "/bills",
+      "path": "/accounting/workspace/bills",
       "title": "Bills"
     },
     {
-      "path": "/purchase-orders",
+      "path": "/accounting/workspace/purchase-orders",
       "title": "Purchase Orders"
     },
     {
-      "path": "/recurring-bills",
+      "path": "/accounting/workspace/recurring-bills",
       "title": "Recurring Bills"
     },
     {
-      "path": "/payments-made",
+      "path": "/accounting/workspace/payments-made",
       "title": "Payments Made"
     },
     {
-      "path": "/vendor-credits",
+      "path": "/accounting/workspace/vendor-credits",
       "title": "Vendor Credits"
     },
     {
-      "path": "/batch-payments",
+      "path": "/accounting/workspace/batch-payments",
       "title": "Batch Payments"
     },
     {
-      "path": "/projects",
+      "path": "/accounting/workspace/projects",
       "title": "Projects"
     },
     {
-      "path": "/timesheets",
+      "path": "/accounting/workspace/timesheets",
       "title": "Timesheets"
     },
     {
-      "path": "/journals",
+      "path": "/accounting/workspace/journals",
       "title": "Manual Journals"
     },
     {
-      "path": "/budgets",
+      "path": "/accounting/workspace/budgets",
       "title": "Budgets"
     },
     {
-      "path": "/items/new",
+      "path": "/accounting/workspace/items/new",
       "title": "Create Item"
     },
     {
-      "path": "/customers/new",
+      "path": "/accounting/workspace/customers/new",
       "title": "Create Customer"
     },
     {
-      "path": "/quotes/new",
+      "path": "/accounting/workspace/quotes/new",
       "title": "Create Quote"
     },
     {
-      "path": "/invoices/new",
+      "path": "/accounting/workspace/invoices/new",
       "title": "Create Invoice"
     },
     {
-      "path": "/recurring-invoices/new",
+      "path": "/accounting/workspace/recurring-invoices/new",
       "title": "Create Recurring Invoice"
     },
     {
-      "path": "/credit-notes/new",
+      "path": "/accounting/workspace/credit-notes/new",
       "title": "Create Credit Note"
     },
     {
-      "path": "/vendors/new",
+      "path": "/accounting/workspace/vendors/new",
       "title": "Create Vendor"
     },
     {
-      "path": "/expenses/new",
+      "path": "/accounting/workspace/expenses/new",
       "title": "Create Expense"
     },
     {
-      "path": "/bills/new",
+      "path": "/accounting/workspace/bills/new",
       "title": "Create Bill"
     },
     {
-      "path": "/purchase-orders/new",
+      "path": "/accounting/workspace/purchase-orders/new",
       "title": "Create Purchase Order"
     },
     {
-      "path": "/recurring-bills/new",
+      "path": "/accounting/workspace/recurring-bills/new",
       "title": "Create Recurring Bill"
     },
     {
-      "path": "/vendor-credits/new",
+      "path": "/accounting/workspace/vendor-credits/new",
       "title": "Create Vendor Credit"
     },
     {
-      "path": "/batch-payments/new",
+      "path": "/accounting/workspace/batch-payments/new",
       "title": "Create Batch Payment"
     },
     {
-      "path": "/projects/new",
+      "path": "/accounting/workspace/projects/new",
       "title": "Create Project"
     },
     {
-      "path": "/timesheets/new",
+      "path": "/accounting/workspace/timesheets/new",
       "title": "Create Time Entry"
     },
     {
-      "path": "/journals/new",
+      "path": "/accounting/workspace/journals/new",
       "title": "Create Journal"
     },
     {
-      "path": "/budgets/new",
+      "path": "/accounting/workspace/budgets/new",
       "title": "Create Budget"
     },
     {
-      "path": "/items/:itemId"
+      "path": "/accounting/workspace/items/:itemId"
     },
     {
-      "path": "/records/:moduleKey/:recordId"
+      "path": "/accounting/workspace/records/:moduleKey/:recordId"
     },
     {
-      "path": "/workflows"
+      "path": "/accounting/workspace/workflows"
     },
     {
-      "path": "/workflows/:flowId"
+      "path": "/accounting/workspace/workflows/:flowId"
     },
     {
-      "path": "/workflow-results/:receiptId"
+      "path": "/accounting/workspace/workflow-results/:receiptId"
     },
     {
-      "path": "/workflow-resources/:artifactId"
+      "path": "/accounting/workspace/workflow-resources/:artifactId"
     },
     {
-      "path": "/banking"
+      "path": "/accounting/workspace/banking"
     },
     {
-      "path": "/chart-of-accounts"
+      "path": "/accounting/workspace/chart-of-accounts"
     },
     {
-      "path": "/transaction-locking"
+      "path": "/accounting/workspace/transaction-locking"
     },
     {
-      "path": "/reports"
+      "path": "/accounting/workspace/reports"
     },
     {
-      "path": "/reports/:reportSlug"
+      "path": "/accounting/workspace/reports/:reportSlug"
     },
     {
-      "path": "/documents"
+      "path": "/accounting/workspace/documents"
     },
     {
-      "path": "/settings"
+      "path": "/accounting/workspace/settings"
     },
     {
-      "path": "/settings/general"
+      "path": "/accounting/workspace/settings/general"
     },
     {
-      "path": "/settings/templates"
+      "path": "/accounting/workspace/settings/templates"
     },
     {
-      "path": "/settings/automation"
+      "path": "/accounting/workspace/settings/automation"
     }
-  ]
+  ],
+  "module": "accounting",
+  "mode": "ui-preview",
+  "workspaceBase": "/accounting/workspace/"
 }

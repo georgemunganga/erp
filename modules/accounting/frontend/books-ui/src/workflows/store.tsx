@@ -1,3 +1,4 @@
+import { useErpAccounting } from "../platform/ErpAccountingContext";
 import { createContext, useContext, useEffect, useMemo, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import { useWorkspace } from "../state/WorkspaceContext";
@@ -5,7 +6,7 @@ import type { FlowDefinition, FlowReceipt, FlowStore, FlowValues, LocalArtifact 
 import { executeWorkflow, listResources } from "./engine";
 import type { ResourceOption } from "./engine";
 
-const STORAGE_KEY = "books-workflows-browser-local-v2";
+
 const makeArtifact = (id: string, collection: string, name: string, values: FlowValues, status = "Active"): LocalArtifact => ({ id, collection, name, values, status, history: [{ at: "2026-10-20T09:00:00.000Z", action: "Added to fictional workspace" }] });
 export function seedFlowStore(): FlowStore {
   return { receipts: [], artifacts: [
@@ -27,7 +28,7 @@ export function seedFlowStore(): FlowStore {
     ...["Read contacts", "Read transactions", "Read reports"].map((name, index) => makeArtifact(`scope-${index}`, "integrationScopes", name, { name })),
   ] };
 }
-function readStore(): FlowStore {
+function readStore(STORAGE_KEY: string): FlowStore {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) return seedFlowStore();
@@ -50,8 +51,10 @@ interface WorkflowContextValue {
 }
 const WorkflowContext = createContext<WorkflowContextValue | null>(null);
 export function WorkflowProvider({ children }: { children: ReactNode }) {
+  const { storageNamespace } = useErpAccounting();
+  const STORAGE_KEY = `${storageNamespace}.workflows`;
   const { data, replaceWorkspace } = useWorkspace();
-  const [store, setStore] = useState<FlowStore>(readStore);
+  const [store, setStore] = useState<FlowStore>(() => readStore(STORAGE_KEY));
   const [storageWarning, setStorageWarning] = useState(false);
   const dataRef = useRef(data); dataRef.current = data;
   const storeRef = useRef(store); storeRef.current = store;

@@ -1,11 +1,11 @@
 {
-  "name": "zoho-books-ui-reference",
+  "name": "@greenwebb/accounting-ui",
   "version": "0.1.0",
   "private": true,
   "type": "module",
   "packageManager": "pnpm@11.25.0",
   "scripts": {
-    "dev": "vite --host 0.0.0.0",
+    "dev": "vite --host 127.0.0.1 --port 3402 --strictPort",
     "build": "tsc --noEmit && vite build",
     "typecheck": "tsc --noEmit",
     "preview": "vite preview --host 0.0.0.0",
@@ -14,19 +14,24 @@
     "test:browser:failures": "playwright test --grep \"finish (create-bill|edit-bill|approve-bill)\" --workers=1"
   },
   "dependencies": {
-    "@tailwindcss/vite": "4.3.3",
-    "lucide-react": "1.60.0",
-    "react": "19.3.1",
-    "react-dom": "19.3.1",
-    "react-router-dom": "7.18.4",
-    "tailwindcss": "4.3.3"
+    "@amizopower/erp-ui": "https://codeload.github.com/georgemunganga/erp-ui/tar.gz/9b77383480882b67549f803b7ad1f2408df5c737",
+    "lucide-react": "0.468.0",
+    "react": "19.1.1",
+    "react-dom": "19.1.1",
+    "react-router-dom": "7.9.4"
   },
   "devDependencies": {
-    "@playwright/test": "1.64.1",
-    "@types/react": "19.3.0",
-    "@types/react-dom": "19.3.0",
-    "@vitejs/plugin-react": "6.1.2",
-    "typescript": "7.0.2",
-    "vite": "8.3.4"
+    "@playwright/test": "1.62.1",
+    "@tailwindcss/vite": "4.1.14",
+    "@types/react": "19.1.16",
+    "@types/react-dom": "19.1.9",
+    "@vitejs/plugin-react": "5.0.4",
+    "tailwindcss": "4.1.14",
+    "typescript": "5.9.3",
+    "vite": "7.1.9",
+    "vitest": "3.2.4"
+  },
+  "engines": {
+    "node": ">=22.12.0"
   }
 }

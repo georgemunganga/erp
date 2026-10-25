@@ -1,3 +1,9 @@
+# ERP Accounting UI import
+
+This directory is the separately committed Books UI reference adapted into the ERP Accounting **UI preview** at `/accounting/workspace/`. Core supplies shared identity, organisation context, branding and UI controls. Business records, workflow drafts and results remain fictional, browser-local and principal/company namespaced. No Accounting backend or ledger is implemented. See [module ownership and import contract](../../../../docs/accounting/ACCOUNTING-MODULE-UI-FOUNDATION.md) and the acceptance receipt for the tests actually run after import. The upstream project description below is retained as provenance, not a live ERP capability claim.
+
+---
+
 # Zoho Books UI Reference & Prototype
 
 A separate, unpublished React + TypeScript + Tailwind project for the user-selected Zoho Books Global organization. It is distinct from Zoho Procurement and does not change the Procurement project or repositories.

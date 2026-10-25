@@ -1,8 +1,9 @@
+import { useErpAccounting } from "../platform/ErpAccountingContext";
 import { createContext, useContext, useEffect, useMemo, useState } from "react";
 import { initialData } from "../data";
 import type { DataKey, DemoRecord, WorkspaceData } from "../types";
 
-const STORAGE_KEY = "books-demo-workspace-v1";
+
 
 interface WorkspaceContextValue {
   data: WorkspaceData;
@@ -15,7 +16,7 @@ interface WorkspaceContextValue {
 
 const WorkspaceContext = createContext<WorkspaceContextValue | null>(null);
 
-function readWorkspace(): WorkspaceData {
+function readWorkspace(STORAGE_KEY: string): WorkspaceData {
   try {
     const saved = window.localStorage.getItem(STORAGE_KEY);
     if (!saved) return structuredClone(initialData);
@@ -37,7 +38,9 @@ function nextCode(key: DataKey, records: DemoRecord[]) {
 }
 
 export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
-  const [data, setData] = useState<WorkspaceData>(readWorkspace);
+  const { storageNamespace } = useErpAccounting();
+  const STORAGE_KEY = `${storageNamespace}.workspace`;
+  const [data, setData] = useState<WorkspaceData>(() => readWorkspace(STORAGE_KEY));
 
   useEffect(() => {
     try {

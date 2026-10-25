@@ -1,0 +1,140 @@
+/* Shared Core branding tokens are applied by ErpAccountingContext. The imported
+   Books screens keep their own content layout; these rules change only the shell. */
+.erp-accounting-shell {
+  font-family: var(--erp-font-family, var(--font-sans, ui-sans-serif, system-ui, sans-serif));
+  --navy: var(--primary, #173a6b);
+  --blue: var(--button-primary, #2563eb);
+  --blue-dark: var(--primary, #1d4ed8);
+}
+.erp-accounting-shell .topbar {
+  height: 56px;
+  gap: 14px;
+  background: var(--primary, #173a6b);
+  color: var(--primary-foreground, #fff);
+  border-color: color-mix(in srgb, var(--primary-foreground, #fff) 18%, transparent);
+}
+.erp-accounting-shell .brand-area { min-width: 0; max-width: 330px; gap: 10px; }
+.erp-accounting-shell .brand-lockup { min-width: 0; }
+.erp-accounting-shell .brand-copy { min-width: 0; }
+.erp-accounting-shell .brand-copy strong { overflow: hidden; max-width: 150px; white-space: nowrap; text-overflow: ellipsis; }
+.erp-accounting-shell .brand-mark { flex: none; background: color-mix(in srgb, var(--primary-foreground, #fff) 15%, transparent); }
+.erp-accounting-shell .brand-mark img { width: 25px; height: 25px; object-fit: contain; }
+.erp-accounting-shell .top-search-wrap { max-width: 400px; }
+.erp-accounting-shell .top-actions { gap: 7px; }
+.erp-accounting-shell .demo-chip { border-color: color-mix(in srgb, var(--primary-foreground, #fff) 32%, transparent); font-weight: 700; }
+.erp-accounting-shell .erp-top-menu { position: relative; flex: none; }
+.erp-accounting-shell .erp-top-menu-trigger,
+.erp-accounting-shell .erp-account-menu {
+  display: inline-flex; align-items: center; gap: 5px; min-height: 33px;
+  border: 0; border-radius: 7px; padding: 0 8px; background: transparent;
+  color: var(--primary-foreground, #fff); font-size: 12px; white-space: nowrap;
+}
+.erp-accounting-shell .erp-top-menu-trigger:hover,
+.erp-accounting-shell .erp-account-menu:hover { background: color-mix(in srgb, var(--primary-foreground, #fff) 13%, transparent); }
+.erp-accounting-shell .erp-top-menu-panel {
+  position: absolute; top: calc(100% + 8px); left: 0; z-index: 60; min-width: 190px;
+  max-height: min(70vh, 450px); overflow-y: auto; padding: 5px; border: 1px solid var(--line);
+  border-radius: 9px; background: var(--surface); color: var(--ink); box-shadow: 0 14px 32px #0b244026;
+}
+.erp-accounting-shell .erp-top-menu-panel a,
+.erp-accounting-shell .erp-top-menu-panel button {
+  display: block; width: 100%; min-height: 34px; border: 0; border-radius: 6px; padding: 7px 10px;
+  background: transparent; color: var(--ink); font-size: 12px; text-align: left;
+}
+.erp-accounting-shell .erp-top-menu-panel a:hover,
+.erp-accounting-shell .erp-top-menu-panel button:hover,
+.erp-accounting-shell .erp-top-menu-panel [aria-current] { background: color-mix(in srgb, var(--primary, #2563eb) 10%, white); }
+.erp-accounting-shell .erp-context-panel { left: auto; right: 0; min-width: 260px; }
+.erp-accounting-shell .erp-context-panel p { margin: 8px; color: var(--muted); font-size: 12px; }
+.erp-accounting-shell .org-switcher { max-width: 220px; }
+.erp-accounting-shell .org-name { overflow: hidden; max-width: 160px; text-overflow: ellipsis; }
+.erp-accounting-shell .org-avatar { background: var(--primary-foreground, #fff); color: var(--primary, #173a6b); }
+.erp-accounting-shell .button { border-radius: 7px; font-family: inherit; }
+.erp-accounting-shell .button-primary { background: var(--button-primary, var(--blue)); color: var(--button-primary-foreground, #fff); border-color: var(--button-primary, var(--blue)); }
+.erp-accounting-shell .button-secondary { background: var(--surface); color: var(--ink); }
+.erp-accounting-shell .button-sm { height: 33px; min-height: 33px; }
+.erp-accounting-shell .button-md { height: 38px; min-height: 38px; }
+.erp-accounting-shell .workspace-layout { padding-top: 56px; }
+.erp-accounting-shell .sidebar {
+  top: 56px; width: 240px; padding: 0 10px 14px; align-items: stretch;
+  background: var(--rail, #fff); color: var(--rail-foreground, var(--ink));
+}
+.erp-accounting-shell .sidebar .primary-nav,
+.erp-accounting-shell .sidebar .quick-nav { display: flex; flex-direction: column; gap: 2px; }
+.erp-accounting-shell .side-link,
+.erp-accounting-shell .quick-nav .side-link {
+  min-height: 35px; padding: 6px 9px; flex-direction: row; justify-content: flex-start;
+  gap: 10px; text-align: left; font-size: 12px; color: var(--rail-foreground, var(--ink));
+}
+.erp-accounting-shell .side-link:hover { background: var(--rail-active, #eff4fb); color: var(--rail-foreground, var(--ink)); }
+.erp-accounting-shell .side-link-active { background: var(--rail-active, #eaf3ff); color: var(--rail-foreground, var(--ink)); }
+.erp-accounting-shell .sidebar-section-label { margin: 4px 9px 6px; text-align: left; font-size: 10px; color: var(--rail-muted, #6b7280); }
+.erp-accounting-shell .sidebar-divider { margin: 12px 9px; }
+.erp-accounting-shell .erp-core-settings-link { display: flex; align-items: center; gap: 9px; margin: auto 1px 0; padding: 9px; border-radius: 7px; color: var(--rail-foreground, var(--ink)); font-size: 12px; }
+.erp-accounting-shell .erp-core-settings-link:hover { background: var(--rail-active, #eff4fb); }
+.erp-accounting-shell .main-area { margin-left: 240px; }
+.erp-accounting-shell .demo-disclosure {
+  padding: 8px 25px; background: color-mix(in srgb, var(--primary, #2563eb) 7%, white);
+  border-bottom: 1px solid color-mix(in srgb, var(--primary, #2563eb) 12%, white);
+  color: var(--ink); font-size: 12px; text-align: center;
+}
+.erp-accounting-shell .app-footer { justify-content: flex-end; }
+.erp-accounting-shell.erp-sidebar-collapsed .sidebar { width: 72px; padding-right: 5px; padding-left: 5px; }
+.erp-accounting-shell.erp-sidebar-collapsed .main-area { margin-left: 72px; }
+.erp-accounting-shell.erp-sidebar-collapsed .side-link,
+.erp-accounting-shell.erp-sidebar-collapsed .quick-nav .side-link { justify-content: center; padding: 7px 3px; }
+.erp-accounting-shell.erp-sidebar-collapsed .side-link span,
+.erp-accounting-shell.erp-sidebar-collapsed .sidebar-section-label,
+.erp-accounting-shell.erp-sidebar-collapsed .erp-core-settings-link span { display: none; }
+.erp-accounting-shell.erp-sidebar-collapsed .erp-core-settings-link { justify-content: center; }
+@media (max-width: 1050px) {
+  .erp-accounting-shell .brand-copy strong { max-width: 100px; }
+  .erp-accounting-shell .erp-account-menu { max-width: 45px; overflow: hidden; }
+}
+@media (max-width: 800px) {
+  .erp-accounting-shell .topbar { height: 56px; padding: 0 10px; }
+  .erp-accounting-shell .brand-copy { display: none; }
+  .erp-accounting-shell .top-search-wrap { max-width: none; }
+  .erp-accounting-shell .erp-top-menu-trigger { padding: 0 4px; }
+  .erp-accounting-shell .org-switcher { padding: 2px; }
+  .erp-accounting-shell .org-name { display: none; }
+  .erp-accounting-shell .erp-account-menu { display: none; }
+  .erp-accounting-shell .workspace-layout { padding-top: 56px; }
+  .erp-accounting-shell .sidebar,
+  .erp-accounting-shell.erp-sidebar-collapsed .sidebar { top: 56px; width: min(88vw, 280px); padding: 10px; }
+  .erp-accounting-shell .sidebar .primary-nav,
+  .erp-accounting-shell .sidebar .quick-nav { display: flex; flex-direction: column; }
+  .erp-accounting-shell .side-link,
+  .erp-accounting-shell.erp-sidebar-collapsed .side-link,
+  .erp-accounting-shell .quick-nav .side-link,
+  .erp-accounting-shell.erp-sidebar-collapsed .quick-nav .side-link { justify-content: flex-start; padding: 7px 9px; }
+  .erp-accounting-shell.erp-sidebar-collapsed .side-link span,
+  .erp-accounting-shell.erp-sidebar-collapsed .sidebar-section-label,
+  .erp-accounting-shell.erp-sidebar-collapsed .erp-core-settings-link span { display: inline; }
+  .erp-accounting-shell .main-area,
+  .erp-accounting-shell.erp-sidebar-collapsed .main-area { margin-left: 0; }
+  .erp-accounting-shell .demo-disclosure { padding: 8px 12px; text-align: left; }
+}
+@media (max-width: 420px) {
+  .erp-accounting-shell .topbar { gap: 5px; }
+  .erp-accounting-shell .erp-top-menu-trigger { font-size: 0; }
+  .erp-accounting-shell .erp-top-menu-trigger svg { width: 16px; height: 16px; }
+  .erp-accounting-shell .brand-mark { width: 27px; height: 27px; }
+}
+
+/* Match the established ERP scale while preserving imported screen sections. */
+:root { font-size: 17px; }
+body { font-size: 1rem; }
+.erp-accounting-shell .button-md { min-height: 2.75rem; height: auto; border-radius: 999px; font-size: 1rem; padding: .5rem 1.25rem; }
+.erp-accounting-shell .button-sm { min-height: 2.25rem; height: auto; font-size: .875rem; }
+.erp-accounting-shell .side-link { font-size: .875rem; }
+.erp-accounting-shell .panel { border-radius: .75rem; }
+.erp-accounting-shell .workflow-field input:not([type=checkbox]):not([type=radio]):not([type=file]),
+.erp-accounting-shell .workflow-field textarea,
+.erp-accounting-shell .workflow-field [role=combobox] { min-height: 2.75rem; border-radius: .5rem; font-family: inherit; font-size: .875rem; }
+.erp-accounting-entry { min-height: 100vh; display: grid; place-items: center; padding: 2rem; background: white; font-family: var(--erp-font-family, sans-serif); }
+.erp-accounting-entry>div { max-width: 32rem; }
+.erp-accounting-entry a { display: block; margin-top: 1rem; color: var(--primary); }
+.erp-entry-logo { width: 100px; height: auto; animation: erp-logo-pulse 2s ease-in-out infinite; }
+@keyframes erp-logo-pulse { 50% { opacity: .5; } }
+@media (prefers-reduced-motion: reduce) { .erp-entry-logo { animation: none; } }

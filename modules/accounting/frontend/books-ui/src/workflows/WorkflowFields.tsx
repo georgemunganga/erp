@@ -1,3 +1,4 @@
+import { Input, Textarea, FormSelect, Switch } from "@amizopower/erp-ui";
 import { useMemo, useState } from "react";
 import type { ChangeEvent, ReactNode } from "react";
 import { Plus, Trash2, Upload, X } from "lucide-react";
@@ -136,10 +137,10 @@ function LinesField({ field, value, onChange, allValues }: { field: FlowField; v
             {rows.map((row, index) => {
               const total = numericRowValue(row, "quantity") * numericRowValue(row, "rate");
               return <tr key={`line-${index}`}>
-                <td><input aria-label={`Line ${index + 1} description`} value={String(row.description ?? "")} onChange={(event) => updateRow(index, "description", event.target.value)} /></td>
-                <td><input aria-label={`Line ${index + 1} quantity`} type="number" min="0" step="1" value={String(row.quantity ?? "")} onChange={(event) => updateRow(index, "quantity", event.target.value)} /></td>
-                <td><input aria-label={`Line ${index + 1} rate`} type="number" min="0" step="0.01" value={String(row.rate ?? "")} onChange={(event) => updateRow(index, "rate", event.target.value)} /></td>
-                {hasTax && <td><input aria-label={`Line ${index + 1} tax rate`} type="number" min="0" step="0.01" value={String(row.taxRate ?? "")} onChange={(event) => updateRow(index, "taxRate", event.target.value)} /></td>}
+                <td><Input aria-label={`Line ${index + 1} description`} value={String(row.description ?? "")} onChange={(event) => updateRow(index, "description", event.target.value)} /></td>
+                <td><Input aria-label={`Line ${index + 1} quantity`} type="number" min="0" step="1" value={String(row.quantity ?? "")} onChange={(event) => updateRow(index, "quantity", event.target.value)} /></td>
+                <td><Input aria-label={`Line ${index + 1} rate`} type="number" min="0" step="0.01" value={String(row.rate ?? "")} onChange={(event) => updateRow(index, "rate", event.target.value)} /></td>
+                {hasTax && <td><Input aria-label={`Line ${index + 1} tax rate`} type="number" min="0" step="0.01" value={String(row.taxRate ?? "")} onChange={(event) => updateRow(index, "taxRate", event.target.value)} /></td>}
                 <td className="workflow-number">{formatAmount(total)}</td>
                 <td><button className="workflow-icon-button" type="button" aria-label={`Remove line ${index + 1}`} onClick={() => removeRow(index)}><Trash2 size={15} /></button></td>
               </tr>;
@@ -175,9 +176,9 @@ function JournalLinesField({ field, value, onChange, resources }: { field: FlowF
         <tbody>
           {rows.length === 0 && <tr><td colSpan={5} className="workflow-grid-empty">Add debit and credit lines. The review step checks that they balance.</td></tr>}
           {rows.map((row, index) => <tr key={`journal-${index}`}>
-            <td><select aria-label={`Journal line ${index + 1} account`} value={String(row.account ?? "")} onChange={(event) => updateRow(index, "account", event.target.value)}><option value="">Choose account</option>{accounts.map((account) => <option key={account.id} value={account.id}>{optionLabel(account)}</option>)}</select></td>
-            <td><input aria-label={`Journal line ${index + 1} debit`} type="number" min="0" step="0.01" value={String(row.debit ?? "")} onChange={(event) => updateRow(index, "debit", event.target.value)} /></td>
-            <td><input aria-label={`Journal line ${index + 1} credit`} type="number" min="0" step="0.01" value={String(row.credit ?? "")} onChange={(event) => updateRow(index, "credit", event.target.value)} /></td>
+            <td><FormSelect aria-label={`Journal line ${index + 1} account`} value={String(row.account ?? "")} onChange={(event) => updateRow(index, "account", event.target.value)}><option value="">Choose account</option>{accounts.map((account) => <option key={account.id} value={account.id}>{optionLabel(account)}</option>)}</FormSelect></td>
+            <td><Input aria-label={`Journal line ${index + 1} debit`} type="number" min="0" step="0.01" value={String(row.debit ?? "")} onChange={(event) => updateRow(index, "debit", event.target.value)} /></td>
+            <td><Input aria-label={`Journal line ${index + 1} credit`} type="number" min="0" step="0.01" value={String(row.credit ?? "")} onChange={(event) => updateRow(index, "credit", event.target.value)} /></td>
             <td className="workflow-number">{formatAmount(numericRowValue(row, "debit") - numericRowValue(row, "credit"))}</td>
             <td><button className="workflow-icon-button" type="button" aria-label={`Remove journal line ${index + 1}`} onClick={() => removeRow(index)}><Trash2 size={15} /></button></td>
           </tr>)}
@@ -202,9 +203,9 @@ function AllocationField({ field, value, onChange, resources }: { field: FlowFie
   return <div className="workflow-allocation">
     <div className="workflow-allocation-options" aria-label={`${field.label} records to allocate`}>
       {options.length === 0 && <p className="workflow-muted">No matching records are available in this local workspace.</p>}
-      {options.map((option) => <label className="workflow-check-row" key={option.id} data-resource-id={option.id}><input type="checkbox" checked={selected.has(option.id)} onChange={() => toggle(option.id)} /> <span><strong>{option.name}</strong><small>{option.code ?? option.party ?? option.status} · Available {formatAmount(option.amount)}</small></span></label>)}
+      {options.map((option) => <label className="workflow-check-row" key={option.id} data-resource-id={option.id}><Input type="checkbox" checked={selected.has(option.id)} onChange={() => toggle(option.id)} /> <span><strong>{option.name}</strong><small>{option.code ?? option.party ?? option.status} · Available {formatAmount(option.amount)}</small></span></label>)}
     </div>
-    {rows.length > 0 && <div className="workflow-grid-scroll"><table className="workflow-grid" aria-label={`${field.label} allocation amounts`}><thead><tr><th>Record</th><th>Amount</th></tr></thead><tbody>{rows.map((row, index) => { const option = options.find((item) => item.id === String(row.recordId ?? "")); return <tr key={`allocation-${index}`}><td>{option?.name ?? String(row.recordId ?? "Unknown record")}</td><td><input aria-label={`Allocation amount for ${option?.name ?? String(row.recordId ?? "Unknown record")}`} type="number" min="0" step="0.01" value={String(row.amount ?? "")} onChange={(event) => updateAmount(String(row.recordId ?? ""), event.target.value)} /></td></tr>; })}</tbody></table></div>}
+    {rows.length > 0 && <div className="workflow-grid-scroll"><table className="workflow-grid" aria-label={`${field.label} allocation amounts`}><thead><tr><th>Record</th><th>Amount</th></tr></thead><tbody>{rows.map((row, index) => { const option = options.find((item) => item.id === String(row.recordId ?? "")); return <tr key={`allocation-${index}`}><td>{option?.name ?? String(row.recordId ?? "Unknown record")}</td><td><Input aria-label={`Allocation amount for ${option?.name ?? String(row.recordId ?? "Unknown record")}`} type="number" min="0" step="0.01" value={String(row.amount ?? "")} onChange={(event) => updateAmount(String(row.recordId ?? ""), event.target.value)} /></td></tr>; })}</tbody></table></div>}
     <div className="workflow-totals"><span>Allocated <strong>{formatAmount(allocated)}</strong></span></div>
   </div>;
 }
@@ -243,7 +244,7 @@ function AttachmentField({ value, onChange, fieldId }: { value: FlowValue | unde
     reader.onerror = () => setMessage("This file could not be read in the browser.");
     reader.readAsDataURL(file);
   };
-  return <div className="workflow-attachment"><label className="workflow-upload" htmlFor={fieldId}><Upload size={15} /><span>{attachment ? attachment.filename : "Choose a local file"}</span><small>Max 1 MiB · stays in this browser</small></label><input className="workflow-file-input" id={fieldId} type="file" onChange={handleFile} aria-label="Choose attachment file" />{attachment && <button className="workflow-remove-link" type="button" onClick={() => onChange("")}><X size={14} /> Remove file</button>}{message && <span className="workflow-field-error" role="alert">{message}</span>}</div>;
+  return <div className="workflow-attachment"><label className="workflow-upload" htmlFor={fieldId}><Upload size={15} /><span>{attachment ? attachment.filename : "Choose a local file"}</span><small>Max 1 MiB · stays in this browser</small></label><Input className="workflow-file-input" id={fieldId} type="file" onChange={handleFile} aria-label="Choose attachment file" />{attachment && <button className="workflow-remove-link" type="button" onClick={() => onChange("")}><X size={14} /> Remove file</button>}{message && <span className="workflow-field-error" role="alert">{message}</span>}</div>;
 }
 
 function CsvField({ field, value, onChange, mappingValue, onMappingChange }: { field: FlowField; value: FlowValue | undefined; onChange: (value: FlowValue) => void; mappingValue?: FlowValue; onMappingChange?: (value: string) => void }) {
@@ -253,9 +254,9 @@ function CsvField({ field, value, onChange, mappingValue, onMappingChange }: { f
   const headers = rows[0] ?? [];
   const sample = "name,party,date,amount,description\nWorkshop invoice,Aster & Oak Studio,2026-10-21,1250,Workshop services\nDesign review,Juniper Table Co.,2026-10-21,840,Design review pack";
   const setMappingValue = (header: string, target: string) => onMappingChange?.(JSON.stringify({ ...mapping, [header]: target }));
-  return <div className="workflow-csv"><textarea aria-label={`${field.label} CSV text`} rows={7} value={text} placeholder={field.placeholder ?? "Paste CSV with a header row"} onChange={(event) => onChange(event.target.value)} />
+  return <div className="workflow-csv"><Textarea aria-label={`${field.label} CSV text`} rows={7} value={text} placeholder={field.placeholder ?? "Paste CSV with a header row"} onChange={(event) => onChange(event.target.value)} />
     <div className="workflow-csv-actions"><Button type="button" variant="secondary" size="sm" onClick={() => onChange(sample)}>Use sample CSV</Button><span className="workflow-muted">Comma-separated values are parsed locally; formulas and code are never executed.</span></div>
-    {headers.length > 0 && <><div className="workflow-csv-map"><strong>Map columns</strong>{headers.map((header) => <label key={header}><span>{header}</span><select aria-label={`Map CSV column ${header}`} value={mapping[header] ?? header.toLowerCase().replace(/[^a-z]/g, "")} onChange={(event) => setMappingValue(header, event.target.value)}><option value="__skip__">Do not import</option>{(field.options ?? ["reference", "name", "party", "date", "amount", "description", "category", "email"]).map((target) => <option key={target} value={target}>{target}</option>)}</select></label>)}</div><div className="workflow-grid-scroll"><table className="workflow-grid workflow-csv-preview" aria-label="Parsed CSV preview"><thead><tr>{headers.map((header, index) => <th key={`${header}-${index}`}>{header || `Column ${index + 1}`}</th>)}</tr></thead><tbody>{rows.slice(1, 6).map((row, rowIndex) => <tr key={`csv-row-${rowIndex}`}>{headers.map((_, columnIndex) => <td key={`csv-cell-${rowIndex}-${columnIndex}`}>{row[columnIndex] ?? ""}</td>)}</tr>)}</tbody></table></div><small className="workflow-muted">Previewing {Math.max(rows.length - 1, 0)} data row{rows.length - 1 === 1 ? "" : "s"}. Review the mapping before continuing.</small></>}
+    {headers.length > 0 && <><div className="workflow-csv-map"><strong>Map columns</strong>{headers.map((header) => <label key={header}><span>{header}</span><FormSelect aria-label={`Map CSV column ${header}`} value={mapping[header] ?? header.toLowerCase().replace(/[^a-z]/g, "")} onChange={(event) => setMappingValue(header, event.target.value)}><option value="__skip__">Do not import</option>{(field.options ?? ["reference", "name", "party", "date", "amount", "description", "category", "email"]).map((target) => <option key={target} value={target}>{target}</option>)}</FormSelect></label>)}</div><div className="workflow-grid-scroll"><table className="workflow-grid workflow-csv-preview" aria-label="Parsed CSV preview"><thead><tr>{headers.map((header, index) => <th key={`${header}-${index}`}>{header || `Column ${index + 1}`}</th>)}</tr></thead><tbody>{rows.slice(1, 6).map((row, rowIndex) => <tr key={`csv-row-${rowIndex}`}>{headers.map((_, columnIndex) => <td key={`csv-cell-${rowIndex}-${columnIndex}`}>{row[columnIndex] ?? ""}</td>)}</tr>)}</tbody></table></div><small className="workflow-muted">Previewing {Math.max(rows.length - 1, 0)} data row{rows.length - 1 === 1 ? "" : "s"}. Review the mapping before continuing.</small></>}
   </div>;
 }
 
@@ -263,9 +264,9 @@ function RecordOptions({ field, value, onChange, resources, multiple }: { field:
   const options = resources(field.collection ?? "");
   if (multiple) {
     const selected = new Set(asStrings(value));
-    return <div className="workflow-record-options" aria-label={`${field.label} options`}>{options.length === 0 && <p className="workflow-muted">No records are available in this local workspace.</p>}{options.map((option) => <label className="workflow-check-row" key={option.id} data-resource-id={option.id}><input type="checkbox" checked={selected.has(option.id)} onChange={() => { const next = new Set(selected); if (next.has(option.id)) next.delete(option.id); else next.add(option.id); onChange(Array.from(next)); }} /><span><strong>{option.name}</strong><small>{optionLabel(option)} · {option.status}</small></span></label>)}</div>;
+    return <div className="workflow-record-options" aria-label={`${field.label} options`}>{options.length === 0 && <p className="workflow-muted">No records are available in this local workspace.</p>}{options.map((option) => <label className="workflow-check-row" key={option.id} data-resource-id={option.id}><Input type="checkbox" checked={selected.has(option.id)} onChange={() => { const next = new Set(selected); if (next.has(option.id)) next.delete(option.id); else next.add(option.id); onChange(Array.from(next)); }} /><span><strong>{option.name}</strong><small>{optionLabel(option)} · {option.status}</small></span></label>)}</div>;
   }
-  return <select aria-label={field.label} value={asString(value)} onChange={(event) => onChange(event.target.value)}><option value="">Choose a record</option>{options.map((option) => <option key={option.id} value={option.id}>{optionLabel(option)}</option>)}</select>;
+  return <FormSelect aria-label={field.label} value={asString(value)} onChange={(event) => onChange(event.target.value)}><option value="">Choose a record</option>{options.map((option) => <option key={option.id} value={option.id}>{optionLabel(option)}</option>)}</FormSelect>;
 }
 
 export function WorkflowField({ field, value, onChange, resources, error, idPrefix = "workflow", onAuxChange, auxValues, allValues }: WorkflowFieldProps) {
@@ -276,21 +277,21 @@ export function WorkflowField({ field, value, onChange, resources, error, idPref
   let control: ReactNode;
   switch (field.type) {
     case "text": case "email": case "date":
-      control = <input {...common} type={field.type} value={asString(value)} placeholder={field.placeholder} required={field.required} onChange={(event) => onChange(event.target.value)} />;
+      control = <Input {...common} type={field.type} value={asString(value)} placeholder={field.placeholder} required={field.required} onChange={(event) => onChange(event.target.value)} />;
       break;
     case "number":
       control = field.id === "amount" && asRows(allValues?.lines).length > 0
         ? <div className="workflow-derived-amount" aria-label={`${field.label} calculated from line items`}>{formatAmount(calculatedTotal(allValues ?? {}))}<small>Calculated from line items</small></div>
-        : <input {...common} type="number" value={asString(value)} min={field.min} placeholder={field.placeholder} required={field.required} onChange={(event) => onChange(event.target.value === "" ? "" : Number(event.target.value))} />;
+        : <Input {...common} type="number" value={asString(value)} min={field.min} placeholder={field.placeholder} required={field.required} onChange={(event) => onChange(event.target.value === "" ? "" : Number(event.target.value))} />;
       break;
     case "select":
-      control = <select {...common} value={asString(value)} required={field.required} onChange={(event) => onChange(event.target.value)}><option value="">Choose an option</option>{(field.options ?? []).map((option) => <option key={option} value={option}>{option}</option>)}</select>;
+      control = <FormSelect {...common} value={asString(value)} required={field.required} onChange={(event) => onChange(event.target.value)}><option value="">Choose an option</option>{(field.options ?? []).map((option) => <option key={option} value={option}>{option}</option>)}</FormSelect>;
       break;
     case "textarea":
-      control = <textarea {...common} rows={4} value={asString(value)} placeholder={field.placeholder} required={field.required} onChange={(event) => onChange(event.target.value)} />;
+      control = <Textarea {...common} rows={4} value={asString(value)} placeholder={field.placeholder} required={field.required} onChange={(event) => onChange(event.target.value)} />;
       break;
     case "checkbox":
-      control = <label className="workflow-checkbox"><input {...common} type="checkbox" checked={value === true} onChange={(event) => onChange(event.target.checked)} /><span>{field.label}{field.required ? " *" : ""}</span></label>;
+      control = <label className="workflow-checkbox"><Switch {...common} checked={value === true} onCheckedChange={onChange} /><span>{field.label}{field.required ? " *" : ""}</span></label>;
       break;
     case "record":
       control = <RecordOptions field={field} value={value} onChange={onChange} resources={resources} multiple={false} />;

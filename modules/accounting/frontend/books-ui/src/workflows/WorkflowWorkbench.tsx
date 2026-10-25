@@ -1,3 +1,4 @@
+import { useErpAccounting } from "../platform/ErpAccountingContext";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ArrowLeft, ArrowRight, Check, CheckCircle2, ClipboardList, FileText, History, Pencil, Play, Search, Sparkles, Trash2 } from "lucide-react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
@@ -12,12 +13,12 @@ import "./workflow.css";
 
 type WizardDraft = { values: FlowValues; stepIndex: number; updatedAt: string };
 
-const DRAFT_PREFIX = "books-workflows:draft:";
+
 const DOMAIN_OPTIONS = ["All", "Sales", "Purchases", "Banking", "Accountant", "Items & Projects", "Settings & Reports"] as const;
 type DomainFilter = (typeof DOMAIN_OPTIONS)[number];
 const flowCatalog: FlowDefinition[] = allFlows as FlowDefinition[];
 
-function safeReadDraft(flowId: string): WizardDraft | null {
+function safeReadDraft(flowId: string, DRAFT_PREFIX: string): WizardDraft | null {
   if (typeof window === "undefined") return null;
   try {
     const raw = window.localStorage.getItem(`${DRAFT_PREFIX}${flowId}`);
@@ -34,12 +35,12 @@ function safeReadDraft(flowId: string): WizardDraft | null {
   }
 }
 
-function safeWriteDraft(flowId: string, draft: WizardDraft): void {
+function safeWriteDraft(flowId: string, draft: WizardDraft, DRAFT_PREFIX: string): void {
   if (typeof window === "undefined") return;
   try { window.localStorage.setItem(`${DRAFT_PREFIX}${flowId}`, JSON.stringify(draft)); } catch { /* Storage can be unavailable in private browsing. */ }
 }
 
-function safeRemoveDraft(flowId: string): void {
+function safeRemoveDraft(flowId: string, DRAFT_PREFIX: string): void {
   if (typeof window === "undefined") return;
   try { window.localStorage.removeItem(`${DRAFT_PREFIX}${flowId}`); } catch { /* Best effort only. */ }
 }
@@ -109,9 +110,9 @@ function prefillFromRecord(flow: FlowDefinition, values: FlowValues, recordId: s
   return next;
 }
 
-function createInitialDraft(flow: FlowDefinition, recordId: string | undefined, resources: ResourceLookup): WizardDraft {
+function createInitialDraft(flow: FlowDefinition, recordId: string | undefined, resources: ResourceLookup, DRAFT_PREFIX: string): WizardDraft {
   const defaults = prefillFromRecord(flow, fieldValues(flow), recordId, resources);
-  const saved = safeReadDraft(flow.id);
+  const saved = safeReadDraft(flow.id, DRAFT_PREFIX);
   const usableSaved = saved && (!recordId || !saved.values.record || saved.values.record === recordId) ? saved : null;
   const savedValues = usableSaved ? { ...defaults, ...usableSaved.values, ...(recordId ? { record: recordId } : {}) } : defaults;
   return { values: savedValues, stepIndex: Math.min(usableSaved?.stepIndex ?? 0, Math.max(0, flow.steps.length - 1)), updatedAt: usableSaved?.updatedAt ?? "" };
@@ -189,6 +190,8 @@ function ReviewPanel({ flow, values, resources, errors }: { flow: FlowDefinition
 }
 
 export function WorkflowWorkbench() {
+  const { storageNamespace } = useErpAccounting();
+  const DRAFT_PREFIX = `${storageNamespace}.draft:`;
   const { flowId } = useParams<{ flowId: string }>();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
@@ -198,7 +201,7 @@ export function WorkflowWorkbench() {
   const flow = useMemo(() => flowCatalog.find((candidate) => candidate.id === flowId), [flowId]);
   // WorkflowEntry is keyed by flow and record; rehydrate only on that mount,
   // never on provider/resource refreshes that could discard in-progress input.
-  const [initialDraft] = useState(() => flow ? createInitialDraft(flow, recordId, resources) : null);
+  const [initialDraft] = useState(() => flow ? createInitialDraft(flow, recordId, resources, DRAFT_PREFIX) : null);
   const [values, setValues] = useState<FlowValues>(() => initialDraft?.values ?? {});
   const [stepIndex, setStepIndex] = useState(() => initialDraft?.stepIndex ?? 0);
   const [review, setReview] = useState(false);
@@ -209,7 +212,7 @@ export function WorkflowWorkbench() {
   useEffect(() => {
     if (!flow || review) return;
     const updatedAt = new Date().toISOString();
-    safeWriteDraft(flow.id, { values, stepIndex, updatedAt });
+    safeWriteDraft(flow.id, { values, stepIndex, updatedAt }, DRAFT_PREFIX);
     setSavedAt(updatedAt);
   }, [flow, values, stepIndex, review]);
 
@@ -236,14 +239,14 @@ export function WorkflowWorkbench() {
     completedRef.current = true;
     try {
       const receipt = workflow.execute(flow, values);
-      safeRemoveDraft(flow.id);
+      safeRemoveDraft(flow.id, DRAFT_PREFIX);
       navigate(`/workflow-results/${receipt.id}`);
     } catch (error) {
       completedRef.current = false;
       setErrors({ _form: error instanceof Error ? error.message : "Review the values and try again." });
     }
   };
-  const discard = () => { safeRemoveDraft(flow.id); navigate("/workflows"); };
+  const discard = () => { safeRemoveDraft(flow.id, DRAFT_PREFIX); navigate("/workflows"); };
   return <div className="workflow-screen"><div className="workflow-breadcrumb"><Link to="/workflows"><ArrowLeft size={14} /> Workflow library</Link><span>/</span><span>{flow.domain}</span></div><PageHeading eyebrow={flow.domain} title={flow.title} description={flow.description} actions={<Button variant="ghost" onClick={() => navigate("/workflows")}><XIcon /> Cancel</Button>} /><div className="workflow-workbench"><StepRail flow={flow} stepIndex={stepIndex} review={review} /><main className="workflow-main"><div className="workflow-main-header"><div><span className="workflow-progress-label">{review ? "Final review" : `Step ${stepIndex + 1} of ${flow.steps.length}`}</span><h2>{review ? "Review and complete" : step.title}</h2><p>{review ? "Confirm the complete set of values before creating this workflow." : step.description}</p></div><span className="workflow-save-status">{savedAt ? "Draft saved locally" : "New draft"}</span></div>{!review && <div className="workflow-field-groups">{step.fields.map((field) => <WorkflowField key={field.id} field={field} value={values[field.id]} onChange={(value) => updateValue(field.id, value)} resources={resources} error={errors[field.id]} idPrefix={`${flow.id}-${stepIndex}`} onAuxChange={updateValue} auxValues={values} allValues={values} />)}</div>}{review && <ReviewPanel flow={flow} values={values} resources={resources} errors={errors} />}{errors._form && <div className="workflow-form-error" role="alert">{errors._form}</div>}<footer className="workflow-footer"><div className="workflow-footer-left"><Button type="button" variant="ghost" onClick={discard}><Trash2 size={14} /> Discard draft</Button></div><div className="workflow-footer-actions"><Button type="button" variant="secondary" onClick={goBack} disabled={!review && stepIndex === 0}><ArrowLeft size={14} /> Back</Button>{review ? <Button type="button" onClick={complete} disabled={completedRef.current}>{completedRef.current ? "Completing…" : `Complete ${flow.title}`}<Check size={14} /></Button> : <Button type="button" onClick={goNext}>Next <ArrowRight size={14} /></Button>}</div></footer></main></div></div>;
 }
 
