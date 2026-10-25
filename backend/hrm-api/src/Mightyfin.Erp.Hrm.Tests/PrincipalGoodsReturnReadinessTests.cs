@@ -5,6 +5,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Mightyfin.Erp.Hrm.Api;
 using Mightyfin.Erp.Procurement.Infrastructure.Data;
+using Mightyfin.Erp.Procurement.Infrastructure.Documents;
 using Mightyfin.Erp.Procurement.Infrastructure.Migrations;
 
 namespace Mightyfin.Erp.Hrm.Tests;
@@ -13,6 +14,12 @@ namespace Mightyfin.Erp.Hrm.Tests;
 // admission, and synthetic definition strings are not physical capture evidence.
 public sealed class PrincipalGoodsReturnReadinessTests
 {
+    private sealed class ClaimingReadiness : IProcurementPrincipalGoodsReturnReadiness
+    {
+        public Task<bool> IsConfiguredAsync(CancellationToken ct)=>Task.FromResult(true);
+        public Task<bool> IsReadyAsync(ProcurementDbContext db,bool write,CancellationToken ct)=>Task.FromResult(true);
+    }
+
     private sealed class SourceReadiness : IProcurementPrincipalReceivingReadiness
     {
         internal bool? Write;
@@ -62,6 +69,51 @@ public sealed class PrincipalGoodsReturnReadinessTests
         Assert.True(ProcurementPrincipalGoodsReturnSchemaCapture.Populated);
         Assert.False(await provider.GetRequiredService<IProcurementPrincipalGoodsReturnReadiness>().IsReadyAsync(null!,false,default));
         Assert.False(await provider.GetRequiredService<IProcurementPrincipalGoodsReturnReadiness>().IsConfiguredAsync(default));
+    }
+
+    [Theory]
+    [InlineData(false,false)]
+    [InlineData(true,false)]
+    [InlineData(true,true)]
+    public async Task Normal_host_capability_stays_closed_without_explicit_execution_authority(
+        bool enabled,bool executionConnection)
+    {
+        var values=new Dictionary<string,string?>
+        {
+            ["Procurement:PrincipalGoodsReturnDrafts:Enabled"]=enabled.ToString(),
+            ["Procurement:Approvals:Enabled"]="true",
+            ["Procurement:Approvals:PrincipalExecutionEnabled"]="false"
+        };
+        if(executionConnection)
+            values["ConnectionStrings:ProcurementApprovalExecution"]="Host=never-used.invalid;Database=private;Username=finite";
+        var config=new ConfigurationBuilder().AddInMemoryCollection(values).Build();
+        var services=new ServiceCollection();
+        ProcurementHostIntegration.AddServices(services,"Host=never-used.invalid;Database=record",config);
+        using var provider=services.BuildServiceProvider();using var scope=provider.CreateScope();
+        var options=scope.ServiceProvider.GetRequiredService<ProcurementPrincipalGoodsReturnOptions>();
+        Assert.Equal(enabled,options.Enabled);
+        Assert.Equal(executionConnection,options.ExecutionDatabaseConfigured);
+        Assert.IsType<ProcurementPrincipalGoodsReturnStoreReadiness>(
+            scope.ServiceProvider.GetRequiredService<IProcurementPrincipalGoodsReturnReadiness>());
+        // The third case has an execution string but no principal execution
+        // authority; no network connection is attempted by this test.
+        Assert.False(await ProcurementPrincipalGoodsReturnComposition.ReadyAsync(scope.ServiceProvider,false,default));
+    }
+
+    [Fact]
+    public async Task Capability_rejects_substituted_ready_provider_and_foreign_execution_database()
+    {
+        var services=new ServiceCollection();
+        services.AddSingleton(new ProcurementPrincipalGoodsReturnOptions { Enabled=true,ExecutionDatabaseConfigured=true });
+        services.AddSingleton(new ProcurementApprovalExecutionOptions
+            { Enabled=true,PrincipalExecutionEnabled=true,ExecutionDatabaseConfigured=true });
+        services.AddSingleton<IProcurementPrincipalGoodsReturnReadiness>(new ClaimingReadiness());
+        using var provider=services.BuildServiceProvider();
+        Assert.False(await ProcurementPrincipalGoodsReturnComposition.ReadyAsync(provider,false,default));
+        Assert.False(await ProcurementPrincipalGoodsReturnComposition.ReadyAsync(provider,true,default));
+        Assert.False(InvoiceDocumentStoreBinding.SamePhysicalDatabase(
+            "Host=private-socket;Database=return-source;Username=finite",
+            "Host=private-socket;Database=other-tenant;Username=finite"));
     }
 
     [Fact]

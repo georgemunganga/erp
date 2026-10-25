@@ -26,12 +26,13 @@ using Npgsql;
 
 internal sealed class PrincipalApprovalFixture(string owner, bool browserBuyerProfile, bool legacyWorkerProfile=false,
     bool principalRfqProfile=false,bool principalPoProfile=false,bool principalReceivingProfile=false,
-    bool principalInvoiceProfile=false)
+    bool principalInvoiceProfile=false,bool principalGoodsReturnProfile=false)
 {
     internal bool PrincipalRfqProfile=>principalRfqProfile;
     internal bool PrincipalPoProfile=>principalPoProfile;
     internal bool PrincipalReceivingProfile=>principalReceivingProfile;
     internal bool PrincipalInvoiceProfile=>principalInvoiceProfile;
+    internal bool PrincipalGoodsReturnProfile=>principalGoodsReturnProfile;
     internal const string Tenant="p25-private-http";
     internal readonly Guid Company=Guid.NewGuid(),Branch=Guid.NewGuid();
     internal readonly Guid Maker=Guid.NewGuid(),Checker=Guid.NewGuid(),Approver=Guid.NewGuid(),ConfigMaker=Guid.NewGuid(),ConfigReviewer=Guid.NewGuid(),Ungranted=Guid.NewGuid(),Buyer=Guid.NewGuid(),PoFinance=Guid.NewGuid(),PoApprover=Guid.NewGuid(),PoAck=Guid.NewGuid();
@@ -79,12 +80,15 @@ internal sealed class PrincipalApprovalFixture(string owner, bool browserBuyerPr
                     (PoAck,"p30_po_ack","procurement-access,procurement-po-dispatch-confirm")}
                 :principalRfqProfile?new[]{(Buyer,"p29_rfq_buyer","procurement-access,procurement-sourcing-convert,procurement-sourcing-cancel")}
                 :Array.Empty<(Guid,string,string)>()).Concat(principalReceivingProfile?new[]{
-                    (Receiver,"p30_receiving_actor","procurement-access,procurement-receipt-view,procurement-receipt-create,procurement-receipt-edit,procurement-receipt-record,procurement-receipt-inspect,procurement-receipt-accept"),
-                    (ReceiverPeer,"p30_receiving_peer","procurement-access,procurement-receipt-view,procurement-receipt-create,procurement-receipt-edit,procurement-receipt-record"),
+                    (Receiver,"p30_receiving_actor","procurement-access,procurement-receipt-view,procurement-receipt-create,procurement-receipt-edit,procurement-receipt-record,procurement-receipt-inspect,procurement-receipt-accept"
+                        +(principalGoodsReturnProfile?",procurement-return-read,procurement-return-create,procurement-return-edit":"")),
+                    (ReceiverPeer,"p30_receiving_peer","procurement-access,procurement-receipt-view,procurement-receipt-create,procurement-receipt-edit,procurement-receipt-record"
+                        +(principalGoodsReturnProfile?",procurement-return-read,procurement-return-edit":"")),
                     (Inspector,"p30_receiving_inspector","procurement-access,procurement-receipt-inspect"),
                     (Acceptor,"p30_receiving_acceptor","procurement-access,procurement-receipt-accept"),
                     (ServiceOwner,"p30_receiving_service_owner","procurement-access,procurement-service-certify"),
-                    (ReceivingOutsider,"p30_receiving_outsider","procurement-access,procurement-receipt-view,procurement-receipt-create")}
+                    (ReceivingOutsider,"p30_receiving_outsider","procurement-access,procurement-receipt-view,procurement-receipt-create"
+                        +(principalGoodsReturnProfile?",procurement-return-read":""))}
                     :Array.Empty<(Guid,string,string)>()).Concat(principalInvoiceProfile?new[]{
                     (InvoiceMaker,"p31_invoice_maker","procurement-access,procurement-invoice-capture,procurement-invoice-read,procurement-invoice-match,procurement-invoice-unit-review-request"),
                     (InvoiceReviewer,"p31_invoice_reviewer","procurement-access,procurement-invoice-unit-review"),
@@ -157,6 +161,8 @@ internal sealed class PrincipalApprovalHost(PrincipalApprovalFixture fixture,str
             settings["Procurement:Orders:PrincipalExecutionEnabled"]="true";
         }
         if(fixture.PrincipalReceivingProfile)settings["Procurement:PrincipalReceiving:Enabled"]="true";
+        if(fixture.PrincipalGoodsReturnProfile)
+            settings["Procurement:PrincipalGoodsReturnDrafts:Enabled"]="true";
         if(fixture.PrincipalInvoiceProfile)
         {
             settings["Procurement:PrincipalInvoiceSources:Enabled"]="true";
