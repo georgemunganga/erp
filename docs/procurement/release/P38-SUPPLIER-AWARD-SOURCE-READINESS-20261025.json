@@ -1,0 +1,28 @@
+{
+  "feature": "P38 Core-principal supplier award",
+  "status": "SOURCE_ONLY_UNAVAILABLE",
+  "runtimeRouteRegistered": false,
+  "runtimeCapabilityAdvertised": false,
+  "coreActionsRegistered": false,
+  "publishedAwardPolicyProven": false,
+  "p36SubmissionRouteEnabled": false,
+  "p36DraftMutationGateWired": false,
+  "ownedRecordsMapped": false,
+  "genuineMigrationId": null,
+  "physicalCaptureFingerprint": null,
+  "finiteExecutionGrantProof": false,
+  "sameSaveCoreAndProcurementGuard": false,
+  "retainedSourceAndDocumentLoader": false,
+  "actualPostgreSqlProof": false,
+  "actualApiAndRecoveryProof": false,
+  "supplierAwardEffectEnabled": false,
+  "purchaseOrderEffectEnabled": false,
+  "financeEffectEnabled": false,
+  "sourceContracts": [
+    "PrincipalRfqAwardSourceQualification",
+    "PrincipalRfqAwardFoundation",
+    "PrincipalRfqAwardReviewWorkflow",
+    "PrincipalRfqAwardCoreHistory"
+  ],
+  "tests": "AUTHORED_UNRUN"
+}
