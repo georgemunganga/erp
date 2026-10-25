@@ -1,0 +1,17 @@
+{
+  "schemaVersion": 1,
+  "status": "PASS_LOSSLESS_SIX_WORKING_COPY_RETIREMENT",
+  "dateUtc": "2026-10-25",
+  "scope": "Six inactive working copies, including three remote-exact unmerged historical branches; full physical archive/restore and thin Git bundle verified before removal.",
+  "branchesOrCommitsDeleted": false,
+  "sourceCodeDiscarded": false,
+  "historicalReplayRequiresExactPathRestore": true,
+  "installedDependenciesOrRawEvidenceRemoved": false,
+  "productionOrPgTouched": false,
+  "protectedEvidenceSha256": {
+    "plan.INCOMPLETE.json": "ed6c082a2d7a43b311e193dbaae6edeae2433ec989d447133fb95961436e8f85",
+    "execute.py": "a867f191389a339edf3dd45ae615e013cf33c37087931459ba6b61871555efb2",
+    "archives-verified.private.json": "3ebe955a7efc21c4f119353ba9f6e853757827854e5add72ba622d9b0235625e",
+    "result.private.json": "611c68d037f7031fc38e602dc55d714d997e1795beb584ce529179c9e2972aea"
+  }
+}

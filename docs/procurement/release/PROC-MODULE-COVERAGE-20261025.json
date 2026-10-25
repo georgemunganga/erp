@@ -3,8 +3,8 @@
   "documentId": "PROC-MODULE-COVERAGE-20261025",
   "dateUtc": "2026-10-25",
   "status": "SOURCE_UI_AND_NAMED_PRIVATE_EVIDENCE_SNAPSHOT_NOT_MODULE_COMPLETION",
-  "erpSourceBeforeThisDocsChange": "ee257438d6684e930d7ca7bb069827b170c5b35b",
-  "uiSource": "c370275",
+  "erpSourceBeforeThisDocsChange": "142323a9d149d534ad483a836b984d6c92c56720",
+  "uiSource": "c370275e9242f447cade47bec31c2fb42aa75637",
   "moduleComplete": false,
   "productionDeploymentClaim": false,
   "preservedPriorRecords": [
@@ -43,7 +43,7 @@
     "P37Cookie02": "ACCEPTED bounded private native193 + one normal-cookie browser + independent owner before/after; see docs/procurement/release/P37-NORMAL-COOKIE02-ACCEPTANCE-20261025.json",
     "receivingDirectory": "Merged source + TypeScript/8units/9mockedbrowser acceptance,1360Host/5focus. New sort-query HTTP, publication and production remain separate.",
     "P35NormalCookie": "ACCEPTED Cookie03 native138 + actual requester/reviewer cookie browser lifecycle/logout + successful independent Core/domain-audit supplemental owner reconciliation; ERP PR85/UI PR78 merged. Original failed owner/supplement attempts retained unchanged. No signature/activation/production claim.",
-    "P38": "Held source4959446d in PR86; corrected fixture, fresh genuine SDKrun03 in progress. Prior run02 compiled but focused tests stopped21pass/4fixturefail; no accepted migration or live award API yet. Residual-held-capacity adapter remains required."
+    "P38": "Merged bounded foundation/schema at142323a9: genuine five-table EF migration, SDK6focused/1697Domain/modelparity/SQLexports, prior1360Host carried, private260\u2192265\u2192260\u2192265 and12effect-only55000veto cases accepted. Authoritative retained-source/held-capacity adapter, Core registration, finite/native/API/UI, five populated business-family vetoes and production remain unavailable. See P38-FOUNDATION-SCHEMA-ACCEPTANCE-20261025.json."
   },
   "metaCapabilityInventory": {
     "sourceFile": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Api/ProcurementHostIntegration.cs",
