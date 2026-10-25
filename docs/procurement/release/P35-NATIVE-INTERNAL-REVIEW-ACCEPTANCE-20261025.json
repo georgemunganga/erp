@@ -1,0 +1,84 @@
+{
+  "status": "ACCEPTED_PRIVATE_INTERNAL_REVIEW_API_AND_OWNER_GRAPH",
+  "date": "2026-10-25",
+  "productSourceCommit": "521c986ceffcb11411751c68707f49d40d92c493",
+  "toolSourceCommit": "fa50061263b35e02de1725166f9cd699788ed46e",
+  "productionDeployed": false,
+  "api": {
+    "actualHttpRequests": 138,
+    "workflow": [
+      "independently publish effective review policy",
+      "create contract and exact rate",
+      "submit",
+      "independent Return",
+      "correct",
+      "revise terms and rate",
+      "resubmit",
+      "independent Approve",
+      "reload and original command recovery"
+    ],
+    "workerRequired": false,
+    "finiteRecordExecutionSeparationVerified": true,
+    "permissionAndBranchDenialsVerified": true
+  },
+  "independentOwner": {
+    "readOnlySnapshotsEqual": true,
+    "submissions": 2,
+    "coreCases": 2,
+    "votes": 2,
+    "corrections": 1,
+    "originalCommandReceipts": 5,
+    "policyIdentityStages": 3,
+    "fullFrozenTermsAndRateMetadataVerified": true,
+    "priorP30CurrentFactsVerified": true,
+    "preP35UnrelatedRowBaseline": false,
+    "auditCompanionProof": false
+  },
+  "evidence": [
+    {
+      "artifact": "procurement-p35-native-http-prep-20261025_run03/result.private.json",
+      "sha256": "baf9cc283fba5387de8f61fac3601739807bb0dab7a53b2fb03c659461a589bd"
+    },
+    {
+      "artifact": "procurement-p35-native-http-prep-20261025_run03/native-run-result.private.json",
+      "sha256": "69ce8e5f3fa0d7f979459232b38d52e93a02a2364d53c072d2f4cfcad588b134"
+    },
+    {
+      "artifact": "procurement-p35-readonly-owner-20261025_run02/result.private.json",
+      "sha256": "eb77a1cf0f5b73847ae9867a324df70147c2634b9e1a074cd32b6a85fee8ad8e"
+    },
+    {
+      "artifact": "procurement-p35-native-probe-only-prep-20261025_run04/result.private.json",
+      "sha256": "872dd14b49414733afa85ae6dc73a98c4ea4729b5b54469fcad7f7bce0fcbb3b"
+    }
+  ],
+  "retainedFailures": [
+    {
+      "cohort": "native01",
+      "reason": "Actual supplier filtered index was not admitted; product predicate selector corrected and SDK07 verified."
+    },
+    {
+      "cohort": "native02",
+      "reason": "Fixture attempted past-effective policy publication; API correctly rejected 422; tool now publishes a future-effective policy and waits."
+    },
+    {
+      "cohort": "owner01",
+      "reason": "Verifier treated jsonb rules as text and assumed unchanged rate description; raw evidence preserved, corrected verifier passes a fresh read-only capture."
+    },
+    {
+      "cohort": "populatedDown03",
+      "reason": "Admission expected owner-template 254 tables; native fixture has 253 because legacy_frappe_records is absent; stopped before clone or DDL."
+    }
+  ],
+  "remaining": [
+    "Populated rollback-veto proof",
+    "Normal-session contract-review browser proof",
+    "Production migration, finite-role configuration, release and UAT",
+    "Signature and activation are separate capabilities"
+  ],
+  "notClaimed": [
+    "whole Procurement completion",
+    "Finance posting or payment execution",
+    "contract signature or activation"
+  ]
+}
