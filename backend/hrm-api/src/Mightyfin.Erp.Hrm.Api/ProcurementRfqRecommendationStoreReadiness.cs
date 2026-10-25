@@ -28,6 +28,29 @@ public sealed class ProcurementRfqRecommendationStoreReadiness(
     internal static bool MatchesHeadUpdateColumns(IEnumerable<string> granted)
         => granted.ToHashSet(StringComparer.Ordinal).SetEquals(HeadMutableColumns);
 
+    internal static bool MatchesExecutionDatabase(string? configured,string actual)
+        => !string.IsNullOrWhiteSpace(configured)
+            && InvoiceDocumentStoreBinding.SamePhysicalDatabase(configured,actual);
+
+    // Metadata must inspect the actual finite execution role and same physical
+    // serializable transaction used by the routes, never the Record connection.
+    // This callback stages no entities; coordinator SaveChanges commits no rows.
+    public async Task<bool> IsConfiguredAsync(CancellationToken ct)
+    {
+        if(!options.Enabled || !options.OfferOpeningEnabled || !options.RecommendationDraftEnabled
+            || !ProcurementRfqRecommendationSchemaCapture.Populated
+            || commercial is not ProcurementRfqCommercialStoreReadiness
+            || services.GetService<ProcurementApprovalExecutionOptions>() is not
+                {Enabled:true,PrincipalExecutionEnabled:true,ExecutionDatabaseConfigured:true})
+            return false;
+        try
+        {
+            return await services.GetRequiredService<ProcurementApprovalTransaction>().ExecuteAsync(
+                async(owner,_,token)=>await IsReadyAsync(owner,false,token),ct);
+        }
+        catch(Exception error) when(error is not OperationCanceledException) {return false;}
+    }
+
     public async Task<bool> IsReadyAsync(ProcurementDbContext owner,bool write,CancellationToken ct)
     {
         if(!options.Enabled || !options.OfferOpeningEnabled || !options.RecommendationDraftEnabled
@@ -41,9 +64,7 @@ public sealed class ProcurementRfqRecommendationStoreReadiness(
         try
         {
             var execution=configuration.GetConnectionString("ProcurementApprovalExecution");
-            if(string.IsNullOrWhiteSpace(execution)
-                || !InvoiceDocumentStoreBinding.SamePhysicalDatabase(
-                    execution,owner.Database.GetDbConnection().ConnectionString)
+            if(!MatchesExecutionDatabase(execution,owner.Database.GetDbConnection().ConnectionString)
                 // P36 reads opened P32 offers. It does not need P32 publish,
                 // supplier-offer or Core-case write privileges.
                 || !await commercial.IsReadyAsync(owner,false,ct)) return false;

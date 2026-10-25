@@ -36,6 +36,8 @@ public static partial class ProcurementSourcingExecutionRoutes
             .RequireAuthorization(PrincipalRfqCriterionAssessmentStorage.Action);
         group.MapPost("/commercial-rounds/{id:guid}/recommendation-drafts", CommercialSaveRecommendation)
             .RequireAuthorization(PrincipalRfqRecommendationDraft.Action);
+        group.MapGet("/commercial-rounds/{id:guid}/recommendation-source", CommercialRecommendationSource)
+            .RequireAuthorization(PrincipalRfqRecommendationDraft.Action);
         group.MapGet("/commercial-rounds/{id:guid}/recommendation-drafts/own", CommercialOwnRecommendations)
             .RequireAuthorization(PrincipalRfqRecommendationDraft.Action);
         group.MapGet("/commercial-rounds/{id:guid}/recommendation-drafts/{draftId:guid}", CommercialRecommendationDetail)

@@ -193,7 +193,7 @@ public static class ProcurementHostIntegration
     public static void MapMetadataRoute(WebApplication app)
     {
         app.MapGet("/api/procurement/v1/meta", async (ProcurementRequestScope scope,
-            ProcurementDbContext db, IServiceProvider services, CancellationToken ct) =>
+            ProcurementDbContext db, IServiceProvider services, HttpContext http, CancellationToken ct) =>
         {
             try
             {
@@ -281,6 +281,8 @@ public static class ProcurementHostIntegration
                             || publicationPerson.AllowedBranches.Count > 0)
                     && (publicationPerson.Permissions.Contains("procurement-sourcing-submit")
                         || publicationPerson.Permissions.Contains("procurement-sourcing-publish"));
+                var principalRfqRecommendationDrafts = await ProcurementRfqRecommendationCapability
+                    .ReadyAsync(services, scope, http, pending, ct);
                 return Results.Ok(new
                 {
                     module = "procurement",
@@ -310,6 +312,7 @@ public static class ProcurementHostIntegration
                         sourcingSourceDrafts,
                         principalSourcingSourceDrafts,
                         principalSourcingPublication,
+                        principalRfqRecommendationDrafts, // Availability only; named-reader and retained proof remain per round.
                         // Capability describes configured availability; each command still
                         // checks current identity, record scope, policy, authority and Finance.
                         budgetEvidence = financeCheckerReads,
