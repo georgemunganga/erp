@@ -1,0 +1,19 @@
+{
+  "exactBodyEdits": [
+    "Up final operation: P37PrincipalGoodsReturnOwnershipSql.AfterUpSql",
+    "Down first operation: P37PrincipalGoodsReturnRollbackGuards.BeforeDownSql",
+    "Down second operation: P37PrincipalGoodsReturnOwnershipSql.BeforeDropSql"
+  ],
+  "finalMigrationSha256": "4bfb354a3bbf639daa62f8cc2c8ffac003d812835530f5bf67ca91f4d8ce480d",
+  "generatedMetadataChanged": false,
+  "migrationId": "20261025013416_P37PrincipalGoodsReturnDrafts",
+  "ownerHelperSha256": "0d0766159d4458dae5ef8adec58e8c125f62191b9d1963003669b61099a4954b",
+  "physicalSqlExecuted": false,
+  "rawInstallCommit": "e0175981e66295c4439163a216062fde455c190f",
+  "rawMigrationSha256": "d5111d61780b8fbae328f41140843c114006848136e66e97516e78fe7d0ef609",
+  "rollbackHelperSha256": "db6f7c3fdd125c9834f5487b06d868745cb812facf940661374cf622fa2e7e3a",
+  "sdkValidationExecuted": false,
+  "status": "AUTHORED_P37_OWNERSHIP_FIRST_DOWN_OVERLAY_PENDING_DISTINCT_REVIEW",
+  "unchangedDesignerSha256": "0611b9281f333e6605b9b96b95df2b1e06001cbcc6568cd8e73176c2dd943d3a",
+  "unchangedSnapshotSha256": "dbf38ed2e1e7e04adac1f7fdae8b1cab80fb8ddd56dc1e16f84168704e5b8266"
+}

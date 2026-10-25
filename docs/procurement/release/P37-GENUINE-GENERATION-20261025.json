@@ -1,0 +1,30 @@
+{
+  "actualExit": {
+    "cliExitCode": 0,
+    "containerExitCode": 0,
+    "oomKilled": false,
+    "timedOut": false
+  },
+  "authoredOverlayIncludedInRaw": false,
+  "capabilityEnabled": false,
+  "databaseExecuted": false,
+  "generatedFileSha256": {
+    "20261025013416_P37PrincipalGoodsReturnDrafts.Designer.cs": "0611b9281f333e6605b9b96b95df2b1e06001cbcc6568cd8e73176c2dd943d3a",
+    "20261025013416_P37PrincipalGoodsReturnDrafts.cs": "d5111d61780b8fbae328f41140843c114006848136e66e97516e78fe7d0ef609",
+    "ProcurementDbContextModelSnapshot.cs": "dbf38ed2e1e7e04adac1f7fdae8b1cab80fb8ddd56dc1e16f84168704e5b8266"
+  },
+  "generationExitSha256": "9b8277518c13ba1ab644018ae9f339342c45a51890fdc913e2def553caa30157",
+  "generationManifestSha256": "82ab460656793d86f93fe07eccf9f0c2293ef98210ad28e9b91b7b877bb1b94d",
+  "generatorPlanSha256": "40af9502969cfbf55a6d1bf1ba1e5fe9eaeffbb60072c73424d7d96c0ee6a7be",
+  "migrationId": "20261025013416_P37PrincipalGoodsReturnDrafts",
+  "sdkValidationPerformed": false,
+  "sourceCommit": "2d485b110331c5c254c2fd9eca5813c97525a845",
+  "sourceReviewedDelta": {
+    "changedExistingModelEntityDefinitions": 0,
+    "checks": 3,
+    "indexes": 10,
+    "mappedForeignKeys": 8,
+    "newTables": 3
+  },
+  "status": "ACTUAL_GENUINE_EF_GENERATION_ONLY_NOT_SCHEMA_OR_RUNTIME_ACCEPTANCE"
+}
