@@ -138,17 +138,27 @@ internal static class ProcurementCsvPrivateInitializer
             browserUiVerified = false, ownerVerified = false
         });
         var revocationProcessed = false;
+        string? retainedRequestSha = null;
+        string? retainedReceiptSha = null;
         while (!File.Exists(completionPath) && DateTimeOffset.UtcNow < deadline)
         {
-            if (File.Exists(revokeRequestPath))
+            if (!revocationProcessed && File.Exists(revokeRequestPath))
             {
-                Need(!revocationProcessed, "Only one synthetic Core revocation is supported.");
+                var requestSha = Hash(await File.ReadAllBytesAsync(revokeRequestPath));
                 await ApplyPrivateRevocationAsync(fixture, actors["reader"],
                     revokeRequestPath, revokeReceiptPath);
+                retainedRequestSha = requestSha;
+                retainedReceiptSha = Hash(await File.ReadAllBytesAsync(revokeReceiptPath));
                 revocationProcessed = true;
             }
+            if (revocationProcessed)
+                await VerifyRetainedRevocationAsync(revokeRequestPath, revokeReceiptPath,
+                    retainedRequestSha, retainedReceiptSha);
             await Task.Delay(250);
         }
+        if (revocationProcessed)
+            await VerifyRetainedRevocationAsync(revokeRequestPath, revokeReceiptPath,
+                retainedRequestSha, retainedReceiptSha);
         Need(File.Exists(completionPath) && DateTimeOffset.UtcNow < deadline
             && (File.GetAttributes(completionPath) & FileAttributes.ReparsePoint) == 0
             && File.GetUnixFileMode(completionPath) == PrivateFile
@@ -397,6 +407,34 @@ internal static class ProcurementCsvPrivateInitializer
     }
 
     private static string Hash(byte[] value) => Convert.ToHexStringLower(SHA256.HashData(value));
+    internal static bool RetainedRevocationUnchanged(string? priorRequestSha, string currentRequestSha,
+        string? priorReceiptSha, string? currentReceiptSha) =>
+        priorRequestSha is { Length: 64 } && priorReceiptSha is { Length: 64 }
+        && priorRequestSha == currentRequestSha && priorReceiptSha == currentReceiptSha;
+    private static async Task VerifyRetainedRevocationAsync(string requestPath, string receiptPath,
+        string? requestSha, string? receiptSha)
+    {
+        Need(File.Exists(requestPath) && File.Exists(receiptPath)
+            && (File.GetAttributes(requestPath) & FileAttributes.ReparsePoint) == 0
+            && (File.GetAttributes(receiptPath) & FileAttributes.ReparsePoint) == 0
+            && File.GetUnixFileMode(requestPath) == PrivateFile
+            && File.GetUnixFileMode(receiptPath) == PrivateFile
+            && RetainedRevocationUnchanged(requestSha,
+                Hash(await File.ReadAllBytesAsync(requestPath)), receiptSha,
+                Hash(await File.ReadAllBytesAsync(receiptPath))),
+            "Synthetic Core revocation request or receipt was replaced.");
+    }
+    internal static void PreflightRevocationControl()
+    {
+        var request = new string('a', 64);
+        var receipt = new string('b', 64);
+        Need(RetainedRevocationUnchanged(request, request, receipt, receipt)
+            && !RetainedRevocationUnchanged(request, new string('c', 64), receipt, receipt)
+            && !RetainedRevocationUnchanged(request, request, receipt, new string('d', 64))
+            && !RetainedRevocationUnchanged(request, request, receipt, null)
+            && !RetainedRevocationUnchanged(null, request, receipt, receipt),
+            "BE-01 one-time retained Core revocation control changed.");
+    }
     private static string RemoveExportAction(string csv) => string.Join(',',
         csv.Split(',', StringSplitOptions.None).Where(x => x != "procurement-vendor-export"));
 
