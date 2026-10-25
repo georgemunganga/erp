@@ -111,5 +111,13 @@
     "forward": "f16667576c00a0ee73feed02b7e512d5fe374d99655360e0e4fc5e1084a4ff35",
     "core-down-guard": "fd43459d6dfb2fc443a49ae5ad1b4aeca6355f365c61733686abdd2444081a8a",
     "catalog": "d4daf38dd18dcaf5f3ea9b25496faacf10b80388f7db942e2a6252dff35e910d"
+  },
+  "normalSessionCompatibilityEvidence": "R0-P29-NORMAL-SESSION-COMPATIBILITY-20261025.json",
+  "newCandidateUnverifiedSource": "26899aa8",
+  "productionCoreRuntimeRoleRisk": {
+    "metadataSha256": "9f4d48b00fda1d63c6dfa340d653d9095469b11bf094c0d5c3d751c7966a6456",
+    "coreSuperuser": true,
+    "procurementNonOwnerNoDdl": true,
+    "remediated": false
   }
 }
