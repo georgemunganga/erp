@@ -1,0 +1,29 @@
+{
+  "date": "2026-10-25",
+  "erpSourceCommit": "c38202e57afff83abbcdcbb05f95a27d38a8be26",
+  "uiSourceCommit": "c370275e9242f447cade47bec31c2fb42aa75637",
+  "liveLoginReleaseCommit": "4fdaa711c102e8fc45c8d85e7041bead11554a99",
+  "manualUrlsDiscovered": 171,
+  "manualHttp200": 165,
+  "distinctCanonicalManualGuides": 164,
+  "unavailableOrMalformedManualLinks": 6,
+  "faqAndIndexPages": 41,
+  "faqArticles": 33,
+  "faqCategoryIndexes": 8,
+  "manualOperationChecklistEntries": 349,
+  "gapGroups": 55,
+  "fieldAndTransitionRows": 64,
+  "settingsControlRows": 42,
+  "payablesFieldControlGroups": 8,
+  "checked28SectionSpecs": 25,
+  "allCheckedSpecsHave28OrderedHeadings": true,
+  "moduleComplete": false,
+  "auditPerformedNewBusinessRuntimeTests": false,
+  "scope": "Read-only code/manual/evidence audit plus anonymous public route probes. Historical tests remain bounded to their original source/run; no new account/transaction/scanner/Finance test was invented.",
+  "exclusions": [
+    "Zoho signup/payment/legal/account documentation outside Procurement paths",
+    "Forum conversations, webinars, academy videos and marketing claims",
+    "Unlinked/private/product-plan screens not reachable from the public help graph",
+    "New authenticated production CRUD, security penetration test, exhaustive field-by-field UAT or new schema execution"
+  ]
+}

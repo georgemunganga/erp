@@ -1,0 +1,492 @@
+{
+  "scope": "All41 discovered Procurement KB pages, including8 category indexes and33 individual answers. Account help on other product domains is not recursively included.",
+  "pages": [
+    {
+      "url": "https://www.zoho.com/procurement/kb/bills/",
+      "title": "Bills | FAQ | Zoho Procurement",
+      "httpStatus": 200,
+      "operation": "Navigate the relevant FAQ topics",
+      "assessment": "INDEX_PAGE",
+      "gapIds": [],
+      "notes": "Related manual audit gives source and specification evidence; this FAQ does not establish ERP runtime acceptance.",
+      "sourceContentSha256": "efee1fef76cd1ef50641d99bf630b4aaad9da43a033f95361af5f2b1585d9b0e"
+    },
+    {
+      "url": "https://www.zoho.com/procurement/kb/bills/add-attachment/",
+      "title": "Attach Files to Bills | FAQ | Zoho Procurement",
+      "httpStatus": 200,
+      "operation": "Attach local or cloud evidence to a bill",
+      "assessment": "PARTIAL_CORE_DOCUMENT_ADAPTER_GATED",
+      "gapIds": [
+        "PAY-13",
+        "PAY-02"
+      ],
+      "notes": "Related manual audit gives source and specification evidence; this FAQ does not establish ERP runtime acceptance.",
+      "sourceContentSha256": "4c706d698b1e0c7a9ffb97073a895704ccf657707e2f634352882cee7e571dc3"
+    },
+    {
+      "url": "https://www.zoho.com/procurement/kb/bills/bill-reconciliation/",
+      "title": "Enable Bill Reconciliation | FAQ | Zoho Procurement",
+      "httpStatus": 200,
+      "operation": "Configure PO/receipt comparison and explain mismatches",
+      "assessment": "SOURCE_PARTIAL_POSITIVE_EVIDENCE_HELD",
+      "gapIds": [
+        "PAY-02"
+      ],
+      "notes": "Related manual audit gives source and specification evidence; this FAQ does not establish ERP runtime acceptance.",
+      "sourceContentSha256": "3a9179a0e3f10491c7c173fbfa4e422025f8d7272eac964fc1d9f84dca2a26de"
+    },
+    {
+      "url": "https://www.zoho.com/procurement/kb/bills/recurring-bills/",
+      "title": "Recurring Bills | FAQ | Zoho Procurement",
+      "httpStatus": 200,
+      "operation": "Generate recurring expense bills on schedule",
+      "assessment": "PLANNING_ONLY_NOT_EXECUTION",
+      "gapIds": [
+        "PAY-09"
+      ],
+      "notes": "Related manual audit gives source and specification evidence; this FAQ does not establish ERP runtime acceptance.",
+      "sourceContentSha256": "27b95b0ab036b836b9139ea9b2679ad1d0985298801fcb1e54fcc61240f644b4"
+    },
+    {
+      "url": "https://www.zoho.com/procurement/kb/general/",
+      "title": "General | FAQ | Zoho Procurement",
+      "httpStatus": 200,
+      "operation": "Navigate the relevant FAQ topics",
+      "assessment": "INDEX_PAGE",
+      "gapIds": [],
+      "notes": "Related manual audit gives source and specification evidence; this FAQ does not establish ERP runtime acceptance.",
+      "sourceContentSha256": "755e85976e82cc00c4cdebf816ae24210ab1f5cc2b4bdeb32922b5380f847d8c"
+    },
+    {
+      "url": "https://www.zoho.com/procurement/kb/general/automate-data-backup/",
+      "title": "Automate Data Backup | FAQ | Zoho Procurement",
+      "httpStatus": 200,
+      "operation": "Decide backup scheduling independently of vendor UI limitations",
+      "assessment": "INTENTIONAL_DIFFERENCE",
+      "gapIds": [
+        "CORE-10"
+      ],
+      "notes": "Zoho FAQ describes manual-only backup. Our Tier3 recovery policy still requires appropriate backup scheduling and restore evidence; this vendor limitation is not a target.",
+      "sourceContentSha256": "b440f4dac083bf6e8777bdcd6977702987f876961cd26d4b92dd876fe3c13feb"
+    },
+    {
+      "url": "https://www.zoho.com/procurement/kb/general/enable-mfa/",
+      "title": "Enable Multi-Factor Authentication (MFA) | FAQ | Zoho Procurement",
+      "httpStatus": 200,
+      "operation": "Configure shared identity MFA without adding module authentication",
+      "assessment": "CORE_IDENTITY_GAP",
+      "gapIds": [
+        "CORE-02"
+      ],
+      "notes": "Related manual audit gives source and specification evidence; this FAQ does not establish ERP runtime acceptance.",
+      "sourceContentSha256": "97393e8a6cee093ae9628da4a45e0484578b8eb7f17e16f86137f659507b7113"
+    },
+    {
+      "url": "https://www.zoho.com/procurement/kb/general/invite-email-not-received/",
+      "title": "Invite Email Not Received | FAQ | Zoho Procurement",
+      "httpStatus": 200,
+      "operation": "Resend a user invitation and show delivery failures",
+      "assessment": "DELIVERY_WORKFLOW_NOT_VERIFIED",
+      "gapIds": [
+        "CORE-02",
+        "CORE-09"
+      ],
+      "notes": "Related manual audit gives source and specification evidence; this FAQ does not establish ERP runtime acceptance.",
+      "sourceContentSha256": "27b93a48bacca442bea4b14279d25b3a31bc9d14e94f514bdb46677d798d2237"
+    },
+    {
+      "url": "https://www.zoho.com/procurement/kb/general/operational-hours/",
+      "title": "Operational Hours | FAQ | Zoho Procurement",
+      "httpStatus": 200,
+      "operation": "Set our own support ownership and service expectations",
+      "assessment": "VENDOR_SERVICE_POLICY_NOT_ERP_FEATURE",
+      "gapIds": [],
+      "notes": "Related manual audit gives source and specification evidence; this FAQ does not establish ERP runtime acceptance.",
+      "sourceContentSha256": "ef6861bd3abae7bc259a9eb5c341ae55b69db81aa8baf03ec6a8199fc8a064fd"
+    },
+    {
+      "url": "https://www.zoho.com/procurement/kb/general/verify-email-address/",
+      "title": "Verify Email Address | FAQ | Zoho Procurement",
+      "httpStatus": 200,
+      "operation": "Verify contact ownership and recover an expired email-verification attempt",
+      "assessment": "CORE_IDENTITY_WORKFLOW_NOT_VERIFIED",
+      "gapIds": [
+        "CORE-02"
+      ],
+      "notes": "Related manual audit gives source and specification evidence; this FAQ does not establish ERP runtime acceptance.",
+      "sourceContentSha256": "a432030c851fec9e0faaa2f169e82d00024ce9453c2b80476b24f1e838f94ca2"
+    },
+    {
+      "url": "https://www.zoho.com/procurement/kb/items/",
+      "title": "Items | FAQ | Zoho Procurement",
+      "httpStatus": 200,
+      "operation": "Navigate the relevant FAQ topics",
+      "assessment": "INDEX_PAGE",
+      "gapIds": [],
+      "notes": "Related manual audit gives source and specification evidence; this FAQ does not establish ERP runtime acceptance.",
+      "sourceContentSha256": "45b982403d3c03c982138d3ecbf4652b184c9f87099a51233b04244fbfa8c7da"
+    },
+    {
+      "url": "https://www.zoho.com/procurement/kb/items/decimal-rate/",
+      "title": "Change Decimal Rate for Item Quantity | FAQ | Zoho Procurement",
+      "httpStatus": 200,
+      "operation": "Choose quantity display precision without changing historical arithmetic",
+      "assessment": "TYPED_PRECISION_EXISTS_SETTINGS_PARITY_MISSING",
+      "gapIds": [
+        "BE-02"
+      ],
+      "notes": "Related manual audit gives source and specification evidence; this FAQ does not establish ERP runtime acceptance.",
+      "sourceContentSha256": "3550d5a449e5e292ddf710d6de105bcdd649dd0169de799dadf16ecf149f2dd8"
+    },
+    {
+      "url": "https://www.zoho.com/procurement/kb/items/item-name-languages/",
+      "title": "Item Name in Various Languages | FAQ | Zoho Procurement",
+      "httpStatus": 200,
+      "operation": "Retain Unicode item labels and render them in documents",
+      "assessment": "PDF_FONT_AND_EXPORT_VERIFICATION_MISSING",
+      "gapIds": [
+        "BE-05",
+        "CORE-08"
+      ],
+      "notes": "Related manual audit gives source and specification evidence; this FAQ does not establish ERP runtime acceptance.",
+      "sourceContentSha256": "2aad97c40fe6ecda29cb9cfc225ad3aaf3e9248f417200693c1043d93137dc47"
+    },
+    {
+      "url": "https://www.zoho.com/procurement/kb/items/new-column/",
+      "title": "Add New Column to the Item Table | FAQ | Zoho Procurement",
+      "httpStatus": 200,
+      "operation": "Define typed item fields and their transaction/PDF visibility",
+      "assessment": "CUSTOM_METADATA_DESIGNER_MISSING",
+      "gapIds": [
+        "CORE-07"
+      ],
+      "notes": "Related manual audit gives source and specification evidence; this FAQ does not establish ERP runtime acceptance.",
+      "sourceContentSha256": "644ed241abbfc4e45861230b5d7f5c9b0230daed181df42f55a2f9eb195765d8"
+    },
+    {
+      "url": "https://www.zoho.com/procurement/kb/purchase-orders/",
+      "title": "Purchase Orders | FAQ | Zoho Procurement",
+      "httpStatus": 200,
+      "operation": "Navigate the relevant FAQ topics",
+      "assessment": "INDEX_PAGE",
+      "gapIds": [],
+      "notes": "Related manual audit gives source and specification evidence; this FAQ does not establish ERP runtime acceptance.",
+      "sourceContentSha256": "a85e1c84dee7eed95138905dfc0fb2370e6a7be0ba71f6c54a578fffb66e59ad"
+    },
+    {
+      "url": "https://www.zoho.com/procurement/kb/purchase-orders/convert-multiple-po-to-bill/",
+      "title": "Convert Multiple Purchase Orders to a Bill | FAQ | Zoho Procurement",
+      "httpStatus": 200,
+      "operation": "Create one procurement invoice from eligible lines across several orders",
+      "assessment": "PROCUREMENT_CONVERSION_NOT_FULLY_INTEGRATED",
+      "gapIds": [
+        "BE-08",
+        "PAY-01",
+        "PAY-02"
+      ],
+      "notes": "Related manual audit gives source and specification evidence; this FAQ does not establish ERP runtime acceptance.",
+      "sourceContentSha256": "166e5806cbc8c4ef3c82122eab03fe43addbab88d95c0d447610741493554a94"
+    },
+    {
+      "url": "https://www.zoho.com/procurement/kb/purchase-orders/expected-deliver-date/",
+      "title": "Expected Delivery date of Purchase Order | FAQ | Zoho Procurement",
+      "httpStatus": 200,
+      "operation": "Change a promised delivery date through the correct revision authority",
+      "assessment": "REVISION_SOURCE_PRESENT_LIVE_OPERATION_UNVERIFIED",
+      "gapIds": [
+        "BE-07"
+      ],
+      "notes": "Related manual audit gives source and specification evidence; this FAQ does not establish ERP runtime acceptance.",
+      "sourceContentSha256": "1f9e0b135e781dd5cb46d8a0c457aa18d85385bfed068f856a0639e3b67b53f0"
+    },
+    {
+      "url": "https://www.zoho.com/procurement/kb/purchase-orders/items-missing-multiple-purchase-orders-to-bills/",
+      "title": "Items Missing when Converting Multiple Purchase Orders to Bills | FAQ | Zoho Procurement",
+      "httpStatus": 200,
+      "operation": "Avoid duplicate invoice consumption when goods already have receiving evidence",
+      "assessment": "SOURCE_OWNERSHIP_AND_POSITIVE_MATCH_GAP",
+      "gapIds": [
+        "BE-08",
+        "PAY-02"
+      ],
+      "notes": "Related manual audit gives source and specification evidence; this FAQ does not establish ERP runtime acceptance.",
+      "sourceContentSha256": "3b767df66dedd3c7ee37dcbcae6381435221a85650a5b31e950f46d409df29b3"
+    },
+    {
+      "url": "https://www.zoho.com/procurement/kb/purchase-orders/partially-bill-po/",
+      "title": "Bill Partially from a Purchase Order | FAQ | Zoho Procurement",
+      "httpStatus": 200,
+      "operation": "Invoice supplied quantities and preserve remaining eligible quantities",
+      "assessment": "PARTIAL_INVOICE_CONVERSION_GAP",
+      "gapIds": [
+        "BE-08",
+        "PAY-02"
+      ],
+      "notes": "Related manual audit gives source and specification evidence; this FAQ does not establish ERP runtime acceptance.",
+      "sourceContentSha256": "cfd792f6baf692ddb82de38fdaa64eed647443c420867b3b76a2adeaff6a3248"
+    },
+    {
+      "url": "https://www.zoho.com/procurement/kb/purchase-orders/partially-billed/",
+      "title": "Partially Billed Purchase Order | FAQ | Zoho Procurement",
+      "httpStatus": 200,
+      "operation": "Show invoice progress independently of receipt progress",
+      "assessment": "PROGRESS_PROJECTION_NOT_FULLY_ACCEPTED",
+      "gapIds": [
+        "BE-08",
+        "PAY-03"
+      ],
+      "notes": "Related manual audit gives source and specification evidence; this FAQ does not establish ERP runtime acceptance.",
+      "sourceContentSha256": "dbd0eb81ee3bdd9b8a0107443d50cfaec7bf51355e8914ef262e5d620e95af20"
+    },
+    {
+      "url": "https://www.zoho.com/procurement/kb/purchase-orders/rejected-purchase-orders/",
+      "title": "View Rejected Purchase Orders | FAQ | Zoho Procurement",
+      "httpStatus": 200,
+      "operation": "Save a reusable query for rejected orders",
+      "assessment": "SAVED_VIEW_PARITY_MISSING",
+      "gapIds": [
+        "BE-01",
+        "PAY-17"
+      ],
+      "notes": "Related manual audit gives source and specification evidence; this FAQ does not establish ERP runtime acceptance.",
+      "sourceContentSha256": "b5b41d36e54c8dd89a2ed3a8e036c58ae25ad8bdac65f871b0bec25a6b7367f9"
+    },
+    {
+      "url": "https://www.zoho.com/procurement/kb/purchase-requests/",
+      "title": "Purchase Requests | FAQ | Zoho Procurement",
+      "httpStatus": 200,
+      "operation": "Navigate the relevant FAQ topics",
+      "assessment": "INDEX_PAGE",
+      "gapIds": [],
+      "notes": "Related manual audit gives source and specification evidence; this FAQ does not establish ERP runtime acceptance.",
+      "sourceContentSha256": "bdfab817bcf2684167a8514b1fd9b8e3c83574be3180b04765cda2b71d759adc"
+    },
+    {
+      "url": "https://www.zoho.com/procurement/kb/purchase-requests/convert-pr-to-po/",
+      "title": "Convert Purchase Request to a Purchase Order | FAQ | Zoho Procurement",
+      "httpStatus": 200,
+      "operation": "Convert approved demand lines into an order without losing residual quantity",
+      "assessment": "BOUNDED_SOURCE_PATH_EXISTS_LIVE_PARITY_UNVERIFIED",
+      "gapIds": [
+        "BE-09"
+      ],
+      "notes": "Related manual audit gives source and specification evidence; this FAQ does not establish ERP runtime acceptance.",
+      "sourceContentSha256": "dd6d4579a7cf16f8719c6c144871671c65882e5a796c3eccd09892c74a382608"
+    },
+    {
+      "url": "https://www.zoho.com/procurement/kb/purchase-requests/convert-pr-to-rfq/",
+      "title": "Convert Purchase Request to a Request for Quote | FAQ | Zoho Procurement",
+      "httpStatus": 200,
+      "operation": "Convert approved demand lines into a sourcing event",
+      "assessment": "BOUNDED_SOURCE_PATH_EXISTS_LIVE_PARITY_UNVERIFIED",
+      "gapIds": [
+        "BE-09"
+      ],
+      "notes": "Related manual audit gives source and specification evidence; this FAQ does not establish ERP runtime acceptance.",
+      "sourceContentSha256": "b2a014ef2c603e98cada80918646f5f3c2b9f32a28698db169f5bbe822bbe3bd"
+    },
+    {
+      "url": "https://www.zoho.com/procurement/kb/purchase-requests/issue-multiple-items/",
+      "title": "Create Purchase Order With Items From Multiple Purchase Requests | FAQ | Zoho Procurement",
+      "httpStatus": 200,
+      "operation": "Aggregate eligible demand from multiple requests into an order",
+      "assessment": "CROSS_REQUEST_BULK_PATH_UNPROVEN",
+      "gapIds": [
+        "BE-09"
+      ],
+      "notes": "Related manual audit gives source and specification evidence; this FAQ does not establish ERP runtime acceptance.",
+      "sourceContentSha256": "1b2ba0383779f500969a4facbefafd8a938839c42add36c35a20c432b8f6a138"
+    },
+    {
+      "url": "https://www.zoho.com/procurement/kb/request-for-quotes/",
+      "title": "Request for Quotes | FAQ | Zoho Procurement",
+      "httpStatus": 200,
+      "operation": "Navigate the relevant FAQ topics",
+      "assessment": "INDEX_PAGE",
+      "gapIds": [],
+      "notes": "Related manual audit gives source and specification evidence; this FAQ does not establish ERP runtime acceptance.",
+      "sourceContentSha256": "bac37ea343c4bee0531632f12bf3a816e417131042b25bcbde7484d2069faf00"
+    },
+    {
+      "url": "https://www.zoho.com/procurement/kb/request-for-quotes/extend-bidding-date/",
+      "title": "Extend Bidding Date of a Request for Quote | FAQ | Zoho Procurement",
+      "httpStatus": 200,
+      "operation": "Extend an already-published sourcing deadline with recorded authority",
+      "assessment": "EXPLICIT_OPERATION_NOT_VERIFIED",
+      "gapIds": [
+        "BE-11"
+      ],
+      "notes": "Related manual audit gives source and specification evidence; this FAQ does not establish ERP runtime acceptance.",
+      "sourceContentSha256": "f9bbdb91e7da24d7412975b9e1a6e63785ed4dff82506a83cbec5f2ed8564bb1"
+    },
+    {
+      "url": "https://www.zoho.com/procurement/kb/request-for-quotes/include-items-from-multiple-pr/",
+      "title": "Create Request for Quote With Items From Multiple Purchase Requests | FAQ | Zoho Procurement",
+      "httpStatus": 200,
+      "operation": "Aggregate selected approved demand into one sourcing event",
+      "assessment": "CROSS_REQUEST_BULK_PATH_UNPROVEN",
+      "gapIds": [
+        "BE-09"
+      ],
+      "notes": "Related manual audit gives source and specification evidence; this FAQ does not establish ERP runtime acceptance.",
+      "sourceContentSha256": "c5fdab30d5cc88f15914a489ee3133256de241430e46d7ca7f2914f0d445cf45"
+    },
+    {
+      "url": "https://www.zoho.com/procurement/kb/request-for-quotes/set-approvals/",
+      "title": "Set Approvals for Request for Quotes | FAQ | Zoho Procurement",
+      "httpStatus": 200,
+      "operation": "Save a procurement-specific pre-publication approval strategy",
+      "assessment": "BOUNDED_SHARED_REVIEW_PRESENT_STRATEGY_GAP",
+      "gapIds": [
+        "CORE-05",
+        "BE-11"
+      ],
+      "notes": "Related manual audit gives source and specification evidence; this FAQ does not establish ERP runtime acceptance.",
+      "sourceContentSha256": "509f9d2b538344603b209315f08e106acbe4d87e0e94898b4aab26680ffc66d8"
+    },
+    {
+      "url": "https://www.zoho.com/procurement/kb/request-for-quotes/submit-multiple-bid/",
+      "title": "Allow Vendors to Submit Multiple Bids for a Request for Quote | FAQ | Zoho Procurement",
+      "httpStatus": 200,
+      "operation": "Permit multiple supplier submissions only under an explicit event policy",
+      "assessment": "PORTAL_AND_MULTI_BID_POLICY_NOT_ACCEPTED",
+      "gapIds": [
+        "BE-13",
+        "BE-14"
+      ],
+      "notes": "Related manual audit gives source and specification evidence; this FAQ does not establish ERP runtime acceptance.",
+      "sourceContentSha256": "88927383bec8e21d59e023e47f0b08e7eb59722eb2e3036e92f84961a3ae6e9c"
+    },
+    {
+      "url": "https://www.zoho.com/procurement/kb/users-and-roles/",
+      "title": "People | FAQ | Zoho Procurement",
+      "httpStatus": 200,
+      "operation": "Navigate the relevant FAQ topics",
+      "assessment": "INDEX_PAGE",
+      "gapIds": [],
+      "notes": "Related manual audit gives source and specification evidence; this FAQ does not establish ERP runtime acceptance.",
+      "sourceContentSha256": "8728afa6055b956f5f596dc06e09908fb4565a3f85ab623159a8b8bf2184b7e7"
+    },
+    {
+      "url": "https://www.zoho.com/procurement/kb/users-and-roles/default-roles/",
+      "title": "Default Roles | FAQ | Zoho Procurement",
+      "httpStatus": 200,
+      "operation": "Use shared identities, custom roles and record scope instead of cloning vendor role names",
+      "assessment": "INTENTIONAL_ERP_PERMISSION_MODEL_WITH_GRID_GAP",
+      "gapIds": [
+        "CORE-04"
+      ],
+      "notes": "Related manual audit gives source and specification evidence; this FAQ does not establish ERP runtime acceptance.",
+      "sourceContentSha256": "81158386d55f6020e8a003b4c2f23657d04d66f7b7bda88e4c54805103ba2bad"
+    },
+    {
+      "url": "https://www.zoho.com/procurement/kb/users-and-roles/downgrade-inactive-user-license/",
+      "title": "Downgrade Inactive User License | FAQ | Zoho Procurement",
+      "httpStatus": 200,
+      "operation": "Separate account status from commercial license billing",
+      "assessment": "VENDOR_SAAS_BILLING_NOT_PROCUREMENT_REQUIREMENT",
+      "gapIds": [],
+      "notes": "Related manual audit gives source and specification evidence; this FAQ does not establish ERP runtime acceptance.",
+      "sourceContentSha256": "f8a7029f26f5a219407c44b17a99e4a2523404831027e04dc58d276a05df8f3b"
+    },
+    {
+      "url": "https://www.zoho.com/procurement/kb/users-and-roles/inactive-user-license/",
+      "title": "Inactive User License | FAQ | Zoho Procurement",
+      "httpStatus": 200,
+      "operation": "Decide SaaS user licensing only if the ERP product needs it",
+      "assessment": "VENDOR_SAAS_BILLING_NOT_PROCUREMENT_REQUIREMENT",
+      "gapIds": [],
+      "notes": "Related manual audit gives source and specification evidence; this FAQ does not establish ERP runtime acceptance.",
+      "sourceContentSha256": "53b9d986c2840963ef9cdb500f660c6a7e65a5155814a3d18453f1c5888fd104"
+    },
+    {
+      "url": "https://www.zoho.com/procurement/kb/vendors/",
+      "title": "Vendors | FAQ | Zoho Procurement",
+      "httpStatus": 200,
+      "operation": "Navigate the relevant FAQ topics",
+      "assessment": "INDEX_PAGE",
+      "gapIds": [],
+      "notes": "Related manual audit gives source and specification evidence; this FAQ does not establish ERP runtime acceptance.",
+      "sourceContentSha256": "df62a2bf38fa77c5694e9b510e745fa0e9a74986617015cb5522d7eb621e98cd"
+    },
+    {
+      "url": "https://www.zoho.com/procurement/kb/vendors/bulk-download-statements/",
+      "title": "Bulk Download Vendor Statements | FAQ | Zoho Procurement",
+      "httpStatus": 200,
+      "operation": "Export several supplier statements for a date range",
+      "assessment": "FINANCE_STATEMENT_AND_EXPORT_GAP",
+      "gapIds": [
+        "BE-05",
+        "PAY-15",
+        "PAY-16"
+      ],
+      "notes": "Related manual audit gives source and specification evidence; this FAQ does not establish ERP runtime acceptance.",
+      "sourceContentSha256": "b1cf2481610986ae3953e6271baa8e90022c071129e96810029c509315749e7f"
+    },
+    {
+      "url": "https://www.zoho.com/procurement/kb/vendors/bulk-update-address/",
+      "title": "Bulk Update Billing or Shipping Addresses | FAQ | Zoho Procurement",
+      "httpStatus": 200,
+      "operation": "Update future addresses and revise existing transactions without rewriting history",
+      "assessment": "BULK_REVISION_PATH_NOT_ACCEPTED",
+      "gapIds": [
+        "BE-01",
+        "BE-07"
+      ],
+      "notes": "Related manual audit gives source and specification evidence; this FAQ does not establish ERP runtime acceptance.",
+      "sourceContentSha256": "a1763bc2c1c85638ee797507cea4658e52e0a5bfdc383552cc1b00ee79075f4f"
+    },
+    {
+      "url": "https://www.zoho.com/procurement/kb/vendors/change-currency/",
+      "title": "Change Vendor Currency | FAQ | Zoho Procurement",
+      "httpStatus": 200,
+      "operation": "Change supplier defaults while retaining historical transaction currency",
+      "assessment": "INTENTIONAL_HISTORY_PROTECTION_AND_POLICY_DECISION",
+      "gapIds": [
+        "BE-02"
+      ],
+      "notes": "Do not copy the suggestion to delete historical transactions. Retain immutable transaction currency and define a controlled future-default change.",
+      "sourceContentSha256": "4808608c4efa59f17b69005bab719dd0b35dcab26d91fcbffafa54690330bb4a"
+    },
+    {
+      "url": "https://www.zoho.com/procurement/kb/vendors/duplicate-vendors/",
+      "title": "Duplicate Vendor Names | FAQ | Zoho Procurement",
+      "httpStatus": 200,
+      "operation": "Configure duplicate-name tolerance separately from duplicate legal identity checks",
+      "assessment": "TYPED_DUPLICATE_CONTROLS_NOT_FULL_PREFERENCE_PARITY",
+      "gapIds": [
+        "BE-02",
+        "BE-16"
+      ],
+      "notes": "Related manual audit gives source and specification evidence; this FAQ does not establish ERP runtime acceptance.",
+      "sourceContentSha256": "defd3c87388f9c4562d3bc7c52f6b85dc451a057d2a40980d29844fb097f10bf"
+    },
+    {
+      "url": "https://www.zoho.com/procurement/kb/vendors/onboard-vendor/",
+      "title": "Onboard Vendors | FAQ | Zoho Procurement",
+      "httpStatus": 200,
+      "operation": "Invite a supplier to enter its own profile under supplier-scoped identity",
+      "assessment": "SUPPLIER_SELF_SERVICE_MISSING",
+      "gapIds": [
+        "BE-16",
+        "CORE-12"
+      ],
+      "notes": "Related manual audit gives source and specification evidence; this FAQ does not establish ERP runtime acceptance.",
+      "sourceContentSha256": "0daf52939ff837815d8f368bda8794f11a0d0979bdcb7fb431907f058c600308"
+    },
+    {
+      "url": "https://www.zoho.com/procurement/kb/vendors/template-for-vendors/",
+      "title": "Unique Templates for Vendors | FAQ | Zoho Procurement",
+      "httpStatus": 200,
+      "operation": "Select supplier-specific transaction templates",
+      "assessment": "TEMPLATE_PERSISTENCE_AND_DISPATCH_GAP",
+      "gapIds": [
+        "CORE-08",
+        "BE-05"
+      ],
+      "notes": "Related manual audit gives source and specification evidence; this FAQ does not establish ERP runtime acceptance.",
+      "sourceContentSha256": "010ffe233ce397106d112096454da7715d4539e565f2ba5576773a828939b08d"
+    }
+  ]
+}

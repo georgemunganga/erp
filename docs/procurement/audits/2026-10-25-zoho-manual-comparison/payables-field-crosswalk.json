@@ -1,0 +1,344 @@
+[
+  {
+    "area": "Manual payment request",
+    "existingControls": [
+      "BranchId and single required InvoiceId",
+      "Amount exact decimal(18,4) transport; no implicit currency conversion",
+      "ApproverPrincipalId, RecorderPrincipalId and ConfirmerPrincipalId",
+      "Purpose/Title and expected-version CAS"
+    ],
+    "absentControls": [
+      "allocation[] with invoice and per-bill amount",
+      "vendor-level advance with no invoice",
+      "unapplied/excess balance and later application"
+    ],
+    "sourceEvidence": [
+      {
+        "repository": "erp",
+        "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Api/ProcurementManualPaymentRoutes.cs",
+        "line": 24,
+        "sourceCommit": "c38202e57afff83abbcdcbb05f95a27d38a8be26",
+        "sourceUrl": "https://github.com/georgemunganga/erp/blob/c38202e57afff83abbcdcbb05f95a27d38a8be26/backend/hrm-api/src/Mightyfin.Erp.Hrm.Api/ProcurementManualPaymentRoutes.cs#L24"
+      },
+      {
+        "repository": "erp",
+        "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Api/ProcurementManualPaymentCommandRoutes.cs",
+        "line": 23,
+        "sourceCommit": "c38202e57afff83abbcdcbb05f95a27d38a8be26",
+        "sourceUrl": "https://github.com/georgemunganga/erp/blob/c38202e57afff83abbcdcbb05f95a27d38a8be26/backend/hrm-api/src/Mightyfin.Erp.Hrm.Api/ProcurementManualPaymentCommandRoutes.cs#L23"
+      },
+      {
+        "repository": "erp",
+        "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Api/ProcurementManualPaymentCommandRoutes.cs",
+        "line": 46,
+        "sourceCommit": "c38202e57afff83abbcdcbb05f95a27d38a8be26",
+        "sourceUrl": "https://github.com/georgemunganga/erp/blob/c38202e57afff83abbcdcbb05f95a27d38a8be26/backend/hrm-api/src/Mightyfin.Erp.Hrm.Api/ProcurementManualPaymentCommandRoutes.cs#L46"
+      },
+      {
+        "repository": "module-connect",
+        "path": "reference-ui/src/features/LivePayments.tsx",
+        "line": 312,
+        "sourceCommit": "c370275e9242f447cade47bec31c2fb42aa75637",
+        "sourceUrl": "https://github.com/georgemunganga/module-connect/blob/c370275e9242f447cade47bec31c2fb42aa75637/reference-ui/src/features/LivePayments.tsx#L312"
+      },
+      {
+        "repository": "erp",
+        "path": "backend/procurement-api/src/Mightyfin.Erp.Procurement.Application/ManualPaymentCapacity.cs",
+        "line": 17,
+        "sourceCommit": "c38202e57afff83abbcdcbb05f95a27d38a8be26",
+        "sourceUrl": "https://github.com/georgemunganga/erp/blob/c38202e57afff83abbcdcbb05f95a27d38a8be26/backend/procurement-api/src/Mightyfin.Erp.Procurement.Application/ManualPaymentCapacity.cs#L17"
+      }
+    ],
+    "gapIds": [
+      "PAY-04"
+    ]
+  },
+  {
+    "area": "External payment recording",
+    "existingControls": [
+      "PaidOn, ExternalMethod, ExternalReference",
+      "optional exact Amount and EvidenceDocumentRefId",
+      "independent confirm/dispute and retained original-key command lookup"
+    ],
+    "absentControls": [
+      "owned PaidThrough account selector",
+      "bank/check generation and printing",
+      "refund/compensating reversal after confirmation"
+    ],
+    "sourceEvidence": [
+      {
+        "repository": "erp",
+        "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Api/ProcurementManualPaymentCommandRoutes.cs",
+        "line": 33,
+        "sourceCommit": "c38202e57afff83abbcdcbb05f95a27d38a8be26",
+        "sourceUrl": "https://github.com/georgemunganga/erp/blob/c38202e57afff83abbcdcbb05f95a27d38a8be26/backend/hrm-api/src/Mightyfin.Erp.Hrm.Api/ProcurementManualPaymentCommandRoutes.cs#L33"
+      },
+      {
+        "repository": "module-connect",
+        "path": "reference-ui/src/features/LivePayments.tsx",
+        "line": 321,
+        "sourceCommit": "c370275e9242f447cade47bec31c2fb42aa75637",
+        "sourceUrl": "https://github.com/georgemunganga/module-connect/blob/c370275e9242f447cade47bec31c2fb42aa75637/reference-ui/src/features/LivePayments.tsx#L321"
+      }
+    ],
+    "gapIds": [
+      "PAY-05",
+      "PAY-16"
+    ]
+  },
+  {
+    "area": "Bill amount and dates",
+    "existingControls": [
+      "SupplierId, optional PurchaseOrderId, InvoiceNumber, InvoiceDate, optional DueDate, CurrencyCode",
+      "Description, Quantity, UnitPrice, TaxAmount, TaxCodeRef and CostCenterRef per line"
+    ],
+    "absentControls": [
+      "owned AP account and reusable payment-terms selector",
+      "clone/import/recurring conversion commands"
+    ],
+    "sourceEvidence": [
+      {
+        "repository": "erp",
+        "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Api/ProcurementInvoiceIntakeRoutes.cs",
+        "line": 129,
+        "sourceCommit": "c38202e57afff83abbcdcbb05f95a27d38a8be26",
+        "sourceUrl": "https://github.com/georgemunganga/erp/blob/c38202e57afff83abbcdcbb05f95a27d38a8be26/backend/hrm-api/src/Mightyfin.Erp.Hrm.Api/ProcurementInvoiceIntakeRoutes.cs#L129"
+      }
+    ],
+    "gapIds": [
+      "PAY-01"
+    ]
+  },
+  {
+    "area": "Credit and refund",
+    "existingControls": [
+      "required SupplierInvoiceId, CreditNumber, Amount, Reason",
+      "Version on revise/cancel; vendor/currency tied to owned invoice",
+      "sum of registered credit claims checked against captured gross"
+    ],
+    "absentControls": [
+      "standalone credit vendor and item/tax lines",
+      "bill allocation rows, amount applied and credit remaining",
+      "refund date/mode/account/reference/amount and refund history"
+    ],
+    "sourceEvidence": [
+      {
+        "repository": "erp",
+        "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Api/ProcurementCreditIntakeRoutes.cs",
+        "line": 13,
+        "sourceCommit": "c38202e57afff83abbcdcbb05f95a27d38a8be26",
+        "sourceUrl": "https://github.com/georgemunganga/erp/blob/c38202e57afff83abbcdcbb05f95a27d38a8be26/backend/hrm-api/src/Mightyfin.Erp.Hrm.Api/ProcurementCreditIntakeRoutes.cs#L13"
+      },
+      {
+        "repository": "erp",
+        "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Api/ProcurementCreditIntakeRoutes.cs",
+        "line": 37,
+        "sourceCommit": "c38202e57afff83abbcdcbb05f95a27d38a8be26",
+        "sourceUrl": "https://github.com/georgemunganga/erp/blob/c38202e57afff83abbcdcbb05f95a27d38a8be26/backend/hrm-api/src/Mightyfin.Erp.Hrm.Api/ProcurementCreditIntakeRoutes.cs#L37"
+      },
+      {
+        "repository": "erp",
+        "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Api/ProcurementCreditIntakeRoutes.cs",
+        "line": 211,
+        "sourceCommit": "c38202e57afff83abbcdcbb05f95a27d38a8be26",
+        "sourceUrl": "https://github.com/georgemunganga/erp/blob/c38202e57afff83abbcdcbb05f95a27d38a8be26/backend/hrm-api/src/Mightyfin.Erp.Hrm.Api/ProcurementCreditIntakeRoutes.cs#L211"
+      },
+      {
+        "repository": "module-connect",
+        "path": "src/platform/procurement-vendor-credits-api.ts",
+        "line": 3,
+        "sourceCommit": "c370275e9242f447cade47bec31c2fb42aa75637",
+        "sourceUrl": "https://github.com/georgemunganga/module-connect/blob/c370275e9242f447cade47bec31c2fb42aa75637/src/platform/procurement-vendor-credits-api.ts#L3"
+      }
+    ],
+    "gapIds": [
+      "PAY-06",
+      "PAY-07"
+    ]
+  },
+  {
+    "area": "Batch payment",
+    "existingControls": [
+      "imported local draft layout only; no live server command"
+    ],
+    "absentControls": [
+      "server-owned bill selection and per-bill partial amounts",
+      "vendor bank destination, PaidThrough, payment date",
+      "batch approval CAS and per-payment success/failure reason/reference",
+      "bank-file receipt and processed-outcome recovery"
+    ],
+    "sourceEvidence": [
+      {
+        "repository": "module-connect",
+        "path": "reference-ui/src/features/BatchPayments.tsx",
+        "line": 26,
+        "sourceCommit": "c370275e9242f447cade47bec31c2fb42aa75637",
+        "sourceUrl": "https://github.com/georgemunganga/module-connect/blob/c370275e9242f447cade47bec31c2fb42aa75637/reference-ui/src/features/BatchPayments.tsx#L26"
+      },
+      {
+        "repository": "module-connect",
+        "path": "reference-ui/src/features/BatchPayments.tsx",
+        "line": 60,
+        "sourceCommit": "c370275e9242f447cade47bec31c2fb42aa75637",
+        "sourceUrl": "https://github.com/georgemunganga/module-connect/blob/c370275e9242f447cade47bec31c2fb42aa75637/reference-ui/src/features/BatchPayments.tsx#L60"
+      },
+      {
+        "repository": "module-connect",
+        "path": "reference-ui/src/lib/ProcurementLiveGate.tsx",
+        "line": 91,
+        "sourceCommit": "c370275e9242f447cade47bec31c2fb42aa75637",
+        "sourceUrl": "https://github.com/georgemunganga/module-connect/blob/c370275e9242f447cade47bec31c2fb42aa75637/reference-ui/src/lib/ProcurementLiveGate.tsx#L91"
+      },
+      {
+        "repository": "module-connect",
+        "path": "src/platform/procurement-manual-payments-api.ts",
+        "line": 442,
+        "sourceCommit": "c370275e9242f447cade47bec31c2fb42aa75637",
+        "sourceUrl": "https://github.com/georgemunganga/module-connect/blob/c370275e9242f447cade47bec31c2fb42aa75637/src/platform/procurement-manual-payments-api.ts#L442"
+      }
+    ],
+    "gapIds": [
+      "PAY-08"
+    ]
+  },
+  {
+    "area": "Recurrence",
+    "existingControls": [
+      "planning Frequency supports Weekly/Monthly/Quarterly/Yearly",
+      "FirstCycleOn, optional LastCycleOn, NextCycleOn",
+      "ExpectedAmount and CurrencyCode; planning close"
+    ],
+    "absentControls": [
+      "invoice template/line generation definition",
+      "next execution/child bill history/idempotent job key",
+      "stop/resume generation and generated-bill payment navigation"
+    ],
+    "sourceEvidence": [
+      {
+        "repository": "erp",
+        "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Api/ProcurementRecurringPurchaseRoutes.cs",
+        "line": 16,
+        "sourceCommit": "c38202e57afff83abbcdcbb05f95a27d38a8be26",
+        "sourceUrl": "https://github.com/georgemunganga/erp/blob/c38202e57afff83abbcdcbb05f95a27d38a8be26/backend/hrm-api/src/Mightyfin.Erp.Hrm.Api/ProcurementRecurringPurchaseRoutes.cs#L16"
+      },
+      {
+        "repository": "erp",
+        "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Api/ProcurementHostIntegration.cs",
+        "line": 309,
+        "sourceCommit": "c38202e57afff83abbcdcbb05f95a27d38a8be26",
+        "sourceUrl": "https://github.com/georgemunganga/erp/blob/c38202e57afff83abbcdcbb05f95a27d38a8be26/backend/hrm-api/src/Mightyfin.Erp.Hrm.Api/ProcurementHostIntegration.cs#L309"
+      },
+      {
+        "repository": "erp",
+        "path": "docs/procurement/PROC-07A-RECURRING-PURCHASE-PLANS.md",
+        "line": 1,
+        "sourceCommit": "c38202e57afff83abbcdcbb05f95a27d38a8be26",
+        "sourceUrl": "https://github.com/georgemunganga/erp/blob/c38202e57afff83abbcdcbb05f95a27d38a8be26/docs/procurement/PROC-07A-RECURRING-PURCHASE-PLANS.md#L1"
+      },
+      {
+        "repository": "erp",
+        "path": "backend/procurement-api/src/Mightyfin.Erp.Procurement.Application/RecurringPurchaseCommitmentRules.cs",
+        "line": 5,
+        "sourceCommit": "c38202e57afff83abbcdcbb05f95a27d38a8be26",
+        "sourceUrl": "https://github.com/georgemunganga/erp/blob/c38202e57afff83abbcdcbb05f95a27d38a8be26/backend/procurement-api/src/Mightyfin.Erp.Procurement.Application/RecurringPurchaseCommitmentRules.cs#L5"
+      }
+    ],
+    "gapIds": [
+      "PAY-09"
+    ]
+  },
+  {
+    "area": "Budget",
+    "existingControls": [
+      "external Finance check reference, checked amount/currency, outcome and evidence",
+      "confirmed reservation reference where outcome Available",
+      "retained request-version checker history"
+    ],
+    "absentControls": [
+      "fiscal/period category grids, tags/projects and budget amount master",
+      "autofill/prefill/clone",
+      "consumption threshold and variance drilldown"
+    ],
+    "sourceEvidence": [
+      {
+        "repository": "erp",
+        "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Api/ProcurementBudgetRoutes.cs",
+        "line": 34,
+        "sourceCommit": "c38202e57afff83abbcdcbb05f95a27d38a8be26",
+        "sourceUrl": "https://github.com/georgemunganga/erp/blob/c38202e57afff83abbcdcbb05f95a27d38a8be26/backend/hrm-api/src/Mightyfin.Erp.Hrm.Api/ProcurementBudgetRoutes.cs#L34"
+      },
+      {
+        "repository": "erp",
+        "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Api/ProcurementBudgetRoutes.cs",
+        "line": 188,
+        "sourceCommit": "c38202e57afff83abbcdcbb05f95a27d38a8be26",
+        "sourceUrl": "https://github.com/georgemunganga/erp/blob/c38202e57afff83abbcdcbb05f95a27d38a8be26/backend/hrm-api/src/Mightyfin.Erp.Hrm.Api/ProcurementBudgetRoutes.cs#L188"
+      },
+      {
+        "repository": "module-connect",
+        "path": "reference-ui/src/features/LiveBudgets.tsx",
+        "line": 14,
+        "sourceCommit": "c370275e9242f447cade47bec31c2fb42aa75637",
+        "sourceUrl": "https://github.com/georgemunganga/module-connect/blob/c370275e9242f447cade47bec31c2fb42aa75637/reference-ui/src/features/LiveBudgets.tsx#L14"
+      },
+      {
+        "repository": "erp",
+        "path": "docs/procurement/PROC-FIN-01-BUDGET-RESERVATION-CONTRACT.md",
+        "line": 1,
+        "sourceCommit": "c38202e57afff83abbcdcbb05f95a27d38a8be26",
+        "sourceUrl": "https://github.com/georgemunganga/erp/blob/c38202e57afff83abbcdcbb05f95a27d38a8be26/docs/procurement/PROC-FIN-01-BUDGET-RESERVATION-CONTRACT.md#L1"
+      }
+    ],
+    "gapIds": [
+      "PAY-10",
+      "PAY-11"
+    ]
+  },
+  {
+    "area": "Analytics and records",
+    "existingControls": [
+      "authorized loaded-record filters and transaction links",
+      "incomplete-load warning; no invented monetary totals"
+    ],
+    "absentControls": [
+      "as-of aging buckets and vendor balance drilldown",
+      "exact multi-currency monetary aggregation governed by FX policy",
+      "full-query grouping, selected report columns, scheduled recipients",
+      "PDF/print/full export and delivery receipts"
+    ],
+    "sourceEvidence": [
+      {
+        "repository": "module-connect",
+        "path": "reference-ui/src/features/LiveOverview.tsx",
+        "line": 72,
+        "sourceCommit": "c370275e9242f447cade47bec31c2fb42aa75637",
+        "sourceUrl": "https://github.com/georgemunganga/module-connect/blob/c370275e9242f447cade47bec31c2fb42aa75637/reference-ui/src/features/LiveOverview.tsx#L72"
+      },
+      {
+        "repository": "module-connect",
+        "path": "reference-ui/src/features/Insights.tsx",
+        "line": 414,
+        "sourceCommit": "c370275e9242f447cade47bec31c2fb42aa75637",
+        "sourceUrl": "https://github.com/georgemunganga/module-connect/blob/c370275e9242f447cade47bec31c2fb42aa75637/reference-ui/src/features/Insights.tsx#L414"
+      },
+      {
+        "repository": "module-connect",
+        "path": "reference-ui/src/features/Insights.tsx",
+        "line": 419,
+        "sourceCommit": "c370275e9242f447cade47bec31c2fb42aa75637",
+        "sourceUrl": "https://github.com/georgemunganga/module-connect/blob/c370275e9242f447cade47bec31c2fb42aa75637/reference-ui/src/features/Insights.tsx#L419"
+      },
+      {
+        "repository": "module-connect",
+        "path": "reference-ui/src/features/Insights.tsx",
+        "line": 528,
+        "sourceCommit": "c370275e9242f447cade47bec31c2fb42aa75637",
+        "sourceUrl": "https://github.com/georgemunganga/module-connect/blob/c370275e9242f447cade47bec31c2fb42aa75637/reference-ui/src/features/Insights.tsx#L528"
+      }
+    ],
+    "gapIds": [
+      "PAY-15",
+      "PAY-16"
+    ]
+  }
+]
