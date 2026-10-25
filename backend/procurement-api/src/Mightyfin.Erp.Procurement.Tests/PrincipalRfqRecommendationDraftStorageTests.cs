@@ -213,9 +213,12 @@ public sealed class PrincipalRfqRecommendationDraftStorageTests
         using var db=new ProcurementDbContext(new DbContextOptionsBuilder<ProcurementDbContext>()
             .UseNpgsql("Host=never-used.invalid;Database=model_only").Options,
             new Scope(head.TenantId,head.LegalEntityId,Actor));
-        var tables=db.GetService<IDesignTimeModel>().Model.GetEntityTypes()
-            .Select(e=>e.GetTableName()).Where(t=>t is not null
-                &&t.StartsWith("principal_rfq_recommendation_",StringComparison.Ordinal))
+        var model=db.GetService<IDesignTimeModel>().Model;
+        var tables=new[]{typeof(PrincipalRfqRecommendationDraftHead),
+                typeof(PrincipalRfqRecommendationDraftRevision),
+                typeof(PrincipalRfqRecommendationDraftLine),
+                typeof(PrincipalRfqRecommendationDraftReceipt)}
+            .Select(type=>Assert.IsType<string>(model.FindEntityType(type)?.GetTableName()))
             .ToHashSet(StringComparer.Ordinal);
         Assert.Equal(4,tables.Count);
         var sql=P36RecommendationDraftGuards.BeforeDownSql;

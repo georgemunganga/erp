@@ -1,0 +1,1159 @@
+{
+  "schemaVersion": 1,
+  "documentId": "P38-FOUNDATION-SCHEMA-ACCEPTANCE-20261025",
+  "dateUtc": "2026-10-25",
+  "status": "BOUNDED_PRIVATE_P38_SOURCE_AND_EMPTY_SCHEMA_ACCEPTANCE_ONLY",
+  "reviewedSourceCommit": "1c58c6aef0337190a1617b00fc7569cf6a2eb702",
+  "sourceReviewPr": "https://github.com/georgemunganga/erp/pull/86",
+  "sourceIntegration": "Current pushed P38 source1c58c6ae; no future merged commit or publication is certified by this receipt.",
+  "moduleComplete": false,
+  "productionDeploymentClaim": false,
+  "productionBaseline": "P24 unchanged",
+  "featureActivated": false,
+  "apiPublicationAccepted": false,
+  "actualApiWorkflowAcceptance": false,
+  "officialGeneration": {
+    "migrationId": "20261025100650_P38PrincipalSupplierAwardReview",
+    "generationSource": "8b9cd719b5dd2e457fd4bc0c2a8f4793daee6850",
+    "rawThreeFileSha256": {
+      "20261025100650_P38PrincipalSupplierAwardReview.Designer.cs": "dd29e2074cbcf1b3c8a1ef957eb9150dd0e1717acf924e0ae7edd39943df42b1",
+      "20261025100650_P38PrincipalSupplierAwardReview.cs": "42c5af525508eae87470f478e937f1bdf4ecf995a6362eade9221e3032e86d80",
+      "ProcurementDbContextModelSnapshot.cs": "c10e236698be5471145be732c55167ba5b2f8e5b64883ee42345406090dfdbb2"
+    },
+    "actualTestsAtGenerationSource": {
+      "domain-tests": {
+        "aborted": 0,
+        "error": 0,
+        "failed": 0,
+        "inconclusive": 0,
+        "notExecuted": 0,
+        "passed": 1695,
+        "total": 1695
+      },
+      "focus-tests": {
+        "aborted": 0,
+        "error": 0,
+        "failed": 0,
+        "inconclusive": 0,
+        "notExecuted": 0,
+        "passed": 25,
+        "total": 25
+      },
+      "host-tests": {
+        "aborted": 0,
+        "error": 0,
+        "failed": 0,
+        "inconclusive": 0,
+        "notExecuted": 0,
+        "passed": 1360,
+        "total": 1360
+      }
+    },
+    "officialEfCommandExitZero": true,
+    "originalRun04WrapperRemainsFailed": true,
+    "readOnlyReconciliation": {
+      "status": "PASS_READONLY_RECONCILIATION_OF_FAILED_P38_RUN04_WRAPPER",
+      "result": {
+        "artifact": "result.private.json",
+        "sha256": "6f6a3a5233a53dfd65f699ce92d5689d366e4707751b1c185321e122b6cedf1e"
+      },
+      "reviewedPlan": {
+        "artifact": "plan.INCOMPLETE.json",
+        "sha256": "bef2c2f558267c5931b03086e061764bc32bba698d38f2c13745950a7ab83948"
+      },
+      "artifactReconciliation": {
+        "artifact": "artifact-reconciliation.private.json",
+        "sha256": "4fb0d08ec2d06568a3307e4dacdd62f2ec8ab19e298c1735b6129b2b129188e1"
+      },
+      "migrationReview": {
+        "artifact": "migration-review.private.json",
+        "sha256": "f46eaabcc7fefebe4fba1dcba04ce96459e2317e7b98eba3d309091dc52afc49"
+      },
+      "existingNonTargetFilesByteAndMetadataExact": 1086,
+      "addedOfficialNugetBuildHostFiles": 45,
+      "additionScope": "Complete exact Microsoft.CodeAnalysis.Workspaces.MSBuild5.0.0 BuildHost payload from hash-pinned cached official package. No blanket artifact exception."
+    }
+  },
+  "installedSource": {
+    "genuineDesignerAndSnapshotByteUnchanged": true,
+    "installedMigrationBodyHasSeparatelyAuthoredFirstDownGuard": true,
+    "fileSha256": {
+      "20261025100650_P38PrincipalSupplierAwardReview.Designer.cs": "dd29e2074cbcf1b3c8a1ef957eb9150dd0e1717acf924e0ae7edd39943df42b1",
+      "20261025100650_P38PrincipalSupplierAwardReview.cs": "e488240a11a42f18c6362e128cab7dfa7417a43402efc5d766a139079fbb02e7",
+      "P38SupplierAwardReviewRollbackGuards.cs": "a0033b19e233360e4d2d840800bb103921e2e50e95ae187076b647aa1a4755e4",
+      "ProcurementDbContextModelSnapshot.cs": "c10e236698be5471145be732c55167ba5b2f8e5b64883ee42345406090dfdbb2"
+    },
+    "rawUpScope": "Five new P38 tables only; no pre-existing table Up mutations.",
+    "downGuard": "First statement locks five owned families plus shared audit/outbox, vetoing retained exact evidence at SQLSTATE55000 before drops. Source/migration-operation tests prove structure, not a populated runtime veto."
+  },
+  "postOverlayValidation": {
+    "status": "PASS_PRIVATE_P38_POSTOVERLAY_SDK_EF_SOURCE_ONLY",
+    "sourceCommit": "1c58c6aef0337190a1617b00fc7569cf6a2eb702",
+    "focusPassed": 6,
+    "domainPassed": 1697,
+    "failures": 0,
+    "skips": 0,
+    "modelParityNoPendingChanges": true,
+    "hostPassedCarriedPrior": 1360,
+    "hostRerunPostOverlay": false,
+    "hostCarryScope": "The1360 Host passes belong to actual generation-source8b9cd719 run04/read-only reconciliation; they were not rerun at post-overlay source1c58c6ae.",
+    "actualResult": {
+      "artifact": "result.private.json",
+      "sha256": "62a351505243d7cd0168410406115169bbac445566eb9802828918a30dc52bf6"
+    },
+    "artifacts": {
+      "plan.INCOMPLETE.json": {
+        "artifact": "plan.INCOMPLETE.json",
+        "sha256": "9a23b9bf70e79a1f2fdad245ce950fa10f9bc5befe1006093e2295a15eacd533"
+      },
+      "run.log": {
+        "artifact": "run.log",
+        "sha256": "7cd2b298a05bbc94b5e1efdaddae65ff55818811ebcf4cc03da48aff6d0e6851"
+      },
+      "exit.private.json": {
+        "artifact": "exit.private.json",
+        "sha256": "ac0406a1709f73715ad8ebf353fc8c230dca1bd35c98bdd08ba71c85331120f6"
+      },
+      "source-files.private.json": {
+        "artifact": "source-files.private.json",
+        "sha256": "68de74dfb48df58484438bdb1fec96f3dd095c249ab1a4c42e58a35465dd3397"
+      },
+      "p38-up.sql": {
+        "artifact": "p38-up.sql",
+        "sha256": "23363c85a5581e992fb1ea35f45d954a1ed89f880a9b6e75d5adca1d28cbfc51"
+      },
+      "p38-down.sql": {
+        "artifact": "p38-down.sql",
+        "sha256": "84fc92b53c31f388785ae1bdbb03e80efc0b9c193f69b0da210c6d1d136e1853"
+      }
+    },
+    "actualTrx": [
+      {
+        "artifact": "postoverlay-domain.trx",
+        "sha256": "143cb17e3e9b482b6eac132ca1f7a1224021327353fbb68de3209757ab5b4480",
+        "relativeArtifact": "domain-tests/postoverlay-domain.trx",
+        "counters": {
+          "total": 1697,
+          "executed": 1697,
+          "passed": 1697,
+          "failed": 0,
+          "error": 0,
+          "timeout": 0,
+          "aborted": 0,
+          "inconclusive": 0,
+          "passedButRunAborted": 0,
+          "notRunnable": 0,
+          "notExecuted": 0,
+          "disconnected": 0,
+          "warning": 0,
+          "completed": 0,
+          "inProgress": 0,
+          "pending": 0
+        }
+      },
+      {
+        "artifact": "postoverlay-migration.trx",
+        "sha256": "892d05f31ef998c1e74bf66755098d374954092df9f1f64f6fcb4e6ca0f4a190",
+        "relativeArtifact": "focus-tests/postoverlay-migration.trx",
+        "counters": {
+          "total": 6,
+          "executed": 6,
+          "passed": 6,
+          "failed": 0,
+          "error": 0,
+          "timeout": 0,
+          "aborted": 0,
+          "inconclusive": 0,
+          "passedButRunAborted": 0,
+          "notRunnable": 0,
+          "notExecuted": 0,
+          "disconnected": 0,
+          "warning": 0,
+          "completed": 0,
+          "inProgress": 0,
+          "pending": 0
+        }
+      }
+    ]
+  },
+  "privateEmptySchemaRehearsal": {
+    "status": "PASS_PRIVATE_P38_EMPTY_FAMILY_ROUNDTRIP_ONLY",
+    "sourceCommit": "1c58c6aef0337190a1617b00fc7569cf6a2eb702",
+    "actualTableSequence": [
+      260,
+      265,
+      260,
+      265
+    ],
+    "newOwnedTables": [
+      "principal_rfq_award_review_lines",
+      "principal_rfq_award_review_outcomes",
+      "principal_rfq_award_review_receipts",
+      "principal_rfq_award_review_submissions",
+      "principal_rfq_recommendation_submissions"
+    ],
+    "physicalObjects": {
+      "primaryKeys": 5,
+      "alternateKeys": 9,
+      "checkConstraints": 5,
+      "foreignKeys": 9,
+      "foreignKeysOnDeleteRestrict": true,
+      "explicitCreateIndexes": 18,
+      "allPhysicalIndexesIncludingPkAndAkBacking": 32
+    },
+    "sourceRowsAclHistoryUnchanged": true,
+    "globalRolesUnchanged": true,
+    "emptyDownRestoresOldSchema": true,
+    "repeatUpMatchesFirstUp": true,
+    "result": {
+      "artifact": "result.private.json",
+      "sha256": "faf49e6adae3f1abec928d1544589051dfc330a45a5951f90e9d4b89c5f62ab1"
+    },
+    "physicalCapture": {
+      "artifact": "physical-capture.private.json",
+      "sha256": "71cf356621c9b45d975b761a6461e74bff24396afd72357add830c47f4240b96"
+    },
+    "artifacts": {
+      "plan.INCOMPLETE.json": {
+        "artifact": "plan.INCOMPLETE.json",
+        "sha256": "fd01c00e1da1e1b06ee848bc2d678a3ddaf6d477f8f3894478e34ea1c041d353"
+      },
+      "source-before.private.json": {
+        "artifact": "source-before.private.json",
+        "sha256": "61867d264da9fd0e2669d3c6dc3371709d245cdb8d454606eb0c80f72329ff5f"
+      },
+      "source-after.private.json": {
+        "artifact": "source-after.private.json",
+        "sha256": "61867d264da9fd0e2669d3c6dc3371709d245cdb8d454606eb0c80f72329ff5f"
+      },
+      "roles-before.private.json": {
+        "artifact": "roles-before.private.json",
+        "sha256": "325c0e7e7771e7cfb1f08e2ba1c576e4a492974aa6ed0b804f903162f1888816"
+      },
+      "clone-before.private.json": {
+        "artifact": "clone-before.private.json",
+        "sha256": "61867d264da9fd0e2669d3c6dc3371709d245cdb8d454606eb0c80f72329ff5f"
+      },
+      "p38-up-first.private.json": {
+        "artifact": "p38-up-first.private.json",
+        "sha256": "f36f0beaaf0c1fbbde584d975d994bbd6eb2bbb83fa285584a17760bb3ba841f"
+      },
+      "p38-up-first.input-evidence.private.json": {
+        "artifact": "p38-up-first.input-evidence.private.json",
+        "sha256": "a831c372f166ef13e0cdd80f7f25d5ff077bce0aff6014ea9c0dff845f33a6ec"
+      },
+      "p38-down-empty.private.json": {
+        "artifact": "p38-down-empty.private.json",
+        "sha256": "61867d264da9fd0e2669d3c6dc3371709d245cdb8d454606eb0c80f72329ff5f"
+      },
+      "p38-down-empty.input-evidence.private.json": {
+        "artifact": "p38-down-empty.input-evidence.private.json",
+        "sha256": "2e1b5c430009d6b4619c4bcd287be8559381547853ff2edce823c7daaf51a807"
+      },
+      "p38-up-repeat.private.json": {
+        "artifact": "p38-up-repeat.private.json",
+        "sha256": "f36f0beaaf0c1fbbde584d975d994bbd6eb2bbb83fa285584a17760bb3ba841f"
+      },
+      "p38-up-repeat.input-evidence.private.json": {
+        "artifact": "p38-up-repeat.input-evidence.private.json",
+        "sha256": "a831c372f166ef13e0cdd80f7f25d5ff077bce0aff6014ea9c0dff845f33a6ec"
+      }
+    },
+    "interpretation": "Actual private owner empty-family Up/Down/Up and captured physical definitions only; not production restoration, finite execution-role admission or award approval."
+  },
+  "retainedFailures": [
+    {
+      "attempt": "procurement-p38-award-sdk-ef-prep-20261025_run02",
+      "outcome": "FAILED_RETAINED",
+      "reason": "Focused Domain suite stopped:21passed/4failed/25total; no full current acceptance.",
+      "sourceCommit": "503deace37372e8d1bb51aa50ca60eb5bdebf68c",
+      "artifacts": {
+        "plan.INCOMPLETE.json": {
+          "artifact": "plan.INCOMPLETE.json",
+          "sha256": "b66113213563ee95e0b5aa4b08bda2e9f0e7e4d37627a25a749d206fbeae5e2f"
+        },
+        "exit.private.json": {
+          "artifact": "exit.private.json",
+          "sha256": "f12c1ad95afca192e19624f3cb374602be6345264decebe781a2abfc77771399"
+        },
+        "run.log": {
+          "artifact": "run.log",
+          "sha256": "2e110dd9b3fa9f38d5ed2df1d777d0f929822780125fc0122b1be0deb4837c42"
+        },
+        "source-file-sha256.private.json": {
+          "artifact": "source-file-sha256.private.json",
+          "sha256": "15c9db964688ac638c2d7581e6ddd9bd8812f051b344ab500d1e863f06e2feca"
+        }
+      },
+      "actualTrx": [
+        {
+          "artifact": "p38-focus.trx",
+          "sha256": "b1df188f9b4bd7dccfba4d7eb05933ddec7682c957a2278bf1ab66b015c0fcbb",
+          "relativeArtifact": "focus-tests/p38-focus.trx",
+          "counters": {
+            "total": 25,
+            "executed": 25,
+            "passed": 21,
+            "failed": 4,
+            "error": 0,
+            "timeout": 0,
+            "aborted": 0,
+            "inconclusive": 0,
+            "passedButRunAborted": 0,
+            "notRunnable": 0,
+            "notExecuted": 0,
+            "disconnected": 0,
+            "warning": 0,
+            "completed": 0,
+            "inProgress": 0,
+            "pending": 0
+          }
+        }
+      ]
+    },
+    {
+      "attempt": "procurement-p38-award-sdk-ef-prep-20261025_run03",
+      "outcome": "FAILED_RETAINED",
+      "reason": "Focus25passed; full Domain1694passed/1failed/1695total on retained P36 migration-guard expectation. Full Host/official generation did not complete in this attempt.",
+      "sourceCommit": "4959446d284f0ad3ab7e1f3b3d6bac7e558a378a",
+      "artifacts": {
+        "plan.INCOMPLETE.json": {
+          "artifact": "plan.INCOMPLETE.json",
+          "sha256": "9530d56afc9d50dfab4fbd3edfaddb1df9dd01e67efd449d04c595a68d1943a3"
+        },
+        "exit.private.json": {
+          "artifact": "exit.private.json",
+          "sha256": "f12c1ad95afca192e19624f3cb374602be6345264decebe781a2abfc77771399"
+        },
+        "run.log": {
+          "artifact": "run.log",
+          "sha256": "d6101ce19cb4aa42efe965724786b48aff4fa936d0884b294ea3e60088e310ca"
+        },
+        "source-file-sha256.private.json": {
+          "artifact": "source-file-sha256.private.json",
+          "sha256": "2abfa4a238a9bdae93dfb5704d35afb853c1b8307c64a8ceed33b536ba014b08"
+        }
+      },
+      "actualTrx": [
+        {
+          "artifact": "p38-domain.trx",
+          "sha256": "de5adaae4adab71a7da9220f0a46633894fb2f6b52c399b8322fe561f499e6b0",
+          "relativeArtifact": "domain-tests/p38-domain.trx",
+          "counters": {
+            "total": 1695,
+            "executed": 1695,
+            "passed": 1694,
+            "failed": 1,
+            "error": 0,
+            "timeout": 0,
+            "aborted": 0,
+            "inconclusive": 0,
+            "passedButRunAborted": 0,
+            "notRunnable": 0,
+            "notExecuted": 0,
+            "disconnected": 0,
+            "warning": 0,
+            "completed": 0,
+            "inProgress": 0,
+            "pending": 0
+          }
+        },
+        {
+          "artifact": "p38-focus.trx",
+          "sha256": "ad50b5c455d56a10fde2cffce979b90f8f7f32bac161cd400b27eb0a3d93c081",
+          "relativeArtifact": "focus-tests/p38-focus.trx",
+          "counters": {
+            "total": 25,
+            "executed": 25,
+            "passed": 25,
+            "failed": 0,
+            "error": 0,
+            "timeout": 0,
+            "aborted": 0,
+            "inconclusive": 0,
+            "passedButRunAborted": 0,
+            "notRunnable": 0,
+            "notExecuted": 0,
+            "disconnected": 0,
+            "warning": 0,
+            "completed": 0,
+            "inProgress": 0,
+            "pending": 0
+          }
+        }
+      ]
+    },
+    {
+      "attempt": "procurement-p38-award-sdk-ef-prep-20261025_run04",
+      "outcome": "FAILED_RETAINED",
+      "reason": "Official SDK/container exited0 with all real suites and official EF generation done; wrapper failed post-verification because45 official pinned BuildHost files were new to its static artifact inventory. Original wrapper remains failed/no result; separate read-only reconciliation accepted its exact outputs.",
+      "sourceCommit": "8b9cd719b5dd2e457fd4bc0c2a8f4793daee6850",
+      "artifacts": {
+        "plan.INCOMPLETE.json": {
+          "artifact": "plan.INCOMPLETE.json",
+          "sha256": "2d7ef702f16645b3b5e552fc9740a7819b37cec1a67461c1c603d3e335bc4e44"
+        },
+        "exit.private.json": {
+          "artifact": "exit.private.json",
+          "sha256": "9b8277518c13ba1ab644018ae9f339342c45a51890fdc913e2def553caa30157"
+        },
+        "run.log": {
+          "artifact": "run.log",
+          "sha256": "936444bfed15c2b8c0ce5383ab5b4d5a5b9c626c00e5c17887eb2fa25da08b9a"
+        },
+        "source-file-sha256.private.json": {
+          "artifact": "source-file-sha256.private.json",
+          "sha256": "288b23405a9c81918fcf6763286fd4eae683b8087db0c66602b422f6e3d25170"
+        },
+        "test-counts.private.json": {
+          "artifact": "test-counts.private.json",
+          "sha256": "3514a8f4a46a94ae46a7f27446509f92952ddc17b587639e0e323423f5d3412a"
+        }
+      },
+      "actualTrx": [
+        {
+          "artifact": "p38-domain.trx",
+          "sha256": "e7a3ec6be7e847957421099a406da6ec940917a58c2da9234da2b03a4e875ebf",
+          "relativeArtifact": "domain-tests/p38-domain.trx",
+          "counters": {
+            "total": 1695,
+            "executed": 1695,
+            "passed": 1695,
+            "failed": 0,
+            "error": 0,
+            "timeout": 0,
+            "aborted": 0,
+            "inconclusive": 0,
+            "passedButRunAborted": 0,
+            "notRunnable": 0,
+            "notExecuted": 0,
+            "disconnected": 0,
+            "warning": 0,
+            "completed": 0,
+            "inProgress": 0,
+            "pending": 0
+          }
+        },
+        {
+          "artifact": "p38-focus.trx",
+          "sha256": "ebe9d9fe1de68ac75ded9804c69c653c9040071adc0849d8c8184689cb7b8576",
+          "relativeArtifact": "focus-tests/p38-focus.trx",
+          "counters": {
+            "total": 25,
+            "executed": 25,
+            "passed": 25,
+            "failed": 0,
+            "error": 0,
+            "timeout": 0,
+            "aborted": 0,
+            "inconclusive": 0,
+            "passedButRunAborted": 0,
+            "notRunnable": 0,
+            "notExecuted": 0,
+            "disconnected": 0,
+            "warning": 0,
+            "completed": 0,
+            "inProgress": 0,
+            "pending": 0
+          }
+        },
+        {
+          "artifact": "p38-host.trx",
+          "sha256": "ec016a01b273d6df1f17ccf659d7c573494ce6742d57f3c8719f732b60adb5e8",
+          "relativeArtifact": "host-tests/p38-host.trx",
+          "counters": {
+            "total": 1360,
+            "executed": 1360,
+            "passed": 1360,
+            "failed": 0,
+            "error": 0,
+            "timeout": 0,
+            "aborted": 0,
+            "inconclusive": 0,
+            "passedButRunAborted": 0,
+            "notRunnable": 0,
+            "notExecuted": 0,
+            "disconnected": 0,
+            "warning": 0,
+            "completed": 0,
+            "inProgress": 0,
+            "pending": 0
+          }
+        }
+      ]
+    },
+    {
+      "attempt": "procurement-p38-award-postoverlay-validation-prep-20261025_run01",
+      "outcome": "FAILED_RETAINED",
+      "reason": "Focused migration tests5passed/1failed/6total: stale scalar outbox expectation after exact five-type guard. Retained failed attempt; fresh test-only source correction precedes post-overlay02.",
+      "sourceCommit": "faf2f535a44d9a1f5f74e65cb7c1a146beffdcb8",
+      "artifacts": {
+        "plan.INCOMPLETE.json": {
+          "artifact": "plan.INCOMPLETE.json",
+          "sha256": "8ed6b56e981ee66e20ad81e34e7d19600ba5020b44e91c6539d60234bead6560"
+        },
+        "exit.private.json": {
+          "artifact": "exit.private.json",
+          "sha256": "8fcea8a7bb72bf5d4875d0d486f741c8837d7eb63cde6c2740903b92d4491c29"
+        },
+        "run.log": {
+          "artifact": "run.log",
+          "sha256": "e87752ffac7805edd767fa79e162fe9296a398b8e87ae77f1f81061147542dec"
+        },
+        "source-files.private.json": {
+          "artifact": "source-files.private.json",
+          "sha256": "4e7732809770bd6e66a5f10722731cf0cb2d69fd5af06d7e1e2ebfd55304420b"
+        }
+      },
+      "actualTrx": [
+        {
+          "artifact": "postoverlay-migration.trx",
+          "sha256": "a8cb669408f92b338fb064ca88f9316b7d3a88171253da46504e6c49595d1fed",
+          "relativeArtifact": "focus-tests/postoverlay-migration.trx",
+          "counters": {
+            "total": 6,
+            "executed": 6,
+            "passed": 5,
+            "failed": 1,
+            "error": 0,
+            "timeout": 0,
+            "aborted": 0,
+            "inconclusive": 0,
+            "passedButRunAborted": 0,
+            "notRunnable": 0,
+            "notExecuted": 0,
+            "disconnected": 0,
+            "warning": 0,
+            "completed": 0,
+            "inProgress": 0,
+            "pending": 0
+          }
+        }
+      ]
+    },
+    {
+      "attempt": "procurement-p38-audit-outbox-down-veto-prep-20261025_run02",
+      "outcome": "FAILED_PRE_CASE_CAPTURE_ADMISSION",
+      "actualExitCode": 1,
+      "failureCode": "unsafe-capture-sql-or-tag",
+      "reason": "Uppercase identifier handling in a generated capture tag was rejected by the capture helper before first case SQL submission. This is not a runtime downgrade-veto failure. No marker insert, case DML, Down guard or drops were executed by this run.",
+      "firstCaseSqlSubmitted": false,
+      "databaseMutationByAttempt": false,
+      "downGuardExecuted": false,
+      "artifacts": {
+        "plan.INCOMPLETE.json": {
+          "artifact": "plan.INCOMPLETE.json",
+          "sha256": "598328704d393ac36da02c03d884c3ad92db087477005552e880c563c978b053"
+        },
+        "audit-record-1-external-before.private.json": {
+          "artifact": "audit-record-1-external-before.private.json",
+          "sha256": "f36f0beaaf0c1fbbde584d975d994bbd6eb2bbb83fa285584a17760bb3ba841f"
+        },
+        "source-before.private.json": {
+          "artifact": "source-before.private.json",
+          "sha256": "61867d264da9fd0e2669d3c6dc3371709d245cdb8d454606eb0c80f72329ff5f"
+        },
+        "roles-before.private.json": {
+          "artifact": "roles-before.private.json",
+          "sha256": "325c0e7e7771e7cfb1f08e2ba1c576e4a492974aa6ed0b804f903162f1888816"
+        },
+        "run.py": {
+          "artifact": "run.py",
+          "sha256": "4ab531af4cbcb49dffc82f9cb09ea4606690e154121903436405dbeed0718381"
+        },
+        "batch_capture.py": {
+          "artifact": "batch_capture.py",
+          "sha256": "0ed85874e69f5cb10a49633a4ebe96d2a43bc24ef050dfcb0926a43008a4ac18"
+        }
+      }
+    }
+  ],
+  "remainingUnprovenGates": [
+    "Five populated business-family downgrade vetoes are unproven.",
+    "Actual finite role/grant and physical runtime readiness admission.",
+    "Actual native HTTP/shared Core award-review workflow, replay/recovery/SoD/purpose-reader/independent owner acceptance.",
+    "Existing UI binding and normal-cookie workflow acceptance.",
+    "Review/adoption of any procurement award into an executable PO source.",
+    "Production deployment/configuration/UAT; no automatic award, signature, supplier dispatch or external Finance/Inventory effects."
+  ],
+  "noPrivateRowsOrIdentityExported": true,
+  "effectOnlyDownVeto": {
+    "status": "PASS_PRIVATE_P38_TWELVE_EFFECT_ONLY_DOWN_VETO_CASES",
+    "sourceCommit": "1c58c6aef0337190a1617b00fc7569cf6a2eb702",
+    "actualCaseCount": 12,
+    "coverage": "Five audit record_type cases, five outbox aggregate_type cases, SubmitAwardReview audit-action fallback, sourcing.award_review_submitted.v1 outbox-event fallback. Each contains only one synthetic scoped audit/outbox marker, no P38 business-family row.",
+    "allExactFirstGuard55000": true,
+    "sameConnectionBeforeAfter": true,
+    "allOuterRollbacksExact": true,
+    "sourceAndGlobalRolesUnchanged": true,
+    "fiveOwnedBusinessFamilyPositiveCasesProven": false,
+    "fullDownDropsOrHistoryDeleteExecutedWhilePopulated": false,
+    "businessApprovalOrAwardProven": false,
+    "result": {
+      "artifact": "result.private.json",
+      "sha256": "3ae94496cbc0991429e5cb4e21db506acfcf877d468725e95be8656f9d153c5b"
+    },
+    "reviewedPlan": {
+      "artifact": "plan.INCOMPLETE.json",
+      "sha256": "d333af2cadb4f94583c4b3c0f05ceb9993c46c5f40e8f1b01fa70ffda2c19cf5"
+    },
+    "downBodySha256": "c7bf0c7c2eca4cba48d5965369a367a47d948717d89845289c09002753308eb1",
+    "owningSourceInputs": {
+      "candidateReadme": {
+        "artifact": "README.private.md",
+        "sha256": "ec4776dd0887c5cd361ceeac1aaa78f5d73de6fa5da7cb4f7ce137202ecfe670"
+      },
+      "downSql": {
+        "artifact": "p38-down.sql",
+        "sha256": "84fc92b53c31f388785ae1bdbb03e80efc0b9c193f69b0da210c6d1d136e1853"
+      },
+      "p37PhysicalCapture": {
+        "artifact": "physical-capture.private.json",
+        "sha256": "7e104dd88c7bad08606b544ff6e37f4389459978c5a0caa26bbe1afba9752ed9"
+      },
+      "pgEmptyResult": {
+        "artifact": "result.private.json",
+        "sha256": "faf49e6adae3f1abec928d1544589051dfc330a45a5951f90e9d4b89c5f62ab1"
+      },
+      "pgEmptyReviewedPlan": {
+        "artifact": "plan.INCOMPLETE.json",
+        "sha256": "fd01c00e1da1e1b06ee848bc2d678a3ddaf6d477f8f3894478e34ea1c041d353"
+      },
+      "sdkResult": {
+        "artifact": "result.private.json",
+        "sha256": "62a351505243d7cd0168410406115169bbac445566eb9802828918a30dc52bf6"
+      },
+      "sourceMetadata": {
+        "artifact": "source-metadata.private.json",
+        "sha256": "c490a1dae25d6d5350cc8b102b8b1412740bfec21d429e4c59eaef97a01e1d5e"
+      },
+      "sourceSnapshot": {
+        "artifact": "source-after.private.json",
+        "sha256": "61867d264da9fd0e2669d3c6dc3371709d245cdb8d454606eb0c80f72329ff5f"
+      },
+      "targetSnapshot": {
+        "artifact": "p38-up-repeat.private.json",
+        "sha256": "f36f0beaaf0c1fbbde584d975d994bbd6eb2bbb83fa285584a17760bb3ba841f"
+      }
+    },
+    "runnerAndSourcePins": {
+      "README.private.md": "13741bb1819512b797df92b29ba5d55ef9517e255f06b9841a3a137ad3b923a3",
+      "batch_capture.py": "0ed85874e69f5cb10a49633a4ebe96d2a43bc24ef050dfcb0926a43008a4ac18",
+      "cases.private.json": "31207578ee000491353e07a06a15581dc659316a07a44b4911d99acd6e2aa499",
+      "run.py": "2e96e33e7bc37c776b97627c14dbb90baceae4d647b4171552af1e5bed1c7d3a",
+      "test_pure.py": "530cef6c96d13725b08c8c6a0ae3be1b13e573218ece76003af8edd77ab0ec2f"
+    },
+    "captureArtifacts": {
+      "source-before.private.json": {
+        "artifact": "source-before.private.json",
+        "sha256": "61867d264da9fd0e2669d3c6dc3371709d245cdb8d454606eb0c80f72329ff5f"
+      },
+      "source-after.private.json": {
+        "artifact": "source-after.private.json",
+        "sha256": "61867d264da9fd0e2669d3c6dc3371709d245cdb8d454606eb0c80f72329ff5f"
+      },
+      "roles-before.private.json": {
+        "artifact": "roles-before.private.json",
+        "sha256": "325c0e7e7771e7cfb1f08e2ba1c576e4a492974aa6ed0b804f903162f1888816"
+      },
+      "cases.private.json": {
+        "artifact": "cases.private.json",
+        "sha256": "31207578ee000491353e07a06a15581dc659316a07a44b4911d99acd6e2aa499"
+      }
+    },
+    "cases": [
+      {
+        "label": "audit-record-1",
+        "kind": "audit",
+        "predicate": "record_type",
+        "expectedValue": "PrincipalRfqRecommendationSubmission",
+        "sqlState": "55000",
+        "exactFirstGuardAtStep2": true,
+        "sameConnectionBeforeAfterUnchanged": true,
+        "outerRollback": true,
+        "inputExecutionSha256": "2f76fae9803de0d089e33f234a35797ca403d2d0730ff45e06ac37b4ad905761",
+        "artifacts": {
+          "-result.private.json": {
+            "artifact": "audit-record-1-result.private.json",
+            "sha256": "7e896a557c7ceab8cde0d0299c2eaaad66cf2a7b38533cfaaab4a955b7d0da43"
+          },
+          "-input.private.json": {
+            "artifact": "audit-record-1-input.private.json",
+            "sha256": "6b639d2f77ca03c74711ac4e8d1a5918ca6ba7cd6779511fef03f0b76e1794dd"
+          },
+          "-stdout.private.log": {
+            "artifact": "audit-record-1-stdout.private.log",
+            "sha256": "1f0d740622a80d567b983af23c01233cc033dd9937a3ee9679e66388a23f7e01"
+          },
+          "-stderr.private.log": {
+            "artifact": "audit-record-1-stderr.private.log",
+            "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+          },
+          "-external-before.private.json": {
+            "artifact": "audit-record-1-external-before.private.json",
+            "sha256": "f36f0beaaf0c1fbbde584d975d994bbd6eb2bbb83fa285584a17760bb3ba841f"
+          },
+          "-external-after.private.json": {
+            "artifact": "audit-record-1-external-after.private.json",
+            "sha256": "f36f0beaaf0c1fbbde584d975d994bbd6eb2bbb83fa285584a17760bb3ba841f"
+          },
+          ".fixture.sql": {
+            "artifact": "audit-record-1.fixture.sql",
+            "sha256": "9e30673a5fa7001766e611f2a0c37204dbcc355aade16c6b8488bfde7260d7a8"
+          }
+        }
+      },
+      {
+        "label": "audit-record-2",
+        "kind": "audit",
+        "predicate": "record_type",
+        "expectedValue": "PrincipalRfqAwardReviewSubmission",
+        "sqlState": "55000",
+        "exactFirstGuardAtStep2": true,
+        "sameConnectionBeforeAfterUnchanged": true,
+        "outerRollback": true,
+        "inputExecutionSha256": "b6f4484f49690bf615b2510bd7215214be3ce7927a48d7c00a276eb07cad5309",
+        "artifacts": {
+          "-result.private.json": {
+            "artifact": "audit-record-2-result.private.json",
+            "sha256": "5ee26d98c9474ead50ab1c1f5b7a8d45de4a4839f4ccb4588a99eb2f21379bac"
+          },
+          "-input.private.json": {
+            "artifact": "audit-record-2-input.private.json",
+            "sha256": "c3ae858902d6088373caeb09e44f2a01f4861dab931900d5a18c2d6e54e8097c"
+          },
+          "-stdout.private.log": {
+            "artifact": "audit-record-2-stdout.private.log",
+            "sha256": "78c0a2a54971c78f622689ca4761bf9784c4e559246b5b095f4ce19c1c9204c1"
+          },
+          "-stderr.private.log": {
+            "artifact": "audit-record-2-stderr.private.log",
+            "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+          },
+          "-external-before.private.json": {
+            "artifact": "audit-record-2-external-before.private.json",
+            "sha256": "f36f0beaaf0c1fbbde584d975d994bbd6eb2bbb83fa285584a17760bb3ba841f"
+          },
+          "-external-after.private.json": {
+            "artifact": "audit-record-2-external-after.private.json",
+            "sha256": "f36f0beaaf0c1fbbde584d975d994bbd6eb2bbb83fa285584a17760bb3ba841f"
+          },
+          ".fixture.sql": {
+            "artifact": "audit-record-2.fixture.sql",
+            "sha256": "ec1bc679e0d6689688e96f6a86bc2a2410affb7b78d8d8a98f4ba784c3c72c60"
+          }
+        }
+      },
+      {
+        "label": "audit-record-3",
+        "kind": "audit",
+        "predicate": "record_type",
+        "expectedValue": "PrincipalRfqAwardReviewLine",
+        "sqlState": "55000",
+        "exactFirstGuardAtStep2": true,
+        "sameConnectionBeforeAfterUnchanged": true,
+        "outerRollback": true,
+        "inputExecutionSha256": "e5f7ca4dad9a6446d9ad30583643c8f960a83af9e8534708ca7604a938faa16a",
+        "artifacts": {
+          "-result.private.json": {
+            "artifact": "audit-record-3-result.private.json",
+            "sha256": "7a695d8dec1979eb8276f9d2eb5ff4c5378b958008dfe00967f492511d105782"
+          },
+          "-input.private.json": {
+            "artifact": "audit-record-3-input.private.json",
+            "sha256": "92c7a8389aaed1e8b67d5505cfcf81f1405fb2748415ea6656017c097b290e4d"
+          },
+          "-stdout.private.log": {
+            "artifact": "audit-record-3-stdout.private.log",
+            "sha256": "e1a33c11222f6bb4e0fc5e5f026757dfd9bc3ec3d388504a61a1a027873d790b"
+          },
+          "-stderr.private.log": {
+            "artifact": "audit-record-3-stderr.private.log",
+            "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+          },
+          "-external-before.private.json": {
+            "artifact": "audit-record-3-external-before.private.json",
+            "sha256": "f36f0beaaf0c1fbbde584d975d994bbd6eb2bbb83fa285584a17760bb3ba841f"
+          },
+          "-external-after.private.json": {
+            "artifact": "audit-record-3-external-after.private.json",
+            "sha256": "f36f0beaaf0c1fbbde584d975d994bbd6eb2bbb83fa285584a17760bb3ba841f"
+          },
+          ".fixture.sql": {
+            "artifact": "audit-record-3.fixture.sql",
+            "sha256": "90cb5b84d7d5ff26becb51d0e12d064141e8ef01f0c071696c019cc5c2eb4182"
+          }
+        }
+      },
+      {
+        "label": "audit-record-4",
+        "kind": "audit",
+        "predicate": "record_type",
+        "expectedValue": "PrincipalRfqAwardReviewOutcome",
+        "sqlState": "55000",
+        "exactFirstGuardAtStep2": true,
+        "sameConnectionBeforeAfterUnchanged": true,
+        "outerRollback": true,
+        "inputExecutionSha256": "9c06902891ea5823a6894246800dfaf99376a7c102ffcc4bb5f76a3358d68da3",
+        "artifacts": {
+          "-result.private.json": {
+            "artifact": "audit-record-4-result.private.json",
+            "sha256": "7bf923d24e5620cdc7e5e2268807df98d1af330b000f6d1e79226ad59b903110"
+          },
+          "-input.private.json": {
+            "artifact": "audit-record-4-input.private.json",
+            "sha256": "4ef5c2a46237e0218f1a246874eef660dd943ce8f8b8ca2f0a8477ddb47d4210"
+          },
+          "-stdout.private.log": {
+            "artifact": "audit-record-4-stdout.private.log",
+            "sha256": "2186d4c69a74e283f96332852506fc60733c5ca9b1c9b4d45ecc06bea85eacb6"
+          },
+          "-stderr.private.log": {
+            "artifact": "audit-record-4-stderr.private.log",
+            "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+          },
+          "-external-before.private.json": {
+            "artifact": "audit-record-4-external-before.private.json",
+            "sha256": "f36f0beaaf0c1fbbde584d975d994bbd6eb2bbb83fa285584a17760bb3ba841f"
+          },
+          "-external-after.private.json": {
+            "artifact": "audit-record-4-external-after.private.json",
+            "sha256": "f36f0beaaf0c1fbbde584d975d994bbd6eb2bbb83fa285584a17760bb3ba841f"
+          },
+          ".fixture.sql": {
+            "artifact": "audit-record-4.fixture.sql",
+            "sha256": "0f2bf7991977efba3338289172d1a54641d6f89daff3a1ec7ef8a675d323f29b"
+          }
+        }
+      },
+      {
+        "label": "audit-record-5",
+        "kind": "audit",
+        "predicate": "record_type",
+        "expectedValue": "PrincipalRfqAwardReviewReceipt",
+        "sqlState": "55000",
+        "exactFirstGuardAtStep2": true,
+        "sameConnectionBeforeAfterUnchanged": true,
+        "outerRollback": true,
+        "inputExecutionSha256": "9f960ae9b1b6730bbe6a19b91cb1bbf5c03aa9167e85e104c2373a71b32b0b53",
+        "artifacts": {
+          "-result.private.json": {
+            "artifact": "audit-record-5-result.private.json",
+            "sha256": "4c57a4d38d77a9a0f4b18850e3f2c5f53971cfe12f18a02c05122ec0e6cf338e"
+          },
+          "-input.private.json": {
+            "artifact": "audit-record-5-input.private.json",
+            "sha256": "083d0175c51d24c8f6aba4c02035dd405ad1e75eb3875e7f54d3bc8949f8e6fb"
+          },
+          "-stdout.private.log": {
+            "artifact": "audit-record-5-stdout.private.log",
+            "sha256": "de67f277a9fbbdc563bc9a3f74bb48a0b313b368c06b72cdecd56ffb4271f822"
+          },
+          "-stderr.private.log": {
+            "artifact": "audit-record-5-stderr.private.log",
+            "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+          },
+          "-external-before.private.json": {
+            "artifact": "audit-record-5-external-before.private.json",
+            "sha256": "f36f0beaaf0c1fbbde584d975d994bbd6eb2bbb83fa285584a17760bb3ba841f"
+          },
+          "-external-after.private.json": {
+            "artifact": "audit-record-5-external-after.private.json",
+            "sha256": "f36f0beaaf0c1fbbde584d975d994bbd6eb2bbb83fa285584a17760bb3ba841f"
+          },
+          ".fixture.sql": {
+            "artifact": "audit-record-5.fixture.sql",
+            "sha256": "e811a01ff8ad671db8d0ed43bb33c2a2c34e56183a24faac95fb3b40f18f56a2"
+          }
+        }
+      },
+      {
+        "label": "outbox-aggregate-1",
+        "kind": "outbox",
+        "predicate": "aggregate_type",
+        "expectedValue": "PrincipalRfqRecommendationSubmission",
+        "sqlState": "55000",
+        "exactFirstGuardAtStep2": true,
+        "sameConnectionBeforeAfterUnchanged": true,
+        "outerRollback": true,
+        "inputExecutionSha256": "51d6ca7a3e3cd205a153e4f1d00ef398d92a44d4e7e70857ec4efb81d7ae5a58",
+        "artifacts": {
+          "-result.private.json": {
+            "artifact": "outbox-aggregate-1-result.private.json",
+            "sha256": "1ec5192bdaf310e9121c233a5258e5ba0d6fb5da4efe7f5304b4295ff7a0c6d4"
+          },
+          "-input.private.json": {
+            "artifact": "outbox-aggregate-1-input.private.json",
+            "sha256": "a9b8e0441bf4bc600693b182c307681b6c1f193df02aa32f282e88669e45726d"
+          },
+          "-stdout.private.log": {
+            "artifact": "outbox-aggregate-1-stdout.private.log",
+            "sha256": "c292631e17940d35a593863f239841c65281549e079db7e348ea086024469363"
+          },
+          "-stderr.private.log": {
+            "artifact": "outbox-aggregate-1-stderr.private.log",
+            "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+          },
+          "-external-before.private.json": {
+            "artifact": "outbox-aggregate-1-external-before.private.json",
+            "sha256": "f36f0beaaf0c1fbbde584d975d994bbd6eb2bbb83fa285584a17760bb3ba841f"
+          },
+          "-external-after.private.json": {
+            "artifact": "outbox-aggregate-1-external-after.private.json",
+            "sha256": "f36f0beaaf0c1fbbde584d975d994bbd6eb2bbb83fa285584a17760bb3ba841f"
+          },
+          ".fixture.sql": {
+            "artifact": "outbox-aggregate-1.fixture.sql",
+            "sha256": "bcf060aa23d93801605661fc8f07f1b1d3d1db0fee7fa20458b46385664e558b"
+          }
+        }
+      },
+      {
+        "label": "outbox-aggregate-2",
+        "kind": "outbox",
+        "predicate": "aggregate_type",
+        "expectedValue": "PrincipalRfqAwardReviewSubmission",
+        "sqlState": "55000",
+        "exactFirstGuardAtStep2": true,
+        "sameConnectionBeforeAfterUnchanged": true,
+        "outerRollback": true,
+        "inputExecutionSha256": "4d6687a9c0a1fbac782a889256bc51115734913e4b1fbbcb0deae6a5c9c284dc",
+        "artifacts": {
+          "-result.private.json": {
+            "artifact": "outbox-aggregate-2-result.private.json",
+            "sha256": "5840815e978c0ae3421fb170a6282cd75a5bb5a2cc30fe3de23395f6a3f817a0"
+          },
+          "-input.private.json": {
+            "artifact": "outbox-aggregate-2-input.private.json",
+            "sha256": "6a9cb28bc10a076ffc7901ea3d03484ff1ba00d4be19b162afb067ff29e9eaf2"
+          },
+          "-stdout.private.log": {
+            "artifact": "outbox-aggregate-2-stdout.private.log",
+            "sha256": "e602742ed922d3ea8719601aa26080ed702fd4261a345dac3bec9285799e559c"
+          },
+          "-stderr.private.log": {
+            "artifact": "outbox-aggregate-2-stderr.private.log",
+            "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+          },
+          "-external-before.private.json": {
+            "artifact": "outbox-aggregate-2-external-before.private.json",
+            "sha256": "f36f0beaaf0c1fbbde584d975d994bbd6eb2bbb83fa285584a17760bb3ba841f"
+          },
+          "-external-after.private.json": {
+            "artifact": "outbox-aggregate-2-external-after.private.json",
+            "sha256": "f36f0beaaf0c1fbbde584d975d994bbd6eb2bbb83fa285584a17760bb3ba841f"
+          },
+          ".fixture.sql": {
+            "artifact": "outbox-aggregate-2.fixture.sql",
+            "sha256": "905c58ba03f0aa77e7b796af4e0a998e8b104a6b219707dc0b5a97e0346d8bde"
+          }
+        }
+      },
+      {
+        "label": "outbox-aggregate-3",
+        "kind": "outbox",
+        "predicate": "aggregate_type",
+        "expectedValue": "PrincipalRfqAwardReviewLine",
+        "sqlState": "55000",
+        "exactFirstGuardAtStep2": true,
+        "sameConnectionBeforeAfterUnchanged": true,
+        "outerRollback": true,
+        "inputExecutionSha256": "8a316cdc6a617a079c941862f4366569a3cb9e00cede9bd92a5f3f1f2cb4318e",
+        "artifacts": {
+          "-result.private.json": {
+            "artifact": "outbox-aggregate-3-result.private.json",
+            "sha256": "5cb8429029fab3fe0ed4af63c5c8db99df8008c66c69dd80cbb5878efa7785b1"
+          },
+          "-input.private.json": {
+            "artifact": "outbox-aggregate-3-input.private.json",
+            "sha256": "2e9694791a10f7042eef7d37709108eeb930268982ab5305af5dc750ee7db52a"
+          },
+          "-stdout.private.log": {
+            "artifact": "outbox-aggregate-3-stdout.private.log",
+            "sha256": "7df01f6c9aaf4728c92bd4a64e9cdacec2c64ab699ba9d4fa204b2212d9bcdae"
+          },
+          "-stderr.private.log": {
+            "artifact": "outbox-aggregate-3-stderr.private.log",
+            "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+          },
+          "-external-before.private.json": {
+            "artifact": "outbox-aggregate-3-external-before.private.json",
+            "sha256": "f36f0beaaf0c1fbbde584d975d994bbd6eb2bbb83fa285584a17760bb3ba841f"
+          },
+          "-external-after.private.json": {
+            "artifact": "outbox-aggregate-3-external-after.private.json",
+            "sha256": "f36f0beaaf0c1fbbde584d975d994bbd6eb2bbb83fa285584a17760bb3ba841f"
+          },
+          ".fixture.sql": {
+            "artifact": "outbox-aggregate-3.fixture.sql",
+            "sha256": "b6efecac56cb47eccac2a0b401fa8c4bd0d08c7f546181871cadba8080644f47"
+          }
+        }
+      },
+      {
+        "label": "outbox-aggregate-4",
+        "kind": "outbox",
+        "predicate": "aggregate_type",
+        "expectedValue": "PrincipalRfqAwardReviewOutcome",
+        "sqlState": "55000",
+        "exactFirstGuardAtStep2": true,
+        "sameConnectionBeforeAfterUnchanged": true,
+        "outerRollback": true,
+        "inputExecutionSha256": "c2e8219a9688a232e222eb9731c6ec985259eb1bb4091e052ebf1607c575c3e5",
+        "artifacts": {
+          "-result.private.json": {
+            "artifact": "outbox-aggregate-4-result.private.json",
+            "sha256": "ca50802336f6e4a3dfea688bda788ce5139e1a43b60715982c4f67e59accb3d6"
+          },
+          "-input.private.json": {
+            "artifact": "outbox-aggregate-4-input.private.json",
+            "sha256": "2dca4a858ee5479b4dc6d581920e704b2799d453b9558a5fd20c2a355476b51d"
+          },
+          "-stdout.private.log": {
+            "artifact": "outbox-aggregate-4-stdout.private.log",
+            "sha256": "f0431b0c5731f3c05fd7dcb6db5d7688c14134117c0ebffec638af5cac7c029b"
+          },
+          "-stderr.private.log": {
+            "artifact": "outbox-aggregate-4-stderr.private.log",
+            "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+          },
+          "-external-before.private.json": {
+            "artifact": "outbox-aggregate-4-external-before.private.json",
+            "sha256": "f36f0beaaf0c1fbbde584d975d994bbd6eb2bbb83fa285584a17760bb3ba841f"
+          },
+          "-external-after.private.json": {
+            "artifact": "outbox-aggregate-4-external-after.private.json",
+            "sha256": "f36f0beaaf0c1fbbde584d975d994bbd6eb2bbb83fa285584a17760bb3ba841f"
+          },
+          ".fixture.sql": {
+            "artifact": "outbox-aggregate-4.fixture.sql",
+            "sha256": "514ee64a201db5d232b4d5ee8f25f39c5151818ac91e2f22d1aa8ddb038e053e"
+          }
+        }
+      },
+      {
+        "label": "outbox-aggregate-5",
+        "kind": "outbox",
+        "predicate": "aggregate_type",
+        "expectedValue": "PrincipalRfqAwardReviewReceipt",
+        "sqlState": "55000",
+        "exactFirstGuardAtStep2": true,
+        "sameConnectionBeforeAfterUnchanged": true,
+        "outerRollback": true,
+        "inputExecutionSha256": "634895872564295b5325915b45c0fd4ce3aed4d420569c7ebd2f3209c1094cbc",
+        "artifacts": {
+          "-result.private.json": {
+            "artifact": "outbox-aggregate-5-result.private.json",
+            "sha256": "39a466e53232abf4191efa909830bcc89cc9da8ccf8f0049aef7bc3dc0e47807"
+          },
+          "-input.private.json": {
+            "artifact": "outbox-aggregate-5-input.private.json",
+            "sha256": "caf5aa2a6607819bd9386a353542455ebaa1cec82d892762ce1976da4bb9de5f"
+          },
+          "-stdout.private.log": {
+            "artifact": "outbox-aggregate-5-stdout.private.log",
+            "sha256": "8db9a8a35c948ef375a5a3078a564b7a1bf56a77963b326c71b59e58127b15a3"
+          },
+          "-stderr.private.log": {
+            "artifact": "outbox-aggregate-5-stderr.private.log",
+            "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+          },
+          "-external-before.private.json": {
+            "artifact": "outbox-aggregate-5-external-before.private.json",
+            "sha256": "f36f0beaaf0c1fbbde584d975d994bbd6eb2bbb83fa285584a17760bb3ba841f"
+          },
+          "-external-after.private.json": {
+            "artifact": "outbox-aggregate-5-external-after.private.json",
+            "sha256": "f36f0beaaf0c1fbbde584d975d994bbd6eb2bbb83fa285584a17760bb3ba841f"
+          },
+          ".fixture.sql": {
+            "artifact": "outbox-aggregate-5.fixture.sql",
+            "sha256": "6725920a23979600eed422376c2c5e3020b7ffc1c3997c97504a0ac6ca7c5f7f"
+          }
+        }
+      },
+      {
+        "label": "audit-action-fallback",
+        "kind": "audit",
+        "predicate": "action",
+        "expectedValue": "SubmitAwardReview",
+        "sqlState": "55000",
+        "exactFirstGuardAtStep2": true,
+        "sameConnectionBeforeAfterUnchanged": true,
+        "outerRollback": true,
+        "inputExecutionSha256": "fc413d1be175d13fff41fc9f552f63da2525c2f0a2ee4337f2ece8d71a64a7d7",
+        "artifacts": {
+          "-result.private.json": {
+            "artifact": "audit-action-fallback-result.private.json",
+            "sha256": "823764fdea2521f3c18aaef0a068e6d69e01ac49252b4c7fac83f09bd287200b"
+          },
+          "-input.private.json": {
+            "artifact": "audit-action-fallback-input.private.json",
+            "sha256": "0a56d71b3fd32f70541bb50055666b1e9b573c71eecd822e8f4c48a229c64c9b"
+          },
+          "-stdout.private.log": {
+            "artifact": "audit-action-fallback-stdout.private.log",
+            "sha256": "a1e06b458a891d4277dda0163ba6df3f7de2f4da5078d5b82a6fcf0b943144b0"
+          },
+          "-stderr.private.log": {
+            "artifact": "audit-action-fallback-stderr.private.log",
+            "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+          },
+          "-external-before.private.json": {
+            "artifact": "audit-action-fallback-external-before.private.json",
+            "sha256": "f36f0beaaf0c1fbbde584d975d994bbd6eb2bbb83fa285584a17760bb3ba841f"
+          },
+          "-external-after.private.json": {
+            "artifact": "audit-action-fallback-external-after.private.json",
+            "sha256": "f36f0beaaf0c1fbbde584d975d994bbd6eb2bbb83fa285584a17760bb3ba841f"
+          },
+          ".fixture.sql": {
+            "artifact": "audit-action-fallback.fixture.sql",
+            "sha256": "d0b7b08a14c99be9bd2f04c7dd3211569af1da76e828abf9e5d90e81ec35f274"
+          }
+        }
+      },
+      {
+        "label": "outbox-event-fallback",
+        "kind": "outbox",
+        "predicate": "event_type",
+        "expectedValue": "sourcing.award_review_submitted.v1",
+        "sqlState": "55000",
+        "exactFirstGuardAtStep2": true,
+        "sameConnectionBeforeAfterUnchanged": true,
+        "outerRollback": true,
+        "inputExecutionSha256": "cdb92420d8898dd022f67ef574442a2ae941a436d3de3d77845ab05f21b38bb6",
+        "artifacts": {
+          "-result.private.json": {
+            "artifact": "outbox-event-fallback-result.private.json",
+            "sha256": "220835b0b078568b1240c78185e38ec0c75cd57a102ff3c9b6c15bc6939a2bb4"
+          },
+          "-input.private.json": {
+            "artifact": "outbox-event-fallback-input.private.json",
+            "sha256": "366185ab188487e4ecdb0638b4ab7f0aab2bebd56706e1cf0af8d0d45a6d791a"
+          },
+          "-stdout.private.log": {
+            "artifact": "outbox-event-fallback-stdout.private.log",
+            "sha256": "e8f0c3d0faf388ff36ab33f8da29407293f4cc134fee7b78156f6c757b3a3de2"
+          },
+          "-stderr.private.log": {
+            "artifact": "outbox-event-fallback-stderr.private.log",
+            "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+          },
+          "-external-before.private.json": {
+            "artifact": "outbox-event-fallback-external-before.private.json",
+            "sha256": "f36f0beaaf0c1fbbde584d975d994bbd6eb2bbb83fa285584a17760bb3ba841f"
+          },
+          "-external-after.private.json": {
+            "artifact": "outbox-event-fallback-external-after.private.json",
+            "sha256": "f36f0beaaf0c1fbbde584d975d994bbd6eb2bbb83fa285584a17760bb3ba841f"
+          },
+          ".fixture.sql": {
+            "artifact": "outbox-event-fallback.fixture.sql",
+            "sha256": "61dca69eded5940bdd71da395e0717d77ee36982459a20e44e84f656f2de5a7b"
+          }
+        }
+      }
+    ]
+  }
+}

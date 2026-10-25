@@ -8813,6 +8813,516 @@ namespace Mightyfin.Erp.Procurement.Infrastructure.Migrations
                         });
                 });
 
+            modelBuilder.Entity("Mightyfin.Erp.Procurement.Domain.PrincipalRfqAwardReviewLine", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<Guid>("BranchId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("branch_id");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("CreatedBy")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("created_by");
+
+                    b.Property<string>("CurrencyCode")
+                        .IsRequired()
+                        .HasMaxLength(3)
+                        .HasColumnType("character varying(3)")
+                        .HasColumnName("currency_code");
+
+                    b.Property<Guid>("LegalEntityId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("legal_entity_id");
+
+                    b.Property<Guid>("OfferId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("offer_id");
+
+                    b.Property<string>("OfferSha256")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("offer_sha256");
+
+                    b.Property<string>("QuantityExact")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("quantity_exact");
+
+                    b.Property<Guid>("RecommendationSubmissionId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("recommendation_submission_id");
+
+                    b.Property<string>("RetainedQuoteTotalExact")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)")
+                        .HasColumnName("retained_quote_total_exact");
+
+                    b.Property<Guid>("RoundId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("round_id");
+
+                    b.Property<Guid>("SourcingEventId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("sourcing_event_id");
+
+                    b.Property<Guid>("SourcingLineId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("sourcing_line_id");
+
+                    b.Property<Guid>("SubmissionId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("submission_id");
+
+                    b.Property<Guid>("SupplierId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("supplier_id");
+
+                    b.Property<string>("TenantId")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)")
+                        .HasColumnName("tenant_id");
+
+                    b.Property<Guid>("UnsealingId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("unsealing_id");
+
+                    b.Property<DateTimeOffset?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("updated_by");
+
+                    b.Property<long>("Version")
+                        .IsConcurrencyToken()
+                        .HasColumnType("bigint")
+                        .HasColumnName("version");
+
+                    b.HasKey("Id")
+                        .HasName("pk_p38_review_line");
+
+                    b.HasAlternateKey("TenantId", "LegalEntityId", "Id")
+                        .HasName("ak_p38_line_scope");
+
+                    b.HasIndex("TenantId", "LegalEntityId", "SourcingLineId", "SourcingEventId");
+
+                    b.HasIndex("TenantId", "LegalEntityId", "SubmissionId", "OfferId", "SourcingLineId")
+                        .IsUnique()
+                        .HasDatabaseName("ux_p38_line_choice");
+
+                    b.HasIndex("TenantId", "LegalEntityId", "OfferId", "RoundId", "SourcingEventId", "BranchId", "SupplierId", "OfferSha256")
+                        .HasDatabaseName("IX_principal_rfq_award_review_lines_tenant_id_legal_entity_id~1");
+
+                    b.HasIndex("TenantId", "LegalEntityId", "SubmissionId", "RecommendationSubmissionId", "RoundId", "UnsealingId", "SourcingEventId", "BranchId")
+                        .HasDatabaseName("IX_principal_rfq_award_review_lines_tenant_id_legal_entity_id~2");
+
+                    b.ToTable("principal_rfq_award_review_lines", "procurement", t =>
+                        {
+                            t.HasCheckConstraint("ck_p38_review_line", "id<>'00000000-0000-0000-0000-000000000000'::uuid AND submission_id<>'00000000-0000-0000-0000-000000000000'::uuid AND recommendation_submission_id<>'00000000-0000-0000-0000-000000000000'::uuid AND round_id<>'00000000-0000-0000-0000-000000000000'::uuid AND unsealing_id<>'00000000-0000-0000-0000-000000000000'::uuid AND sourcing_event_id<>'00000000-0000-0000-0000-000000000000'::uuid AND branch_id<>'00000000-0000-0000-0000-000000000000'::uuid AND offer_id<>'00000000-0000-0000-0000-000000000000'::uuid AND supplier_id<>'00000000-0000-0000-0000-000000000000'::uuid AND sourcing_line_id<>'00000000-0000-0000-0000-000000000000'::uuid AND offer_sha256 ~ '^[a-f0-9]{64}$' AND quantity_exact ~ '^(0|[1-9][0-9]{0,13})(\\.[0-9]{1,4})?$' AND quantity_exact !~ '^0(\\.0+)?$' AND currency_code ~ '^[A-Z]{3}$' AND retained_quote_total_exact ~ '^(0|[1-9][0-9]{0,29})(\\.[0-9]{1,8})?$'");
+                        });
+                });
+
+            modelBuilder.Entity("Mightyfin.Erp.Procurement.Domain.PrincipalRfqAwardReviewOutcome", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<Guid>("CoreCaseId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("core_case_id");
+
+                    b.Property<string>("CoreState")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)")
+                        .HasColumnName("core_state");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("CreatedBy")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("created_by");
+
+                    b.Property<Guid>("LegalEntityId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("legal_entity_id");
+
+                    b.Property<DateTimeOffset>("RecordedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("recorded_at");
+
+                    b.Property<string>("SourceOutcome")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)")
+                        .HasColumnName("source_outcome");
+
+                    b.Property<Guid>("SubmissionId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("submission_id");
+
+                    b.Property<string>("TenantId")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)")
+                        .HasColumnName("tenant_id");
+
+                    b.Property<Guid>("TerminalDecisionId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("terminal_decision_id");
+
+                    b.Property<DateTimeOffset?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("updated_by");
+
+                    b.Property<long>("Version")
+                        .IsConcurrencyToken()
+                        .HasColumnType("bigint")
+                        .HasColumnName("version");
+
+                    b.HasKey("Id")
+                        .HasName("pk_p38_review_outcome");
+
+                    b.HasAlternateKey("TenantId", "LegalEntityId", "Id")
+                        .HasName("ak_p38_outcome_scope");
+
+                    b.HasIndex("TenantId", "LegalEntityId", "SubmissionId")
+                        .IsUnique()
+                        .HasDatabaseName("ux_p38_outcome_submission");
+
+                    b.HasIndex("TenantId", "LegalEntityId", "TerminalDecisionId")
+                        .IsUnique()
+                        .HasDatabaseName("ux_p38_outcome_core_decision");
+
+                    b.HasIndex("TenantId", "LegalEntityId", "SubmissionId", "CoreCaseId");
+
+                    b.ToTable("principal_rfq_award_review_outcomes", "procurement", t =>
+                        {
+                            t.HasCheckConstraint("ck_p38_review_outcome", "id<>'00000000-0000-0000-0000-000000000000'::uuid AND submission_id<>'00000000-0000-0000-0000-000000000000'::uuid AND core_case_id<>'00000000-0000-0000-0000-000000000000'::uuid AND terminal_decision_id<>'00000000-0000-0000-0000-000000000000'::uuid AND ((core_state='Approved' AND source_outcome='CoreApprovedPendingAward') OR (core_state='Returned' AND source_outcome='Returned') OR (core_state='Rejected' AND source_outcome='Rejected'))");
+                        });
+                });
+
+            modelBuilder.Entity("Mightyfin.Erp.Procurement.Domain.PrincipalRfqAwardReviewReceipt", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<string>("ActorPrincipalId")
+                        .IsRequired()
+                        .HasMaxLength(36)
+                        .HasColumnType("character varying(36)")
+                        .HasColumnName("actor_principal_id");
+
+                    b.Property<Guid>("BranchId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("branch_id");
+
+                    b.Property<Guid>("CommandKey")
+                        .HasColumnType("uuid")
+                        .HasColumnName("command_key");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("CreatedBy")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("created_by");
+
+                    b.Property<Guid>("LegalEntityId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("legal_entity_id");
+
+                    b.Property<Guid>("RecommendationSubmissionId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("recommendation_submission_id");
+
+                    b.Property<string>("RequestSha256")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("request_sha256");
+
+                    b.Property<string>("ResponseJson")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("response_json");
+
+                    b.Property<string>("ResponseSha256")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("response_sha256");
+
+                    b.Property<Guid>("RoundId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("round_id");
+
+                    b.Property<Guid>("SourcingEventId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("sourcing_event_id");
+
+                    b.Property<Guid>("SubmissionId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("submission_id");
+
+                    b.Property<string>("TenantId")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)")
+                        .HasColumnName("tenant_id");
+
+                    b.Property<DateTimeOffset?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("updated_by");
+
+                    b.Property<long>("Version")
+                        .IsConcurrencyToken()
+                        .HasColumnType("bigint")
+                        .HasColumnName("version");
+
+                    b.HasKey("Id")
+                        .HasName("pk_p38_review_receipt");
+
+                    b.HasAlternateKey("TenantId", "LegalEntityId", "Id")
+                        .HasName("ak_p38_receipt_scope");
+
+                    b.HasIndex("TenantId", "LegalEntityId", "ActorPrincipalId", "CommandKey")
+                        .IsUnique()
+                        .HasDatabaseName("ux_p38_receipt_actor_key");
+
+                    b.HasIndex("TenantId", "LegalEntityId", "SubmissionId", "RecommendationSubmissionId", "RoundId", "SourcingEventId", "BranchId", "ActorPrincipalId", "CommandKey", "RequestSha256");
+
+                    b.ToTable("principal_rfq_award_review_receipts", "procurement", t =>
+                        {
+                            t.HasCheckConstraint("ck_p38_review_receipt", "id<>'00000000-0000-0000-0000-000000000000'::uuid AND submission_id<>'00000000-0000-0000-0000-000000000000'::uuid AND recommendation_submission_id<>'00000000-0000-0000-0000-000000000000'::uuid AND round_id<>'00000000-0000-0000-0000-000000000000'::uuid AND sourcing_event_id<>'00000000-0000-0000-0000-000000000000'::uuid AND branch_id<>'00000000-0000-0000-0000-000000000000'::uuid AND command_key<>'00000000-0000-0000-0000-000000000000'::uuid AND request_sha256 ~ '^[a-f0-9]{64}$' AND response_sha256 ~ '^[a-f0-9]{64}$' AND response_sha256=encode(sha256(convert_to(response_json,'UTF8')),'hex')");
+                        });
+                });
+
+            modelBuilder.Entity("Mightyfin.Erp.Procurement.Domain.PrincipalRfqAwardReviewSubmission", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<string>("AssignmentPinsJson")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("assignment_pins_json");
+
+                    b.Property<string>("AssignmentPinsSha256")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("assignment_pins_sha256");
+
+                    b.Property<Guid>("BranchId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("branch_id");
+
+                    b.Property<Guid>("CommandKey")
+                        .HasColumnType("uuid")
+                        .HasColumnName("command_key");
+
+                    b.Property<Guid>("CoreCaseId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("core_case_id");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("CreatedBy")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("created_by");
+
+                    b.Property<string>("CurrencyCode")
+                        .IsRequired()
+                        .HasMaxLength(3)
+                        .HasColumnType("character varying(3)")
+                        .HasColumnName("currency_code");
+
+                    b.Property<Guid>("DraftId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("draft_id");
+
+                    b.Property<Guid>("LegalEntityId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("legal_entity_id");
+
+                    b.Property<string>("MakerPrincipalId")
+                        .IsRequired()
+                        .HasMaxLength(36)
+                        .HasColumnType("character varying(36)")
+                        .HasColumnName("maker_principal_id");
+
+                    b.Property<Guid?>("MakerWorkerAliasId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("maker_worker_alias_id");
+
+                    b.Property<string>("PolicyKey")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("policy_key");
+
+                    b.Property<string>("PolicyRulesSha256")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("policy_rules_sha256");
+
+                    b.Property<Guid>("PolicyVersionId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("policy_version_id");
+
+                    b.Property<int>("PolicyVersionNumber")
+                        .HasColumnType("integer")
+                        .HasColumnName("policy_version_number");
+
+                    b.Property<string>("ProposedTotalExact")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)")
+                        .HasColumnName("proposed_total_exact");
+
+                    b.Property<int>("RecommendationRevision")
+                        .HasColumnType("integer")
+                        .HasColumnName("recommendation_revision");
+
+                    b.Property<Guid>("RecommendationRevisionId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("recommendation_revision_id");
+
+                    b.Property<string>("RecommendationSha256")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("recommendation_sha256");
+
+                    b.Property<Guid>("RecommendationSubmissionId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("recommendation_submission_id");
+
+                    b.Property<string>("RequestSha256")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("request_sha256");
+
+                    b.Property<Guid>("RoundId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("round_id");
+
+                    b.Property<int>("SchemaVersion")
+                        .HasColumnType("integer")
+                        .HasColumnName("schema_version");
+
+                    b.Property<Guid>("SourcingEventId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("sourcing_event_id");
+
+                    b.Property<DateTimeOffset>("SubmittedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("submitted_at");
+
+                    b.Property<string>("TenantId")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)")
+                        .HasColumnName("tenant_id");
+
+                    b.Property<Guid>("UnsealingId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("unsealing_id");
+
+                    b.Property<DateTimeOffset?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("updated_by");
+
+                    b.Property<long>("Version")
+                        .IsConcurrencyToken()
+                        .HasColumnType("bigint")
+                        .HasColumnName("version");
+
+                    b.HasKey("Id")
+                        .HasName("pk_p38_review_submit");
+
+                    b.HasAlternateKey("TenantId", "LegalEntityId", "Id")
+                        .HasName("ak_p38_review_sub_scope");
+
+                    b.HasAlternateKey("TenantId", "LegalEntityId", "Id", "CoreCaseId")
+                        .HasName("ak_p38_review_core_owner");
+
+                    b.HasAlternateKey("TenantId", "LegalEntityId", "Id", "RecommendationSubmissionId", "RoundId", "UnsealingId", "SourcingEventId", "BranchId")
+                        .HasName("ak_p38_review_line_owner");
+
+                    b.HasAlternateKey("TenantId", "LegalEntityId", "Id", "RecommendationSubmissionId", "RoundId", "SourcingEventId", "BranchId", "MakerPrincipalId", "CommandKey", "RequestSha256")
+                        .HasName("ak_p38_review_receipt_owner");
+
+                    b.HasIndex("TenantId", "LegalEntityId", "CoreCaseId")
+                        .IsUnique()
+                        .HasDatabaseName("ux_p38_review_core");
+
+                    b.HasIndex("TenantId", "LegalEntityId", "RecommendationSubmissionId")
+                        .IsUnique()
+                        .HasDatabaseName("ux_p38_review_rec");
+
+                    b.HasIndex("TenantId", "LegalEntityId", "MakerPrincipalId", "CommandKey")
+                        .IsUnique()
+                        .HasDatabaseName("ux_p38_review_actor_key");
+
+                    b.HasIndex("TenantId", "LegalEntityId", "PolicyVersionId", "PolicyKey", "PolicyVersionNumber");
+
+                    b.HasIndex("TenantId", "LegalEntityId", "RecommendationSubmissionId", "DraftId", "Id", "RecommendationRevisionId", "RoundId", "UnsealingId", "SourcingEventId", "BranchId", "RecommendationSha256")
+                        .HasDatabaseName("IX_principal_rfq_award_review_submissions_tenant_id_legal_ent~1");
+
+                    b.ToTable("principal_rfq_award_review_submissions", "procurement", t =>
+                        {
+                            t.HasCheckConstraint("ck_p38_review_submit", "schema_version=1 AND id<>'00000000-0000-0000-0000-000000000000'::uuid AND recommendation_submission_id<>'00000000-0000-0000-0000-000000000000'::uuid AND draft_id<>'00000000-0000-0000-0000-000000000000'::uuid AND recommendation_revision_id<>'00000000-0000-0000-0000-000000000000'::uuid AND recommendation_revision>0 AND round_id<>'00000000-0000-0000-0000-000000000000'::uuid AND unsealing_id<>'00000000-0000-0000-0000-000000000000'::uuid AND sourcing_event_id<>'00000000-0000-0000-0000-000000000000'::uuid AND branch_id<>'00000000-0000-0000-0000-000000000000'::uuid AND core_case_id<>'00000000-0000-0000-0000-000000000000'::uuid AND policy_version_id<>'00000000-0000-0000-0000-000000000000'::uuid AND policy_version_number>0 AND policy_key='SOURCING_SUPPLIER_AWARD' AND command_key<>'00000000-0000-0000-0000-000000000000'::uuid AND recommendation_sha256 ~ '^[a-f0-9]{64}$' AND policy_rules_sha256 ~ '^[a-f0-9]{64}$' AND request_sha256 ~ '^[a-f0-9]{64}$' AND assignment_pins_sha256 ~ '^[a-f0-9]{64}$' AND assignment_pins_sha256=encode(sha256(convert_to(assignment_pins_json,'UTF8')),'hex') AND currency_code ~ '^[A-Z]{3}$' AND proposed_total_exact ~ '^(0|[1-9][0-9]{0,29})(\\.[0-9]{1,8})?$'");
+                        });
+                });
+
             modelBuilder.Entity("Mightyfin.Erp.Procurement.Domain.PrincipalRfqCommercialCommandReceipt", b =>
                 {
                     b.Property<Guid>("Id")
@@ -11502,6 +12012,151 @@ namespace Mightyfin.Erp.Procurement.Infrastructure.Migrations
                     b.ToTable("principal_rfq_recommendation_revisions", "procurement", t =>
                         {
                             t.HasCheckConstraint("ck_p36_rec_revision", "schema_version=1 AND id <> '00000000-0000-0000-0000-000000000000'::uuid AND draft_id <> '00000000-0000-0000-0000-000000000000'::uuid AND round_id <> '00000000-0000-0000-0000-000000000000'::uuid AND unsealing_id <> '00000000-0000-0000-0000-000000000000'::uuid AND sourcing_event_id <> '00000000-0000-0000-0000-000000000000'::uuid AND branch_id <> '00000000-0000-0000-0000-000000000000'::uuid AND command_key <> '00000000-0000-0000-0000-000000000000'::uuid AND actor_principal_id IS NOT NULL AND actor_principal_id ~ '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$' AND actor_principal_id <> '00000000-0000-0000-0000-000000000000' AND (actor_worker_alias_id IS NULL OR actor_worker_alias_id <> '00000000-0000-0000-0000-000000000000'::uuid) AND revision BETWEEN 1 AND 100 AND request_sha256 ~ '^[a-f0-9]{64}$' AND snapshot_sha256 ~ '^[a-f0-9]{64}$' AND snapshot_sha256=encode(sha256(convert_to(snapshot_json,'UTF8')),'hex') AND ((revision=1 AND previous_revision_id IS NULL AND previous_snapshot_sha256 IS NULL) OR (revision>1 AND previous_revision_id IS NOT NULL AND previous_revision_id <> '00000000-0000-0000-0000-000000000000'::uuid AND previous_revision_id<>id AND previous_snapshot_sha256 IS NOT NULL AND previous_snapshot_sha256 ~ '^[a-f0-9]{64}$'))");
+                        });
+                });
+
+            modelBuilder.Entity("Mightyfin.Erp.Procurement.Domain.PrincipalRfqRecommendationSubmission", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<Guid>("AwardReviewSubmissionId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("award_review_submission_id");
+
+                    b.Property<Guid>("BranchId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("branch_id");
+
+                    b.Property<Guid>("CommandKey")
+                        .HasColumnType("uuid")
+                        .HasColumnName("command_key");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("CreatedBy")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("created_by");
+
+                    b.Property<Guid>("DraftId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("draft_id");
+
+                    b.Property<Guid>("LegalEntityId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("legal_entity_id");
+
+                    b.Property<string>("MakerPrincipalId")
+                        .IsRequired()
+                        .HasMaxLength(36)
+                        .HasColumnType("character varying(36)")
+                        .HasColumnName("maker_principal_id");
+
+                    b.Property<Guid?>("MakerWorkerAliasId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("maker_worker_alias_id");
+
+                    b.Property<string>("RequestSha256")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("request_sha256");
+
+                    b.Property<int>("Revision")
+                        .HasColumnType("integer")
+                        .HasColumnName("revision");
+
+                    b.Property<Guid>("RevisionId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("revision_id");
+
+                    b.Property<string>("RevisionSha256")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("revision_sha256");
+
+                    b.Property<Guid>("RoundId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("round_id");
+
+                    b.Property<int>("SchemaVersion")
+                        .HasColumnType("integer")
+                        .HasColumnName("schema_version");
+
+                    b.Property<string>("SnapshotJson")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("snapshot_json");
+
+                    b.Property<string>("SnapshotSha256")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("snapshot_sha256");
+
+                    b.Property<Guid>("SourcingEventId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("sourcing_event_id");
+
+                    b.Property<DateTimeOffset>("SubmittedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("submitted_at");
+
+                    b.Property<string>("TenantId")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)")
+                        .HasColumnName("tenant_id");
+
+                    b.Property<Guid>("UnsealingId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("unsealing_id");
+
+                    b.Property<DateTimeOffset?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("updated_by");
+
+                    b.Property<long>("Version")
+                        .IsConcurrencyToken()
+                        .HasColumnType("bigint")
+                        .HasColumnName("version");
+
+                    b.HasKey("Id")
+                        .HasName("pk_p38_rec_submit");
+
+                    b.HasAlternateKey("TenantId", "LegalEntityId", "Id")
+                        .HasName("ak_p38_rec_sub_scope");
+
+                    b.HasAlternateKey("TenantId", "LegalEntityId", "Id", "DraftId", "AwardReviewSubmissionId", "RevisionId", "RoundId", "UnsealingId", "SourcingEventId", "BranchId", "RevisionSha256")
+                        .HasName("ak_p38_rec_owner");
+
+                    b.HasIndex("TenantId", "LegalEntityId", "DraftId", "RevisionId")
+                        .IsUnique()
+                        .HasDatabaseName("ux_p38_rec_revision");
+
+                    b.HasIndex("TenantId", "LegalEntityId", "MakerPrincipalId", "CommandKey")
+                        .IsUnique()
+                        .HasDatabaseName("ux_p38_rec_actor_key");
+
+                    b.HasIndex("TenantId", "LegalEntityId", "RevisionId", "DraftId", "RevisionSha256");
+
+                    b.HasIndex("TenantId", "LegalEntityId", "RevisionId", "DraftId", "RoundId", "UnsealingId", "SourcingEventId", "BranchId")
+                        .HasDatabaseName("IX_principal_rfq_recommendation_submissions_tenant_id_legal_e~1");
+
+                    b.ToTable("principal_rfq_recommendation_submissions", "procurement", t =>
+                        {
+                            t.HasCheckConstraint("ck_p38_rec_submit", "schema_version=1 AND id<>'00000000-0000-0000-0000-000000000000'::uuid AND draft_id<>'00000000-0000-0000-0000-000000000000'::uuid AND award_review_submission_id<>'00000000-0000-0000-0000-000000000000'::uuid AND revision_id<>'00000000-0000-0000-0000-000000000000'::uuid AND revision>0 AND round_id<>'00000000-0000-0000-0000-000000000000'::uuid AND unsealing_id<>'00000000-0000-0000-0000-000000000000'::uuid AND sourcing_event_id<>'00000000-0000-0000-0000-000000000000'::uuid AND branch_id<>'00000000-0000-0000-0000-000000000000'::uuid AND command_key<>'00000000-0000-0000-0000-000000000000'::uuid AND revision_sha256 ~ '^[a-f0-9]{64}$' AND request_sha256 ~ '^[a-f0-9]{64}$' AND snapshot_sha256 ~ '^[a-f0-9]{64}$' AND snapshot_sha256=encode(sha256(convert_to(snapshot_json,'UTF8')),'hex')");
                         });
                 });
 
@@ -21132,6 +21787,74 @@ namespace Mightyfin.Erp.Procurement.Infrastructure.Migrations
                         .HasConstraintName("fk_prcv_source_submission");
                 });
 
+            modelBuilder.Entity("Mightyfin.Erp.Procurement.Domain.PrincipalRfqAwardReviewLine", b =>
+                {
+                    b.HasOne("Mightyfin.Erp.Procurement.Domain.SourcingLine", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId", "LegalEntityId", "SourcingLineId", "SourcingEventId")
+                        .HasPrincipalKey("TenantId", "LegalEntityId", "Id", "SourcingEventId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_p38_line_source");
+
+                    b.HasOne("Mightyfin.Erp.Procurement.Domain.PrincipalRfqCommercialOfferSubmissionRecord", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId", "LegalEntityId", "OfferId", "RoundId", "SourcingEventId", "BranchId", "SupplierId", "OfferSha256")
+                        .HasPrincipalKey("TenantId", "LegalEntityId", "Id", "OpeningId", "SourcingEventId", "BranchId", "SupplierId", "SnapshotSha256")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_p38_line_offer");
+
+                    b.HasOne("Mightyfin.Erp.Procurement.Domain.PrincipalRfqAwardReviewSubmission", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId", "LegalEntityId", "SubmissionId", "RecommendationSubmissionId", "RoundId", "UnsealingId", "SourcingEventId", "BranchId")
+                        .HasPrincipalKey("TenantId", "LegalEntityId", "Id", "RecommendationSubmissionId", "RoundId", "UnsealingId", "SourcingEventId", "BranchId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_p38_line_review");
+                });
+
+            modelBuilder.Entity("Mightyfin.Erp.Procurement.Domain.PrincipalRfqAwardReviewOutcome", b =>
+                {
+                    b.HasOne("Mightyfin.Erp.Procurement.Domain.PrincipalRfqAwardReviewSubmission", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId", "LegalEntityId", "SubmissionId", "CoreCaseId")
+                        .HasPrincipalKey("TenantId", "LegalEntityId", "Id", "CoreCaseId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_p38_outcome_review");
+                });
+
+            modelBuilder.Entity("Mightyfin.Erp.Procurement.Domain.PrincipalRfqAwardReviewReceipt", b =>
+                {
+                    b.HasOne("Mightyfin.Erp.Procurement.Domain.PrincipalRfqAwardReviewSubmission", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId", "LegalEntityId", "SubmissionId", "RecommendationSubmissionId", "RoundId", "SourcingEventId", "BranchId", "ActorPrincipalId", "CommandKey", "RequestSha256")
+                        .HasPrincipalKey("TenantId", "LegalEntityId", "Id", "RecommendationSubmissionId", "RoundId", "SourcingEventId", "BranchId", "MakerPrincipalId", "CommandKey", "RequestSha256")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_p38_receipt_review");
+                });
+
+            modelBuilder.Entity("Mightyfin.Erp.Procurement.Domain.PrincipalRfqAwardReviewSubmission", b =>
+                {
+                    b.HasOne("Mightyfin.Erp.Procurement.Domain.PolicyVersion", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId", "LegalEntityId", "PolicyVersionId", "PolicyKey", "PolicyVersionNumber")
+                        .HasPrincipalKey("TenantId", "LegalEntityId", "Id", "PolicyKey", "PolicyVersionNumber")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_p38_review_policy");
+
+                    b.HasOne("Mightyfin.Erp.Procurement.Domain.PrincipalRfqRecommendationSubmission", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId", "LegalEntityId", "RecommendationSubmissionId", "DraftId", "Id", "RecommendationRevisionId", "RoundId", "UnsealingId", "SourcingEventId", "BranchId", "RecommendationSha256")
+                        .HasPrincipalKey("TenantId", "LegalEntityId", "Id", "DraftId", "AwardReviewSubmissionId", "RevisionId", "RoundId", "UnsealingId", "SourcingEventId", "BranchId", "RevisionSha256")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_p38_review_rec");
+                });
+
             modelBuilder.Entity("Mightyfin.Erp.Procurement.Domain.PrincipalRfqCommercialCommandReceipt", b =>
                 {
                     b.HasOne("Mightyfin.Erp.Procurement.Domain.PrincipalRfqCommercialRoundOpeningRecord", null)
@@ -21548,6 +22271,25 @@ namespace Mightyfin.Erp.Procurement.Infrastructure.Migrations
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired()
                         .HasConstraintName("fk_p36_rec_revision_head");
+                });
+
+            modelBuilder.Entity("Mightyfin.Erp.Procurement.Domain.PrincipalRfqRecommendationSubmission", b =>
+                {
+                    b.HasOne("Mightyfin.Erp.Procurement.Domain.PrincipalRfqRecommendationDraftRevision", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId", "LegalEntityId", "RevisionId", "DraftId", "RevisionSha256")
+                        .HasPrincipalKey("TenantId", "LegalEntityId", "Id", "DraftId", "SnapshotSha256")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_p38_rec_revision_hash");
+
+                    b.HasOne("Mightyfin.Erp.Procurement.Domain.PrincipalRfqRecommendationDraftRevision", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId", "LegalEntityId", "RevisionId", "DraftId", "RoundId", "UnsealingId", "SourcingEventId", "BranchId")
+                        .HasPrincipalKey("TenantId", "LegalEntityId", "Id", "DraftId", "RoundId", "UnsealingId", "SourcingEventId", "BranchId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_p38_rec_revision_scope");
                 });
 
             modelBuilder.Entity("Mightyfin.Erp.Procurement.Domain.ProcurementApprovalCommandReceipt", b =>

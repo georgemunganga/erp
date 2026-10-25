@@ -1,0 +1,51 @@
+{
+  "feature": "P38 Core-principal supplier award",
+  "status": "SOURCE_ONLY_UNAVAILABLE",
+  "runtimeRouteRegistered": false,
+  "runtimeCapabilityAdvertised": false,
+  "coreActionsRegistered": false,
+  "publishedAwardPolicyProven": false,
+  "p36SubmissionRouteEnabled": false,
+  "p36DraftMutationGateWired": false,
+  "ownedRecordsMapped": true,
+  "p38MappedInsertAllowed": false,
+  "ownedRecordMappingTests": "PRIVATE_SDK_TESTED_SOURCE_ONLY",
+  "ownedTablesInstalled": false,
+  "genuineMigrationId": "20261025100650_P38PrincipalSupplierAwardReview",
+  "privateSchemaRehearsal": {
+    "status": "PASS_EMPTY_FAMILY_UP_DOWN_UP_ONLY",
+    "tablesAfterUp": 265,
+    "fiveOwnedTablesInstalledInPrivateClone": true,
+    "auditAndOutboxEffectOnlyDownVetoCasesPassed": 12,
+    "firstGuardSqlState": "55000",
+    "fiveOwnedBusinessFamilyPopulatedVetoProven": false,
+    "fullDownDropOrHistoryDeleteExecutedInEffectCases": false
+  },
+  "privateSourceValidation": {
+    "postOverlayFocusPassed": 6,
+    "postOverlayDomainPassed": 1697,
+    "hostPassedCarriedFromPriorGenerationSource": 1360,
+    "postOverlayHostRerun": false,
+    "modelParityNoPendingChanges": true,
+    "actualPostOverlayResultSha256": "62a351505243d7cd0168410406115169bbac445566eb9802828918a30dc52bf6",
+    "actualEffectOnlyVetoResultSha256": "3ae94496cbc0991429e5cb4e21db506acfcf877d468725e95be8656f9d153c5b"
+  },
+  "boundedAcceptanceReceipt": "P38-FOUNDATION-SCHEMA-ACCEPTANCE-20261025.json",
+  "physicalCaptureFingerprint": null,
+  "finiteExecutionGrantProof": false,
+  "sameSaveCoreAndProcurementGuard": false,
+  "retainedSourceAndDocumentLoader": false,
+  "retainedHeldCapacityLedger": false,
+  "actualPostgreSqlProof": false,
+  "actualApiAndRecoveryProof": false,
+  "supplierAwardEffectEnabled": false,
+  "purchaseOrderEffectEnabled": false,
+  "financeEffectEnabled": false,
+  "sourceContracts": [
+    "PrincipalRfqAwardSourceQualification",
+    "PrincipalRfqAwardFoundation",
+    "PrincipalRfqAwardReviewWorkflow",
+    "PrincipalRfqAwardCoreHistory"
+  ],
+  "tests": "PRIVATE_SOURCE_AND_EMPTY_SCHEMA_ACCEPTED_RUNTIME_UNRUN"
+}
