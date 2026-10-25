@@ -1,0 +1,11 @@
+# Core outbox publisher startup boundary
+
+**Status:** Source-only prerequisite; actual build, runtime-role, schema and publisher tests are pending. This is a process ownership decision under [GW-ENG-STD-001](../engineering/GW-ENG-STD-001.md), not a new business feature.
+
+The HRM host has three mutually exclusive startup modes. `--apply-migrations-only` is the dedicated schema-owner command and retains the existing `CoreSchemaStartup.MayApplyMigrations` behavior. Ordinary API startup retains its existing development/configuration behavior and local identity bootstrap. `--run-outbox-publisher` is a worker process: it always calls `CoreSchemaStartup.EnsureAsync` in **validate-only** mode, even in Development or with `ERP:Database:MigrateOnStartup=true`, and never calls `LocalIdentityBootstrap.EnsureAsync`.
+
+Both CLI flags together fail before configuring or opening a database. The publisher still requires an up-to-date Core schema; pending or unscaffolded migrations fail startup. The change does not authorize DDL, a local-admin seed, a new role or an alternate migration owner for the publisher.
+
+`CoreHostStartupPolicy` owns the pure mode/authority decision. `Program.cs` applies it before schema readiness and places the publisher exit before the identity-bootstrap call. `CoreSchemaStartup` remains the shared model/history check; LocalIdentityBootstrap remains an ordinary API-only operation. This source change is a prerequisite for separate finite API/publisher database credentials. It does **not** establish that those credentials or production privilege separation are already deployed.
+
+Acceptance requires compiled policy matrix tests for Development/config true and false, both mixed-flag orders, the unchanged migration-owner and ordinary API paths, plus a private startup check with separate finite roles. The private check must show publisher schema validation without DDL and without a new local admin, owner-only migration, and ordinary API behavior against its scoped database. No database operation is executed by this document.
