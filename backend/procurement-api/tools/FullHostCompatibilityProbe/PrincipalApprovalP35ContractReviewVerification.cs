@@ -137,8 +137,52 @@ internal static partial class PrincipalApprovalHttpVerification
                 var pins=ContractReviewAssignmentPins.Verify(submission,workflow,retainedPolicy);
                 var decisions=await coreCases.Decisions.AsNoTracking().Where(x=>x.CaseId==workflow.Id).ToArrayAsync();
                 ContractReviewRetainedVotes.Verify(submission,pins,decisions,
-                    votes.Where(x=>x.SubmissionId==submission.Id).ToArray(),receipts.Where(x=>x.SubmissionId==submission.Id).ToArray());
+                    votes.Where(x=>x.SubmissionId==submission.Id).ToArray(),
+                    receipts.Where(x=>x.SubmissionId==submission.Id&&x.Operation is "Submit" or "Decide").ToArray());
             }
+            // Correction is a separate original command, not a Core vote receipt.
+            // Verify it independently against the completed retained Return and
+            // original submitted terms; never omit it from total/effect proof.
+            var originalSubmission=submissions[0];var laterSubmission=submissions[1];
+            var correction=corrections.Single();
+            var correctionReceipt=receipts.Single(x=>x.Operation=="Correction");
+            var returnedCase=await coreCases.Cases.AsNoTracking().Include(x=>x.Stages).ThenInclude(x=>x.Assignments)
+                .SingleAsync(x=>x.Id==originalSubmission.CoreCaseId);
+            var returnedPins=ContractReviewAssignmentPins.Verify(originalSubmission,returnedCase,retainedPolicy);
+            var returnDecisions=await coreCases.Decisions.AsNoTracking().Where(x=>x.CaseId==returnedCase.Id).ToArrayAsync();
+            ContractReviewCoreHistory.VerifyReturned(originalSubmission,returnedCase,returnedPins,returnDecisions);
+            var correctionHash=ProcurementEvidenceEncoding.PolicyJsonDigest(JsonSerializer.Serialize(new
+                {schemaVersion=1,operation="Correction",id,actor=fixture.Buyer.ToString("D"),
+                    correctionInput.ExpectedContractVersion,reason=correctionInput.Reason.Trim()}));
+            Need(correction.ContractId==id&&correction.ContractVersionId==originalSubmission.ContractVersionId
+                &&correction.ContractVersionId==laterSubmission.ContractVersionId
+                &&correction.SubmissionId==originalSubmission.Id&&correction.CoreCaseId==returnedCase.Id
+                &&correction.TenantId==originalSubmission.TenantId&&correction.LegalEntityId==originalSubmission.LegalEntityId
+                &&correction.ReviewBranchId==originalSubmission.ReviewBranchId
+                &&correction.ActorPrincipalId==originalSubmission.MakerPrincipalId
+                &&correction.ActorWorkerAliasId==originalSubmission.MakerWorkerAliasId
+                &&correction.FromContractVersion==originalSubmission.ContractBusinessVersion+2
+                &&correction.ToContractVersion==correction.FromContractVersion+1
+                &&correction.ToContractVersion<laterSubmission.ContractBusinessVersion
+                &&correction.Reason==correctionInput.Reason.Trim()
+                &&correction.CorrectedAt>=returnedCase.CompletedAt!.Value
+                &&correction.CorrectedAt<=laterSubmission.SubmittedAt
+                &&correctionReceipt.CorrectionId==correction.Id&&correctionReceipt.VoteId is null
+                &&correctionReceipt.SubmissionId==originalSubmission.Id&&correctionReceipt.ContractId==id
+                &&correctionReceipt.ReviewBranchId==correction.ReviewBranchId
+                &&correctionReceipt.ActorPrincipalId==correction.ActorPrincipalId
+                &&correctionReceipt.CommandKey==correctionKey&&correctionReceipt.CommandSha256==correctionHash
+                &&correctionReceipt.ResultContractVersion==correction.ToContractVersion
+                &&correctionReceipt.CompletedAt==correction.CorrectedAt
+                &&correctionReceipt.ResponseJson==ContractReviewReceiptProof.Response(correctionReceipt,"Draft"),
+                "P35 correction lost original Return, terms ownership, CAS, actor or acknowledgement binding.");
+            using var oldTerms=JsonDocument.Parse(originalSubmission.TermsJson);
+            using var newTerms=JsonDocument.Parse(laterSubmission.TermsJson);
+            Need(oldTerms.RootElement.GetProperty("Title").GetString()=="Private internal review terms"
+                &&newTerms.RootElement.GetProperty("Title").GetString()=="Private corrected internal terms"
+                &&oldTerms.RootElement.GetProperty("rates").EnumerateArray().Single().GetProperty("unitPriceExact").GetString()=="5.1234"
+                &&newTerms.RootElement.GetProperty("rates").EnumerateArray().Single().GetProperty("unitPriceExact").GetString()=="5.1001",
+                "P35 correction must retain original exact terms independently of revised current terms.");
         }
         result["principalContractReview"]=new {status="PASS_PRIVATE_P35_INTERNAL_CONTRACT_REVIEW_ONLY",contractId=id,policyId,
             supplierId,firstSubmitKey,correctionKey,secondSubmitKey,actualCoreReturnAndApprove=true,
