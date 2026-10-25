@@ -1,0 +1,60 @@
+{
+  "schemaVersion": 1,
+  "dateUtc": "2026-10-25",
+  "status": "ACCEPTED_PRIVATE_P37_DRAFT_HTTP_AND_READ_ONLY_OWNER_GRAPH",
+  "sourceBeforeThisDocsChange": "fac4a96572d90a237a58f75f7cba42504891914d",
+  "productAndToolSource": "98274f3b43675d33f649dbfbf884bcfcc1b3d85f",
+  "sdkAndPublication": {
+    "hostPassed": 1358,
+    "focusedHostPassed": 59,
+    "domain": "1670 carried from accepted joint SDK04 on byte-verified unchanged inputs; not rerun for this source",
+    "apiPublishedFiles": 150,
+    "toolPublishedFiles": 477,
+    "sdkResultSha256": "35b9a04c02e732c7e27f8fe9db83b10c6499a3f5edecd4c813d26c7472b8fef5",
+    "publicationResultSha256": "60b2789506fedd92ab77c6b9a3f40777e9020dcc26cd88e804639ea49d47754d"
+  },
+  "native05": {
+    "privateEvidenceDirectory": "procurement-p37-return-native-http-prep-20261025_run05",
+    "planSha256": "7ca266c3439f1ce9376b149231c629990873361632b915999d3db12c3642e67f",
+    "runnerSha256": "0fdff061812a27be6e63fbef43219cfde9b71ed5abba09916d7582eac2a2d24f",
+    "resultSha256": "f1a313c8d2129bfdae55e12dd84eeb16d33c823bf64c56e6a547a52298ec54ab",
+    "nativeRunResultSha256": "43381e3e1569938a713175b251580910fb38ded2216cd5e180e1ca8e8f6b1e32",
+    "status": "PASS_PRIVATE_P37_GOODS_RETURN_DRAFT_ONLY",
+    "actualHttpRequests": 193,
+    "acceptedScope": "Current Core principal and scoped metadata, accepted-goods source, own Draft Create/replay/recovery/Revise/Cancel, current Core grant-revocation denial, and native baseline protection for other business rows. No dispatch, stock posting or Finance posting."
+  },
+  "owner06": {
+    "privateEvidenceDirectory": "procurement-p37-return-owner-prep-20261025_run06",
+    "reviewedPlanSha256": "43c6621e0e085ead789610e4dd2b6f6dbcb2a2685c19c2e27ab856e024a67ee8",
+    "verifierSha256": "b04a1baa8b379d191ce177e512bfcbd69d50ef78bfe7474f37a0fe9c237134ff",
+    "pureTestsSha256": "c64e20f1e5c5197d3b74fe12bb7baa39433c4f9e280224c58cf1a161ecd25d05",
+    "graphTestsSha256": "a057cd3793e3a55d59b34e9d0544838f85a6f3adb66dbd7d0d901465d6e01bf6",
+    "resultSha256": "e459871e2cd0f9487565553b9ec632d18272a503337def42c48a8f463fe7c831",
+    "captureOneSha256": "52a261f685573ef0a264a66c3a217ac8122790be7255a4ad979e79364a9b0066",
+    "captureTwoSha256": "52a261f685573ef0a264a66c3a217ac8122790be7255a4ad979e79364a9b0066",
+    "status": "PASS_PRIVATE_P37_READ_ONLY_OWNER_GRAPH",
+    "readOnlyCapturesByteIdentical": true,
+    "rows": {"draft": 1, "revisions": 3, "commandReceipts": 3, "audit": 9, "outbox": 3},
+    "acceptedScope": "Independent scoped source/fact/receipt/issued-order/line and workerless Core creator linkage; exact revision, actor, command-key and event companions; stored response raw SHA; proposal SHA recomputed with the producer's exact canonical numeric encoding.",
+    "referenceVerifier": "tools/procurement/p37-owner-reference/verify.py"
+  },
+  "retainedOwner05Failure": {
+    "privateEvidenceDirectory": "procurement-p37-return-owner-prep-20261025_run05",
+    "reviewedPlanSha256": "e3ae2fad469bdb286989421f59f42484d669301dbe87973860e5e2e802f34f94",
+    "verifierSha256": "236c5cae46ed3d000d310287f3f80512960eab4bb99d0295483335c6caee3e4a",
+    "status": "FAILED_REVISION_RECEIPT_LINK",
+    "captureSha256": "52a261f685573ef0a264a66c3a217ac8122790be7255a4ad979e79364a9b0066",
+    "cause": "The old Python verifier wrote schemaVersion and revision as ordinary JSON integers. The .NET producer's PolicyJsonDigest canonicalizes them as coefficient/exponent values such as 1e0, 2e0 and 3e0. Owner06 corrected only this independent verifier calculation and checked all three persisted .NET proposal SHA values against fixed golden vectors.",
+    "evidencePreservedUnchanged": true
+  },
+  "retainedEarlierNativeFailures": ["Native01", "Native02", "Native03", "Native04"],
+  "limits": {
+    "independentOriginalRequestShaRecomputed": false,
+    "unrelatedBusinessRowsIndependentlyBaselinedByOwner06": false,
+    "normalCookieBrowserAccepted": false,
+    "narrowP37OnlyFiniteRoleAccepted": false,
+    "physicalReturnOrSupplierDispatch": false,
+    "stockOrFinancePosting": false,
+    "productionDeploymentAccepted": false
+  }
+}
