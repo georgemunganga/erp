@@ -1,7 +1,9 @@
 using System.Text.Json;
+using Microsoft.EntityFrameworkCore;
 using Mightyfin.Erp.Hrm.Api;
 using Mightyfin.Erp.Procurement.Application;
 using Mightyfin.Erp.Procurement.Domain;
+using Mightyfin.Erp.Procurement.Infrastructure.Data;
 using Routes=Mightyfin.Erp.Hrm.Api.ProcurementPrincipalReceivingRoutes;
 
 namespace Mightyfin.Erp.Hrm.Tests;
@@ -9,6 +11,13 @@ namespace Mightyfin.Erp.Hrm.Tests;
 // API projection contracts only. These are not physical/readiness/HTTP proofs.
 public sealed class PrincipalGoodsReturnProjectionTests
 {
+    private sealed record ReturnScope(string TenantId,Guid LegalEntityId,string SubjectId):IProcurementScope
+    {
+        public Guid? WorkLocationId=>null;
+        public Guid? OrgUnitId=>null;
+        public bool IsConfined=>false;
+        public string? CorrelationId=>null;
+    }
     private const string Tenant="p37-projection";
     private static readonly Guid Company=Guid.NewGuid(),Branch=Guid.NewGuid();
     private const string Maker="00000000-0000-4000-8000-000000000001";
@@ -16,6 +25,31 @@ public sealed class PrincipalGoodsReturnProjectionTests
         BranchId=Branch,CreatorPrincipalId=Maker,AcceptedFactQuantity=2.5m};
     private static PrincipalReceivingActor Actor()=>new(Maker,null,Tenant,Company,
         new HashSet<Guid>{Branch},new HashSet<string>{"procurement-return-read","procurement-return-edit"});
+
+    [Fact]
+    public void Create_receipt_is_scoped_before_tracking_and_a_foreign_scope_is_denied()
+    {
+        var scope=new ReturnScope(Tenant,Company,Maker);
+        var options=new DbContextOptionsBuilder<ProcurementDbContext>()
+            .UseInMemoryDatabase(Guid.NewGuid().ToString("N")).Options;
+        using var db=new ProcurementDbContext(options,scope);
+        var key=Guid.NewGuid();
+        var head=new PrincipalGoodsReturnDraft {TenantId=Tenant,LegalEntityId=Company,BranchId=Branch,
+            CreatorPrincipalId=Maker,AcceptedFactQuantity=0.9999m};
+        var revision=new PrincipalGoodsReturnRevision {TenantId=Tenant,LegalEntityId=Company,
+            DraftId=head.Id,Revision=1,CommandKey=key,ActorPrincipalId=Maker,Quantity=0.5m,Reason="Damaged"};
+        var request=JsonSerializer.Serialize(new{operation="Create",input=new{
+            acceptanceFactId=head.AcceptanceFactId,quantity="0.5",reason="Damaged",evidenceReference=(string?)null}});
+        var response=Routes.ReturnComplete(db,head,revision,"Create",key,Maker,request,201);
+        Assert.Equal(201,response.Status);
+        var receipt=Assert.Single(db.PrincipalGoodsReturnCommandReceipts.Local);
+        Assert.Equal(Tenant,receipt.TenantId);
+        Assert.Equal(Company,receipt.LegalEntityId);
+
+        var foreign=new PrincipalGoodsReturnCommandReceipt {TenantId="other-tenant",LegalEntityId=Company};
+        Assert.Throws<InvalidOperationException>(()=>db.AddScoped(foreign));
+        Assert.Single(db.PrincipalGoodsReturnCommandReceipts.Local);
+    }
 
     [Theory]
     [InlineData("valid")][InlineData("wrong-header")][InlineData("wrong-line")]

@@ -16,7 +16,7 @@ namespace Mightyfin.Erp.Hrm.Api;
 public static partial class ProcurementPrincipalReceivingRoutes
 {
     private static readonly JsonSerializerOptions Json=new(JsonSerializerDefaults.Web);
-    private sealed record Reply(int Status,string Body);
+    internal sealed record Reply(int Status,string Body);
     private sealed class Problem(string code,int status):Exception(code){internal int Status=>status;}
     public static void MapRoutes(WebApplication app)
     {
