@@ -1,9 +1,11 @@
 using System.Data;
 using System.Data.Common;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Migrations.Operations;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Mightyfin.Erp.Hrm.Api;
+using Mightyfin.Erp.Hrm.Infrastructure.Data;
 using Mightyfin.Erp.Procurement.Infrastructure.Data;
 using Mightyfin.Erp.Procurement.Infrastructure.Documents;
 using Mightyfin.Erp.Procurement.Infrastructure.Migrations;
@@ -89,6 +91,9 @@ public sealed class PrincipalGoodsReturnReadinessTests
         var config=new ConfigurationBuilder().AddInMemoryCollection(values).Build();
         var services=new ServiceCollection();
         services.AddSingleton<IConfiguration>(config);
+        services.AddScoped<HrmDbContext>(_=>new HrmDbContext(
+            new DbContextOptionsBuilder<HrmDbContext>().UseInMemoryDatabase(Guid.NewGuid().ToString()).Options,
+            new FixedTenantAccessor("return-readiness-only")));
         ProcurementHostIntegration.AddServices(services,"Host=never-used.invalid;Database=record",config);
         using var provider=services.BuildServiceProvider();using var scope=provider.CreateScope();
         var options=scope.ServiceProvider.GetRequiredService<ProcurementPrincipalGoodsReturnOptions>();
