@@ -42,6 +42,12 @@ if (args.SequenceEqual(new[] { "--private-csv-export-owner" }))
     await ProcurementCsvPrivateInitializer.RunAsync();
     return;
 }
+if (args.SequenceEqual(new[] { "--preflight-be01-revocation-control" }))
+{
+    ProcurementCsvPrivateInitializer.PreflightRevocationControl();
+    Console.WriteLine("PASS_PRIVATE_BE01_REVOCATION_CONTROL_ONLY");
+    return;
+}
 
 // The default compatibility modes below never create a database. Their reviewed
 // launcher creates a NEW clone of the retained private backup under --network none.
