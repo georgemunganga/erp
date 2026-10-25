@@ -258,8 +258,8 @@ var app = builder.Build();
 // --apply-migrations-only; development can still perform automatic initial setup.
 using (var scope = app.Services.CreateScope())
 {
-    await CoreSchemaStartup.EnsureAsync(scope.ServiceProvider.GetRequiredService<HrmDbContext>(), "Core/HRM",
-        CoreSchemaStartup.MayApplyMigrations(builder.Configuration, builder.Environment.IsDevelopment(), args));
+    await Mightyfin.Erp.Hrm.Api.CoreSchemaStartup.EnsureAsync(scope.ServiceProvider.GetRequiredService<HrmDbContext>(), "Core/HRM",
+        Mightyfin.Erp.Hrm.Api.CoreSchemaStartup.MayApplyMigrations(builder.Configuration, builder.Environment.IsDevelopment(), args));
 }
 if (args.Contains("--apply-migrations-only"))
 {
