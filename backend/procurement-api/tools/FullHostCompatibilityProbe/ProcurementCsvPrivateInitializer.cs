@@ -18,7 +18,7 @@ using Npgsql;
 /// <summary>Fresh private BE-01 owner/host setup, never a product API or production seeder.</summary>
 internal static class ProcurementCsvPrivateInitializer
 {
-    private const string Database = "proc_csv_export_20261025_01";
+    private const string Database = "proc_csv_export_20261025_02";
     private const string Socket = "/authority-identity-private-socket";
     private const string SystemId = "7698678713374847009";
     private static readonly UnixFileMode PrivateFile = UnixFileMode.UserRead | UnixFileMode.UserWrite;
@@ -348,7 +348,7 @@ internal static class ProcurementCsvPrivateInitializer
         await Sql("GRANT INSERT ON procurement.audit_events TO " + Quote(record));
         await Sql("GRANT USAGE ON SCHEMA hrm TO " + Quote(core));
         await Sql("GRANT SELECT ON hrm.__hrm_migrations,hrm.local_users,hrm.local_sessions,"
-            + "hrm.tenant_role_assignments,hrm.user_branch_assignments,hrm.legal_entities,"
+            + "hrm.tenant_role_assignments,hrm.hr_user_branch_assignments,hrm.legal_entities,"
             + "hrm.work_locations,hrm.org_units,hrm.workers,hrm.company_brandings,"
             + "hrm.audit_entries,hrm.privileged_action_events TO " + Quote(core));
         await Sql("GRANT UPDATE (failed_login_count,locked_until,last_login_at)"
