@@ -35,9 +35,11 @@ public sealed class PrincipalRfqAwardReviewSubmission : ProcurementRecord
     public string RecommendationSha256 { get; init; } = null!;
     public Guid RoundId { get; init; }
     public Guid UnsealingId { get; init; }
+    public Guid SourcingEventId { get; init; }
     public Guid BranchId { get; init; }
     public Guid CoreCaseId { get; init; }
     public Guid PolicyVersionId { get; init; }
+    public string PolicyKey { get; init; } = null!;
     public int PolicyVersionNumber { get; init; }
     public string PolicyRulesSha256 { get; init; } = null!;
     public string MakerPrincipalId { get; init; } = null!;
@@ -57,6 +59,7 @@ public sealed class PrincipalRfqAwardReviewLine : ProcurementRecord
     public Guid RecommendationSubmissionId { get; init; }
     public Guid RoundId { get; init; }
     public Guid UnsealingId { get; init; }
+    public Guid SourcingEventId { get; init; }
     public Guid BranchId { get; init; }
     public Guid OfferId { get; init; }
     public string OfferSha256 { get; init; } = null!;
@@ -74,6 +77,7 @@ public sealed class PrincipalRfqAwardReviewReceipt : ProcurementRecord
     public Guid SubmissionId { get; init; }
     public Guid RecommendationSubmissionId { get; init; }
     public Guid RoundId { get; init; }
+    public Guid SourcingEventId { get; init; }
     public Guid BranchId { get; init; }
     public string ActorPrincipalId { get; init; } = null!;
     public Guid CommandKey { get; init; }

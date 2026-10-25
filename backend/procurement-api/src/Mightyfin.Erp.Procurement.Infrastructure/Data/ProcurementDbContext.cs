@@ -92,6 +92,10 @@ public sealed partial class ProcurementDbContext(DbContextOptions<ProcurementDbC
                 or SourcingPublicationOpening or SourcingPublicationDecision or SourcingPublicationReceipt) &&
             (record.TenantId != scope.TenantId || record.LegalEntityId != scope.LegalEntityId))
             throw new InvalidOperationException("Pinned approval evidence is outside the authenticated scope.");
+        if (record is (PrincipalRfqRecommendationSubmission or PrincipalRfqAwardReviewSubmission
+                or PrincipalRfqAwardReviewLine or PrincipalRfqAwardReviewReceipt or PrincipalRfqAwardReviewOutcome) &&
+            (record.TenantId != scope.TenantId || record.LegalEntityId != scope.LegalEntityId))
+            throw new InvalidOperationException("Pinned approval evidence is outside the authenticated scope.");
         record.TenantId = scope.TenantId;
         record.LegalEntityId = scope.LegalEntityId;
         if (record is Supplier supplier)
@@ -554,6 +558,7 @@ public sealed partial class ProcurementDbContext(DbContextOptions<ProcurementDbC
         ConfigureOperationalPolicyIdentity(modelBuilder);
         ConfigureContractReviewPolicyIdentity(modelBuilder);
         ConfigureContractReviewPersistence(modelBuilder);
+        ConfigureRfqAwardReview(modelBuilder);
         ConfigureInvoiceUnitReview(modelBuilder);
         ConfigurePrincipalInvoiceMatching(modelBuilder);
         ConfigureRecurringPurchaseCommitments(modelBuilder);
@@ -764,6 +769,7 @@ public sealed partial class ProcurementDbContext(DbContextOptions<ProcurementDbC
         GuardOperationalPolicyIdentity();
         GuardContractReviewPolicyIdentity();
         GuardContractReviewPersistence();
+        GuardRfqAwardReview();
         GuardInvoiceUnitReview();
         GuardPrincipalInvoiceMatching();
         var now = DateTimeOffset.UtcNow;
@@ -788,7 +794,9 @@ public sealed partial class ProcurementDbContext(DbContextOptions<ProcurementDbC
                     && !PreserveOperationalPolicyCreationMetadata(entry.Entity)
                     && !PreserveContractReviewPolicyCreationMetadata(entry.Entity)
                     && entry.Entity is not (ManualPaymentWorkflowCaseLink or ManualPaymentCoreDecisionLink or ManualPaymentBusinessDateObservation
-                        or ContractReviewSubmission or ContractReviewVote or ContractReviewCorrection or ContractReviewCommandReceipt))
+                        or ContractReviewSubmission or ContractReviewVote or ContractReviewCorrection or ContractReviewCommandReceipt
+                        or PrincipalRfqRecommendationSubmission or PrincipalRfqAwardReviewSubmission
+                        or PrincipalRfqAwardReviewLine or PrincipalRfqAwardReviewReceipt or PrincipalRfqAwardReviewOutcome))
                 {
                     entry.Entity.CreatedAt = now;
                     entry.Entity.CreatedBy = scope.SubjectId;

@@ -177,8 +177,9 @@ public static class PrincipalRfqAwardReviewWorkflow
             RecommendationRevision=revision.Revision,
             RecommendationSha256=revision.SnapshotSha256,
             RoundId=head.RoundId,UnsealingId=head.UnsealingId,
-            BranchId=head.BranchId,CoreCaseId=coreId,
+            SourcingEventId=head.SourcingEventId,BranchId=head.BranchId,CoreCaseId=coreId,
             PolicyVersionId=policy.Id,PolicyVersionNumber=policy.PolicyVersionNumber,
+            PolicyKey=PrincipalRfqAwardFoundation.PolicyKey,
             PolicyRulesSha256=candidate.PolicyRulesSha256,
             MakerPrincipalId=head.MakerPrincipalId,
             MakerWorkerAliasId=head.MakerWorkerAliasId,
@@ -237,24 +238,18 @@ public static class PrincipalRfqAwardReviewWorkflow
         {
             TenantId=head.TenantId,LegalEntityId=head.LegalEntityId,
             SubmissionId=row.Id,RecommendationSubmissionId=frozen.Id,
-            RoundId=head.RoundId,UnsealingId=head.UnsealingId,BranchId=head.BranchId,
+            RoundId=head.RoundId,UnsealingId=head.UnsealingId,SourcingEventId=head.SourcingEventId,BranchId=head.BranchId,
             OfferId=x.OfferId,OfferSha256=x.OfferSha256,SupplierId=x.SupplierId,
             SourcingLineId=x.SourcingLineId,QuantityExact=x.QuantityExact,
             CurrencyCode=x.CurrencyCode,RetainedQuoteTotalExact=x.RetainedQuoteTotalExact,
             CreatedAt=at,CreatedBy=head.MakerPrincipalId,
         }).ToArray();
-        var response=JsonSerializer.Serialize(new
-        {
-            schemaVersion=1,submissionId=row.Id,recommendationSubmissionId=frozen.Id,
-            coreCaseId=core.Id,state="PendingReview",policyVersionId=policy.Id,
-            recommendationSha256=revision.SnapshotSha256,
-            awardCreatedByThisCommand=false,purchaseOrderCreatedByThisCommand=false,
-        });
+        var response=ResponseFor(row);
         var receipt=new PrincipalRfqAwardReviewReceipt
         {
             TenantId=head.TenantId,LegalEntityId=head.LegalEntityId,
             SubmissionId=row.Id,RecommendationSubmissionId=frozen.Id,
-            RoundId=head.RoundId,BranchId=head.BranchId,
+            RoundId=head.RoundId,SourcingEventId=head.SourcingEventId,BranchId=head.BranchId,
             ActorPrincipalId=head.MakerPrincipalId,CommandKey=candidate.CommandKey,
             RequestSha256=candidate.RequestSha256,
             ResponseJson=response,ResponseSha256=ProcurementEvidenceEncoding.Digest(response),
@@ -262,6 +257,14 @@ public static class PrincipalRfqAwardReviewWorkflow
         };
         return new(frozen,row,Array.AsReadOnly(lines),receipt,core);
     }
+
+    public static string ResponseFor(PrincipalRfqAwardReviewSubmission row) => JsonSerializer.Serialize(new
+        {
+            schemaVersion=1,submissionId=row.Id,recommendationSubmissionId=row.RecommendationSubmissionId,
+            coreCaseId=row.CoreCaseId,state="PendingReview",policyVersionId=row.PolicyVersionId,
+            recommendationSha256=row.RecommendationSha256,
+            awardCreatedByThisCommand=false,purchaseOrderCreatedByThisCommand=false,
+        });
 
     private static void Need(bool valid,string code)
     {if(!valid)throw new InvalidOperationException(code);}
