@@ -1,5 +1,7 @@
 # Procurement gap plan with supplied UI interaction trace
 
+Implementation update: CORE-04 and AUD-04 have [verified source changes](../../core/CORE-ROLE-PERMISSION-CATALOG-SOURCE-20261025.md). Their paired release and authenticated production UAT remain pending; the original UAT register is unchanged.
+
 ERP source `c38202e57afff83abbcdcbb05f95a27d38a8be26`; supplied UI `c370275e9242f447cade47bec31c2fb42aa75637`. Exactly 55 audit findings. Preview interactions are **not** ERP authority.
 
 Each finding separates the original presentation intent, current live component, backend state, and the next implement/integrate/test/deploy/decision slice. `NOT_PRESENT` is explicit where the inspected original preview has no corresponding action.

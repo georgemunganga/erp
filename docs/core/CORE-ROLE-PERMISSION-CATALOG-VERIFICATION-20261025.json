@@ -1,0 +1,56 @@
+{
+  "sourceCommit": "e45b6638ff3713ce99bfcbe8a6ffe509fda4c572",
+  "findings": [
+    "CORE-04",
+    "AUD-04"
+  ],
+  "status": "SOURCE_VERIFIED_RELEASE_PENDING",
+  "catalogActions": 91,
+  "verification": {
+    "frontendTypeScript": "PASS",
+    "frontendBuild": "PASS",
+    "builtAppMockedPlaywrightPassed": 8,
+    "focusedBackendPassed": 15,
+    "fullHostPassed": 1364,
+    "domainRerun": false,
+    "databaseExecuted": false,
+    "productionChanged": false
+  },
+  "evidence": [
+    {
+      "file": "result.private.json",
+      "sha256": "1197553b18b688b34676423963deb45e63bd85602bdb02c10f6133b6610ac5a7"
+    },
+    {
+      "file": "core04-focus.trx",
+      "sha256": "f32879f81c4c0ca477ab3b01ac4f39b0d6bcc61f85e813912f2fad40d5442f10"
+    },
+    {
+      "file": "core04-host.trx",
+      "sha256": "c242390f45bad0d5412f1b34eb710f6e4b7af2597b5193c51e9771974b5382f0"
+    },
+    {
+      "file": "accepted-artifacts.private.json",
+      "sha256": "b94e0c2de777e6574a84df021b3e0d61a99f103548e7592d3b40d1f8e17ed426"
+    },
+    {
+      "file": "playwright-final.log",
+      "sha256": "1220f32732701f88205a073f62e292eb95bfd1600edf2f7a5aa08c99992303da"
+    },
+    {
+      "file": "build-final.log",
+      "sha256": "0b6e791bf3dc43e58cdd54933ada03842083c360fedf1689b7b0e9d4293b0d74"
+    },
+    {
+      "file": "tsc-final.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    }
+  ],
+  "releaseCompatibility": {
+    "productionBase": "be5d87e3bfdc2b5d6d6be576ce321173e8c6b9f5",
+    "productionActions": 67,
+    "backportSource": "1573331dab5f393ea87be7bd19df857c7e748760",
+    "backportExecuted": false
+  },
+  "uat": "Authenticated production role CRUD/UAT remains pending; mocked browser and local backend tests do not constitute business sign-off."
+}
