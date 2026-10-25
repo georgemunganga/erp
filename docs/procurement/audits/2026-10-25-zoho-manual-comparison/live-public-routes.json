@@ -1,0 +1,62 @@
+[
+  {
+    "path": "/sign-in",
+    "status": 200,
+    "title": "Sign in — ERP workspace",
+    "notFoundText": false
+  },
+  {
+    "path": "/core",
+    "status": 200,
+    "title": "ERP Core — Organization and settings",
+    "notFoundText": false
+  },
+  {
+    "path": "/core/workspace/settings",
+    "status": 404,
+    "title": "HR workspace",
+    "notFoundText": false
+  },
+  {
+    "path": "/core/workspace/settings/branding",
+    "status": 404,
+    "title": "HR workspace",
+    "notFoundText": false
+  },
+  {
+    "path": "/core/branding",
+    "status": 200,
+    "title": "Company branding — ERP Core",
+    "notFoundText": false
+  },
+  {
+    "path": "/hrm",
+    "status": 200,
+    "title": "Home — Newworldcargo HRM",
+    "notFoundText": false
+  },
+  {
+    "path": "/hrm/workspace/settings",
+    "status": 404,
+    "title": "HR workspace",
+    "notFoundText": false
+  },
+  {
+    "path": "/procurement/workspace/",
+    "status": 200,
+    "title": "Procurement Â· ERP",
+    "notFoundText": false
+  },
+  {
+    "path": "/procurement/workspace/vendors",
+    "status": 200,
+    "title": "Procurement Â· ERP",
+    "notFoundText": false
+  },
+  {
+    "path": "/procurement/workspace/settings",
+    "status": 200,
+    "title": "Procurement Â· ERP",
+    "notFoundText": false
+  }
+]

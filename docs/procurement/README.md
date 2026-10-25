@@ -1,5 +1,7 @@
 # Procurement documentation
 
+[25 October Zoho manuals gap audit](audits/2026-10-25-zoho-manual-comparison/README.md) compares 164 distinct help guides and the linked FAQs with our source, specifications, bounded verification and live routes. It includes the per-manual matrix, 55 grouped findings, field/settings crosswalks and a closure roadmap. This is the current audit; older dated baseline claims below remain historical.
+
 [PROC-00 Procurement Module Architecture and Capability Map](PROC-00-PROCUREMENT-MODULE-ARCHITECTURE-AND-CAPABILITY-MAP.md) is the current draft master document. It defines the module boundary, 12 parent capability groups, line-level request routing, shared ERP dependencies, data ownership, and documentation/build sequence.
 
 [Procurement live implementation roadmap](PROC-ROADMAP-LIVE-BUILD.md) is the active build sequence and progress register. It distinguishes source schema, safe draft operations, policy-controlled transitions, UI adapters and production release evidence.

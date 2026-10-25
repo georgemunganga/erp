@@ -1,0 +1,1845 @@
+{
+  "retrievedUtc": "2026-10-25T11:28:35Z",
+  "root": "https://www.zoho.com/procurement/resources/",
+  "scope": "All discovered canonical www.zoho.com/procurement/help/ links, recursively; query and fragments deduplicated. External product/account docs, images, webinars, forums, signup and non-manual marketing not traversed.",
+  "manualAndResourcePages": [
+    {
+      "url": "https://www.zoho.com/procurement/help/admin/approvals/no-approval/",
+      "resolvedUrl": "https://www.zoho.com/procurement/help/admin/approvals/no-approval/",
+      "canonicalUrl": "https://www.zoho.com/procurement/help/admin/approvals/no-approval/",
+      "status": 200,
+      "title": "No Approval | Help | Zoho Procurement",
+      "htmlSha256": "99066031b8444312ebb3990479cd5ac3b98a496ed44b4ce40c401eb191c15bbd",
+      "textWords": 148
+    },
+    {
+      "url": "https://www.zoho.com/procurement/help/analytics/activity/",
+      "resolvedUrl": "https://www.zoho.com/procurement/help/analytics/activity/",
+      "canonicalUrl": "https://www.zoho.com/procurement/help/analytics/activity/",
+      "status": 200,
+      "title": "Activity Analytics | Help | Zoho Procurement",
+      "htmlSha256": "097905af076f988d89d9a58a91b56411958f624a2e823be5750d4faf67230d93",
+      "textWords": 297
+    },
+    {
+      "url": "https://www.zoho.com/procurement/help/analytics/manage-analytic-reports/",
+      "resolvedUrl": "https://www.zoho.com/procurement/help/analytics/manage-analytic-reports/",
+      "canonicalUrl": "https://www.zoho.com/procurement/help/analytics/manage-analytic-reports/",
+      "status": 200,
+      "title": "Manage Analytic Reports | Help | Zoho Procurement",
+      "htmlSha256": "98b2b9867fc63a11b7ff53093ab7c317fd1cdcc5e298f5a48f632e7882cd135a",
+      "textWords": 1236
+    },
+    {
+      "url": "https://www.zoho.com/procurement/help/analytics/overview/",
+      "resolvedUrl": "https://www.zoho.com/procurement/help/analytics/overview/",
+      "canonicalUrl": "https://www.zoho.com/procurement/help/analytics/overview/",
+      "status": 200,
+      "title": "Analytics - Overview | Help | Zoho Procurement",
+      "htmlSha256": "877658f79c6942dc126f400b2d309052ff040b136c1cbe19706573b0e2882b51",
+      "textWords": 214
+    },
+    {
+      "url": "https://www.zoho.com/procurement/help/analytics/payables/",
+      "resolvedUrl": "https://www.zoho.com/procurement/help/analytics/payables/",
+      "canonicalUrl": "https://www.zoho.com/procurement/help/analytics/payables/",
+      "status": 200,
+      "title": "Payables Analytics | Help | Zoho Procurement",
+      "htmlSha256": "c6b52bec92db680b75d269602be31f3f919c039849fdf9f7de73dd49ba14d7c3",
+      "textWords": 896
+    },
+    {
+      "url": "https://www.zoho.com/procurement/help/analytics/purchases/",
+      "resolvedUrl": "https://www.zoho.com/procurement/help/analytics/purchases/",
+      "canonicalUrl": "https://www.zoho.com/procurement/help/analytics/purchases/",
+      "status": 200,
+      "title": "Purchases Analytics | Help | Zoho Procurement",
+      "htmlSha256": "fe58ec50099d6864eeb0d3466b35490ec3eab03ba9b92faf5652211f302f03a1",
+      "textWords": 512
+    },
+    {
+      "url": "https://www.zoho.com/procurement/help/batch-payments/approvals-for-batch-payments/",
+      "resolvedUrl": "https://www.zoho.com/procurement/help/batch-payments/approvals-for-batch-payments/",
+      "canonicalUrl": "https://www.zoho.com/procurement/help/batch-payments/approvals-for-batch-payments/",
+      "status": 200,
+      "title": "Approvals for Batch Payments | Help | Zoho Procurement",
+      "htmlSha256": "16168712b4a2b00b3d207b63c881ed93dc3fd48ffe1bb304911e175103218e53",
+      "textWords": 528
+    },
+    {
+      "url": "https://www.zoho.com/procurement/help/batch-payments/create-batch-payments/",
+      "resolvedUrl": "https://www.zoho.com/procurement/help/batch-payments/create-batch-payments/",
+      "canonicalUrl": "https://www.zoho.com/procurement/help/batch-payments/create-batch-payments/",
+      "status": 200,
+      "title": "Create Batch Payments | Help | Zoho Procurement",
+      "htmlSha256": "2773951fd9b58079f242d9cee0e5cba7a185fd8b868d5da37c62cea0e5d5b816",
+      "textWords": 268
+    },
+    {
+      "url": "https://www.zoho.com/procurement/help/batch-payments/manage-batch-payments/",
+      "resolvedUrl": "https://www.zoho.com/procurement/help/batch-payments/manage-batch-payments/",
+      "canonicalUrl": "https://www.zoho.com/procurement/help/batch-payments/manage-batch-payments/",
+      "status": 200,
+      "title": "Manage Batch Payments | Help | Zoho Procurement",
+      "htmlSha256": "5042ce41c44014747aa64017bdaf1c40e36c91a67797cf6647e77c062bfd66fe",
+      "textWords": 281
+    },
+    {
+      "url": "https://www.zoho.com/procurement/help/batch-payments/other-actions-for-batch-payments/",
+      "resolvedUrl": "https://www.zoho.com/procurement/help/batch-payments/other-actions-for-batch-payments/",
+      "canonicalUrl": "https://www.zoho.com/procurement/help/batch-payments/other-actions-for-batch-payments/",
+      "status": 200,
+      "title": "Other Actions for Batch Payments | Help | Zoho Procurement",
+      "htmlSha256": "940c0da3859a9c2cb11551b8bcc59d76719b6b75c5f0689465bcbdbbb0d750fc",
+      "textWords": 441
+    },
+    {
+      "url": "https://www.zoho.com/procurement/help/batch-payments/overview/",
+      "resolvedUrl": "https://www.zoho.com/procurement/help/batch-payments/overview/",
+      "canonicalUrl": "https://www.zoho.com/procurement/help/batch-payments/overview/",
+      "status": 200,
+      "title": "Batch Payments - Overview| Help | Zoho Procurement",
+      "htmlSha256": "009c0c87bbc298b208a99abc5194b9da71dfc521771e64c76581fc927b72441e",
+      "textWords": 331
+    },
+    {
+      "url": "https://www.zoho.com/procurement/help/batch-payments/preferences/",
+      "resolvedUrl": "https://www.zoho.com/procurement/help/batch-payments/preferences/",
+      "canonicalUrl": "https://www.zoho.com/procurement/help/batch-payments/preferences/",
+      "status": 200,
+      "title": "Batch Payments Preferences | Help | Zoho Procurement",
+      "htmlSha256": "19640a113ef8c59d287be165a870f5c6f44234474e163a20f2f260985670fd22",
+      "textWords": 134
+    },
+    {
+      "url": "https://www.zoho.com/procurement/help/batch-payments/record-payments-for-batch-payments/",
+      "resolvedUrl": "https://www.zoho.com/procurement/help/batch-payments/record-payments-for-batch-payments/",
+      "canonicalUrl": "https://www.zoho.com/procurement/help/batch-payments/record-payments-for-batch-payments/",
+      "status": 200,
+      "title": "Record Payment for Batch Payments | Help | Zoho Procurement",
+      "htmlSha256": "ba513397a152e72d386908cc914a9800c4b437ff5f3427427b313821a067b8fd",
+      "textWords": 323
+    },
+    {
+      "url": "https://www.zoho.com/procurement/help/bills/approvals-for-bills/",
+      "resolvedUrl": "https://www.zoho.com/procurement/help/bills/approvals-for-bills/",
+      "canonicalUrl": "https://www.zoho.com/procurement/help/bills/approvals-for-bills/",
+      "status": 200,
+      "title": "Approvals for Bills | Help | Zoho Procurement",
+      "htmlSha256": "d4c069a7827bab54eb1587739a107ddd32aab34c15c5ca242103bd55517e3600",
+      "textWords": 648
+    },
+    {
+      "url": "https://www.zoho.com/procurement/help/bills/bill-reconciliation/",
+      "resolvedUrl": "https://www.zoho.com/procurement/help/bills/bill-reconciliation/",
+      "canonicalUrl": "https://www.zoho.com/procurement/help/bills/bill-reconciliation/",
+      "status": 200,
+      "title": "Bill Reconciliation | Help | Zoho Procurement",
+      "htmlSha256": "11086e4150ac564060dc632e42639f214263bdaa0410324ac88addd322e3842b",
+      "textWords": 493
+    },
+    {
+      "url": "https://www.zoho.com/procurement/help/bills/create-bills/",
+      "resolvedUrl": "https://www.zoho.com/procurement/help/bills/create-bills/",
+      "canonicalUrl": "https://www.zoho.com/procurement/help/bills/create-bills/",
+      "status": 200,
+      "title": "Create Bills | Help | Zoho Procurement",
+      "htmlSha256": "b9711a9bba6ed1fbebe59ac67eacf33b4d9c0cf81951f90c0ed8c185e3fb9033",
+      "textWords": 697
+    },
+    {
+      "url": "https://www.zoho.com/procurement/help/bills/manage-bills/",
+      "resolvedUrl": "https://www.zoho.com/procurement/help/bills/manage-bills/",
+      "canonicalUrl": "https://www.zoho.com/procurement/help/bills/manage-bills/",
+      "status": 200,
+      "title": "Manage Bills | Help | Zoho Procurement",
+      "htmlSha256": "7c1be5bb4b541f61016cf2d23c49c5d9d8a965e1e7c2ff3c5c9293c95b302d60",
+      "textWords": 380
+    },
+    {
+      "url": "https://www.zoho.com/procurement/help/bills/other-actions-for-bills/",
+      "resolvedUrl": "https://www.zoho.com/procurement/help/bills/other-actions-for-bills/",
+      "canonicalUrl": "https://www.zoho.com/procurement/help/bills/other-actions-for-bills/",
+      "status": 200,
+      "title": "Other Actions for Bills | Help | Zoho Procurement",
+      "htmlSha256": "ae302f4fa761e71665ecbb79e10f673a714606def9115531271cb1cc1e57028c",
+      "textWords": 723
+    },
+    {
+      "url": "https://www.zoho.com/procurement/help/bills/overview/",
+      "resolvedUrl": "https://www.zoho.com/procurement/help/bills/overview/",
+      "canonicalUrl": "https://www.zoho.com/procurement/help/bills/overview/",
+      "status": 200,
+      "title": "Bills - Overview| Help | Zoho Procurement",
+      "htmlSha256": "38e1414bedff8dddef6841a4e24a33211a042644b585f28dfe8c4f78fc7d1732",
+      "textWords": 350
+    },
+    {
+      "url": "https://www.zoho.com/procurement/help/bills/preferences/",
+      "resolvedUrl": "https://www.zoho.com/procurement/help/bills/preferences/",
+      "canonicalUrl": "https://www.zoho.com/procurement/help/bills/preferences/",
+      "status": 200,
+      "title": "Bills Preferences | Help | Zoho Procurement",
+      "htmlSha256": "04d76ea4f4705094761b200a56059894949f98e2e63e8637619749410a583f01",
+      "textWords": 336
+    },
+    {
+      "url": "https://www.zoho.com/procurement/help/bills/purchase-order-matching/",
+      "resolvedUrl": "https://www.zoho.com/procurement/help/bills/purchase-order-matching/",
+      "canonicalUrl": "https://www.zoho.com/procurement/help/bills/purchase-order-matching/",
+      "status": 200,
+      "title": "Purchase Order Matching | Help | Zoho Procurement",
+      "htmlSha256": "a07717c22b4d48726be4f9e327f2f6c40354dfca6992c66e48473ecd46cc4632",
+      "textWords": 327
+    },
+    {
+      "url": "https://www.zoho.com/procurement/help/bills/record-payments-for-bills/",
+      "resolvedUrl": "https://www.zoho.com/procurement/help/bills/record-payments-for-bills/",
+      "canonicalUrl": "https://www.zoho.com/procurement/help/bills/record-payments-for-bills/",
+      "status": 200,
+      "title": "Record Payment for Bills | Help | Zoho Procurement",
+      "htmlSha256": "b3cad0a3e4b20a66d8c6251e9afae0e1a875b43e481f536a1566fc93bafebbe7",
+      "textWords": 812
+    },
+    {
+      "url": "https://www.zoho.com/procurement/help/bills/share-bills/",
+      "resolvedUrl": "https://www.zoho.com/procurement/help/bills/share-bills/",
+      "canonicalUrl": "https://www.zoho.com/procurement/help/bills/share-bills/",
+      "status": 200,
+      "title": "Share Bills | Help | Zoho Procurement",
+      "htmlSha256": "32ac5fe5bd8c6fecdd43ed31783c6a7df4c5da0be61ec27a4037d5a54c986642",
+      "textWords": 308
+    },
+    {
+      "url": "https://www.zoho.com/procurement/help/budgets/budget-vs-actuals-report/",
+      "resolvedUrl": "https://www.zoho.com/procurement/help/budgets/budget-vs-actuals-report/",
+      "canonicalUrl": "https://www.zoho.com/procurement/help/budgets/budget-vs-actuals-report/",
+      "status": 200,
+      "title": "Budget vs Actuals Report | Help | Zoho Procurement",
+      "htmlSha256": "ab7a5163f42f9475510ee77b7e0c1c254b2f107e808f2fc29d3bfe475c349bfd",
+      "textWords": 697
+    },
+    {
+      "url": "https://www.zoho.com/procurement/help/budgets/create-budgets/",
+      "resolvedUrl": "https://www.zoho.com/procurement/help/budgets/create-budgets/",
+      "canonicalUrl": "https://www.zoho.com/procurement/help/budgets/create-budgets/",
+      "status": 200,
+      "title": "Create Budgets | Help | Zoho Procurement",
+      "htmlSha256": "fe0478e2a9d02831348810f5c4dc3e39ac11240e6888d57b5fb673fda6b5cff1",
+      "textWords": 1578
+    },
+    {
+      "url": "https://www.zoho.com/procurement/help/budgets/manage-budgets/",
+      "resolvedUrl": "https://www.zoho.com/procurement/help/budgets/manage-budgets/",
+      "canonicalUrl": "https://www.zoho.com/procurement/help/budgets/manage-budgets/",
+      "status": 200,
+      "title": "Manage Budgets | Help | Zoho Procurement",
+      "htmlSha256": "4251678652938a41e584e056eda3613e3af4799c3f208e3bcf3fb7d6ea2c5e35",
+      "textWords": 187
+    },
+    {
+      "url": "https://www.zoho.com/procurement/help/budgets/overview/",
+      "resolvedUrl": "https://www.zoho.com/procurement/help/budgets/overview/",
+      "canonicalUrl": "https://www.zoho.com/procurement/help/budgets/overview/",
+      "status": 200,
+      "title": "Budgets - Overview | Help | Zoho Procurement",
+      "htmlSha256": "107219dee0363cd33585403059200a6be8ab930ea05b6decd4a82fffb09bb83e",
+      "textWords": 322
+    },
+    {
+      "url": "https://www.zoho.com/procurement/help/budgets/share-budgets/",
+      "resolvedUrl": "https://www.zoho.com/procurement/help/budgets/share-budgets/",
+      "canonicalUrl": "https://www.zoho.com/procurement/help/budgets/share-budgets/",
+      "status": 200,
+      "title": "Share Budgets | Help | Zoho Procurement",
+      "htmlSha256": "d2d5cab9f505cf0b776d4df4971bc96555e893373b1e74e5b7a4c3aa0ce99572",
+      "textWords": 196
+    },
+    {
+      "url": "https://www.zoho.com/procurement/help/custom-modules/blueprints/",
+      "resolvedUrl": "https://www.zoho.com/procurement/help/custom-modules/blueprints/",
+      "canonicalUrl": "https://www.zoho.com/procurement/help/custom-modules/blueprints/",
+      "status": 200,
+      "title": "Blueprints | Help | Zoho Procurement",
+      "htmlSha256": "d4eacd2d2123da07e4ecbb7c94146d132850de424a47c1db376ef412bc60d503",
+      "textWords": 3412
+    },
+    {
+      "url": "https://www.zoho.com/procurement/help/custom-modules/create-custom-modules/",
+      "resolvedUrl": "https://www.zoho.com/procurement/help/custom-modules/create-custom-modules/",
+      "canonicalUrl": "https://www.zoho.com/procurement/help/custom-modules/create-custom-modules/",
+      "status": 200,
+      "title": "Create Custom Modules | Help | Zoho Procurement",
+      "htmlSha256": "42bf8a39e64d74f76553022d5710f024929d63499fe2fd00f5a8370b6c36f310",
+      "textWords": 1398
+    },
+    {
+      "url": "https://www.zoho.com/procurement/help/custom-modules/custom-modules-in-vendor-portal/",
+      "resolvedUrl": "https://www.zoho.com/procurement/help/custom-modules/custom-modules-in-vendor-portal/",
+      "canonicalUrl": "https://www.zoho.com/procurement/help/custom-modules/custom-modules-in-vendor-portal/",
+      "status": 200,
+      "title": "Custom Modules in Vendor Portal | Help | Zoho Procurement",
+      "htmlSha256": "d74f6298e746519603627fbc5f9d665f80b84e3494713508d505f4fb518b0cf5",
+      "textWords": 870
+    },
+    {
+      "url": "https://www.zoho.com/procurement/help/custom-modules/manage-custom-module-records/",
+      "resolvedUrl": "https://www.zoho.com/procurement/help/custom-modules/manage-custom-module-records/",
+      "canonicalUrl": "https://www.zoho.com/procurement/help/custom-modules/manage-custom-module-records/",
+      "status": 200,
+      "title": "Manage Custom Module Records | Help | Zoho Procurement",
+      "htmlSha256": "c5a84df8ea8e8c66a4473aabc07f32efe7b75b899d33aaf5ba94596c394f3e5b",
+      "textWords": 754
+    },
+    {
+      "url": "https://www.zoho.com/procurement/help/custom-modules/manage-custom-modules/",
+      "resolvedUrl": "https://www.zoho.com/procurement/help/custom-modules/manage-custom-modules/",
+      "canonicalUrl": "https://www.zoho.com/procurement/help/custom-modules/manage-custom-modules/",
+      "status": 200,
+      "title": "Manage Custom Modules | Help | Zoho Procurement",
+      "htmlSha256": "1778351433bb3703a8ceed8180572a2dc17a50dbf0a8f7d11ee94adcfca452e4",
+      "textWords": 1013
+    },
+    {
+      "url": "https://www.zoho.com/procurement/help/custom-modules/overview/",
+      "resolvedUrl": "https://www.zoho.com/procurement/help/custom-modules/overview/",
+      "canonicalUrl": "https://www.zoho.com/procurement/help/custom-modules/overview/",
+      "status": 200,
+      "title": "Custom Modules - Overview | Help | Zoho Procurement",
+      "htmlSha256": "64d69e05f8b3392e7527fdf2a38bf5657ec0da8080b55dad59d6b40e0695f6a0",
+      "textWords": 352
+    },
+    {
+      "url": "https://www.zoho.com/procurement/help/custom-modules/preferences/",
+      "resolvedUrl": "https://www.zoho.com/procurement/help/custom-modules/preferences/",
+      "canonicalUrl": "https://www.zoho.com/procurement/help/custom-modules/preferences/",
+      "status": 200,
+      "title": "Custom Module Preferences | Help | Zoho Procurement",
+      "htmlSha256": "2eec2b874fd28941f1fbcf6b047b18e463f89c0670b7b46799b8abec292f09a8",
+      "textWords": 353
+    },
+    {
+      "url": "https://www.zoho.com/procurement/help/customization/custom-field-data-types/",
+      "resolvedUrl": "https://www.zoho.com/procurement/help/customization/custom-field-data-types/",
+      "canonicalUrl": "https://www.zoho.com/procurement/help/customization/custom-field-data-types/",
+      "status": 200,
+      "title": "Custom Field Data Types | Help | Zoho Procurement",
+      "htmlSha256": "642721ba595ed96cadd80d5c7aa704d8213e51aa4f2da771ebdd18e21ea0f617",
+      "textWords": 1418
+    },
+    {
+      "url": "https://www.zoho.com/procurement/help/getting-started/navigating-zoho-procurement/",
+      "resolvedUrl": "https://www.zoho.com/procurement/help/getting-started/navigating-zoho-procurement/",
+      "canonicalUrl": "https://www.zoho.com/procurement/help/getting-started/navigating-zoho-procurement/",
+      "status": 200,
+      "title": "Navigating Zoho Procurement | Help | Zoho Procurement",
+      "htmlSha256": "fc1fa56b369f8062c8ce1e7e9387e23c0060352951429e38229defaebb79f623",
+      "textWords": 240
+    },
+    {
+      "url": "https://www.zoho.com/procurement/help/getting-started/welcome/",
+      "resolvedUrl": "https://www.zoho.com/procurement/help/getting-started/welcome/",
+      "canonicalUrl": "https://www.zoho.com/procurement/help/getting-started/welcome/",
+      "status": 200,
+      "title": "Help Document | Zoho Procurement",
+      "htmlSha256": "30d7768afe0a8970dfc76adb4d9e26d5108065970be12258d6d18ea1ae0fcc8c",
+      "textWords": 364
+    },
+    {
+      "url": "https://www.zoho.com/procurement/help/home/dashboard/",
+      "resolvedUrl": "https://www.zoho.com/procurement/help/home/dashboard/",
+      "canonicalUrl": "https://www.zoho.com/procurement/help/home/dashboard/",
+      "status": 200,
+      "title": "Dashboard | Help | Zoho Procurement",
+      "htmlSha256": "e719df182996a742ffdad745b14e9e7d9149f094ddde5a8fc7a8214abc309600",
+      "textWords": 641
+    },
+    {
+      "url": "https://www.zoho.com/procurement/help/home/my-home/",
+      "resolvedUrl": "https://www.zoho.com/procurement/help/home/my-home/",
+      "canonicalUrl": "https://www.zoho.com/procurement/help/home/my-home/",
+      "status": 200,
+      "title": "My Home | Help | Zoho Procurement",
+      "htmlSha256": "9d4563d1578e3b65b7673be744c4f14d9f8bdde7d1deda5e8575ca75ef1a1b54",
+      "textWords": 259
+    },
+    {
+      "url": "https://www.zoho.com/procurement/help/items/create-items/",
+      "resolvedUrl": "https://www.zoho.com/procurement/help/items/create-items/",
+      "canonicalUrl": "https://www.zoho.com/procurement/help/items/create-items/",
+      "status": 200,
+      "title": "Create Items | Help | Zoho Procurement",
+      "htmlSha256": "e0f3fff326026cfa1c4317f7c286e835a3f837ddb25c099575fff46434e8b3db",
+      "textWords": 425
+    },
+    {
+      "url": "https://www.zoho.com/procurement/help/items/manage-items/",
+      "resolvedUrl": "https://www.zoho.com/procurement/help/items/manage-items/",
+      "canonicalUrl": "https://www.zoho.com/procurement/help/items/manage-items/",
+      "status": 200,
+      "title": "Manage Items | Help | Zoho Procurement",
+      "htmlSha256": "380ed89b4cbb4bb27b9b01edac0143081fd787c2296a6988f4f0418aa0ecbc59",
+      "textWords": 498
+    },
+    {
+      "url": "https://www.zoho.com/procurement/help/items/other-actions-for-items/",
+      "resolvedUrl": "https://www.zoho.com/procurement/help/items/other-actions-for-items/",
+      "canonicalUrl": "https://www.zoho.com/procurement/help/items/other-actions-for-items/",
+      "status": 200,
+      "title": "Other Actions for Items | Help | Zoho Procurement",
+      "htmlSha256": "036a198bdbc28ceb7843237a2a6476f21305b8b7d09980263fe6567cedaf9bb0",
+      "textWords": 699
+    },
+    {
+      "url": "https://www.zoho.com/procurement/help/items/overview/",
+      "resolvedUrl": "https://www.zoho.com/procurement/help/items/overview/",
+      "canonicalUrl": "https://www.zoho.com/procurement/help/items/overview/",
+      "status": 200,
+      "title": "Items - Overview| Help | Zoho Procurement",
+      "htmlSha256": "27da2832e1806a194579ca6929ff5f206b7e6d4ca79067e42b3723a8676b4a06",
+      "textWords": 146
+    },
+    {
+      "url": "https://www.zoho.com/procurement/help/items/preferences/",
+      "resolvedUrl": "https://www.zoho.com/procurement/help/items/preferences/",
+      "canonicalUrl": "https://www.zoho.com/procurement/help/items/preferences/",
+      "status": 200,
+      "title": "Items Preferences | Help | Zoho Procurement",
+      "htmlSha256": "75ab418e7462abe51df4d406db2dc21652aba66395b286a19af143a1309bc933",
+      "textWords": 500
+    },
+    {
+      "url": "https://www.zoho.com/procurement/help/manage-organization-and-account/manage-organization/",
+      "resolvedUrl": "https://www.zoho.com/procurement/help/manage-organization-and-account/manage-organization/",
+      "canonicalUrl": "https://www.zoho.com/procurement/help/manage-organization-and-account/manage-organization/",
+      "status": 200,
+      "title": "Manage Organization | Help | Zoho Procurement",
+      "htmlSha256": "810ad7695196e45fe459073eabc008359bdb825f44f924fe6b08f512d43b7bb3",
+      "textWords": 545
+    },
+    {
+      "url": "https://www.zoho.com/procurement/help/manage-organization-and-account/manage-zoho-account/",
+      "resolvedUrl": "https://www.zoho.com/procurement/help/manage-organization-and-account/manage-zoho-account/",
+      "canonicalUrl": "https://www.zoho.com/procurement/help/manage-organization-and-account/manage-zoho-account/",
+      "status": 200,
+      "title": "Manage Zoho Account | Help | Zoho Procurement",
+      "htmlSha256": "36cc741c60c4ff257534ddc05631c6670ab9b7bbc6a4caf1812488a74086a55b",
+      "textWords": 662
+    },
+    {
+      "url": "https://www.zoho.com/procurement/help/my-requests/approval-for-purchase-requests/",
+      "resolvedUrl": "https://www.zoho.com/procurement/help/my-requests/approval-for-purchase-requests/",
+      "canonicalUrl": null,
+      "status": 404,
+      "title": "Zoho - Page Not Found",
+      "htmlSha256": "dcdac6ba63c7788471d562d9866afe991608e4d4f554eaab86f7c0e6bbfd897f",
+      "textWords": 0
+    },
+    {
+      "url": "https://www.zoho.com/procurement/help/my-requests/approvals-for-my-requests/",
+      "resolvedUrl": "https://www.zoho.com/procurement/help/my-requests/approvals-for-my-requests/",
+      "canonicalUrl": "https://www.zoho.com/procurement/help/my-requests/approvals-for-my-requests/",
+      "status": 200,
+      "title": "Approvals For Purchase Requests | Help | Zoho Procurement",
+      "htmlSha256": "67c40b950698008dd48763baad286325334172b199b9a26ea9250572b94ed680",
+      "textWords": 750
+    },
+    {
+      "url": "https://www.zoho.com/procurement/help/my-requests/create-purchase-requests/",
+      "resolvedUrl": "https://www.zoho.com/procurement/help/my-requests/create-purchase-requests/",
+      "canonicalUrl": "https://www.zoho.com/procurement/help/my-requests/create-purchase-requests/",
+      "status": 200,
+      "title": "Create Purchase Requests | Help | Zoho Procurement",
+      "htmlSha256": "1feafc803316ae3c9fa950d8dc7bfd784bac9cfd26db65a2a94012cc162f8988",
+      "textWords": 451
+    },
+    {
+      "url": "https://www.zoho.com/procurement/help/my-requests/download-and-print-pr/",
+      "resolvedUrl": "https://www.zoho.com/procurement/help/my-requests/download-and-print-pr/",
+      "canonicalUrl": "https://www.zoho.com/procurement/help/my-requests/download-and-print-pr/",
+      "status": 200,
+      "title": "Share Purchase Requests | Help | Zoho Procurement",
+      "htmlSha256": "dd3cb5ec597769c031ad87f156d913f027c2dd12479a2ab9e406830af78bce02",
+      "textWords": 212
+    },
+    {
+      "url": "https://www.zoho.com/procurement/help/my-requests/manage-purchase-requests/",
+      "resolvedUrl": "https://www.zoho.com/procurement/help/my-requests/manage-purchase-requests/",
+      "canonicalUrl": "https://www.zoho.com/procurement/help/my-requests/manage-purchase-requests/",
+      "status": 200,
+      "title": "Manage Your Purchase Requests | Help | Zoho Procurement",
+      "htmlSha256": "e70d4230f9cf787c0ddb443908ff0e9644c47b2df00b0f4c52f3545c0747871f",
+      "textWords": 308
+    },
+    {
+      "url": "https://www.zoho.com/procurement/help/my-requests/other-actions/",
+      "resolvedUrl": "https://www.zoho.com/procurement/help/my-requests/other-actions/",
+      "canonicalUrl": "https://www.zoho.com/procurement/help/my-requests/other-actions/",
+      "status": 200,
+      "title": "Other Actions in Purchase Requests | Help | Zoho Procurement",
+      "htmlSha256": "e60201e6fdd2a24d487adb19e8b6c2d9831f398aa743fb6aeb0399ab7d5b4c00",
+      "textWords": 479
+    },
+    {
+      "url": "https://www.zoho.com/procurement/help/my-requests/overview/",
+      "resolvedUrl": "https://www.zoho.com/procurement/help/my-requests/overview/",
+      "canonicalUrl": "https://www.zoho.com/procurement/help/my-requests/overview/",
+      "status": 200,
+      "title": "Purchase Requests - Overview | Help | Zoho Procurement",
+      "htmlSha256": "68d8c061e42f7eb30a4789a16cb7782a87fd4b3a2fcb53c5e69244bd94a3086a",
+      "textWords": 401
+    },
+    {
+      "url": "https://www.zoho.com/procurement/help/my-requests/share-purchase-requests/",
+      "resolvedUrl": "https://www.zoho.com/procurement/help/my-requests/share-purchase-requests/",
+      "canonicalUrl": null,
+      "status": 404,
+      "title": "Zoho - Page Not Found",
+      "htmlSha256": "898cdee36e0546466cf1b487e344adfa66d1d91d02a15439d9b77ace59d9d437",
+      "textWords": 0
+    },
+    {
+      "url": "https://www.zoho.com/procurement/help/payments-made/approvals-for-payments-made/",
+      "resolvedUrl": "https://www.zoho.com/procurement/help/payments-made/approvals-for-payments-made/",
+      "canonicalUrl": "https://www.zoho.com/procurement/help/payments-made/approvals-for-payments-made/",
+      "status": 200,
+      "title": "Approvals for Payments Made | Help | Zoho Procurement",
+      "htmlSha256": "1a5755a21cb20855b3a0c135721c761ffa6a37dc3ee19cf0d7943097634a6979",
+      "textWords": 546
+    },
+    {
+      "url": "https://www.zoho.com/procurement/help/payments-made/manage-payments-made/",
+      "resolvedUrl": "https://www.zoho.com/procurement/help/payments-made/manage-payments-made/",
+      "canonicalUrl": "https://www.zoho.com/procurement/help/payments-made/manage-payments-made/",
+      "status": 200,
+      "title": "Manage Payments Made | Help | Zoho Procurement",
+      "htmlSha256": "3fe8515a52b24d7bbe1736090dc777df853a834d7811bd08168972b14a6e5838",
+      "textWords": 410
+    },
+    {
+      "url": "https://www.zoho.com/procurement/help/payments-made/other-actions-for-payments-made/",
+      "resolvedUrl": "https://www.zoho.com/procurement/help/payments-made/other-actions-for-payments-made/",
+      "canonicalUrl": "https://www.zoho.com/procurement/help/payments-made/other-actions-for-payments-made/",
+      "status": 200,
+      "title": "Other Actions for Payments Made | Help | Zoho Procurement",
+      "htmlSha256": "87527d021acbfe96aec58ce590b1c9a5ddfa93c708b5191fa641b65a3d5f9c4e",
+      "textWords": 670
+    },
+    {
+      "url": "https://www.zoho.com/procurement/help/payments-made/overview/",
+      "resolvedUrl": "https://www.zoho.com/procurement/help/payments-made/overview/",
+      "canonicalUrl": "https://www.zoho.com/procurement/help/payments-made/overview/",
+      "status": 200,
+      "title": "Payments Made - Overview | Help | Zoho Procurement",
+      "htmlSha256": "d6452e4d64313fbb54b6bb9d2ddd43155ef00f4094e17320108bfe2db66ebfcc",
+      "textWords": 322
+    },
+    {
+      "url": "https://www.zoho.com/procurement/help/payments-made/preferences/",
+      "resolvedUrl": "https://www.zoho.com/procurement/help/payments-made/preferences/",
+      "canonicalUrl": "https://www.zoho.com/procurement/help/payments-made/preferences/",
+      "status": 200,
+      "title": "Payments Made Preferences | Help | Zoho Procurement",
+      "htmlSha256": "23a8b1b8d61d6625240116d47b18cd53b574c6ad5187edcc56904551e9128d09",
+      "textWords": 209
+    },
+    {
+      "url": "https://www.zoho.com/procurement/help/payments-made/record-payments-made/",
+      "resolvedUrl": "https://www.zoho.com/procurement/help/payments-made/record-payments-made/",
+      "canonicalUrl": "https://www.zoho.com/procurement/help/payments-made/record-payments-made/",
+      "status": 200,
+      "title": "Record Payments Made | Help | Zoho Procurement",
+      "htmlSha256": "efa824d6d570c179eba74dc9d2e536b4149d1aa08d36bbb014b7a98734a8a5cd",
+      "textWords": 798
+    },
+    {
+      "url": "https://www.zoho.com/procurement/help/payments-made/share-payments-made/",
+      "resolvedUrl": "https://www.zoho.com/procurement/help/payments-made/share-payments-made/",
+      "canonicalUrl": "https://www.zoho.com/procurement/help/payments-made/share-payments-made/",
+      "status": 200,
+      "title": "Share Payments Made | Help | Zoho Procurement",
+      "htmlSha256": "ec8effd46039e967292d2a2a65c6f8b7ae2e895f81a71e8c6c67f346102a66fc",
+      "textWords": 491
+    },
+    {
+      "url": "https://www.zoho.com/procurement/help/purchase-orders/approvals-for-purchase-orders/",
+      "resolvedUrl": "https://www.zoho.com/procurement/help/purchase-orders/approvals-for-purchase-orders/",
+      "canonicalUrl": "https://www.zoho.com/procurement/help/purchase-orders/approvals-for-purchase-orders/",
+      "status": 200,
+      "title": "Approvals for Purchase Orders | Help | Zoho Procurement",
+      "htmlSha256": "d134b20ad6acec9c3f41a14bab95ff1c3484a76d28a17b16202a3d41dbe45603",
+      "textWords": 682
+    },
+    {
+      "url": "https://www.zoho.com/procurement/help/purchase-orders/cancel-purchase-orders/",
+      "resolvedUrl": "https://www.zoho.com/procurement/help/purchase-orders/cancel-purchase-orders/",
+      "canonicalUrl": "https://www.zoho.com/procurement/help/purchase-orders/cancel-purchase-orders/",
+      "status": 200,
+      "title": "Cancel Purchase Orders | Help | Zoho Procurement",
+      "htmlSha256": "fb30151402b7acc48ebc4069e3607903c09c359c17589a09e5b88931efe15683",
+      "textWords": 381
+    },
+    {
+      "url": "https://www.zoho.com/procurement/help/purchase-orders/convert-purchase-orders/",
+      "resolvedUrl": "https://www.zoho.com/procurement/help/purchase-orders/convert-purchase-orders/",
+      "canonicalUrl": "https://www.zoho.com/procurement/help/purchase-orders/convert-purchase-orders/",
+      "status": 200,
+      "title": "Convert Purchase Orders | Help | Zoho Procurement",
+      "htmlSha256": "0742536e3b3799818d8e504dba449b6856629bc2f8b3f576c292a8f399d39b28",
+      "textWords": 442
+    },
+    {
+      "url": "https://www.zoho.com/procurement/help/purchase-orders/create-purchase-orders/",
+      "resolvedUrl": "https://www.zoho.com/procurement/help/purchase-orders/create-purchase-orders/",
+      "canonicalUrl": "https://www.zoho.com/procurement/help/purchase-orders/create-purchase-orders/",
+      "status": 200,
+      "title": "Create Purchase Orders | Help | Zoho Procurement",
+      "htmlSha256": "357d7fdb69b944fe39e9fe3c04fe06c3099a0b0f7b192aa88fa4865da7ebc065",
+      "textWords": 812
+    },
+    {
+      "url": "https://www.zoho.com/procurement/help/purchase-orders/manage-purchase-orders/",
+      "resolvedUrl": "https://www.zoho.com/procurement/help/purchase-orders/manage-purchase-orders/",
+      "canonicalUrl": "https://www.zoho.com/procurement/help/purchase-orders/manage-purchase-orders/",
+      "status": 200,
+      "title": "Manage Purchase Orders | Help | Zoho Procurement",
+      "htmlSha256": "6975f8920f0ce44e8168a9c986dfad8fa6912b914c3a12e366f6fb84e62f6364",
+      "textWords": 259
+    },
+    {
+      "url": "https://www.zoho.com/procurement/help/purchase-orders/other-actions-for-purchase-orders/",
+      "resolvedUrl": "https://www.zoho.com/procurement/help/purchase-orders/other-actions-for-purchase-orders/",
+      "canonicalUrl": "https://www.zoho.com/procurement/help/purchase-orders/other-actions-for-purchase-orders/",
+      "status": 200,
+      "title": "Other Actions for Purchase Orders | Help | Zoho Procurement",
+      "htmlSha256": "1030dd4e7ba3a437fd9aa413b0b56d603070ab8ca50c267d24a145766d250fd7",
+      "textWords": 764
+    },
+    {
+      "url": "https://www.zoho.com/procurement/help/purchase-orders/overview/",
+      "resolvedUrl": "https://www.zoho.com/procurement/help/purchase-orders/overview/",
+      "canonicalUrl": "https://www.zoho.com/procurement/help/purchase-orders/overview/",
+      "status": 200,
+      "title": "Purchase Orders - Overview | Help | Zoho Procurement",
+      "htmlSha256": "a20f9ad15c721c11fb1d64887d6afd0d7af817a9de5169977de8786dd1389ba2",
+      "textWords": 397
+    },
+    {
+      "url": "https://www.zoho.com/procurement/help/purchase-orders/preferences/",
+      "resolvedUrl": "https://www.zoho.com/procurement/help/purchase-orders/preferences/",
+      "canonicalUrl": "https://www.zoho.com/procurement/help/purchase-orders/preferences/",
+      "status": 200,
+      "title": "Purchase Orders Preferences | Help | Zoho Procurement",
+      "htmlSha256": "c0c570eea1a09fd9df42215a399f4ea57c4db832c0625c80f82464134fb43e33",
+      "textWords": 427
+    },
+    {
+      "url": "https://www.zoho.com/procurement/help/purchase-orders/share-purchase-orders/",
+      "resolvedUrl": "https://www.zoho.com/procurement/help/purchase-orders/share-purchase-orders/",
+      "canonicalUrl": "https://www.zoho.com/procurement/help/purchase-orders/share-purchase-orders/",
+      "status": 200,
+      "title": "Share Purchase Orders | Help | Zoho Procurement",
+      "htmlSha256": "6ef24114c80b225c4d5d4a43b9ed22d1eecc1f060515f7e7c4570a7509329c81",
+      "textWords": 389
+    },
+    {
+      "url": "https://www.zoho.com/procurement/help/purchase-receives/create-purchase-receives/",
+      "resolvedUrl": "https://www.zoho.com/procurement/help/purchase-receives/create-purchase-receives/",
+      "canonicalUrl": "https://www.zoho.com/procurement/help/purchase-receives/create-purchase-receives/",
+      "status": 200,
+      "title": "Create Purchase Receives | Help | Zoho Procurement",
+      "htmlSha256": "65f942793234d5378b8799c0dbe77bae4088645af61bba6bed96fb1b8161139a",
+      "textWords": 448
+    },
+    {
+      "url": "https://www.zoho.com/procurement/help/purchase-receives/manage-purchase-receives/",
+      "resolvedUrl": "https://www.zoho.com/procurement/help/purchase-receives/manage-purchase-receives/",
+      "canonicalUrl": "https://www.zoho.com/procurement/help/purchase-receives/manage-purchase-receives/",
+      "status": 200,
+      "title": "Manage Purchase Receives | Help | Zoho Procurement",
+      "htmlSha256": "ffed011bd6849bb7d197b4a0087d64c42d5ff7813dabd4dd63f8f96828616166",
+      "textWords": 370
+    },
+    {
+      "url": "https://www.zoho.com/procurement/help/purchase-receives/other-actions-for-purchase-receives/",
+      "resolvedUrl": "https://www.zoho.com/procurement/help/purchase-receives/other-actions-for-purchase-receives/",
+      "canonicalUrl": "https://www.zoho.com/procurement/help/purchase-receives/other-actions-for-purchase-receives/",
+      "status": 200,
+      "title": "Other Actions for Purchase Receives | Help | Zoho Procurement",
+      "htmlSha256": "2fdd97e7dc86ff4085aa05c5a1a0c8ebac2a94241f7b566e7ca071241ff08f3a",
+      "textWords": 435
+    },
+    {
+      "url": "https://www.zoho.com/procurement/help/purchase-receives/overview/",
+      "resolvedUrl": "https://www.zoho.com/procurement/help/purchase-receives/overview/",
+      "canonicalUrl": "https://www.zoho.com/procurement/help/purchase-receives/overview/",
+      "status": 200,
+      "title": "Purchase Receives - Overview | Help | Zoho Procurement",
+      "htmlSha256": "490d09e9e2ec6e40749b84d2d73043f0768b685dddf3549f4b8839384ad3d179",
+      "textWords": 244
+    },
+    {
+      "url": "https://www.zoho.com/procurement/help/purchase-receives/preferences/",
+      "resolvedUrl": "https://www.zoho.com/procurement/help/purchase-receives/preferences/",
+      "canonicalUrl": "https://www.zoho.com/procurement/help/purchase-receives/preferences/",
+      "status": 200,
+      "title": "Purchase Receives Preferences | Help | Zoho Procurement",
+      "htmlSha256": "0fa164daff6cee764ae343fc0228b32bbdeddb1fe311cee2c7367d36de1e1643",
+      "textWords": 159
+    },
+    {
+      "url": "https://www.zoho.com/procurement/help/purchase-requests/convert-requested-items/",
+      "resolvedUrl": "https://www.zoho.com/procurement/help/purchase-requests/convert-requested-items/",
+      "canonicalUrl": "https://www.zoho.com/procurement/help/purchase-requests/convert-requested-items/",
+      "status": 200,
+      "title": "Convert Requested Items | Help | Zoho Procurement",
+      "htmlSha256": "72c422824ff4d7a1d347b6ea5eeedaea6264a5855a3ac7efa8e158ca75aaaa50",
+      "textWords": 271
+    },
+    {
+      "url": "https://www.zoho.com/procurement/help/purchase-requests/manage-purchase-requests/",
+      "resolvedUrl": "https://www.zoho.com/procurement/help/purchase-requests/manage-purchase-requests/",
+      "canonicalUrl": "https://www.zoho.com/procurement/help/purchase-requests/manage-purchase-requests/",
+      "status": 200,
+      "title": "Manage Purchase Requests | Help | Zoho Procurement",
+      "htmlSha256": "f96c5fb85977a20b03ba39319957c5bd0b7cd98c8c4a7fbce894f676e0f62bc8",
+      "textWords": 869
+    },
+    {
+      "url": "https://www.zoho.com/procurement/help/purchase-requests/purchase-request-preferences/",
+      "resolvedUrl": "https://www.zoho.com/procurement/help/purchase-requests/purchase-request-preferences/",
+      "canonicalUrl": "https://www.zoho.com/procurement/help/purchase-requests/purchase-request-preferences/",
+      "status": 200,
+      "title": "Purchase Requests Preferences | Help | Zoho Procurement",
+      "htmlSha256": "a8b68d749ccc7671b888877ecdd6669914e32a731a9411944eb422ff1f539da4",
+      "textWords": 873
+    },
+    {
+      "url": "https://www.zoho.com/procurement/help/purchase-requests/view-all-purchase-requests/",
+      "resolvedUrl": "https://www.zoho.com/procurement/help/purchase-requests/view-all-purchase-requests/",
+      "canonicalUrl": "https://www.zoho.com/procurement/help/purchase-requests/view-all-purchase-requests/",
+      "status": 200,
+      "title": "View All Purchase Requests | Help | Zoho Procurement",
+      "htmlSha256": "5eb8dcf99966afeaeb658b2e4090e0551d3c978ade036f63f98506b2999d93e4",
+      "textWords": 352
+    },
+    {
+      "url": "https://www.zoho.com/procurement/help/recurring-bills/create-recurring-bills/",
+      "resolvedUrl": "https://www.zoho.com/procurement/help/recurring-bills/create-recurring-bills/",
+      "canonicalUrl": "https://www.zoho.com/procurement/help/recurring-bills/create-recurring-bills/",
+      "status": 200,
+      "title": "Create Recurring Bills | Help | Zoho Procurement",
+      "htmlSha256": "185a0cb60ae16f99230ea7827d93072b36b759ccfdbd402381d1cc818e205606",
+      "textWords": 649
+    },
+    {
+      "url": "https://www.zoho.com/procurement/help/recurring-bills/manage-recurring-bills/",
+      "resolvedUrl": "https://www.zoho.com/procurement/help/recurring-bills/manage-recurring-bills/",
+      "canonicalUrl": "https://www.zoho.com/procurement/help/recurring-bills/manage-recurring-bills/",
+      "status": 200,
+      "title": "Manage Recurring Bills | Help | Zoho Procurement",
+      "htmlSha256": "cd6a9c8d3479cb580e35839cb88fa0c61151fcdddd267b34290f6bba452981f8",
+      "textWords": 478
+    },
+    {
+      "url": "https://www.zoho.com/procurement/help/recurring-bills/other-actions-for-recurring-bills/",
+      "resolvedUrl": "https://www.zoho.com/procurement/help/recurring-bills/other-actions-for-recurring-bills/",
+      "canonicalUrl": "https://www.zoho.com/procurement/help/recurring-bills/other-actions-for-recurring-bills/",
+      "status": 200,
+      "title": "Other Actions for Recurring Bills | Help | Zoho Procurement",
+      "htmlSha256": "c1a9e333b8fe17dec8a33eb360cdcffec9b527b963d67c5959e3a3562d9d50bd",
+      "textWords": 589
+    },
+    {
+      "url": "https://www.zoho.com/procurement/help/recurring-bills/overview/",
+      "resolvedUrl": "https://www.zoho.com/procurement/help/recurring-bills/overview/",
+      "canonicalUrl": "https://www.zoho.com/procurement/help/recurring-bills/overview/",
+      "status": 200,
+      "title": "Recurring Bills - Overview | Help | Zoho Procurement",
+      "htmlSha256": "012be8e41e44f2a4f5adf9861723b5a264fb0469a3c3656e2be2b4d6bac307ab",
+      "textWords": 214
+    },
+    {
+      "url": "https://www.zoho.com/procurement/help/recurring-bills/preferences/",
+      "resolvedUrl": "https://www.zoho.com/procurement/help/recurring-bills/preferences/",
+      "canonicalUrl": "https://www.zoho.com/procurement/help/recurring-bills/preferences/",
+      "status": 200,
+      "title": "Recurring Bills Preferences | Help | Zoho Procurement",
+      "htmlSha256": "4b685e66d4da46652a47ca93bcc8a1f2f51313c156cd4cf3fae7bc01dba326d2",
+      "textWords": 159
+    },
+    {
+      "url": "https://www.zoho.com/procurement/help/recurring-bills/record-payments-for-child-bills/",
+      "resolvedUrl": "https://www.zoho.com/procurement/help/recurring-bills/record-payments-for-child-bills/",
+      "canonicalUrl": "https://www.zoho.com/procurement/help/recurring-bills/record-payments-for-child-bills/",
+      "status": 200,
+      "title": "Record Payment for Child Bills | Help | Zoho Procurement",
+      "htmlSha256": "9aad9f8a36bff8c9046f6c8b13da9c35a0018e51025da94bcfb7b0443820c0cf",
+      "textWords": 205
+    },
+    {
+      "url": "https://www.zoho.com/procurement/help/request-for-quotes/approvals-for-request-for-quotes/",
+      "resolvedUrl": "https://www.zoho.com/procurement/help/request-for-quotes/approvals-for-request-for-quotes/",
+      "canonicalUrl": "https://www.zoho.com/procurement/help/request-for-quotes/approvals-for-request-for-quotes/",
+      "status": 200,
+      "title": "Approvals for Request for Quotes | Help | Zoho Procurement",
+      "htmlSha256": "4161650bca6a33e554419fe4bd44d4939a1a6b787d11b984cc9133b9d5cdf1c8",
+      "textWords": 603
+    },
+    {
+      "url": "https://www.zoho.com/procurement/help/request-for-quotes/award-request-for-quotes/",
+      "resolvedUrl": "https://www.zoho.com/procurement/help/request-for-quotes/award-request-for-quotes/",
+      "canonicalUrl": "https://www.zoho.com/procurement/help/request-for-quotes/award-request-for-quotes/",
+      "status": 200,
+      "title": "Award Request for Quotes | Help | Zoho Procurement",
+      "htmlSha256": "79dee45191d6b03930fc816b93ceb918b6f8ab7fb40ee056ca328b13e42a373e",
+      "textWords": 1055
+    },
+    {
+      "url": "https://www.zoho.com/procurement/help/request-for-quotes/create-request-for-quotes/",
+      "resolvedUrl": "https://www.zoho.com/procurement/help/request-for-quotes/create-request-for-quotes/",
+      "canonicalUrl": "https://www.zoho.com/procurement/help/request-for-quotes/create-request-for-quotes/",
+      "status": 200,
+      "title": "Create Request for Quotes | Help | Zoho Procurement",
+      "htmlSha256": "e9688c73acb64b8bb6db94fea1b5dfdcaabb12b2c1fc92eb487093d94af86bd5",
+      "textWords": 1361
+    },
+    {
+      "url": "https://www.zoho.com/procurement/help/request-for-quotes/manage-request-for-quotes/",
+      "resolvedUrl": "https://www.zoho.com/procurement/help/request-for-quotes/manage-request-for-quotes/",
+      "canonicalUrl": "https://www.zoho.com/procurement/help/request-for-quotes/manage-request-for-quotes/",
+      "status": 200,
+      "title": "Manage Request for Quotes | Help | Zoho Procurement",
+      "htmlSha256": "f0edc635e19c1c5a5c8035267d1efcc8818bcb44eb01f3b40a88d5a51928430f",
+      "textWords": 606
+    },
+    {
+      "url": "https://www.zoho.com/procurement/help/request-for-quotes/other-actions-for-request-for-quotes/",
+      "resolvedUrl": "https://www.zoho.com/procurement/help/request-for-quotes/other-actions-for-request-for-quotes/",
+      "canonicalUrl": "https://www.zoho.com/procurement/help/request-for-quotes/other-actions-for-request-for-quotes/",
+      "status": 200,
+      "title": "Other Actions for Request for Quotes | Help | Zoho Procurement",
+      "htmlSha256": "17b2d33e44538f1a37ebe36054da7b1ac12cbf29a41fe6b4bbcc9367af0d803b",
+      "textWords": 431
+    },
+    {
+      "url": "https://www.zoho.com/procurement/help/request-for-quotes/overview/",
+      "resolvedUrl": "https://www.zoho.com/procurement/help/request-for-quotes/overview/",
+      "canonicalUrl": "https://www.zoho.com/procurement/help/request-for-quotes/overview/",
+      "status": 200,
+      "title": "Request for Quotes - Overview | Help | Zoho Procurement",
+      "htmlSha256": "456ce501a4ecc503aa2e0cf56ed37bb7257dea8a467cb487d1db5d6838e66f27",
+      "textWords": 577
+    },
+    {
+      "url": "https://www.zoho.com/procurement/help/request-for-quotes/preferences/",
+      "resolvedUrl": "https://www.zoho.com/procurement/help/request-for-quotes/preferences/",
+      "canonicalUrl": "https://www.zoho.com/procurement/help/request-for-quotes/preferences/",
+      "status": 200,
+      "title": "Request for Quotes Preferences",
+      "htmlSha256": "612aa992d953652ef9642ad684289a176aea08afc15017482af9219d184d8f83",
+      "textWords": 440
+    },
+    {
+      "url": "https://www.zoho.com/procurement/help/request-for-quotes/preferences//",
+      "resolvedUrl": "https://www.zoho.com/procurement/help/request-for-quotes/preferences//",
+      "canonicalUrl": "https://www.zoho.com/procurement/help/request-for-quotes/preferences/",
+      "status": 200,
+      "title": "Request for Quotes Preferences",
+      "htmlSha256": "854717128c115b47276eda9b02c37e0da8fd1ef09db2b710171232b576d861d5",
+      "textWords": 440
+    },
+    {
+      "url": "https://www.zoho.com/procurement/help/request-for-quotes/publish-request-for-quotes/",
+      "resolvedUrl": "https://www.zoho.com/procurement/help/request-for-quotes/publish-request-for-quotes/",
+      "canonicalUrl": "https://www.zoho.com/procurement/help/request-for-quotes/publish-request-for-quotes/",
+      "status": 200,
+      "title": "Publish Request for Quotes | Help | Zoho Procurement",
+      "htmlSha256": "790c0344988c2e1d51ce4ee6632d6f406536dc6a84045d934ff64ef8d62995ba",
+      "textWords": 693
+    },
+    {
+      "url": "https://www.zoho.com/procurement/help/request-for-quotes/share-request-for-quotes/",
+      "resolvedUrl": "https://www.zoho.com/procurement/help/request-for-quotes/share-request-for-quotes/",
+      "canonicalUrl": "https://www.zoho.com/procurement/help/request-for-quotes/share-request-for-quotes/",
+      "status": 200,
+      "title": "Share Request for Quotes | Help | Zoho Procurement",
+      "htmlSha256": "c5db340eaa08c3aecd1966c7cc3fcf79aa5de18280cb636a3d0fe4c46cedaad2",
+      "textWords": 210
+    },
+    {
+      "url": "https://www.zoho.com/procurement/help/request-for-quotes/surrogate-bids/",
+      "resolvedUrl": "https://www.zoho.com/procurement/help/request-for-quotes/surrogate-bids/",
+      "canonicalUrl": "https://www.zoho.com/procurement/help/request-for-quotes/surrogate-bids/",
+      "status": 200,
+      "title": "Surrogate Bids",
+      "htmlSha256": "fd18ac66e1af40c71fa783862120a5639eade90026464236a6fe54c766676e0e",
+      "textWords": 558
+    },
+    {
+      "url": "https://www.zoho.com/procurement/help/request-for-quotes/vendor-actions/",
+      "resolvedUrl": "https://www.zoho.com/procurement/help/request-for-quotes/vendor-actions/",
+      "canonicalUrl": null,
+      "status": 404,
+      "title": "Zoho - Page Not Found",
+      "htmlSha256": "29caa01aacb5082d7752e6351a829948c188f3d3c4dcae68be43fe546d489446",
+      "textWords": 0
+    },
+    {
+      "url": "https://www.zoho.com/procurement/help/settings/approvals/custom-approval/",
+      "resolvedUrl": "https://www.zoho.com/procurement/help/settings/approvals/custom-approval/",
+      "canonicalUrl": "https://www.zoho.com/procurement/help/settings/approvals/custom-approval/",
+      "status": 200,
+      "title": "Custom Approval | Help | Zoho Procurement",
+      "htmlSha256": "3b3517815e65cf3dc3da1fcebad3e41dfd4382e15c79049f33699325370ebf95",
+      "textWords": 935
+    },
+    {
+      "url": "https://www.zoho.com/procurement/help/settings/approvals/hierarchical-approval/",
+      "resolvedUrl": "https://www.zoho.com/procurement/help/settings/approvals/hierarchical-approval/",
+      "canonicalUrl": "https://www.zoho.com/procurement/help/settings/approvals/hierarchical-approval/",
+      "status": 200,
+      "title": "Hierarchical Approval | Help | Zoho Procurement",
+      "htmlSha256": "5823f2d689cb59703c032ffe03a0476dd08660f3ad4f1d5a477269d0b9b52422",
+      "textWords": 179
+    },
+    {
+      "url": "https://www.zoho.com/procurement/help/settings/approvals/multi-level-approval/",
+      "resolvedUrl": "https://www.zoho.com/procurement/help/settings/approvals/multi-level-approval/",
+      "canonicalUrl": "https://www.zoho.com/procurement/help/settings/approvals/multi-level-approval/",
+      "status": 200,
+      "title": "Multi-Level Approval | Help | Zoho Procurement",
+      "htmlSha256": "8c29b74eeca917799d614174aae4143e6e6e7c80da80799e42f8875bb874a076",
+      "textWords": 415
+    },
+    {
+      "url": "https://www.zoho.com/procurement/help/settings/approvals/no-approval/",
+      "resolvedUrl": "https://www.zoho.com/procurement/help/settings/approvals/no-approval/",
+      "canonicalUrl": null,
+      "status": 404,
+      "title": "Zoho - Page Not Found",
+      "htmlSha256": "7664f02218d178d2c7159b7bb4c3a90fe13554cb8d6c8916f2dca46945954ed3",
+      "textWords": 0
+    },
+    {
+      "url": "https://www.zoho.com/procurement/help/settings/approvals/overview/",
+      "resolvedUrl": "https://www.zoho.com/procurement/help/settings/approvals/overview/",
+      "canonicalUrl": "https://www.zoho.com/procurement/help/settings/approvals/overview/",
+      "status": 200,
+      "title": "Approvals - Overview | Help | Zoho",
+      "htmlSha256": "3e2658c2a2f689e19246d87ea287088e2d038bec1428b6e05b237cb0e74b0f3b",
+      "textWords": 208
+    },
+    {
+      "url": "https://www.zoho.com/procurement/help/settings/approvals/simple-approval/",
+      "resolvedUrl": "https://www.zoho.com/procurement/help/settings/approvals/simple-approval/",
+      "canonicalUrl": "https://www.zoho.com/procurement/help/settings/approvals/simple-approval/",
+      "status": 200,
+      "title": "Simple Approval| Help | Zoho Procurement",
+      "htmlSha256": "beab4412f4f1b12008e8199bb70a1f659fac882aa1d8d88959215fa7e38e9117",
+      "textWords": 414
+    },
+    {
+      "url": "https://www.zoho.com/procurement/help/settings/automation/custom-functions/",
+      "resolvedUrl": "https://www.zoho.com/procurement/help/settings/automation/custom-functions/",
+      "canonicalUrl": "https://www.zoho.com/procurement/help/settings/automation/custom-functions/",
+      "status": 200,
+      "title": "Custom Functions | Help | Zoho Procurement",
+      "htmlSha256": "826d791e74cdf1d25d8f47444521eb6d759954ac062b2362b30427eda44497e1",
+      "textWords": 673
+    },
+    {
+      "url": "https://www.zoho.com/procurement/help/settings/automation/email-alerts/",
+      "resolvedUrl": "https://www.zoho.com/procurement/help/settings/automation/email-alerts/",
+      "canonicalUrl": "https://www.zoho.com/procurement/help/settings/automation/email-alerts/",
+      "status": 200,
+      "title": "Email Alerts | Help | Zoho Procurement",
+      "htmlSha256": "39d8be2203eaefceda7085fe60868c00857695d1bf94c958b55f52aca5ff1f32",
+      "textWords": 571
+    },
+    {
+      "url": "https://www.zoho.com/procurement/help/settings/automation/field-updates/",
+      "resolvedUrl": "https://www.zoho.com/procurement/help/settings/automation/field-updates/",
+      "canonicalUrl": "https://www.zoho.com/procurement/help/settings/automation/field-updates/",
+      "status": 200,
+      "title": "Field Updates | Help | Zoho Procurement",
+      "htmlSha256": "74a9224d97df0e5983a6b8b14d3e14b3535e768ddc3f57658e3b20fc4b65ab9d",
+      "textWords": 590
+    },
+    {
+      "url": "https://www.zoho.com/procurement/help/settings/automation/in-app-notifications/",
+      "resolvedUrl": "https://www.zoho.com/procurement/help/settings/automation/in-app-notifications/",
+      "canonicalUrl": "https://www.zoho.com/procurement/help/settings/automation/in-app-notifications/",
+      "status": 200,
+      "title": "In-app Notifications | Help | Zoho Procurement",
+      "htmlSha256": "eee951d5738b94d1c48a8cf198321c61c52d81fbdf28a21dba257ce6c44602b6",
+      "textWords": 555
+    },
+    {
+      "url": "https://www.zoho.com/procurement/help/settings/automation/schedules/",
+      "resolvedUrl": "https://www.zoho.com/procurement/help/settings/automation/schedules/",
+      "canonicalUrl": "https://www.zoho.com/procurement/help/settings/automation/schedules/",
+      "status": 200,
+      "title": "Schedules | Help | Zoho Procurement",
+      "htmlSha256": "bfd01c4a2cbba30f72601d8cd2a4d4b960ced72d9610e526e2758aa5fa09d027",
+      "textWords": 789
+    },
+    {
+      "url": "https://www.zoho.com/procurement/help/settings/automation/webhooks/",
+      "resolvedUrl": "https://www.zoho.com/procurement/help/settings/automation/webhooks/",
+      "canonicalUrl": "https://www.zoho.com/procurement/help/settings/automation/webhooks/",
+      "status": 200,
+      "title": "Webhooks | Help | Zoho Procurement",
+      "htmlSha256": "1cb198361ed0f13a7467291add3b2cbb9b5b5867f9af301b86830c5a31904c35",
+      "textWords": 1331
+    },
+    {
+      "url": "https://www.zoho.com/procurement/help/settings/automation/workflow-rules/",
+      "resolvedUrl": "https://www.zoho.com/procurement/help/settings/automation/workflow-rules/",
+      "canonicalUrl": "https://www.zoho.com/procurement/help/settings/automation/workflow-rules/",
+      "status": 200,
+      "title": "Workflow Rules | Help | Zoho Procurement",
+      "htmlSha256": "994d062c93976856c7b659104eaa878f9a5e0194fba21e52004fa2786a9348ef",
+      "textWords": 2243
+    },
+    {
+      "url": "https://www.zoho.com/procurement/help/settings/customization/custom-buttons/",
+      "resolvedUrl": "https://www.zoho.com/procurement/help/settings/customization/custom-buttons/",
+      "canonicalUrl": "https://www.zoho.com/procurement/help/settings/customization/custom-buttons/",
+      "status": 200,
+      "title": "Custom Buttons | Help | Zoho Procurement",
+      "htmlSha256": "553ba2ba93c702bd8200c0080a205fb75cadf011e0e37e1eb6bc8d75f80b817b",
+      "textWords": 1111
+    },
+    {
+      "url": "https://www.zoho.com/procurement/help/settings/customization/custom-field-data-types/",
+      "resolvedUrl": "https://www.zoho.com/procurement/help/settings/customization/custom-field-data-types/",
+      "canonicalUrl": null,
+      "status": 404,
+      "title": "Zoho - Page Not Found",
+      "htmlSha256": "7816d6520b7902357039e3519188a1447f427c05150544eeb862702d3e37d110",
+      "textWords": 0
+    },
+    {
+      "url": "https://www.zoho.com/procurement/help/settings/customization/custom-fields/",
+      "resolvedUrl": "https://www.zoho.com/procurement/help/settings/customization/custom-fields/",
+      "canonicalUrl": "https://www.zoho.com/procurement/help/settings/customization/custom-fields/",
+      "status": 200,
+      "title": "Custom Fields | Help | Zoho Procurement",
+      "htmlSha256": "5cecf4610743f238274b3e965b4c8c71dc07e4f9a8e44964efefa5d19a594c99",
+      "textWords": 1917
+    },
+    {
+      "url": "https://www.zoho.com/procurement/help/settings/customization/email-notifications/",
+      "resolvedUrl": "https://www.zoho.com/procurement/help/settings/customization/email-notifications/",
+      "canonicalUrl": "https://www.zoho.com/procurement/help/settings/customization/email-notifications/",
+      "status": 200,
+      "title": "Email Notifications | Help | Zoho Procurement",
+      "htmlSha256": "5ac7cd1545fbfc451fa675ba1d59602d0a9fe1843005b857b2ba488d92e98d58",
+      "textWords": 2572
+    },
+    {
+      "url": "https://www.zoho.com/procurement/help/settings/customization/email-notifications/message-service@sender.zohoprocurement.com",
+      "resolvedUrl": "https://www.zoho.com/procurement/help/settings/customization/email-notifications/message-service@sender.zohoprocurement.com",
+      "canonicalUrl": null,
+      "status": 404,
+      "title": "Zoho - Page Not Found",
+      "htmlSha256": "6e57fd69fd1b970788f9a7fc60da464dca13bcbeb013fd3990ed9e6b8e1e64f3",
+      "textWords": 0
+    },
+    {
+      "url": "https://www.zoho.com/procurement/help/settings/customization/formula-data-type/",
+      "resolvedUrl": "https://www.zoho.com/procurement/help/settings/customization/formula-data-type/",
+      "canonicalUrl": "https://www.zoho.com/procurement/help/settings/customization/formula-data-type/",
+      "status": 200,
+      "title": "Formula Data Type | Help | Zoho Procurement",
+      "htmlSha256": "ed76a4acf893ac6c75d5e03e599194aef50111eb8b71fe3ab0060fa7d1c21140",
+      "textWords": 1354
+    },
+    {
+      "url": "https://www.zoho.com/procurement/help/settings/customization/lookup-data-type/",
+      "resolvedUrl": "https://www.zoho.com/procurement/help/settings/customization/lookup-data-type/",
+      "canonicalUrl": "https://www.zoho.com/procurement/help/settings/customization/lookup-data-type/",
+      "status": 200,
+      "title": "Lookup Data Type | Help | Zoho Procurement",
+      "htmlSha256": "35c2a84e9493d3604e3acf0f39aa7252ac1ef1c09a72abedd9b32e11a232a866",
+      "textWords": 335
+    },
+    {
+      "url": "https://www.zoho.com/procurement/help/settings/customization/page-layouts/",
+      "resolvedUrl": "https://www.zoho.com/procurement/help/settings/customization/page-layouts/",
+      "canonicalUrl": "https://www.zoho.com/procurement/help/settings/customization/page-layouts/",
+      "status": 200,
+      "title": "Page Layouts | Help | Zoho Procurement",
+      "htmlSha256": "d7bbcc0bcb7f2f6a7136896940fcd2985a455bf124e80ef560021cdaa6f955c4",
+      "textWords": 380
+    },
+    {
+      "url": "https://www.zoho.com/procurement/help/settings/customization/pdf-templates/",
+      "resolvedUrl": "https://www.zoho.com/procurement/help/settings/customization/pdf-templates/",
+      "canonicalUrl": "https://www.zoho.com/procurement/help/settings/customization/pdf-templates/",
+      "status": 200,
+      "title": "PDF Templates | Help | Zoho Procurement",
+      "htmlSha256": "c6ba106af9fbac8b8b1aa2ae3dbbd780007845078d560c66d01021aff5e022c6",
+      "textWords": 2109
+    },
+    {
+      "url": "https://www.zoho.com/procurement/help/settings/customization/related-lists/",
+      "resolvedUrl": "https://www.zoho.com/procurement/help/settings/customization/related-lists/",
+      "canonicalUrl": "https://www.zoho.com/procurement/help/settings/customization/related-lists/",
+      "status": 200,
+      "title": "Related Lists | Help | Zoho Procurement",
+      "htmlSha256": "edccdd8a15dbe1a5475dc393cfce255482171c0a45332fdbb2e438c380c19392",
+      "textWords": 637
+    },
+    {
+      "url": "https://www.zoho.com/procurement/help/settings/customization/reporting-tags/",
+      "resolvedUrl": "https://www.zoho.com/procurement/help/settings/customization/reporting-tags/",
+      "canonicalUrl": "https://www.zoho.com/procurement/help/settings/customization/reporting-tags/",
+      "status": 200,
+      "title": "Reporting Tags | Help | Zoho Procurement",
+      "htmlSha256": "9a84e617c64c2d8ee8f448ce77c4e570e829bdf88af4ba178012c5676767079a",
+      "textWords": 877
+    },
+    {
+      "url": "https://www.zoho.com/procurement/help/settings/customization/transaction-number-series/",
+      "resolvedUrl": "https://www.zoho.com/procurement/help/settings/customization/transaction-number-series/",
+      "canonicalUrl": "https://www.zoho.com/procurement/help/settings/customization/transaction-number-series/",
+      "status": 200,
+      "title": "Transaction Number Series | Help | Zoho Procurement",
+      "htmlSha256": "dd7d4c8682e7dd571c90da32d836454a8acef5cf5983c0daf552cf02cd4a1242",
+      "textWords": 784
+    },
+    {
+      "url": "https://www.zoho.com/procurement/help/settings/customization/validation-rules/",
+      "resolvedUrl": "https://www.zoho.com/procurement/help/settings/customization/validation-rules/",
+      "canonicalUrl": "https://www.zoho.com/procurement/help/settings/customization/validation-rules/",
+      "status": 200,
+      "title": "Validation Rules | Help | Zoho Procurement",
+      "htmlSha256": "1d22358ab6d22c79298f9449d87628920903f371fb85a8de53287145c23102b2",
+      "textWords": 920
+    },
+    {
+      "url": "https://www.zoho.com/procurement/help/settings/customization/web-tabs/",
+      "resolvedUrl": "https://www.zoho.com/procurement/help/settings/customization/web-tabs/",
+      "canonicalUrl": "https://www.zoho.com/procurement/help/settings/customization/web-tabs/",
+      "status": 200,
+      "title": "Web Tabs | Help | Zoho Procurement",
+      "htmlSha256": "ff3104f1388737e5abbdbfb9da5d9707fa27bf0228d342296066cd3eb8589153",
+      "textWords": 507
+    },
+    {
+      "url": "https://www.zoho.com/procurement/help/settings/developer-data/api-usage/",
+      "resolvedUrl": "https://www.zoho.com/procurement/help/settings/developer-data/api-usage/",
+      "canonicalUrl": "https://www.zoho.com/procurement/help/settings/developer-data/api-usage/",
+      "status": 200,
+      "title": "API Usage | Help | Zoho Procurement",
+      "htmlSha256": "3105dff23886e9cb93ca75d006b4ca08d0637b3978ceb802a674d6df02702a88",
+      "textWords": 1096
+    },
+    {
+      "url": "https://www.zoho.com/procurement/help/settings/developer-data/backups/",
+      "resolvedUrl": "https://www.zoho.com/procurement/help/settings/developer-data/backups/",
+      "canonicalUrl": "https://www.zoho.com/procurement/help/settings/developer-data/backups/",
+      "status": 200,
+      "title": "Data Management | Help | Zoho Procurement",
+      "htmlSha256": "ceab96b64e11a8d81abece624370bb882271ab3fdf8a2070a82420c73283b93b",
+      "textWords": 517
+    },
+    {
+      "url": "https://www.zoho.com/procurement/help/settings/developer-data/connections/",
+      "resolvedUrl": "https://www.zoho.com/procurement/help/settings/developer-data/connections/",
+      "canonicalUrl": "https://www.zoho.com/procurement/help/settings/developer-data/connections/",
+      "status": 200,
+      "title": "Connections | Help | Zoho Procurement",
+      "htmlSha256": "b2f04233e114c18fa6fb72b47b5b2246ca79112406b3a726bfc7c1fc05f958b7",
+      "textWords": 1164
+    },
+    {
+      "url": "https://www.zoho.com/procurement/help/settings/developer-data/incoming-webhooks/",
+      "resolvedUrl": "https://www.zoho.com/procurement/help/settings/developer-data/incoming-webhooks/",
+      "canonicalUrl": "https://www.zoho.com/procurement/help/settings/developer-data/incoming-webhooks/",
+      "status": 200,
+      "title": "Incoming Webhooks | Help | Zoho Procurement",
+      "htmlSha256": "47681093388023e11fcd9b04358f5fb09adcae414d1ab2057e8790ac825de33b",
+      "textWords": 931
+    },
+    {
+      "url": "https://www.zoho.com/procurement/help/settings/developer-data/signals/",
+      "resolvedUrl": "https://www.zoho.com/procurement/help/settings/developer-data/signals/",
+      "canonicalUrl": "https://www.zoho.com/procurement/help/settings/developer-data/signals/",
+      "status": 200,
+      "title": "Signals | Help | Zoho Procurement",
+      "htmlSha256": "ad35b47f57e4ce33442e5fa904cf8d274ab3bd784d0c8ae4c77308a5757d26de",
+      "textWords": 1425
+    },
+    {
+      "url": "https://www.zoho.com/procurement/help/settings/developer-data/web-forms/",
+      "resolvedUrl": "https://www.zoho.com/procurement/help/settings/developer-data/web-forms/",
+      "canonicalUrl": "https://www.zoho.com/procurement/help/settings/developer-data/web-forms/",
+      "status": 200,
+      "title": "Web Forms | Help | Zoho Procurement",
+      "htmlSha256": "9cc878a053eac29a40be14740ceecf62ed568852d671a89601054409f9204bb1",
+      "textWords": 1302
+    },
+    {
+      "url": "https://www.zoho.com/procurement/help/settings/module-settings/chart-of-accounts/",
+      "resolvedUrl": "https://www.zoho.com/procurement/help/settings/module-settings/chart-of-accounts/",
+      "canonicalUrl": "https://www.zoho.com/procurement/help/settings/module-settings/chart-of-accounts/",
+      "status": 200,
+      "title": "Chart of Accounts | Help | Zoho Procurement",
+      "htmlSha256": "0f6f6b3846002e642e6a9b61a4327158e0a83c2b2065f77be9e4ee51b98588f7",
+      "textWords": 1913
+    },
+    {
+      "url": "https://www.zoho.com/procurement/help/settings/module-settings/customers/",
+      "resolvedUrl": "https://www.zoho.com/procurement/help/settings/module-settings/customers/",
+      "canonicalUrl": "https://www.zoho.com/procurement/help/settings/module-settings/customers/",
+      "status": 200,
+      "title": "Customers | Help | Zoho Procurement",
+      "htmlSha256": "37a75930a8d65af8a8cc99a1fc8eddf63d58c628fc979387578e24282317b587",
+      "textWords": 933
+    },
+    {
+      "url": "https://www.zoho.com/procurement/help/settings/module-settings/projects/",
+      "resolvedUrl": "https://www.zoho.com/procurement/help/settings/module-settings/projects/",
+      "canonicalUrl": "https://www.zoho.com/procurement/help/settings/module-settings/projects/",
+      "status": 200,
+      "title": "Projects | Help | Zoho Procurement",
+      "htmlSha256": "93a65792628ce9b0535aaa224724f608b8db3bae0586efa664ee879e54ab1081",
+      "textWords": 920
+    },
+    {
+      "url": "https://www.zoho.com/procurement/help/settings/organization/branding/",
+      "resolvedUrl": "https://www.zoho.com/procurement/help/settings/organization/branding/",
+      "canonicalUrl": "https://www.zoho.com/procurement/help/settings/organization/branding/",
+      "status": 200,
+      "title": "Branding | Help | Zoho Procurement",
+      "htmlSha256": "4ed9f8cb63115e23cbe104540d3ee9412a449694445dddd68d988d8e24ac0eaa",
+      "textWords": 314
+    },
+    {
+      "url": "https://www.zoho.com/procurement/help/settings/organization/profile/",
+      "resolvedUrl": "https://www.zoho.com/procurement/help/settings/organization/profile/",
+      "canonicalUrl": "https://www.zoho.com/procurement/help/settings/organization/profile/",
+      "status": 200,
+      "title": "Profile | Help | Zoho Procurement",
+      "htmlSha256": "d4b56daf2aa1b4a4a2d5edfc0aa5880c6f218a6b0a05757c1ee8dc917a6c881e",
+      "textWords": 1603
+    },
+    {
+      "url": "https://www.zoho.com/procurement/help/settings/setup-and-configurations/currencies/",
+      "resolvedUrl": "https://www.zoho.com/procurement/help/settings/setup-and-configurations/currencies/",
+      "canonicalUrl": "https://www.zoho.com/procurement/help/settings/setup-and-configurations/currencies/",
+      "status": 200,
+      "title": "Currencies | Help | Zoho Procurement",
+      "htmlSha256": "189fb83491eedf2e77b143c3d83f37f795ec93cafd4f911f3144f8594f5e8859",
+      "textWords": 1303
+    },
+    {
+      "url": "https://www.zoho.com/procurement/help/settings/setup-and-configurations/general/",
+      "resolvedUrl": "https://www.zoho.com/procurement/help/settings/setup-and-configurations/general/",
+      "canonicalUrl": "https://www.zoho.com/procurement/help/settings/setup-and-configurations/general/",
+      "status": 200,
+      "title": "General - Setup & Configurations | Help | Zoho Procurement",
+      "htmlSha256": "36e8863857959e82006e3e8df34d1a8e1db1b17e309f07734cbacc63b7208e06",
+      "textWords": 523
+    },
+    {
+      "url": "https://www.zoho.com/procurement/help/settings/setup-and-configurations/reminders/",
+      "resolvedUrl": "https://www.zoho.com/procurement/help/settings/setup-and-configurations/reminders/",
+      "canonicalUrl": "https://www.zoho.com/procurement/help/settings/setup-and-configurations/reminders/",
+      "status": 200,
+      "title": "Reminders | Help | Zoho Procurement",
+      "htmlSha256": "b85038ec2c39b27a43c17ace7723a6667566e7f53548085cbfb36110ff65139b",
+      "textWords": 317
+    },
+    {
+      "url": "https://www.zoho.com/procurement/help/settings/setup-and-configurations/vendor-portal-preferences/",
+      "resolvedUrl": "https://www.zoho.com/procurement/help/settings/setup-and-configurations/vendor-portal-preferences/",
+      "canonicalUrl": "https://www.zoho.com/procurement/help/settings/setup-and-configurations/vendor-portal-preferences/",
+      "status": 200,
+      "title": "Vendor Portal Preferences | Help | Zoho Procurement",
+      "htmlSha256": "9a839a7792140e035912d8dfc465242f4779addacbea8e9160a8598b413eb48b",
+      "textWords": 558
+    },
+    {
+      "url": "https://www.zoho.com/procurement/help/settings/taxes-and-compliance/tax-settings/",
+      "resolvedUrl": "https://www.zoho.com/procurement/help/settings/taxes-and-compliance/tax-settings/",
+      "canonicalUrl": "https://www.zoho.com/procurement/help/settings/taxes-and-compliance/tax-settings/",
+      "status": 200,
+      "title": "Tax Settings | Help | Zoho Procurement",
+      "htmlSha256": "26d7812b51c64f07a66aa8323e0baa9d61cf83d8cdaf040eaf41dde97e33df45",
+      "textWords": 836
+    },
+    {
+      "url": "https://www.zoho.com/procurement/help/settings/taxes-and-compliance/taxes/",
+      "resolvedUrl": "https://www.zoho.com/procurement/help/settings/taxes-and-compliance/taxes/",
+      "canonicalUrl": "https://www.zoho.com/procurement/help/settings/taxes-and-compliance/taxes/",
+      "status": 200,
+      "title": "Taxes | Help | Zoho Procurement",
+      "htmlSha256": "bb691421be4d955d262fe10d993ccf8cec8e1ba36726db530854eb91e6848c5e",
+      "textWords": 2107
+    },
+    {
+      "url": "https://www.zoho.com/procurement/help/settings/taxes-and-compliance/tds-rates/",
+      "resolvedUrl": "https://www.zoho.com/procurement/help/settings/taxes-and-compliance/tds-rates/",
+      "canonicalUrl": "https://www.zoho.com/procurement/help/settings/taxes-and-compliance/tds-rates/",
+      "status": 200,
+      "title": "TDS Rates | Help | Zoho Procurement",
+      "htmlSha256": "f502ea113dc4ccd0d2fbf8205c5ea136d3ef701075f915357d9732b28bde315e",
+      "textWords": 1178
+    },
+    {
+      "url": "https://www.zoho.com/procurement/help/settings/users-and-roles/departments/",
+      "resolvedUrl": "https://www.zoho.com/procurement/help/settings/users-and-roles/departments/",
+      "canonicalUrl": "https://www.zoho.com/procurement/help/settings/users-and-roles/departments/",
+      "status": 200,
+      "title": "Departments | Help | Zoho Procurement",
+      "htmlSha256": "219951582d1ee150f1f0895da27984ed507354bef5fb045dfab01463e2c69b3a",
+      "textWords": 722
+    },
+    {
+      "url": "https://www.zoho.com/procurement/help/settings/users-and-roles/roles/",
+      "resolvedUrl": "https://www.zoho.com/procurement/help/settings/users-and-roles/roles/",
+      "canonicalUrl": "https://www.zoho.com/procurement/help/settings/users-and-roles/roles/",
+      "status": 200,
+      "title": "Roles | Help | Zoho Procurement",
+      "htmlSha256": "d5aa55c1eebb0ee34fa28302a55d524f910e349c2aaad29ea8fd3bde92a5644f",
+      "textWords": 1178
+    },
+    {
+      "url": "https://www.zoho.com/procurement/help/settings/users-and-roles/users/",
+      "resolvedUrl": "https://www.zoho.com/procurement/help/settings/users-and-roles/users/",
+      "canonicalUrl": "https://www.zoho.com/procurement/help/settings/users-and-roles/users/",
+      "status": 200,
+      "title": "Users | Help | Zoho Procurement",
+      "htmlSha256": "57590322f75809df0de678260fa1ce7b739e3ad8a9f4ccbb4a9ed28e47fb5f05",
+      "textWords": 1680
+    },
+    {
+      "url": "https://www.zoho.com/procurement/help/vendor-credits/approvals-for-vendor-credits/",
+      "resolvedUrl": "https://www.zoho.com/procurement/help/vendor-credits/approvals-for-vendor-credits/",
+      "canonicalUrl": "https://www.zoho.com/procurement/help/vendor-credits/approvals-for-vendor-credits/",
+      "status": 200,
+      "title": "Approvals for Vendor Credits | Help | Zoho Procurement",
+      "htmlSha256": "8c63c081479df11b8a675fc6017044870cd22984d55514773e1365bedf897cc5",
+      "textWords": 729
+    },
+    {
+      "url": "https://www.zoho.com/procurement/help/vendor-credits/create-vendor-credits/",
+      "resolvedUrl": "https://www.zoho.com/procurement/help/vendor-credits/create-vendor-credits/",
+      "canonicalUrl": "https://www.zoho.com/procurement/help/vendor-credits/create-vendor-credits/",
+      "status": 200,
+      "title": "Create Vendor Credits | Help | Zoho Procurement",
+      "htmlSha256": "38d522962bf8df972e7ee00c178196f9001093a4ce462e9941dce60f97f479ea",
+      "textWords": 599
+    },
+    {
+      "url": "https://www.zoho.com/procurement/help/vendor-credits/manage-vendor-credits/",
+      "resolvedUrl": "https://www.zoho.com/procurement/help/vendor-credits/manage-vendor-credits/",
+      "canonicalUrl": "https://www.zoho.com/procurement/help/vendor-credits/manage-vendor-credits/",
+      "status": 200,
+      "title": "Manage Vendor Credits | Help | Zoho Procurement",
+      "htmlSha256": "932f53c62b45f7b7ef89a41be0616f69d2161449be0bea9442a583e4d0b3c7b7",
+      "textWords": 485
+    },
+    {
+      "url": "https://www.zoho.com/procurement/help/vendor-credits/other-actions-for-vendor-credits/",
+      "resolvedUrl": "https://www.zoho.com/procurement/help/vendor-credits/other-actions-for-vendor-credits/",
+      "canonicalUrl": "https://www.zoho.com/procurement/help/vendor-credits/other-actions-for-vendor-credits/",
+      "status": 200,
+      "title": "Other Actions for Vendor Credits | Help | Zoho Procurement",
+      "htmlSha256": "d3f3e7c4957bdca64986f69bbaf9b130e47cb8e3897c85702bbe6f9b49c9c32c",
+      "textWords": 760
+    },
+    {
+      "url": "https://www.zoho.com/procurement/help/vendor-credits/overview/",
+      "resolvedUrl": "https://www.zoho.com/procurement/help/vendor-credits/overview/",
+      "canonicalUrl": "https://www.zoho.com/procurement/help/vendor-credits/overview/",
+      "status": 200,
+      "title": "Vendor Credits - Overview | Help | Zoho Procurement",
+      "htmlSha256": "f18eafe2b385e903bf1e2f5d49d806b244f27c10d58f647b17c883a93e4e1530",
+      "textWords": 370
+    },
+    {
+      "url": "https://www.zoho.com/procurement/help/vendor-credits/refunds-for-vendor-credits/",
+      "resolvedUrl": "https://www.zoho.com/procurement/help/vendor-credits/refunds-for-vendor-credits/",
+      "canonicalUrl": "https://www.zoho.com/procurement/help/vendor-credits/refunds-for-vendor-credits/",
+      "status": 200,
+      "title": "Refunds for Vendor Credits | Help | Zoho Procurement",
+      "htmlSha256": "cd32eb7f7b2914a6e6d622e081903f8ba77d216fb84045b3c3d0484f946bed26",
+      "textWords": 582
+    },
+    {
+      "url": "https://www.zoho.com/procurement/help/vendor-credits/share-vendor-credits/",
+      "resolvedUrl": "https://www.zoho.com/procurement/help/vendor-credits/share-vendor-credits/",
+      "canonicalUrl": "https://www.zoho.com/procurement/help/vendor-credits/share-vendor-credits/",
+      "status": 200,
+      "title": "Share Vendor Credits | Help | Zoho Procurement",
+      "htmlSha256": "8ae6291d364c094ffe475090782c4945fbce667001d54cf584d2a895e9998681",
+      "textWords": 351
+    },
+    {
+      "url": "https://www.zoho.com/procurement/help/vendor-credits/vendor-credit-preferences/",
+      "resolvedUrl": "https://www.zoho.com/procurement/help/vendor-credits/vendor-credit-preferences/",
+      "canonicalUrl": "https://www.zoho.com/procurement/help/vendor-credits/vendor-credit-preferences/",
+      "status": 200,
+      "title": "Vendor Credits Preferences | Help | Zoho Procurement",
+      "htmlSha256": "5e79bfb1a5f2eb2239aff1e8f2d1d9e6f51c9d7ce79041683ad2b986156b6065",
+      "textWords": 271
+    },
+    {
+      "url": "https://www.zoho.com/procurement/help/vendor-portal/custom-modules/",
+      "resolvedUrl": "https://www.zoho.com/procurement/help/vendor-portal/custom-modules/",
+      "canonicalUrl": "https://www.zoho.com/procurement/help/vendor-portal/custom-modules/",
+      "status": 200,
+      "title": "Custom Modules in Vendor Portal | Help | Zoho Procurement",
+      "htmlSha256": "df3a4bd0aed33b9f38e40e6ffa025ac1a56f2fee6b91ccd7e4a9802b928cef17",
+      "textWords": 394
+    },
+    {
+      "url": "https://www.zoho.com/procurement/help/vendor-portal/home/",
+      "resolvedUrl": "https://www.zoho.com/procurement/help/vendor-portal/home/",
+      "canonicalUrl": "https://www.zoho.com/procurement/help/vendor-portal/home/",
+      "status": 200,
+      "title": "Vendor Portal - Home | Help | Zoho Procurement",
+      "htmlSha256": "068a129d00958273031efb55c289fc1d5dff5ed0b90f7f0b7cb4c1cb3803d233",
+      "textWords": 453
+    },
+    {
+      "url": "https://www.zoho.com/procurement/help/vendor-portal/invoices/",
+      "resolvedUrl": "https://www.zoho.com/procurement/help/vendor-portal/invoices/",
+      "canonicalUrl": "https://www.zoho.com/procurement/help/vendor-portal/invoices/",
+      "status": 200,
+      "title": "Vendor Portal - Invoices | Help | Zoho Procurement",
+      "htmlSha256": "c14da365f88837b72a35b1f62047a75d549540faf6532027d203b18d5fc6ee4c",
+      "textWords": 620
+    },
+    {
+      "url": "https://www.zoho.com/procurement/help/vendor-portal/other-actions/",
+      "resolvedUrl": "https://www.zoho.com/procurement/help/vendor-portal/other-actions/",
+      "canonicalUrl": "https://www.zoho.com/procurement/help/vendor-portal/other-actions/",
+      "status": 200,
+      "title": "Other Actions in Vendor Portal | Help | Zoho Procurement",
+      "htmlSha256": "59fde3958bb26533f3a6b613204cc8ea3e6f448be693ccea78bdd82b792b8ac9",
+      "textWords": 292
+    },
+    {
+      "url": "https://www.zoho.com/procurement/help/vendor-portal/overview/",
+      "resolvedUrl": "https://www.zoho.com/procurement/help/vendor-portal/overview/",
+      "canonicalUrl": "https://www.zoho.com/procurement/help/vendor-portal/overview/",
+      "status": 200,
+      "title": "Vendor Portal - Overview | Help | Zoho Procurement",
+      "htmlSha256": "1de5cb1532ffe4d474a62734a70fc9673bf3617ad8fbab0d0add0c7f9e317c7e",
+      "textWords": 269
+    },
+    {
+      "url": "https://www.zoho.com/procurement/help/vendor-portal/payments-received/",
+      "resolvedUrl": "https://www.zoho.com/procurement/help/vendor-portal/payments-received/",
+      "canonicalUrl": "https://www.zoho.com/procurement/help/vendor-portal/payments-received/",
+      "status": 200,
+      "title": "Vendor Portal - Payments Received | Help | Zoho Procurement",
+      "htmlSha256": "d403f11aa86b4360601ec97fc7c54f300dbf50258baaf0fa325f3f0562c59c83",
+      "textWords": 128
+    },
+    {
+      "url": "https://www.zoho.com/procurement/help/vendor-portal/purchase-orders/",
+      "resolvedUrl": "https://www.zoho.com/procurement/help/vendor-portal/purchase-orders/",
+      "canonicalUrl": "https://www.zoho.com/procurement/help/vendor-portal/purchase-orders/",
+      "status": 200,
+      "title": "Vendor Portal - Purchase Orders | Help | Zoho Procurement",
+      "htmlSha256": "c5e671c46161607362c0b0ebe4cf2ea73fb7a277ba274bd59d7bef543d4a9b06",
+      "textWords": 531
+    },
+    {
+      "url": "https://www.zoho.com/procurement/help/vendor-portal/request-for-quotes/",
+      "resolvedUrl": "https://www.zoho.com/procurement/help/vendor-portal/request-for-quotes/",
+      "canonicalUrl": "https://www.zoho.com/procurement/help/vendor-portal/request-for-quotes/",
+      "status": 200,
+      "title": "Vendor Portal - Request for Quotes | Help | Zoho Procurement",
+      "htmlSha256": "56a7b64004bb74eb107a4c971d1bfa3bf64d561739c859ac9fdd154b246c4292",
+      "textWords": 908
+    },
+    {
+      "url": "https://www.zoho.com/procurement/help/vendor-portal/sign-up/",
+      "resolvedUrl": "https://www.zoho.com/procurement/help/vendor-portal/sign-up/",
+      "canonicalUrl": "https://www.zoho.com/procurement/help/vendor-portal/sign-up/",
+      "status": 200,
+      "title": "Sign Up for Your Portal | Help | Zoho Procurement",
+      "htmlSha256": "fa586642a988c2d2928a74aa1ddb82d8332f24bea539388481ac1e4523ff9de8",
+      "textWords": 432
+    },
+    {
+      "url": "https://www.zoho.com/procurement/help/vendor-portal/statements/",
+      "resolvedUrl": "https://www.zoho.com/procurement/help/vendor-portal/statements/",
+      "canonicalUrl": "https://www.zoho.com/procurement/help/vendor-portal/statements/",
+      "status": 200,
+      "title": "Vendor Portal - Statements | Help | Zoho Procurement",
+      "htmlSha256": "8850a04701cab90f3084f90ff7eb52dbaccc1e74f9604aa4987cde9387bf9465",
+      "textWords": 142
+    },
+    {
+      "url": "https://www.zoho.com/procurement/help/vendors/add-vendors/",
+      "resolvedUrl": "https://www.zoho.com/procurement/help/vendors/add-vendors/",
+      "canonicalUrl": "https://www.zoho.com/procurement/help/vendors/add-vendors/",
+      "status": 200,
+      "title": "Add Vendors | Help | Zoho Procurement",
+      "htmlSha256": "52380204ec72d05400baceab8acf9d1bf91fe74350bbb132a814d9981f901176",
+      "textWords": 530
+    },
+    {
+      "url": "https://www.zoho.com/procurement/help/vendors/approvals-for-vendors/",
+      "resolvedUrl": "https://www.zoho.com/procurement/help/vendors/approvals-for-vendors/",
+      "canonicalUrl": "https://www.zoho.com/procurement/help/vendors/approvals-for-vendors/",
+      "status": 200,
+      "title": "Approvals for Vendors | Help | Zoho Procurement",
+      "htmlSha256": "1e72cecc737edbf973ef69da49e8b278b494e84164a631d5fbed67f70b788026",
+      "textWords": 657
+    },
+    {
+      "url": "https://www.zoho.com/procurement/help/vendors/manage-vendors/",
+      "resolvedUrl": "https://www.zoho.com/procurement/help/vendors/manage-vendors/",
+      "canonicalUrl": "https://www.zoho.com/procurement/help/vendors/manage-vendors/",
+      "status": 200,
+      "title": "Manage Vendors | Help Document | Zoho Procurement",
+      "htmlSha256": "34334a7be9bc5571b11f0e59f42f8e36ae12402221216f47bbab454ae2875d92",
+      "textWords": 464
+    },
+    {
+      "url": "https://www.zoho.com/procurement/help/vendors/other-actions-for-vendors/",
+      "resolvedUrl": "https://www.zoho.com/procurement/help/vendors/other-actions-for-vendors/",
+      "canonicalUrl": "https://www.zoho.com/procurement/help/vendors/other-actions-for-vendors/",
+      "status": 200,
+      "title": "Other Actions for Vendors | Help | Zoho Procurement",
+      "htmlSha256": "cb6f82ed34c50856262d7a800c448e95d3e5a6da7e973fc047a5e913042bb8ab",
+      "textWords": 1104
+    },
+    {
+      "url": "https://www.zoho.com/procurement/help/vendors/overview/",
+      "resolvedUrl": "https://www.zoho.com/procurement/help/vendors/overview/",
+      "canonicalUrl": "https://www.zoho.com/procurement/help/vendors/overview/",
+      "status": 200,
+      "title": "Vendors - Overview| Help | Zoho Procurement",
+      "htmlSha256": "ff0588bc7391ad8be6df36aa20e503dc4e58cfc7697459e997b8b10e9a89fb5a",
+      "textWords": 224
+    },
+    {
+      "url": "https://www.zoho.com/procurement/help/vendors/preferences/",
+      "resolvedUrl": "https://www.zoho.com/procurement/help/vendors/preferences/",
+      "canonicalUrl": "https://www.zoho.com/procurement/help/vendors/preferences/",
+      "status": 200,
+      "title": "Vendor Preferences | Help | Zoho Procurement",
+      "htmlSha256": "87c45096218fd57ee8deeb230d0665914c7cf1bac436094c75add917b1e5b7f2",
+      "textWords": 429
+    },
+    {
+      "url": "https://www.zoho.com/procurement/help/vendors/vendor-onboarding/",
+      "resolvedUrl": "https://www.zoho.com/procurement/help/vendors/vendor-onboarding/",
+      "canonicalUrl": "https://www.zoho.com/procurement/help/vendors/vendor-onboarding/",
+      "status": 200,
+      "title": "Vendor Onboarding | Help | Zoho Procurement",
+      "htmlSha256": "5a17bd8919656a7564e82054821ea8ca1d0d1c15081fdb399d539f67911c8773",
+      "textWords": 818
+    },
+    {
+      "url": "https://www.zoho.com/procurement/resources/",
+      "resolvedUrl": "https://www.zoho.com/procurement/resources/",
+      "canonicalUrl": "https://www.zoho.com/procurement/resources/",
+      "status": 200,
+      "title": "Zoho Procurement Help Center | FAQs, updates, and support",
+      "htmlSha256": "f79e0dd24d4b8841f1d21c867b4990952867e916dfb7cdd382896c3ab59efe71",
+      "textWords": 0
+    }
+  ],
+  "kbPages": [
+    {
+      "url": "https://www.zoho.com/procurement/kb/bills/",
+      "status": 200,
+      "title": "Bills | FAQ | Zoho Procurement",
+      "htmlSha256": "efee1fef76cd1ef50641d99bf630b4aaad9da43a033f95361af5f2b1585d9b0e",
+      "textWords": 96
+    },
+    {
+      "url": "https://www.zoho.com/procurement/kb/bills/add-attachment/",
+      "status": 200,
+      "title": "Attach Files to Bills | FAQ | Zoho Procurement",
+      "htmlSha256": "4c706d698b1e0c7a9ffb97073a895704ccf657707e2f634352882cee7e571dc3",
+      "textWords": 162
+    },
+    {
+      "url": "https://www.zoho.com/procurement/kb/bills/bill-reconciliation/",
+      "status": 200,
+      "title": "Enable Bill Reconciliation | FAQ | Zoho Procurement",
+      "htmlSha256": "3a9179a0e3f10491c7c173fbfa4e422025f8d7272eac964fc1d9f84dca2a26de",
+      "textWords": 160
+    },
+    {
+      "url": "https://www.zoho.com/procurement/kb/bills/recurring-bills/",
+      "status": 200,
+      "title": "Recurring Bills | FAQ | Zoho Procurement",
+      "htmlSha256": "27b95b0ab036b836b9139ea9b2679ad1d0985298801fcb1e54fcc61240f644b4",
+      "textWords": 187
+    },
+    {
+      "url": "https://www.zoho.com/procurement/kb/general/",
+      "status": 200,
+      "title": "General | FAQ | Zoho Procurement",
+      "htmlSha256": "755e85976e82cc00c4cdebf816ae24210ab1f5cc2b4bdeb32922b5380f847d8c",
+      "textWords": 109
+    },
+    {
+      "url": "https://www.zoho.com/procurement/kb/general/automate-data-backup/",
+      "status": 200,
+      "title": "Automate Data Backup | FAQ | Zoho Procurement",
+      "htmlSha256": "b440f4dac083bf6e8777bdcd6977702987f876961cd26d4b92dd876fe3c13feb",
+      "textWords": 89
+    },
+    {
+      "url": "https://www.zoho.com/procurement/kb/general/enable-mfa/",
+      "status": 200,
+      "title": "Enable Multi-Factor Authentication (MFA) | FAQ | Zoho Procurement",
+      "htmlSha256": "97393e8a6cee093ae9628da4a45e0484578b8eb7f17e16f86137f659507b7113",
+      "textWords": 206
+    },
+    {
+      "url": "https://www.zoho.com/procurement/kb/general/invite-email-not-received/",
+      "status": 200,
+      "title": "Invite Email Not Received | FAQ | Zoho Procurement",
+      "htmlSha256": "27b93a48bacca442bea4b14279d25b3a31bc9d14e94f514bdb46677d798d2237",
+      "textWords": 179
+    },
+    {
+      "url": "https://www.zoho.com/procurement/kb/general/operational-hours/",
+      "status": 200,
+      "title": "Operational Hours | FAQ | Zoho Procurement",
+      "htmlSha256": "ef6861bd3abae7bc259a9eb5c341ae55b69db81aa8baf03ec6a8199fc8a064fd",
+      "textWords": 86
+    },
+    {
+      "url": "https://www.zoho.com/procurement/kb/general/verify-email-address/",
+      "status": 200,
+      "title": "Verify Email Address | FAQ | Zoho Procurement",
+      "htmlSha256": "a432030c851fec9e0faaa2f169e82d00024ce9453c2b80476b24f1e838f94ca2",
+      "textWords": 193
+    },
+    {
+      "url": "https://www.zoho.com/procurement/kb/items/",
+      "status": 200,
+      "title": "Items | FAQ | Zoho Procurement",
+      "htmlSha256": "45b982403d3c03c982138d3ecbf4652b184c9f87099a51233b04244fbfa8c7da",
+      "textWords": 94
+    },
+    {
+      "url": "https://www.zoho.com/procurement/kb/items/decimal-rate/",
+      "status": 200,
+      "title": "Change Decimal Rate for Item Quantity | FAQ | Zoho Procurement",
+      "htmlSha256": "3550d5a449e5e292ddf710d6de105bcdd649dd0169de799dadf16ecf149f2dd8",
+      "textWords": 152
+    },
+    {
+      "url": "https://www.zoho.com/procurement/kb/items/item-name-languages/",
+      "status": 200,
+      "title": "Item Name in Various Languages | FAQ | Zoho Procurement",
+      "htmlSha256": "2aad97c40fe6ecda29cb9cfc225ad3aaf3e9248f417200693c1043d93137dc47",
+      "textWords": 107
+    },
+    {
+      "url": "https://www.zoho.com/procurement/kb/items/new-column/",
+      "status": 200,
+      "title": "Add New Column to the Item Table | FAQ | Zoho Procurement",
+      "htmlSha256": "644ed241abbfc4e45861230b5d7f5c9b0230daed181df42f55a2f9eb195765d8",
+      "textWords": 210
+    },
+    {
+      "url": "https://www.zoho.com/procurement/kb/purchase-orders/",
+      "status": 200,
+      "title": "Purchase Orders | FAQ | Zoho Procurement",
+      "htmlSha256": "a85e1c84dee7eed95138905dfc0fb2370e6a7be0ba71f6c54a578fffb66e59ad",
+      "textWords": 133
+    },
+    {
+      "url": "https://www.zoho.com/procurement/kb/purchase-orders/convert-multiple-po-to-bill/",
+      "status": 200,
+      "title": "Convert Multiple Purchase Orders to a Bill | FAQ | Zoho Procurement",
+      "htmlSha256": "166e5806cbc8c4ef3c82122eab03fe43addbab88d95c0d447610741493554a94",
+      "textWords": 302
+    },
+    {
+      "url": "https://www.zoho.com/procurement/kb/purchase-orders/expected-deliver-date/",
+      "status": 200,
+      "title": "Expected Delivery date of Purchase Order | FAQ | Zoho Procurement",
+      "htmlSha256": "1f9e0b135e781dd5cb46d8a0c457aa18d85385bfed068f856a0639e3b67b53f0",
+      "textWords": 131
+    },
+    {
+      "url": "https://www.zoho.com/procurement/kb/purchase-orders/items-missing-multiple-purchase-orders-to-bills/",
+      "status": 200,
+      "title": "Items Missing when Converting Multiple Purchase Orders to Bills | FAQ | Zoho Procurement",
+      "htmlSha256": "3b767df66dedd3c7ee37dcbcae6381435221a85650a5b31e950f46d409df29b3",
+      "textWords": 187
+    },
+    {
+      "url": "https://www.zoho.com/procurement/kb/purchase-orders/partially-bill-po/",
+      "status": 200,
+      "title": "Bill Partially from a Purchase Order | FAQ | Zoho Procurement",
+      "htmlSha256": "cfd792f6baf692ddb82de38fdaa64eed647443c420867b3b76a2adeaff6a3248",
+      "textWords": 174
+    },
+    {
+      "url": "https://www.zoho.com/procurement/kb/purchase-orders/partially-billed/",
+      "status": 200,
+      "title": "Partially Billed Purchase Order | FAQ | Zoho Procurement",
+      "htmlSha256": "dbd0eb81ee3bdd9b8a0107443d50cfaec7bf51355e8914ef262e5d620e95af20",
+      "textWords": 137
+    },
+    {
+      "url": "https://www.zoho.com/procurement/kb/purchase-orders/rejected-purchase-orders/",
+      "status": 200,
+      "title": "View Rejected Purchase Orders | FAQ | Zoho Procurement",
+      "htmlSha256": "b5b41d36e54c8dd89a2ed3a8e036c58ae25ad8bdac65f871b0bec25a6b7367f9",
+      "textWords": 145
+    },
+    {
+      "url": "https://www.zoho.com/procurement/kb/purchase-requests/",
+      "status": 200,
+      "title": "Purchase Requests | FAQ | Zoho Procurement",
+      "htmlSha256": "bdfab817bcf2684167a8514b1fd9b8e3c83574be3180b04765cda2b71d759adc",
+      "textWords": 101
+    },
+    {
+      "url": "https://www.zoho.com/procurement/kb/purchase-requests/convert-pr-to-po/",
+      "status": 200,
+      "title": "Convert Purchase Request to a Purchase Order | FAQ | Zoho Procurement",
+      "htmlSha256": "dd6d4579a7cf16f8719c6c144871671c65882e5a796c3eccd09892c74a382608",
+      "textWords": 147
+    },
+    {
+      "url": "https://www.zoho.com/procurement/kb/purchase-requests/convert-pr-to-rfq/",
+      "status": 200,
+      "title": "Convert Purchase Request to a Request for Quote | FAQ | Zoho Procurement",
+      "htmlSha256": "b2a014ef2c603e98cada80918646f5f3c2b9f32a28698db169f5bbe822bbe3bd",
+      "textWords": 152
+    },
+    {
+      "url": "https://www.zoho.com/procurement/kb/purchase-requests/issue-multiple-items/",
+      "status": 200,
+      "title": "Create Purchase Order With Items From Multiple Purchase Requests | FAQ | Zoho Procurement",
+      "htmlSha256": "1b2ba0383779f500969a4facbefafd8a938839c42add36c35a20c432b8f6a138",
+      "textWords": 129
+    },
+    {
+      "url": "https://www.zoho.com/procurement/kb/request-for-quotes/",
+      "status": 200,
+      "title": "Request for Quotes | FAQ | Zoho Procurement",
+      "htmlSha256": "bac37ea343c4bee0531632f12bf3a816e417131042b25bcbde7484d2069faf00",
+      "textWords": 112
+    },
+    {
+      "url": "https://www.zoho.com/procurement/kb/request-for-quotes/extend-bidding-date/",
+      "status": 200,
+      "title": "Extend Bidding Date of a Request for Quote | FAQ | Zoho Procurement",
+      "htmlSha256": "f9bbdb91e7da24d7412975b9e1a6e63785ed4dff82506a83cbec5f2ed8564bb1",
+      "textWords": 162
+    },
+    {
+      "url": "https://www.zoho.com/procurement/kb/request-for-quotes/include-items-from-multiple-pr/",
+      "status": 200,
+      "title": "Create Request for Quote With Items From Multiple Purchase Requests | FAQ | Zoho Procurement",
+      "htmlSha256": "c5fdab30d5cc88f15914a489ee3133256de241430e46d7ca7f2914f0d445cf45",
+      "textWords": 132
+    },
+    {
+      "url": "https://www.zoho.com/procurement/kb/request-for-quotes/set-approvals/",
+      "status": 200,
+      "title": "Set Approvals for Request for Quotes | FAQ | Zoho Procurement",
+      "htmlSha256": "509f9d2b538344603b209315f08e106acbe4d87e0e94898b4aab26680ffc66d8",
+      "textWords": 131
+    },
+    {
+      "url": "https://www.zoho.com/procurement/kb/request-for-quotes/submit-multiple-bid/",
+      "status": 200,
+      "title": "Allow Vendors to Submit Multiple Bids for a Request for Quote | FAQ | Zoho Procurement",
+      "htmlSha256": "88927383bec8e21d59e023e47f0b08e7eb59722eb2e3036e92f84961a3ae6e9c",
+      "textWords": 139
+    },
+    {
+      "url": "https://www.zoho.com/procurement/kb/users-and-roles/",
+      "status": 200,
+      "title": "People | FAQ | Zoho Procurement",
+      "htmlSha256": "8728afa6055b956f5f596dc06e09908fb4565a3f85ab623159a8b8bf2184b7e7",
+      "textWords": 91
+    },
+    {
+      "url": "https://www.zoho.com/procurement/kb/users-and-roles/default-roles/",
+      "status": 200,
+      "title": "Default Roles | FAQ | Zoho Procurement",
+      "htmlSha256": "81158386d55f6020e8a003b4c2f23657d04d66f7b7bda88e4c54805103ba2bad",
+      "textWords": 136
+    },
+    {
+      "url": "https://www.zoho.com/procurement/kb/users-and-roles/downgrade-inactive-user-license/",
+      "status": 200,
+      "title": "Downgrade Inactive User License | FAQ | Zoho Procurement",
+      "htmlSha256": "f8a7029f26f5a219407c44b17a99e4a2523404831027e04dc58d276a05df8f3b",
+      "textWords": 148
+    },
+    {
+      "url": "https://www.zoho.com/procurement/kb/users-and-roles/inactive-user-license/",
+      "status": 200,
+      "title": "Inactive User License | FAQ | Zoho Procurement",
+      "htmlSha256": "53b9d986c2840963ef9cdb500f660c6a7e65a5155814a3d18453f1c5888fd104",
+      "textWords": 88
+    },
+    {
+      "url": "https://www.zoho.com/procurement/kb/vendors/",
+      "status": 200,
+      "title": "Vendors | FAQ | Zoho Procurement",
+      "htmlSha256": "df62a2bf38fa77c5694e9b510e745fa0e9a74986617015cb5522d7eb621e98cd",
+      "textWords": 119
+    },
+    {
+      "url": "https://www.zoho.com/procurement/kb/vendors/bulk-download-statements/",
+      "status": 200,
+      "title": "Bulk Download Vendor Statements | FAQ | Zoho Procurement",
+      "htmlSha256": "b1cf2481610986ae3953e6271baa8e90022c071129e96810029c509315749e7f",
+      "textWords": 125
+    },
+    {
+      "url": "https://www.zoho.com/procurement/kb/vendors/bulk-update-address/",
+      "status": 200,
+      "title": "Bulk Update Billing or Shipping Addresses | FAQ | Zoho Procurement",
+      "htmlSha256": "a1763bc2c1c85638ee797507cea4658e52e0a5bfdc383552cc1b00ee79075f4f",
+      "textWords": 269
+    },
+    {
+      "url": "https://www.zoho.com/procurement/kb/vendors/change-currency/",
+      "status": 200,
+      "title": "Change Vendor Currency | FAQ | Zoho Procurement",
+      "htmlSha256": "4808608c4efa59f17b69005bab719dd0b35dcab26d91fcbffafa54690330bb4a",
+      "textWords": 240
+    },
+    {
+      "url": "https://www.zoho.com/procurement/kb/vendors/duplicate-vendors/",
+      "status": 200,
+      "title": "Duplicate Vendor Names | FAQ | Zoho Procurement",
+      "htmlSha256": "defd3c87388f9c4562d3bc7c52f6b85dc451a057d2a40980d29844fb097f10bf",
+      "textWords": 112
+    },
+    {
+      "url": "https://www.zoho.com/procurement/kb/vendors/onboard-vendor/",
+      "status": 200,
+      "title": "Onboard Vendors | FAQ | Zoho Procurement",
+      "htmlSha256": "0daf52939ff837815d8f368bda8794f11a0d0979bdcb7fb431907f058c600308",
+      "textWords": 146
+    },
+    {
+      "url": "https://www.zoho.com/procurement/kb/vendors/template-for-vendors/",
+      "status": 200,
+      "title": "Unique Templates for Vendors | FAQ | Zoho Procurement",
+      "htmlSha256": "010ffe233ce397106d112096454da7715d4539e565f2ba5576773a828939b08d",
+      "textWords": 146
+    }
+  ],
+  "rawContent": "Private research cache only; no full Zoho manuals or screenshots redistributed."
+}

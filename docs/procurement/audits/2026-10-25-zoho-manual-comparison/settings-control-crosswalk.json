@@ -1,0 +1,1322 @@
+{
+  "date": "2026-10-25",
+  "scope": "Named UI/Core/settings controls compared with Zoho settings manuals; source-only except cited public route probe and sign-in receipt",
+  "classificationLegend": [
+    "API wired",
+    "capability-gated",
+    "connected read-only",
+    "directory placeholder",
+    "preview-only",
+    "module-owned",
+    "not connected",
+    "release gap verified"
+  ],
+  "baselines": {
+    "procurementUi": "c370275e9242f447cade47bec31c2fb42aa75637",
+    "coreSource": "c38202e57afff83abbcdcbb05f95a27d38a8be26",
+    "signInRelease": "4fdaa711c102e8fc45c8d85e7041bead11554a99"
+  },
+  "roleCatalogComparison": {
+    "path": "private-evidence:role-action-catalog-difference.json",
+    "serverActionCount": 91,
+    "uiChoiceCount": 21,
+    "missingUiChoices": 70,
+    "unknownUiChoices": 0,
+    "meaning": "Static editor coverage; not an observed live authorization failure or absence of role CRUD."
+  },
+  "controls": [
+    {
+      "id": "SET-01",
+      "control": "Legal entity and organization profile",
+      "owner": "ERP Core",
+      "classification": "connected read-only in real mode",
+      "persistence": "Core organization API GET",
+      "coverage": "Core route maps OrganizationConfig; entity table mutation controls are disabled in real mode.",
+      "destination": "/core/workspace/settings/organization; current public hierarchical path 404",
+      "sourceEvidence": [
+        {
+          "path": "modules/hrm/frontend/module-connect/src/routes/core.workspace.settings.$slug.tsx",
+          "line": 21,
+          "repository": "erp",
+          "sourceCommit": "c38202e57afff83abbcdcbb05f95a27d38a8be26",
+          "sourceUrl": "https://github.com/georgemunganga/erp/blob/c38202e57afff83abbcdcbb05f95a27d38a8be26/modules/hrm/frontend/module-connect/src/routes/core.workspace.settings.$slug.tsx#L21"
+        },
+        {
+          "path": "modules/hrm/frontend/module-connect/src/routes/hrm.configuration.organisation.tsx",
+          "line": 719,
+          "repository": "erp",
+          "sourceCommit": "c38202e57afff83abbcdcbb05f95a27d38a8be26",
+          "sourceUrl": "https://github.com/georgemunganga/erp/blob/c38202e57afff83abbcdcbb05f95a27d38a8be26/modules/hrm/frontend/module-connect/src/routes/hrm.configuration.organisation.tsx#L719"
+        },
+        {
+          "path": "modules/hrm/frontend/module-connect/src/routes/hrm.configuration.organisation.tsx",
+          "line": 958,
+          "repository": "erp",
+          "sourceCommit": "c38202e57afff83abbcdcbb05f95a27d38a8be26",
+          "sourceUrl": "https://github.com/georgemunganga/erp/blob/c38202e57afff83abbcdcbb05f95a27d38a8be26/modules/hrm/frontend/module-connect/src/routes/hrm.configuration.organisation.tsx#L958"
+        }
+      ],
+      "manualUrls": [
+        "https://www.zoho.com/procurement/help/settings/organization/profile/"
+      ]
+    },
+    {
+      "id": "SET-02",
+      "control": "Work locations create",
+      "owner": "ERP Core / HRM structure",
+      "classification": "API wired; deployment unverified",
+      "persistence": "realApi.createLocation",
+      "coverage": "Add work location calls real API; table maintenance controls disabled in real mode.",
+      "destination": "/core/workspace/settings/organization#locations",
+      "sourceEvidence": [
+        {
+          "path": "modules/hrm/frontend/module-connect/src/routes/hrm.configuration.organisation.tsx",
+          "line": 328,
+          "repository": "erp",
+          "sourceCommit": "c38202e57afff83abbcdcbb05f95a27d38a8be26",
+          "sourceUrl": "https://github.com/georgemunganga/erp/blob/c38202e57afff83abbcdcbb05f95a27d38a8be26/modules/hrm/frontend/module-connect/src/routes/hrm.configuration.organisation.tsx#L328"
+        },
+        {
+          "path": "modules/hrm/frontend/module-connect/src/routes/hrm.configuration.organisation.tsx",
+          "line": 864,
+          "repository": "erp",
+          "sourceCommit": "c38202e57afff83abbcdcbb05f95a27d38a8be26",
+          "sourceUrl": "https://github.com/georgemunganga/erp/blob/c38202e57afff83abbcdcbb05f95a27d38a8be26/modules/hrm/frontend/module-connect/src/routes/hrm.configuration.organisation.tsx#L864"
+        },
+        {
+          "path": "modules/hrm/frontend/module-connect/src/routes/hrm.configuration.organisation.tsx",
+          "line": 966,
+          "repository": "erp",
+          "sourceCommit": "c38202e57afff83abbcdcbb05f95a27d38a8be26",
+          "sourceUrl": "https://github.com/georgemunganga/erp/blob/c38202e57afff83abbcdcbb05f95a27d38a8be26/modules/hrm/frontend/module-connect/src/routes/hrm.configuration.organisation.tsx#L966"
+        }
+      ],
+      "manualUrls": [
+        "https://www.zoho.com/procurement/help/settings/users-and-roles/departments/"
+      ]
+    },
+    {
+      "id": "SET-03",
+      "control": "Departments and cost centers",
+      "owner": "ERP Core / HRM structure",
+      "classification": "API wired partial; full lifecycle unverified",
+      "persistence": "realApi.orgUnits GET and closeOrgUnit write",
+      "coverage": "Departments list is live; a dated close action calls real API. Delete/bulk actions are excluded in real mode; create/import/edit parity unverified.",
+      "destination": "/core/workspace/settings/organization#departments",
+      "sourceEvidence": [
+        {
+          "path": "modules/hrm/frontend/module-connect/src/routes/hrm.configuration.organisation.tsx",
+          "line": 721,
+          "repository": "erp",
+          "sourceCommit": "c38202e57afff83abbcdcbb05f95a27d38a8be26",
+          "sourceUrl": "https://github.com/georgemunganga/erp/blob/c38202e57afff83abbcdcbb05f95a27d38a8be26/modules/hrm/frontend/module-connect/src/routes/hrm.configuration.organisation.tsx#L721"
+        },
+        {
+          "path": "modules/hrm/frontend/module-connect/src/routes/hrm.configuration.organisation.tsx",
+          "line": 979,
+          "repository": "erp",
+          "sourceCommit": "c38202e57afff83abbcdcbb05f95a27d38a8be26",
+          "sourceUrl": "https://github.com/georgemunganga/erp/blob/c38202e57afff83abbcdcbb05f95a27d38a8be26/modules/hrm/frontend/module-connect/src/routes/hrm.configuration.organisation.tsx#L979"
+        },
+        {
+          "path": "modules/hrm/frontend/module-connect/src/routes/hrm.configuration.organisation.tsx",
+          "line": 1017,
+          "repository": "erp",
+          "sourceCommit": "c38202e57afff83abbcdcbb05f95a27d38a8be26",
+          "sourceUrl": "https://github.com/georgemunganga/erp/blob/c38202e57afff83abbcdcbb05f95a27d38a8be26/modules/hrm/frontend/module-connect/src/routes/hrm.configuration.organisation.tsx#L1017"
+        },
+        {
+          "path": "modules/hrm/frontend/module-connect/src/routes/hrm.configuration.organisation.tsx",
+          "line": 192,
+          "repository": "erp",
+          "sourceCommit": "c38202e57afff83abbcdcbb05f95a27d38a8be26",
+          "sourceUrl": "https://github.com/georgemunganga/erp/blob/c38202e57afff83abbcdcbb05f95a27d38a8be26/modules/hrm/frontend/module-connect/src/routes/hrm.configuration.organisation.tsx#L192"
+        }
+      ],
+      "manualUrls": [
+        "https://www.zoho.com/procurement/help/settings/users-and-roles/departments/"
+      ]
+    },
+    {
+      "id": "SET-04",
+      "control": "Company display name and sign-in branding",
+      "owner": "ERP Core",
+      "classification": "API wired; public read presentation verified",
+      "persistence": "realApi.branding/updateBranding/resetBranding; public branding GET",
+      "coverage": "Branding editor calls live API; accepted public sign-in browser checks cover display/read, not admin write/reset.",
+      "destination": "/core/workspace/settings/branding (current public 404); older /core/branding 200",
+      "sourceEvidence": [
+        {
+          "path": "modules/hrm/frontend/module-connect/src/routes/hrm.configuration.branding.tsx",
+          "line": 157,
+          "repository": "erp",
+          "sourceCommit": "c38202e57afff83abbcdcbb05f95a27d38a8be26",
+          "sourceUrl": "https://github.com/georgemunganga/erp/blob/c38202e57afff83abbcdcbb05f95a27d38a8be26/modules/hrm/frontend/module-connect/src/routes/hrm.configuration.branding.tsx#L157"
+        },
+        {
+          "path": "modules/hrm/frontend/module-connect/src/routes/hrm.configuration.branding.tsx",
+          "line": 208,
+          "repository": "erp",
+          "sourceCommit": "c38202e57afff83abbcdcbb05f95a27d38a8be26",
+          "sourceUrl": "https://github.com/georgemunganga/erp/blob/c38202e57afff83abbcdcbb05f95a27d38a8be26/modules/hrm/frontend/module-connect/src/routes/hrm.configuration.branding.tsx#L208"
+        },
+        {
+          "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Api/ApiRoutesClean.cs",
+          "line": 1373,
+          "repository": "erp",
+          "sourceCommit": "c38202e57afff83abbcdcbb05f95a27d38a8be26",
+          "sourceUrl": "https://github.com/georgemunganga/erp/blob/c38202e57afff83abbcdcbb05f95a27d38a8be26/backend/hrm-api/src/Mightyfin.Erp.Hrm.Api/ApiRoutesClean.cs#L1373"
+        }
+      ],
+      "manualUrls": [
+        "https://www.zoho.com/procurement/help/settings/organization/branding/"
+      ]
+    },
+    {
+      "id": "SET-05",
+      "control": "Logo, accent and font",
+      "owner": "ERP Core",
+      "classification": "API wired; editor write unverified",
+      "persistence": "Core branding GET/PUT/reset",
+      "coverage": "Shared font and logo controls are in editor; public presentation receipt cannot certify admin persistence.",
+      "destination": "Core branding editor",
+      "sourceEvidence": [
+        {
+          "path": "modules/hrm/frontend/module-connect/src/routes/hrm.configuration.branding.tsx",
+          "line": 258,
+          "repository": "erp",
+          "sourceCommit": "c38202e57afff83abbcdcbb05f95a27d38a8be26",
+          "sourceUrl": "https://github.com/georgemunganga/erp/blob/c38202e57afff83abbcdcbb05f95a27d38a8be26/modules/hrm/frontend/module-connect/src/routes/hrm.configuration.branding.tsx#L258"
+        },
+        {
+          "path": "modules/hrm/frontend/module-connect/src/routes/hrm.configuration.branding.tsx",
+          "line": 309,
+          "repository": "erp",
+          "sourceCommit": "c38202e57afff83abbcdcbb05f95a27d38a8be26",
+          "sourceUrl": "https://github.com/georgemunganga/erp/blob/c38202e57afff83abbcdcbb05f95a27d38a8be26/modules/hrm/frontend/module-connect/src/routes/hrm.configuration.branding.tsx#L309"
+        }
+      ],
+      "manualUrls": [
+        "https://www.zoho.com/procurement/help/settings/organization/branding/"
+      ]
+    },
+    {
+      "id": "SET-06",
+      "control": "Sign-in email domain selector",
+      "owner": "ERP Core",
+      "classification": "public UI presentation verified",
+      "persistence": "Core public branding GET; local input state",
+      "coverage": "Domain selection composes email display; explicitly does not verify domain DNS ownership or real credential login.",
+      "destination": "/sign-in",
+      "sourceEvidence": [
+        {
+          "path": "modules/hrm/frontend/module-connect/src/routes/hrm.configuration.branding.tsx",
+          "line": 263,
+          "repository": "erp",
+          "sourceCommit": "c38202e57afff83abbcdcbb05f95a27d38a8be26",
+          "sourceUrl": "https://github.com/georgemunganga/erp/blob/c38202e57afff83abbcdcbb05f95a27d38a8be26/modules/hrm/frontend/module-connect/src/routes/hrm.configuration.branding.tsx#L263"
+        },
+        {
+          "path": "modules/hrm/frontend/module-connect/src/platform/branding.tsx",
+          "line": 78,
+          "repository": "erp",
+          "sourceCommit": "c38202e57afff83abbcdcbb05f95a27d38a8be26",
+          "sourceUrl": "https://github.com/georgemunganga/erp/blob/c38202e57afff83abbcdcbb05f95a27d38a8be26/modules/hrm/frontend/module-connect/src/platform/branding.tsx#L78"
+        },
+        {
+          "path": "docs/releases/ERP-SIGNIN-RESTORATION-20261025-ACCEPTANCE.json",
+          "line": 1,
+          "repository": "erp",
+          "sourceCommit": "4fdaa711c102e8fc45c8d85e7041bead11554a99",
+          "sourceUrl": "https://github.com/georgemunganga/erp/blob/4fdaa711c102e8fc45c8d85e7041bead11554a99/docs/releases/ERP-SIGNIN-RESTORATION-20261025-ACCEPTANCE.json#L1"
+        }
+      ],
+      "manualUrls": [
+        "https://www.zoho.com/procurement/help/manage-organization-and-account/manage-zoho-account/"
+      ]
+    },
+    {
+      "id": "SET-07",
+      "control": "Local and identity-provider users",
+      "owner": "ERP Core",
+      "classification": "API wired",
+      "persistence": "local auth/identity users GET, create/update/reset API",
+      "coverage": "User editor selects configured provider; full invite/deactivate parity not established.",
+      "destination": "/core/workspace/settings/users",
+      "sourceEvidence": [
+        {
+          "path": "modules/hrm/frontend/module-connect/src/routes/hrm.configuration.users.tsx",
+          "line": 115,
+          "repository": "erp",
+          "sourceCommit": "c38202e57afff83abbcdcbb05f95a27d38a8be26",
+          "sourceUrl": "https://github.com/georgemunganga/erp/blob/c38202e57afff83abbcdcbb05f95a27d38a8be26/modules/hrm/frontend/module-connect/src/routes/hrm.configuration.users.tsx#L115"
+        },
+        {
+          "path": "modules/hrm/frontend/module-connect/src/routes/hrm.configuration.users.tsx",
+          "line": 189,
+          "repository": "erp",
+          "sourceCommit": "c38202e57afff83abbcdcbb05f95a27d38a8be26",
+          "sourceUrl": "https://github.com/georgemunganga/erp/blob/c38202e57afff83abbcdcbb05f95a27d38a8be26/modules/hrm/frontend/module-connect/src/routes/hrm.configuration.users.tsx#L189"
+        }
+      ],
+      "manualUrls": [
+        "https://www.zoho.com/procurement/help/settings/users-and-roles/users/"
+      ]
+    },
+    {
+      "id": "SET-08",
+      "control": "Custom Procurement roles",
+      "owner": "ERP Core",
+      "classification": "API wired; editor choices partial",
+      "persistence": "realApi.createRole/updateRole; backend role CRUD and permission expansion",
+      "coverage": "Role editor has Procurement category and 21 named choices; backend action catalog has 91. Static DTO/effective-grant parity for malformed or legacy stored rows needs regression tests.",
+      "destination": "/core/workspace/settings/roles",
+      "sourceEvidence": [
+        {
+          "path": "modules/hrm/frontend/module-connect/src/routes/hrm.configuration.roles.tsx",
+          "line": 44,
+          "repository": "erp",
+          "sourceCommit": "c38202e57afff83abbcdcbb05f95a27d38a8be26",
+          "sourceUrl": "https://github.com/georgemunganga/erp/blob/c38202e57afff83abbcdcbb05f95a27d38a8be26/modules/hrm/frontend/module-connect/src/routes/hrm.configuration.roles.tsx#L44"
+        },
+        {
+          "path": "modules/hrm/frontend/module-connect/src/routes/hrm.configuration.roles.tsx",
+          "line": 144,
+          "repository": "erp",
+          "sourceCommit": "c38202e57afff83abbcdcbb05f95a27d38a8be26",
+          "sourceUrl": "https://github.com/georgemunganga/erp/blob/c38202e57afff83abbcdcbb05f95a27d38a8be26/modules/hrm/frontend/module-connect/src/routes/hrm.configuration.roles.tsx#L144"
+        },
+        {
+          "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Api/ApiRoutesClean.cs",
+          "line": 1512,
+          "repository": "erp",
+          "sourceCommit": "c38202e57afff83abbcdcbb05f95a27d38a8be26",
+          "sourceUrl": "https://github.com/georgemunganga/erp/blob/c38202e57afff83abbcdcbb05f95a27d38a8be26/backend/hrm-api/src/Mightyfin.Erp.Hrm.Api/ApiRoutesClean.cs#L1512"
+        },
+        {
+          "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Api/LocalIdentity.cs",
+          "line": 169,
+          "repository": "erp",
+          "sourceCommit": "c38202e57afff83abbcdcbb05f95a27d38a8be26",
+          "sourceUrl": "https://github.com/georgemunganga/erp/blob/c38202e57afff83abbcdcbb05f95a27d38a8be26/backend/hrm-api/src/Mightyfin.Erp.Hrm.Api/LocalIdentity.cs#L169"
+        },
+        {
+          "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Application/ConfigAndExtras/JobsAdminServices.cs",
+          "line": 151,
+          "repository": "erp",
+          "sourceCommit": "c38202e57afff83abbcdcbb05f95a27d38a8be26",
+          "sourceUrl": "https://github.com/georgemunganga/erp/blob/c38202e57afff83abbcdcbb05f95a27d38a8be26/backend/hrm-api/src/Mightyfin.Erp.Hrm.Application/ConfigAndExtras/JobsAdminServices.cs#L151"
+        },
+        {
+          "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Api/ProcurementPermissions.cs",
+          "line": 40,
+          "repository": "erp",
+          "sourceCommit": "c38202e57afff83abbcdcbb05f95a27d38a8be26",
+          "sourceUrl": "https://github.com/georgemunganga/erp/blob/c38202e57afff83abbcdcbb05f95a27d38a8be26/backend/hrm-api/src/Mightyfin.Erp.Hrm.Api/ProcurementPermissions.cs#L40"
+        }
+      ],
+      "manualUrls": [
+        "https://www.zoho.com/procurement/help/settings/users-and-roles/roles/"
+      ],
+      "representationRisk": "Static representation risk: JobsAdminServices.ToRoleDto falls back to ForRole for a Procurement-category row with no known stored action, while ProcurementPermissions authorizes bootstrap only when stored CSV exactly equals its role key. Empty, HR-only or unknown legacy values could display grants that are not effective; no such production row or bypass was observed."
+    },
+    {
+      "id": "SET-09",
+      "control": "Advanced Procurement action choices",
+      "owner": "ERP Core",
+      "classification": "static UI coverage gap",
+      "persistence": "Server JobsAdminServices accepts ProcurementActionCatalog keys",
+      "coverage": "70 of 91 server action keys are absent from the displayed grid; no live authorization failure inferred. Preserve existing stored permissions during edit.",
+      "destination": "Extend existing Core role grid, not a second role engine",
+      "sourceEvidence": [
+        {
+          "path": "private-evidence:role-action-catalog-difference.json",
+          "line": 1
+        },
+        {
+          "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Application/ProcurementActionCatalog.cs",
+          "line": 5,
+          "repository": "erp",
+          "sourceCommit": "c38202e57afff83abbcdcbb05f95a27d38a8be26",
+          "sourceUrl": "https://github.com/georgemunganga/erp/blob/c38202e57afff83abbcdcbb05f95a27d38a8be26/backend/hrm-api/src/Mightyfin.Erp.Hrm.Application/ProcurementActionCatalog.cs#L5"
+        },
+        {
+          "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Application/ConfigAndExtras/JobsAdminServices.cs",
+          "line": 149,
+          "repository": "erp",
+          "sourceCommit": "c38202e57afff83abbcdcbb05f95a27d38a8be26",
+          "sourceUrl": "https://github.com/georgemunganga/erp/blob/c38202e57afff83abbcdcbb05f95a27d38a8be26/backend/hrm-api/src/Mightyfin.Erp.Hrm.Application/ConfigAndExtras/JobsAdminServices.cs#L149"
+        },
+        {
+          "path": "modules/hrm/frontend/module-connect/src/routes/hrm.configuration.roles.tsx",
+          "line": 44,
+          "repository": "erp",
+          "sourceCommit": "c38202e57afff83abbcdcbb05f95a27d38a8be26",
+          "sourceUrl": "https://github.com/georgemunganga/erp/blob/c38202e57afff83abbcdcbb05f95a27d38a8be26/modules/hrm/frontend/module-connect/src/routes/hrm.configuration.roles.tsx#L44"
+        }
+      ],
+      "manualUrls": [
+        "https://www.zoho.com/procurement/help/settings/users-and-roles/roles/"
+      ]
+    },
+    {
+      "id": "SET-10",
+      "control": "P29/P30 sourcing publication and commercial action choices",
+      "owner": "ERP Core",
+      "classification": "backend catalog, UI subset missing",
+      "persistence": "Catalog includes sourcing submit/publish/evaluate/commercial actions",
+      "coverage": "Named backend actions must be surfaced in role editor only after current action/capability audit; zero unknown UI keys.",
+      "destination": "Existing Procurement role grid",
+      "sourceEvidence": [
+        {
+          "path": "private-evidence:role-action-catalog-difference.json",
+          "line": 1
+        },
+        {
+          "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Api/ProcurementPrincipalSourcingPublicationRoutes.cs",
+          "line": 26,
+          "repository": "erp",
+          "sourceCommit": "c38202e57afff83abbcdcbb05f95a27d38a8be26",
+          "sourceUrl": "https://github.com/georgemunganga/erp/blob/c38202e57afff83abbcdcbb05f95a27d38a8be26/backend/hrm-api/src/Mightyfin.Erp.Hrm.Api/ProcurementPrincipalSourcingPublicationRoutes.cs#L26"
+        },
+        {
+          "path": "modules/hrm/frontend/module-connect/src/routes/hrm.configuration.roles.tsx",
+          "line": 63,
+          "repository": "erp",
+          "sourceCommit": "c38202e57afff83abbcdcbb05f95a27d38a8be26",
+          "sourceUrl": "https://github.com/georgemunganga/erp/blob/c38202e57afff83abbcdcbb05f95a27d38a8be26/modules/hrm/frontend/module-connect/src/routes/hrm.configuration.roles.tsx#L63"
+        }
+      ],
+      "manualUrls": [
+        "https://www.zoho.com/procurement/help/settings/users-and-roles/roles/"
+      ]
+    },
+    {
+      "id": "SET-11",
+      "control": "P31 invoice capture, matching and review action choices",
+      "owner": "ERP Core",
+      "classification": "backend catalog, UI subset missing",
+      "persistence": "Catalog and invoice routes require invoice permissions",
+      "coverage": "Role grid currently ends sourcing edit; invoice review and capture permissions are not selectable there.",
+      "destination": "Existing Procurement role grid",
+      "sourceEvidence": [
+        {
+          "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Api/ProcurementPrincipalInvoiceMappingRoutes.cs",
+          "line": 37,
+          "repository": "erp",
+          "sourceCommit": "c38202e57afff83abbcdcbb05f95a27d38a8be26",
+          "sourceUrl": "https://github.com/georgemunganga/erp/blob/c38202e57afff83abbcdcbb05f95a27d38a8be26/backend/hrm-api/src/Mightyfin.Erp.Hrm.Api/ProcurementPrincipalInvoiceMappingRoutes.cs#L37"
+        },
+        {
+          "path": "modules/hrm/frontend/module-connect/src/routes/hrm.configuration.roles.tsx",
+          "line": 65,
+          "repository": "erp",
+          "sourceCommit": "c38202e57afff83abbcdcbb05f95a27d38a8be26",
+          "sourceUrl": "https://github.com/georgemunganga/erp/blob/c38202e57afff83abbcdcbb05f95a27d38a8be26/modules/hrm/frontend/module-connect/src/routes/hrm.configuration.roles.tsx#L65"
+        },
+        {
+          "path": "private-evidence:role-action-catalog-difference.json",
+          "line": 1
+        }
+      ],
+      "manualUrls": [
+        "https://www.zoho.com/procurement/help/settings/users-and-roles/roles/"
+      ]
+    },
+    {
+      "id": "SET-12",
+      "control": "P35 contract review action choices",
+      "owner": "ERP Core",
+      "classification": "backend catalog, UI subset missing",
+      "persistence": "Contract review routes require submit/review/read",
+      "coverage": "Contract draft choices exist in grid; contract internal-review actions are missing from choices.",
+      "destination": "Existing Procurement role grid",
+      "sourceEvidence": [
+        {
+          "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Api/ProcurementContractReviewRoutes.cs",
+          "line": 29,
+          "repository": "erp",
+          "sourceCommit": "c38202e57afff83abbcdcbb05f95a27d38a8be26",
+          "sourceUrl": "https://github.com/georgemunganga/erp/blob/c38202e57afff83abbcdcbb05f95a27d38a8be26/backend/hrm-api/src/Mightyfin.Erp.Hrm.Api/ProcurementContractReviewRoutes.cs#L29"
+        },
+        {
+          "path": "modules/hrm/frontend/module-connect/src/routes/hrm.configuration.roles.tsx",
+          "line": 60,
+          "repository": "erp",
+          "sourceCommit": "c38202e57afff83abbcdcbb05f95a27d38a8be26",
+          "sourceUrl": "https://github.com/georgemunganga/erp/blob/c38202e57afff83abbcdcbb05f95a27d38a8be26/modules/hrm/frontend/module-connect/src/routes/hrm.configuration.roles.tsx#L60"
+        },
+        {
+          "path": "private-evidence:role-action-catalog-difference.json",
+          "line": 1
+        }
+      ],
+      "manualUrls": [
+        "https://www.zoho.com/procurement/help/settings/users-and-roles/roles/"
+      ]
+    },
+    {
+      "id": "SET-13",
+      "control": "Branch access assignments",
+      "owner": "ERP Core",
+      "classification": "API wired",
+      "persistence": "realApi.branchAccess/assign/remove",
+      "coverage": "UI says no assignment means organization-wide scope by policy; do not treat that alone as a bug.",
+      "destination": "/core/workspace/settings/branch-access",
+      "sourceEvidence": [
+        {
+          "path": "modules/hrm/frontend/module-connect/src/routes/hrm.configuration.branch-access.tsx",
+          "line": 28,
+          "repository": "erp",
+          "sourceCommit": "c38202e57afff83abbcdcbb05f95a27d38a8be26",
+          "sourceUrl": "https://github.com/georgemunganga/erp/blob/c38202e57afff83abbcdcbb05f95a27d38a8be26/modules/hrm/frontend/module-connect/src/routes/hrm.configuration.branch-access.tsx#L28"
+        },
+        {
+          "path": "modules/hrm/frontend/module-connect/src/routes/hrm.configuration.branch-access.tsx",
+          "line": 43,
+          "repository": "erp",
+          "sourceCommit": "c38202e57afff83abbcdcbb05f95a27d38a8be26",
+          "sourceUrl": "https://github.com/georgemunganga/erp/blob/c38202e57afff83abbcdcbb05f95a27d38a8be26/modules/hrm/frontend/module-connect/src/routes/hrm.configuration.branch-access.tsx#L43"
+        },
+        {
+          "path": "modules/hrm/frontend/module-connect/src/routes/hrm.configuration.branch-access.tsx",
+          "line": 239,
+          "repository": "erp",
+          "sourceCommit": "c38202e57afff83abbcdcbb05f95a27d38a8be26",
+          "sourceUrl": "https://github.com/georgemunganga/erp/blob/c38202e57afff83abbcdcbb05f95a27d38a8be26/modules/hrm/frontend/module-connect/src/routes/hrm.configuration.branch-access.tsx#L239"
+        }
+      ],
+      "manualUrls": [
+        "https://www.zoho.com/procurement/help/settings/users-and-roles/users/"
+      ]
+    },
+    {
+      "id": "SET-14",
+      "control": "Account MFA/security key/passkey",
+      "owner": "ERP Core identity",
+      "classification": "not found in connected settings",
+      "persistence": "No UI/API parity established in audited routes",
+      "coverage": "Zoho account manual includes MFA; local sign-in is not MFA proof.",
+      "destination": "Future identity scope decision",
+      "sourceEvidence": [
+        {
+          "path": "modules/hrm/frontend/module-connect/src/modules/core/settings.ts",
+          "line": 26,
+          "repository": "erp",
+          "sourceCommit": "c38202e57afff83abbcdcbb05f95a27d38a8be26",
+          "sourceUrl": "https://github.com/georgemunganga/erp/blob/c38202e57afff83abbcdcbb05f95a27d38a8be26/modules/hrm/frontend/module-connect/src/modules/core/settings.ts#L26"
+        },
+        {
+          "path": "modules/hrm/frontend/module-connect/src/routes/core.workspace.settings.$slug.tsx",
+          "line": 26,
+          "repository": "erp",
+          "sourceCommit": "c38202e57afff83abbcdcbb05f95a27d38a8be26",
+          "sourceUrl": "https://github.com/georgemunganga/erp/blob/c38202e57afff83abbcdcbb05f95a27d38a8be26/modules/hrm/frontend/module-connect/src/routes/core.workspace.settings.$slug.tsx#L26"
+        }
+      ],
+      "manualUrls": [
+        "https://www.zoho.com/procurement/help/manage-organization-and-account/manage-zoho-account/"
+      ]
+    },
+    {
+      "id": "SET-15",
+      "control": "Organization switch/default/delete",
+      "owner": "ERP Core",
+      "classification": "partial organization UI; lifecycle not verified",
+      "persistence": "Core legal entity reads; current source has scoped selector",
+      "coverage": "Zoho account organization lifecycle exceeds current connected settings evidence.",
+      "destination": "Core organization lifecycle audit",
+      "sourceEvidence": [
+        {
+          "path": "modules/hrm/frontend/module-connect/src/routes/hrm.configuration.organisation.tsx",
+          "line": 719,
+          "repository": "erp",
+          "sourceCommit": "c38202e57afff83abbcdcbb05f95a27d38a8be26",
+          "sourceUrl": "https://github.com/georgemunganga/erp/blob/c38202e57afff83abbcdcbb05f95a27d38a8be26/modules/hrm/frontend/module-connect/src/routes/hrm.configuration.organisation.tsx#L719"
+        },
+        {
+          "path": "modules/hrm/frontend/module-connect/src/modules/core/settings.ts",
+          "line": 19,
+          "repository": "erp",
+          "sourceCommit": "c38202e57afff83abbcdcbb05f95a27d38a8be26",
+          "sourceUrl": "https://github.com/georgemunganga/erp/blob/c38202e57afff83abbcdcbb05f95a27d38a8be26/modules/hrm/frontend/module-connect/src/modules/core/settings.ts#L19"
+        }
+      ],
+      "manualUrls": [
+        "https://www.zoho.com/procurement/help/manage-organization-and-account/manage-organization/"
+      ]
+    },
+    {
+      "id": "SET-16",
+      "control": "Buying categories",
+      "owner": "Procurement",
+      "classification": "capability-gated API wired",
+      "persistence": "list/create/update/activate/retire reference records",
+      "coverage": "Requires configurationDraft and configuration-read/edit/approve. No general freeform category designer.",
+      "destination": "/settings/reference-data",
+      "sourceEvidence": [
+        {
+          "path": "reference-ui/src/features/LiveSettingsShell.tsx",
+          "line": 49,
+          "repository": "module-connect",
+          "sourceCommit": "c370275e9242f447cade47bec31c2fb42aa75637",
+          "sourceUrl": "https://github.com/georgemunganga/module-connect/blob/c370275e9242f447cade47bec31c2fb42aa75637/reference-ui/src/features/LiveSettingsShell.tsx#L49"
+        },
+        {
+          "path": "reference-ui/src/features/LiveConfiguration.tsx",
+          "line": 64,
+          "repository": "module-connect",
+          "sourceCommit": "c370275e9242f447cade47bec31c2fb42aa75637",
+          "sourceUrl": "https://github.com/georgemunganga/module-connect/blob/c370275e9242f447cade47bec31c2fb42aa75637/reference-ui/src/features/LiveConfiguration.tsx#L64"
+        },
+        {
+          "path": "reference-ui/src/features/LiveConfiguration.tsx",
+          "line": 99,
+          "repository": "module-connect",
+          "sourceCommit": "c370275e9242f447cade47bec31c2fb42aa75637",
+          "sourceUrl": "https://github.com/georgemunganga/module-connect/blob/c370275e9242f447cade47bec31c2fb42aa75637/reference-ui/src/features/LiveConfiguration.tsx#L99"
+        }
+      ],
+      "manualUrls": [
+        "https://www.zoho.com/procurement/help/settings/setup-and-configurations/general/"
+      ]
+    },
+    {
+      "id": "SET-17",
+      "control": "Buying methods",
+      "owner": "Procurement",
+      "classification": "capability-gated API wired",
+      "persistence": "Same typed reference record API",
+      "coverage": "LiveConfiguration switches category/method kind, with command reconciliation.",
+      "destination": "/settings/reference-data",
+      "sourceEvidence": [
+        {
+          "path": "reference-ui/src/features/LiveConfiguration.tsx",
+          "line": 33,
+          "repository": "module-connect",
+          "sourceCommit": "c370275e9242f447cade47bec31c2fb42aa75637",
+          "sourceUrl": "https://github.com/georgemunganga/module-connect/blob/c370275e9242f447cade47bec31c2fb42aa75637/reference-ui/src/features/LiveConfiguration.tsx#L33"
+        },
+        {
+          "path": "reference-ui/src/features/LiveConfiguration.tsx",
+          "line": 80,
+          "repository": "module-connect",
+          "sourceCommit": "c370275e9242f447cade47bec31c2fb42aa75637",
+          "sourceUrl": "https://github.com/georgemunganga/module-connect/blob/c370275e9242f447cade47bec31c2fb42aa75637/reference-ui/src/features/LiveConfiguration.tsx#L80"
+        }
+      ],
+      "manualUrls": [
+        "https://www.zoho.com/procurement/help/settings/setup-and-configurations/general/"
+      ]
+    },
+    {
+      "id": "SET-18",
+      "control": "Buying rules and policy versions",
+      "owner": "Procurement",
+      "classification": "capability-gated API wired",
+      "persistence": "list/create/update/review/publish policies",
+      "coverage": "Only owned buying-rule keys are editable here; other policy keys link to owning editors.",
+      "destination": "/settings/buying-rules",
+      "sourceEvidence": [
+        {
+          "path": "reference-ui/src/features/LiveSettingsShell.tsx",
+          "line": 74,
+          "repository": "module-connect",
+          "sourceCommit": "c370275e9242f447cade47bec31c2fb42aa75637",
+          "sourceUrl": "https://github.com/georgemunganga/module-connect/blob/c370275e9242f447cade47bec31c2fb42aa75637/reference-ui/src/features/LiveSettingsShell.tsx#L74"
+        },
+        {
+          "path": "reference-ui/src/features/LivePolicies.tsx",
+          "line": 207,
+          "repository": "module-connect",
+          "sourceCommit": "c370275e9242f447cade47bec31c2fb42aa75637",
+          "sourceUrl": "https://github.com/georgemunganga/module-connect/blob/c370275e9242f447cade47bec31c2fb42aa75637/reference-ui/src/features/LivePolicies.tsx#L207"
+        },
+        {
+          "path": "reference-ui/src/features/LivePolicies.tsx",
+          "line": 298,
+          "repository": "module-connect",
+          "sourceCommit": "c370275e9242f447cade47bec31c2fb42aa75637",
+          "sourceUrl": "https://github.com/georgemunganga/module-connect/blob/c370275e9242f447cade47bec31c2fb42aa75637/reference-ui/src/features/LivePolicies.tsx#L298"
+        }
+      ],
+      "manualUrls": [
+        "https://www.zoho.com/procurement/help/settings/approvals/overview/"
+      ]
+    },
+    {
+      "id": "SET-19",
+      "control": "Purchase request approvals",
+      "owner": "Procurement",
+      "classification": "feature-specific capability-gated UI/API source",
+      "persistence": "Typed owning policy or approval editor; no generic workflow designer",
+      "coverage": "Only mapped module tab mounts this live editor; policy/permissions still require server readiness.",
+      "destination": "/settings/modules/purchase-requests",
+      "sourceEvidence": [
+        {
+          "path": "reference-ui/src/features/LiveSettingsShell.tsx",
+          "line": 89,
+          "repository": "module-connect",
+          "sourceCommit": "c370275e9242f447cade47bec31c2fb42aa75637",
+          "sourceUrl": "https://github.com/georgemunganga/module-connect/blob/c370275e9242f447cade47bec31c2fb42aa75637/reference-ui/src/features/LiveSettingsShell.tsx#L89"
+        },
+        {
+          "path": "reference-ui/src/features/LiveApprovalSettings.tsx",
+          "line": 19,
+          "repository": "module-connect",
+          "sourceCommit": "c370275e9242f447cade47bec31c2fb42aa75637",
+          "sourceUrl": "https://github.com/georgemunganga/module-connect/blob/c370275e9242f447cade47bec31c2fb42aa75637/reference-ui/src/features/LiveApprovalSettings.tsx#L19"
+        }
+      ],
+      "manualUrls": [
+        "https://www.zoho.com/procurement/help/settings/approvals/overview/"
+      ]
+    },
+    {
+      "id": "SET-20",
+      "control": "Purchase order approvals",
+      "owner": "Procurement",
+      "classification": "feature-specific capability-gated UI/API source",
+      "persistence": "Typed owning policy or approval editor; no generic workflow designer",
+      "coverage": "Only mapped module tab mounts this live editor; policy/permissions still require server readiness.",
+      "destination": "/settings/modules/purchase-orders",
+      "sourceEvidence": [
+        {
+          "path": "reference-ui/src/features/LiveSettingsShell.tsx",
+          "line": 89,
+          "repository": "module-connect",
+          "sourceCommit": "c370275e9242f447cade47bec31c2fb42aa75637",
+          "sourceUrl": "https://github.com/georgemunganga/module-connect/blob/c370275e9242f447cade47bec31c2fb42aa75637/reference-ui/src/features/LiveSettingsShell.tsx#L89"
+        },
+        {
+          "path": "reference-ui/src/features/LiveApprovalSettings.tsx",
+          "line": 19,
+          "repository": "module-connect",
+          "sourceCommit": "c370275e9242f447cade47bec31c2fb42aa75637",
+          "sourceUrl": "https://github.com/georgemunganga/module-connect/blob/c370275e9242f447cade47bec31c2fb42aa75637/reference-ui/src/features/LiveApprovalSettings.tsx#L19"
+        }
+      ],
+      "manualUrls": [
+        "https://www.zoho.com/procurement/help/settings/approvals/overview/"
+      ]
+    },
+    {
+      "id": "SET-21",
+      "control": "Invoice matching preference",
+      "owner": "Procurement",
+      "classification": "feature-specific capability-gated UI/API source",
+      "persistence": "Typed owning policy or approval editor; no generic workflow designer",
+      "coverage": "Only mapped module tab mounts this live editor; policy/permissions still require server readiness.",
+      "destination": "/settings/modules/bills",
+      "sourceEvidence": [
+        {
+          "path": "reference-ui/src/features/LiveSettingsShell.tsx",
+          "line": 92,
+          "repository": "module-connect",
+          "sourceCommit": "c370275e9242f447cade47bec31c2fb42aa75637",
+          "sourceUrl": "https://github.com/georgemunganga/module-connect/blob/c370275e9242f447cade47bec31c2fb42aa75637/reference-ui/src/features/LiveSettingsShell.tsx#L92"
+        },
+        {
+          "path": "reference-ui/src/features/LiveInvoiceMatchingSettings.tsx",
+          "line": 19,
+          "repository": "module-connect",
+          "sourceCommit": "c370275e9242f447cade47bec31c2fb42aa75637",
+          "sourceUrl": "https://github.com/georgemunganga/module-connect/blob/c370275e9242f447cade47bec31c2fb42aa75637/reference-ui/src/features/LiveInvoiceMatchingSettings.tsx#L19"
+        }
+      ],
+      "manualUrls": [
+        "https://www.zoho.com/procurement/help/settings/approvals/overview/"
+      ]
+    },
+    {
+      "id": "SET-22",
+      "control": "RFQ approval rules",
+      "owner": "Procurement",
+      "classification": "feature-specific capability-gated UI/API source",
+      "persistence": "Typed owning policy or approval editor; no generic workflow designer",
+      "coverage": "Only mapped module tab mounts this live editor; policy/permissions still require server readiness.",
+      "destination": "/settings/modules/request-for-quotes",
+      "sourceEvidence": [
+        {
+          "path": "reference-ui/src/features/LiveSettingsShell.tsx",
+          "line": 94,
+          "repository": "module-connect",
+          "sourceCommit": "c370275e9242f447cade47bec31c2fb42aa75637",
+          "sourceUrl": "https://github.com/georgemunganga/module-connect/blob/c370275e9242f447cade47bec31c2fb42aa75637/reference-ui/src/features/LiveSettingsShell.tsx#L94"
+        },
+        {
+          "path": "reference-ui/src/features/LiveSourcingSettings.tsx",
+          "line": 19,
+          "repository": "module-connect",
+          "sourceCommit": "c370275e9242f447cade47bec31c2fb42aa75637",
+          "sourceUrl": "https://github.com/georgemunganga/module-connect/blob/c370275e9242f447cade47bec31c2fb42aa75637/reference-ui/src/features/LiveSourcingSettings.tsx#L19"
+        }
+      ],
+      "manualUrls": [
+        "https://www.zoho.com/procurement/help/settings/approvals/overview/"
+      ]
+    },
+    {
+      "id": "SET-23",
+      "control": "Receiving preference",
+      "owner": "Procurement",
+      "classification": "feature-specific capability-gated UI/API source",
+      "persistence": "Typed owning policy or approval editor; no generic workflow designer",
+      "coverage": "Only mapped module tab mounts this live editor; policy/permissions still require server readiness.",
+      "destination": "/settings/modules/purchase-receives",
+      "sourceEvidence": [
+        {
+          "path": "reference-ui/src/features/LiveSettingsShell.tsx",
+          "line": 96,
+          "repository": "module-connect",
+          "sourceCommit": "c370275e9242f447cade47bec31c2fb42aa75637",
+          "sourceUrl": "https://github.com/georgemunganga/module-connect/blob/c370275e9242f447cade47bec31c2fb42aa75637/reference-ui/src/features/LiveSettingsShell.tsx#L96"
+        },
+        {
+          "path": "reference-ui/src/features/LiveReceivingSettings.tsx",
+          "line": 19,
+          "repository": "module-connect",
+          "sourceCommit": "c370275e9242f447cade47bec31c2fb42aa75637",
+          "sourceUrl": "https://github.com/georgemunganga/module-connect/blob/c370275e9242f447cade47bec31c2fb42aa75637/reference-ui/src/features/LiveReceivingSettings.tsx#L19"
+        }
+      ],
+      "manualUrls": [
+        "https://www.zoho.com/procurement/help/settings/approvals/overview/"
+      ]
+    },
+    {
+      "id": "SET-24",
+      "control": "Manual payment review",
+      "owner": "Procurement",
+      "classification": "feature-specific capability-gated UI/API source",
+      "persistence": "Typed owning policy or approval editor; no generic workflow designer",
+      "coverage": "Only mapped module tab mounts this live editor; policy/permissions still require server readiness.",
+      "destination": "/settings/modules/payments-made",
+      "sourceEvidence": [
+        {
+          "path": "reference-ui/src/features/LiveSettingsShell.tsx",
+          "line": 98,
+          "repository": "module-connect",
+          "sourceCommit": "c370275e9242f447cade47bec31c2fb42aa75637",
+          "sourceUrl": "https://github.com/georgemunganga/module-connect/blob/c370275e9242f447cade47bec31c2fb42aa75637/reference-ui/src/features/LiveSettingsShell.tsx#L98"
+        },
+        {
+          "path": "reference-ui/src/features/LiveManualPaymentSettings.tsx",
+          "line": 19,
+          "repository": "module-connect",
+          "sourceCommit": "c370275e9242f447cade47bec31c2fb42aa75637",
+          "sourceUrl": "https://github.com/georgemunganga/module-connect/blob/c370275e9242f447cade47bec31c2fb42aa75637/reference-ui/src/features/LiveManualPaymentSettings.tsx#L19"
+        }
+      ],
+      "manualUrls": [
+        "https://www.zoho.com/procurement/help/settings/approvals/overview/"
+      ]
+    },
+    {
+      "id": "SET-25",
+      "control": "Other Procurement module tabs",
+      "owner": "Procurement",
+      "classification": "placeholder in live settings",
+      "persistence": "No save API mounted for unmatched tabs",
+      "coverage": "Live shell explicitly states no live editor and no changes can be saved.",
+      "destination": "/settings/modules/*",
+      "sourceEvidence": [
+        {
+          "path": "reference-ui/src/features/LiveSettingsShell.tsx",
+          "line": 100,
+          "repository": "module-connect",
+          "sourceCommit": "c370275e9242f447cade47bec31c2fb42aa75637",
+          "sourceUrl": "https://github.com/georgemunganga/module-connect/blob/c370275e9242f447cade47bec31c2fb42aa75637/reference-ui/src/features/LiveSettingsShell.tsx#L100"
+        }
+      ],
+      "manualUrls": [
+        "https://www.zoho.com/procurement/help/settings/setup-and-configurations/general/"
+      ]
+    },
+    {
+      "id": "SET-26",
+      "control": "Reporting tags",
+      "owner": "ERP Core",
+      "classification": "directory placeholder",
+      "persistence": "No connected save API on slug page",
+      "coverage": "Core lists this control without a path; slug page says Editor coming soon.",
+      "destination": "/core/workspace/settings/[slug]",
+      "sourceEvidence": [
+        {
+          "path": "modules/hrm/frontend/module-connect/src/modules/core/settings.ts",
+          "line": 38,
+          "repository": "erp",
+          "sourceCommit": "c38202e57afff83abbcdcbb05f95a27d38a8be26",
+          "sourceUrl": "https://github.com/georgemunganga/erp/blob/c38202e57afff83abbcdcbb05f95a27d38a8be26/modules/hrm/frontend/module-connect/src/modules/core/settings.ts#L38"
+        },
+        {
+          "path": "modules/hrm/frontend/module-connect/src/routes/core.workspace.settings.$slug.tsx",
+          "line": 26,
+          "repository": "erp",
+          "sourceCommit": "c38202e57afff83abbcdcbb05f95a27d38a8be26",
+          "sourceUrl": "https://github.com/georgemunganga/erp/blob/c38202e57afff83abbcdcbb05f95a27d38a8be26/modules/hrm/frontend/module-connect/src/routes/core.workspace.settings.$slug.tsx#L26"
+        }
+      ],
+      "manualUrls": [
+        "https://www.zoho.com/procurement/help/settings/customization/reporting-tags/"
+      ]
+    },
+    {
+      "id": "SET-27",
+      "control": "General locale/time zone/display defaults",
+      "owner": "ERP Core",
+      "classification": "directory placeholder",
+      "persistence": "No connected save API on slug page",
+      "coverage": "Core lists this control without a path; slug page says Editor coming soon.",
+      "destination": "/core/workspace/settings/[slug]",
+      "sourceEvidence": [
+        {
+          "path": "modules/hrm/frontend/module-connect/src/modules/core/settings.ts",
+          "line": 39,
+          "repository": "erp",
+          "sourceCommit": "c38202e57afff83abbcdcbb05f95a27d38a8be26",
+          "sourceUrl": "https://github.com/georgemunganga/erp/blob/c38202e57afff83abbcdcbb05f95a27d38a8be26/modules/hrm/frontend/module-connect/src/modules/core/settings.ts#L39"
+        },
+        {
+          "path": "modules/hrm/frontend/module-connect/src/routes/core.workspace.settings.$slug.tsx",
+          "line": 26,
+          "repository": "erp",
+          "sourceCommit": "c38202e57afff83abbcdcbb05f95a27d38a8be26",
+          "sourceUrl": "https://github.com/georgemunganga/erp/blob/c38202e57afff83abbcdcbb05f95a27d38a8be26/modules/hrm/frontend/module-connect/src/routes/core.workspace.settings.$slug.tsx#L26"
+        }
+      ],
+      "manualUrls": [
+        "https://www.zoho.com/procurement/help/settings/setup-and-configurations/general/"
+      ]
+    },
+    {
+      "id": "SET-28",
+      "control": "Currency list and display format",
+      "owner": "ERP Core",
+      "classification": "directory placeholder",
+      "persistence": "No connected save API on slug page",
+      "coverage": "Core lists this control without a path; slug page says Editor coming soon.",
+      "destination": "/core/workspace/settings/[slug]",
+      "sourceEvidence": [
+        {
+          "path": "modules/hrm/frontend/module-connect/src/modules/core/settings.ts",
+          "line": 40,
+          "repository": "erp",
+          "sourceCommit": "c38202e57afff83abbcdcbb05f95a27d38a8be26",
+          "sourceUrl": "https://github.com/georgemunganga/erp/blob/c38202e57afff83abbcdcbb05f95a27d38a8be26/modules/hrm/frontend/module-connect/src/modules/core/settings.ts#L40"
+        },
+        {
+          "path": "modules/hrm/frontend/module-connect/src/routes/core.workspace.settings.$slug.tsx",
+          "line": 26,
+          "repository": "erp",
+          "sourceCommit": "c38202e57afff83abbcdcbb05f95a27d38a8be26",
+          "sourceUrl": "https://github.com/georgemunganga/erp/blob/c38202e57afff83abbcdcbb05f95a27d38a8be26/modules/hrm/frontend/module-connect/src/routes/core.workspace.settings.$slug.tsx#L26"
+        }
+      ],
+      "manualUrls": [
+        "https://www.zoho.com/procurement/help/settings/setup-and-configurations/currencies/"
+      ]
+    },
+    {
+      "id": "SET-29",
+      "control": "Transaction numbering series",
+      "owner": "ERP Core",
+      "classification": "directory placeholder",
+      "persistence": "No connected save API on slug page",
+      "coverage": "Core lists this control without a path; slug page says Editor coming soon.",
+      "destination": "/core/workspace/settings/[slug]",
+      "sourceEvidence": [
+        {
+          "path": "modules/hrm/frontend/module-connect/src/modules/core/settings.ts",
+          "line": 47,
+          "repository": "erp",
+          "sourceCommit": "c38202e57afff83abbcdcbb05f95a27d38a8be26",
+          "sourceUrl": "https://github.com/georgemunganga/erp/blob/c38202e57afff83abbcdcbb05f95a27d38a8be26/modules/hrm/frontend/module-connect/src/modules/core/settings.ts#L47"
+        },
+        {
+          "path": "modules/hrm/frontend/module-connect/src/routes/core.workspace.settings.$slug.tsx",
+          "line": 26,
+          "repository": "erp",
+          "sourceCommit": "c38202e57afff83abbcdcbb05f95a27d38a8be26",
+          "sourceUrl": "https://github.com/georgemunganga/erp/blob/c38202e57afff83abbcdcbb05f95a27d38a8be26/modules/hrm/frontend/module-connect/src/routes/core.workspace.settings.$slug.tsx#L26"
+        }
+      ],
+      "manualUrls": [
+        "https://www.zoho.com/procurement/help/settings/customization/transaction-number-series/"
+      ]
+    },
+    {
+      "id": "SET-30",
+      "control": "PDF templates",
+      "owner": "ERP Core",
+      "classification": "directory placeholder",
+      "persistence": "No connected save API on slug page",
+      "coverage": "Core lists this control without a path; slug page says Editor coming soon.",
+      "destination": "/core/workspace/settings/[slug]",
+      "sourceEvidence": [
+        {
+          "path": "modules/hrm/frontend/module-connect/src/modules/core/settings.ts",
+          "line": 48,
+          "repository": "erp",
+          "sourceCommit": "c38202e57afff83abbcdcbb05f95a27d38a8be26",
+          "sourceUrl": "https://github.com/georgemunganga/erp/blob/c38202e57afff83abbcdcbb05f95a27d38a8be26/modules/hrm/frontend/module-connect/src/modules/core/settings.ts#L48"
+        },
+        {
+          "path": "modules/hrm/frontend/module-connect/src/routes/core.workspace.settings.$slug.tsx",
+          "line": 26,
+          "repository": "erp",
+          "sourceCommit": "c38202e57afff83abbcdcbb05f95a27d38a8be26",
+          "sourceUrl": "https://github.com/georgemunganga/erp/blob/c38202e57afff83abbcdcbb05f95a27d38a8be26/modules/hrm/frontend/module-connect/src/routes/core.workspace.settings.$slug.tsx#L26"
+        }
+      ],
+      "manualUrls": [
+        "https://www.zoho.com/procurement/help/settings/customization/pdf-templates/"
+      ]
+    },
+    {
+      "id": "SET-31",
+      "control": "Email notification templates",
+      "owner": "ERP Core",
+      "classification": "directory placeholder",
+      "persistence": "No connected save API on slug page",
+      "coverage": "Core lists this control without a path; slug page says Editor coming soon.",
+      "destination": "/core/workspace/settings/[slug]",
+      "sourceEvidence": [
+        {
+          "path": "modules/hrm/frontend/module-connect/src/modules/core/settings.ts",
+          "line": 49,
+          "repository": "erp",
+          "sourceCommit": "c38202e57afff83abbcdcbb05f95a27d38a8be26",
+          "sourceUrl": "https://github.com/georgemunganga/erp/blob/c38202e57afff83abbcdcbb05f95a27d38a8be26/modules/hrm/frontend/module-connect/src/modules/core/settings.ts#L49"
+        },
+        {
+          "path": "modules/hrm/frontend/module-connect/src/routes/core.workspace.settings.$slug.tsx",
+          "line": 26,
+          "repository": "erp",
+          "sourceCommit": "c38202e57afff83abbcdcbb05f95a27d38a8be26",
+          "sourceUrl": "https://github.com/georgemunganga/erp/blob/c38202e57afff83abbcdcbb05f95a27d38a8be26/modules/hrm/frontend/module-connect/src/routes/core.workspace.settings.$slug.tsx#L26"
+        }
+      ],
+      "manualUrls": [
+        "https://www.zoho.com/procurement/help/settings/customization/email-notifications/"
+      ]
+    },
+    {
+      "id": "SET-32",
+      "control": "Web tabs",
+      "owner": "ERP Core",
+      "classification": "directory placeholder",
+      "persistence": "No connected save API on slug page",
+      "coverage": "Core lists this control without a path; slug page says Editor coming soon.",
+      "destination": "/core/workspace/settings/[slug]",
+      "sourceEvidence": [
+        {
+          "path": "modules/hrm/frontend/module-connect/src/modules/core/settings.ts",
+          "line": 50,
+          "repository": "erp",
+          "sourceCommit": "c38202e57afff83abbcdcbb05f95a27d38a8be26",
+          "sourceUrl": "https://github.com/georgemunganga/erp/blob/c38202e57afff83abbcdcbb05f95a27d38a8be26/modules/hrm/frontend/module-connect/src/modules/core/settings.ts#L50"
+        },
+        {
+          "path": "modules/hrm/frontend/module-connect/src/routes/core.workspace.settings.$slug.tsx",
+          "line": 26,
+          "repository": "erp",
+          "sourceCommit": "c38202e57afff83abbcdcbb05f95a27d38a8be26",
+          "sourceUrl": "https://github.com/georgemunganga/erp/blob/c38202e57afff83abbcdcbb05f95a27d38a8be26/modules/hrm/frontend/module-connect/src/routes/core.workspace.settings.$slug.tsx#L26"
+        }
+      ],
+      "manualUrls": [
+        "https://www.zoho.com/procurement/help/settings/customization/web-tabs/"
+      ]
+    },
+    {
+      "id": "SET-33",
+      "control": "Tax rates and TDS",
+      "owner": "Finance",
+      "classification": "module-owned; Procurement live settings unavailable",
+      "persistence": "No Procurement settings write",
+      "coverage": "Procurement shell explicitly points tax settings to Finance; no Finance implementation claim.",
+      "destination": "Finance settings owner, not duplicate Procurement editor",
+      "sourceEvidence": [
+        {
+          "path": "reference-ui/src/features/LiveSettingsShell.tsx",
+          "line": 106,
+          "repository": "module-connect",
+          "sourceCommit": "c370275e9242f447cade47bec31c2fb42aa75637",
+          "sourceUrl": "https://github.com/georgemunganga/module-connect/blob/c370275e9242f447cade47bec31c2fb42aa75637/reference-ui/src/features/LiveSettingsShell.tsx#L106"
+        },
+        {
+          "path": "reference-ui/src/data/settings.ts",
+          "line": 174,
+          "repository": "module-connect",
+          "sourceCommit": "c370275e9242f447cade47bec31c2fb42aa75637",
+          "sourceUrl": "https://github.com/georgemunganga/module-connect/blob/c370275e9242f447cade47bec31c2fb42aa75637/reference-ui/src/data/settings.ts#L174"
+        }
+      ],
+      "manualUrls": [
+        "https://www.zoho.com/procurement/help/settings/taxes-and-compliance/taxes/"
+      ]
+    },
+    {
+      "id": "SET-34",
+      "control": "Payment terms and execution",
+      "owner": "Finance",
+      "classification": "module-owned; Procurement live settings unavailable",
+      "persistence": "No Procurement settings write",
+      "coverage": "Procurement owns governed manual-payment review only, not Finance execution/payment terms.",
+      "destination": "Finance settings owner",
+      "sourceEvidence": [
+        {
+          "path": "reference-ui/src/features/LiveSettingsShell.tsx",
+          "line": 72,
+          "repository": "module-connect",
+          "sourceCommit": "c370275e9242f447cade47bec31c2fb42aa75637",
+          "sourceUrl": "https://github.com/georgemunganga/module-connect/blob/c370275e9242f447cade47bec31c2fb42aa75637/reference-ui/src/features/LiveSettingsShell.tsx#L72"
+        },
+        {
+          "path": "reference-ui/src/data/settings.ts",
+          "line": 164,
+          "repository": "module-connect",
+          "sourceCommit": "c370275e9242f447cade47bec31c2fb42aa75637",
+          "sourceUrl": "https://github.com/georgemunganga/module-connect/blob/c370275e9242f447cade47bec31c2fb42aa75637/reference-ui/src/data/settings.ts#L164"
+        }
+      ],
+      "manualUrls": [
+        "https://www.zoho.com/procurement/help/settings/setup-and-configurations/general/"
+      ]
+    },
+    {
+      "id": "SET-35",
+      "control": "Supplier portal preferences",
+      "owner": "Supplier identity + Procurement",
+      "classification": "live settings unavailable; vendor request only",
+      "persistence": "Vendor PortalAccessState Requested, not an account",
+      "coverage": "Portal preference link does not provide external login or supplier transaction rights.",
+      "destination": "Future portal scope decision",
+      "sourceEvidence": [
+        {
+          "path": "reference-ui/src/features/LiveSettingsShell.tsx",
+          "line": 105,
+          "repository": "module-connect",
+          "sourceCommit": "c370275e9242f447cade47bec31c2fb42aa75637",
+          "sourceUrl": "https://github.com/georgemunganga/module-connect/blob/c370275e9242f447cade47bec31c2fb42aa75637/reference-ui/src/features/LiveSettingsShell.tsx#L105"
+        },
+        {
+          "path": "reference-ui/src/data/settings.ts",
+          "line": 165,
+          "repository": "module-connect",
+          "sourceCommit": "c370275e9242f447cade47bec31c2fb42aa75637",
+          "sourceUrl": "https://github.com/georgemunganga/module-connect/blob/c370275e9242f447cade47bec31c2fb42aa75637/reference-ui/src/data/settings.ts#L165"
+        },
+        {
+          "path": "reference-ui/src/features/VendorEditorForm.tsx",
+          "line": 55,
+          "repository": "module-connect",
+          "sourceCommit": "c370275e9242f447cade47bec31c2fb42aa75637",
+          "sourceUrl": "https://github.com/georgemunganga/module-connect/blob/c370275e9242f447cade47bec31c2fb42aa75637/reference-ui/src/features/VendorEditorForm.tsx#L55"
+        }
+      ],
+      "manualUrls": [
+        "https://www.zoho.com/procurement/help/settings/setup-and-configurations/vendor-portal-preferences/"
+      ]
+    },
+    {
+      "id": "SET-36",
+      "control": "Vendor key/value attributes",
+      "owner": "Procurement",
+      "classification": "narrow API wired",
+      "persistence": "Vendor CustomField/ReportingTag attribute values persisted",
+      "coverage": "Existing attributes can be edited; this is not typed field schema, lookup, formula or global reporting tag definition.",
+      "destination": "Vendor editor Custom Fields / Reporting Tags",
+      "sourceEvidence": [
+        {
+          "path": "reference-ui/src/features/VendorEditorForm.tsx",
+          "line": 69,
+          "repository": "module-connect",
+          "sourceCommit": "c370275e9242f447cade47bec31c2fb42aa75637",
+          "sourceUrl": "https://github.com/georgemunganga/module-connect/blob/c370275e9242f447cade47bec31c2fb42aa75637/reference-ui/src/features/VendorEditorForm.tsx#L69"
+        },
+        {
+          "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Api/ProcurementVendorRoutes.cs",
+          "line": 852,
+          "repository": "erp",
+          "sourceCommit": "c38202e57afff83abbcdcbb05f95a27d38a8be26",
+          "sourceUrl": "https://github.com/georgemunganga/erp/blob/c38202e57afff83abbcdcbb05f95a27d38a8be26/backend/hrm-api/src/Mightyfin.Erp.Hrm.Api/ProcurementVendorRoutes.cs#L852"
+        }
+      ],
+      "manualUrls": [
+        "https://www.zoho.com/procurement/help/settings/customization/custom-fields/"
+      ]
+    },
+    {
+      "id": "SET-37",
+      "control": "Typed cross-module custom fields",
+      "owner": "ERP Core extensibility",
+      "classification": "not connected",
+      "persistence": "No general definition/persistence evidenced",
+      "coverage": "Vendor attributes do not create reusable typed fields across modules.",
+      "destination": "Optional extensibility design",
+      "sourceEvidence": [
+        {
+          "path": "modules/hrm/frontend/module-connect/src/modules/core/settings.ts",
+          "line": 35,
+          "repository": "erp",
+          "sourceCommit": "c38202e57afff83abbcdcbb05f95a27d38a8be26",
+          "sourceUrl": "https://github.com/georgemunganga/erp/blob/c38202e57afff83abbcdcbb05f95a27d38a8be26/modules/hrm/frontend/module-connect/src/modules/core/settings.ts#L35"
+        },
+        {
+          "path": "reference-ui/src/features/VendorEditorForm.tsx",
+          "line": 69,
+          "repository": "module-connect",
+          "sourceCommit": "c370275e9242f447cade47bec31c2fb42aa75637",
+          "sourceUrl": "https://github.com/georgemunganga/module-connect/blob/c370275e9242f447cade47bec31c2fb42aa75637/reference-ui/src/features/VendorEditorForm.tsx#L69"
+        }
+      ],
+      "manualUrls": [
+        "https://www.zoho.com/procurement/help/settings/customization/custom-fields/"
+      ]
+    },
+    {
+      "id": "SET-38",
+      "control": "Custom modules and blueprint transitions",
+      "owner": "ERP Core extensibility",
+      "classification": "not connected; optional scope",
+      "persistence": "No generic module/transition store evidenced",
+      "coverage": "Feature-specific Procurement workflows do not constitute Zoho blueprint designer.",
+      "destination": "Optional extensibility decision",
+      "sourceEvidence": [
+        {
+          "path": "modules/hrm/frontend/module-connect/src/routes/core.workspace.settings.$slug.tsx",
+          "line": 26,
+          "repository": "erp",
+          "sourceCommit": "c38202e57afff83abbcdcbb05f95a27d38a8be26",
+          "sourceUrl": "https://github.com/georgemunganga/erp/blob/c38202e57afff83abbcdcbb05f95a27d38a8be26/modules/hrm/frontend/module-connect/src/routes/core.workspace.settings.$slug.tsx#L26"
+        },
+        {
+          "path": "reference-ui/src/features/LiveSettingsShell.tsx",
+          "line": 100,
+          "repository": "module-connect",
+          "sourceCommit": "c370275e9242f447cade47bec31c2fb42aa75637",
+          "sourceUrl": "https://github.com/georgemunganga/module-connect/blob/c370275e9242f447cade47bec31c2fb42aa75637/reference-ui/src/features/LiveSettingsShell.tsx#L100"
+        }
+      ],
+      "manualUrls": [
+        "https://www.zoho.com/procurement/help/custom-modules/blueprints/"
+      ]
+    },
+    {
+      "id": "SET-39",
+      "control": "Workflow rules and SLA automation",
+      "owner": "ERP Core automation",
+      "classification": "preview-only; live editor absent",
+      "persistence": "Preview sample state only",
+      "coverage": "Live shell does not mount preview automation; no scheduler or execution proof.",
+      "destination": "Future automation service and owner policy",
+      "sourceEvidence": [
+        {
+          "path": "reference-ui/src/features/Settings.tsx",
+          "line": 1438,
+          "repository": "module-connect",
+          "sourceCommit": "c370275e9242f447cade47bec31c2fb42aa75637",
+          "sourceUrl": "https://github.com/georgemunganga/module-connect/blob/c370275e9242f447cade47bec31c2fb42aa75637/reference-ui/src/features/Settings.tsx#L1438"
+        },
+        {
+          "path": "reference-ui/src/features/LiveSettingsShell.tsx",
+          "line": 102,
+          "repository": "module-connect",
+          "sourceCommit": "c370275e9242f447cade47bec31c2fb42aa75637",
+          "sourceUrl": "https://github.com/georgemunganga/module-connect/blob/c370275e9242f447cade47bec31c2fb42aa75637/reference-ui/src/features/LiveSettingsShell.tsx#L102"
+        }
+      ],
+      "manualUrls": [
+        "https://www.zoho.com/procurement/help/settings/automation/workflow-rules/"
+      ]
+    },
+    {
+      "id": "SET-40",
+      "control": "Schedules, alerts and webhooks",
+      "owner": "ERP Core automation",
+      "classification": "preview-only or absent",
+      "persistence": "No connected general scheduler/webhook API in this UI slice",
+      "coverage": "Preview says no workflow executions and does not send messages.",
+      "destination": "Future integration service subject to security review",
+      "sourceEvidence": [
+        {
+          "path": "reference-ui/src/features/Settings.tsx",
+          "line": 1465,
+          "repository": "module-connect",
+          "sourceCommit": "c370275e9242f447cade47bec31c2fb42aa75637",
+          "sourceUrl": "https://github.com/georgemunganga/module-connect/blob/c370275e9242f447cade47bec31c2fb42aa75637/reference-ui/src/features/Settings.tsx#L1465"
+        },
+        {
+          "path": "reference-ui/src/features/Settings.tsx",
+          "line": 1550,
+          "repository": "module-connect",
+          "sourceCommit": "c370275e9242f447cade47bec31c2fb42aa75637",
+          "sourceUrl": "https://github.com/georgemunganga/module-connect/blob/c370275e9242f447cade47bec31c2fb42aa75637/reference-ui/src/features/Settings.tsx#L1550"
+        }
+      ],
+      "manualUrls": [
+        "https://www.zoho.com/procurement/help/settings/automation/schedules/"
+      ]
+    },
+    {
+      "id": "SET-41",
+      "control": "API usage and incoming integration logs",
+      "owner": "ERP Core developer admin",
+      "classification": "not connected in shared settings",
+      "persistence": "No connected admin UI/API in audited routes",
+      "coverage": "Zoho developer-data controls have no current Core directory entry.",
+      "destination": "Separate developer administration scope",
+      "sourceEvidence": [
+        {
+          "path": "modules/hrm/frontend/module-connect/src/modules/core/settings.ts",
+          "line": 43,
+          "repository": "erp",
+          "sourceCommit": "c38202e57afff83abbcdcbb05f95a27d38a8be26",
+          "sourceUrl": "https://github.com/georgemunganga/erp/blob/c38202e57afff83abbcdcbb05f95a27d38a8be26/modules/hrm/frontend/module-connect/src/modules/core/settings.ts#L43"
+        },
+        {
+          "path": "modules/hrm/frontend/module-connect/src/routes/core.workspace.settings.$slug.tsx",
+          "line": 26,
+          "repository": "erp",
+          "sourceCommit": "c38202e57afff83abbcdcbb05f95a27d38a8be26",
+          "sourceUrl": "https://github.com/georgemunganga/erp/blob/c38202e57afff83abbcdcbb05f95a27d38a8be26/modules/hrm/frontend/module-connect/src/routes/core.workspace.settings.$slug.tsx#L26"
+        }
+      ],
+      "manualUrls": [
+        "https://www.zoho.com/procurement/help/settings/developer-data/api-usage/"
+      ]
+    },
+    {
+      "id": "SET-42",
+      "control": "Public shared settings route alignment",
+      "owner": "ERP frontend release",
+      "classification": "release gap verified",
+      "persistence": "Source editor routes exist; current public hierarchical routes return 404",
+      "coverage": "/core and /core/branding return 200, but three current hierarchical settings URLs return 404; this is deployment alignment, not bypass.",
+      "destination": "Publish reviewed routes and verify live navigation",
+      "sourceEvidence": [
+        {
+          "path": "modules/hrm/frontend/module-connect/src/routes/core.workspace.settings.$slug.tsx",
+          "line": 20,
+          "repository": "erp",
+          "sourceCommit": "c38202e57afff83abbcdcbb05f95a27d38a8be26",
+          "sourceUrl": "https://github.com/georgemunganga/erp/blob/c38202e57afff83abbcdcbb05f95a27d38a8be26/modules/hrm/frontend/module-connect/src/routes/core.workspace.settings.$slug.tsx#L20"
+        },
+        {
+          "path": "private-evidence:live-public-routes.json",
+          "line": 1
+        }
+      ],
+      "manualUrls": [
+        "https://www.zoho.com/procurement/help/settings/organization/branding/"
+      ]
+    }
+  ],
+  "limits": [
+    "Backend acceptance and published deployment differ. Connected source control is not live-positive proof.",
+    "No branch assignments can deliberately mean organization-wide scope under current policy.",
+    "This crosswalk does not introduce a second Core role or approval engine."
+  ]
+}

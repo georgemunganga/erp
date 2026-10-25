@@ -1,0 +1,1772 @@
+{
+  "schemaVersion": 1,
+  "sourceCommit": "c38202e57afff83abbcdcbb05f95a27d38a8be26",
+  "uiSourceBoundary": "/home/amizo/procurement-p37-goods-return-receiving-ui; read-only field inspection, no new UI execution claim",
+  "states": [
+    "PRESENT_IN_DTO",
+    "PERSISTED_AND_WIRED",
+    "SCHEMA_ONLY",
+    "ABSENT",
+    "OWNER_REFERENCE",
+    "NOT_VERIFIED"
+  ],
+  "interpretation": "A field or route is not proof of full workflow, private runtime acceptance or production deployment. Contract rows are ERP source audit context; no assigned Zoho contract URL.",
+  "rows": [
+    {
+      "id": "FT-01",
+      "module": "Vendor",
+      "manualFieldOrControl": "legal/trading/display name",
+      "erpFieldOrAction": "VendorDraftInput LegalName, TradingName, DisplayName",
+      "state": "PERSISTED_AND_WIRED",
+      "sourceEvidence": [
+        {
+          "repository": "erp",
+          "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Api/ProcurementVendorRoutes.cs",
+          "line": 913,
+          "sourceCommit": "c38202e57afff83abbcdcbb05f95a27d38a8be26",
+          "sourceUrl": "https://github.com/georgemunganga/erp/blob/c38202e57afff83abbcdcbb05f95a27d38a8be26/backend/hrm-api/src/Mightyfin.Erp.Hrm.Api/ProcurementVendorRoutes.cs#L913"
+        },
+        {
+          "repository": "erp",
+          "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Api/ProcurementVendorRoutes.cs",
+          "line": 130,
+          "sourceCommit": "c38202e57afff83abbcdcbb05f95a27d38a8be26",
+          "sourceUrl": "https://github.com/georgemunganga/erp/blob/c38202e57afff83abbcdcbb05f95a27d38a8be26/backend/hrm-api/src/Mightyfin.Erp.Hrm.Api/ProcurementVendorRoutes.cs#L130"
+        }
+      ],
+      "manualUrls": [
+        "https://www.zoho.com/procurement/help/vendors/add-vendors/",
+        "https://www.zoho.com/procurement/help/vendors/overview/"
+      ],
+      "workflowLimit": "Field/control evidence only; not broader workflow acceptance."
+    },
+    {
+      "id": "FT-02",
+      "module": "Vendor",
+      "manualFieldOrControl": "primary contact first/last, email, phone",
+      "erpFieldOrAction": "VendorContactInput and editable contacts",
+      "state": "PERSISTED_AND_WIRED",
+      "sourceEvidence": [
+        {
+          "repository": "erp",
+          "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Api/ProcurementVendorRoutes.cs",
+          "line": 928,
+          "sourceCommit": "c38202e57afff83abbcdcbb05f95a27d38a8be26",
+          "sourceUrl": "https://github.com/georgemunganga/erp/blob/c38202e57afff83abbcdcbb05f95a27d38a8be26/backend/hrm-api/src/Mightyfin.Erp.Hrm.Api/ProcurementVendorRoutes.cs#L928"
+        },
+        {
+          "repository": "module-connect",
+          "path": "reference-ui/src/features/VendorEditorForm.tsx",
+          "line": 30,
+          "sourceCommit": "c370275e9242f447cade47bec31c2fb42aa75637",
+          "sourceUrl": "https://github.com/georgemunganga/module-connect/blob/c370275e9242f447cade47bec31c2fb42aa75637/reference-ui/src/features/VendorEditorForm.tsx#L30"
+        }
+      ],
+      "manualUrls": [
+        "https://www.zoho.com/procurement/help/vendors/add-vendors/",
+        "https://www.zoho.com/procurement/help/vendors/vendor-onboarding/"
+      ],
+      "workflowLimit": "Field/control evidence only; not broader workflow acceptance."
+    },
+    {
+      "id": "FT-03",
+      "module": "Vendor",
+      "manualFieldOrControl": "additional contact persons",
+      "erpFieldOrAction": "contact add/update/remove routes",
+      "state": "PERSISTED_AND_WIRED",
+      "sourceEvidence": [
+        {
+          "repository": "erp",
+          "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Api/ProcurementVendorRoutes.cs",
+          "line": 31,
+          "sourceCommit": "c38202e57afff83abbcdcbb05f95a27d38a8be26",
+          "sourceUrl": "https://github.com/georgemunganga/erp/blob/c38202e57afff83abbcdcbb05f95a27d38a8be26/backend/hrm-api/src/Mightyfin.Erp.Hrm.Api/ProcurementVendorRoutes.cs#L31"
+        },
+        {
+          "repository": "erp",
+          "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Api/ProcurementVendorRoutes.cs",
+          "line": 928,
+          "sourceCommit": "c38202e57afff83abbcdcbb05f95a27d38a8be26",
+          "sourceUrl": "https://github.com/georgemunganga/erp/blob/c38202e57afff83abbcdcbb05f95a27d38a8be26/backend/hrm-api/src/Mightyfin.Erp.Hrm.Api/ProcurementVendorRoutes.cs#L928"
+        }
+      ],
+      "manualUrls": [
+        "https://www.zoho.com/procurement/help/vendors/add-vendors/",
+        "https://www.zoho.com/procurement/help/vendors/overview/"
+      ],
+      "workflowLimit": "Field/control evidence only; not broader workflow acceptance."
+    },
+    {
+      "id": "FT-04",
+      "module": "Vendor",
+      "manualFieldOrControl": "billing/shipping or service addresses",
+      "erpFieldOrAction": "VendorSiteInput Kind, address and primary/service flags",
+      "state": "PERSISTED_AND_WIRED",
+      "sourceEvidence": [
+        {
+          "repository": "erp",
+          "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Api/ProcurementVendorRoutes.cs",
+          "line": 34,
+          "sourceCommit": "c38202e57afff83abbcdcbb05f95a27d38a8be26",
+          "sourceUrl": "https://github.com/georgemunganga/erp/blob/c38202e57afff83abbcdcbb05f95a27d38a8be26/backend/hrm-api/src/Mightyfin.Erp.Hrm.Api/ProcurementVendorRoutes.cs#L34"
+        },
+        {
+          "repository": "erp",
+          "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Api/ProcurementVendorRoutes.cs",
+          "line": 931,
+          "sourceCommit": "c38202e57afff83abbcdcbb05f95a27d38a8be26",
+          "sourceUrl": "https://github.com/georgemunganga/erp/blob/c38202e57afff83abbcdcbb05f95a27d38a8be26/backend/hrm-api/src/Mightyfin.Erp.Hrm.Api/ProcurementVendorRoutes.cs#L931"
+        }
+      ],
+      "manualUrls": [
+        "https://www.zoho.com/procurement/help/vendors/add-vendors/",
+        "https://www.zoho.com/procurement/help/vendors/preferences/"
+      ],
+      "workflowLimit": "Field/control evidence only; not broader workflow acceptance."
+    },
+    {
+      "id": "FT-05",
+      "module": "Vendor",
+      "manualFieldOrControl": "currency and payment terms",
+      "erpFieldOrAction": "DefaultCurrencyCode, PaymentTermRef",
+      "state": "PERSISTED_AND_WIRED",
+      "sourceEvidence": [
+        {
+          "repository": "erp",
+          "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Api/ProcurementVendorRoutes.cs",
+          "line": 913,
+          "sourceCommit": "c38202e57afff83abbcdcbb05f95a27d38a8be26",
+          "sourceUrl": "https://github.com/georgemunganga/erp/blob/c38202e57afff83abbcdcbb05f95a27d38a8be26/backend/hrm-api/src/Mightyfin.Erp.Hrm.Api/ProcurementVendorRoutes.cs#L913"
+        },
+        {
+          "repository": "erp",
+          "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Api/ProcurementVendorRoutes.cs",
+          "line": 134,
+          "sourceCommit": "c38202e57afff83abbcdcbb05f95a27d38a8be26",
+          "sourceUrl": "https://github.com/georgemunganga/erp/blob/c38202e57afff83abbcdcbb05f95a27d38a8be26/backend/hrm-api/src/Mightyfin.Erp.Hrm.Api/ProcurementVendorRoutes.cs#L134"
+        }
+      ],
+      "manualUrls": [
+        "https://www.zoho.com/procurement/help/vendors/add-vendors/",
+        "https://www.zoho.com/procurement/help/vendors/manage-vendors/"
+      ],
+      "workflowLimit": "Field/control evidence only; not broader workflow acceptance."
+    },
+    {
+      "id": "FT-06",
+      "module": "Vendor",
+      "manualFieldOrControl": "tax/registration reference",
+      "erpFieldOrAction": "CompanyIdType, TaxIdentifierRef, RegistrationNumber",
+      "state": "PERSISTED_AND_WIRED",
+      "sourceEvidence": [
+        {
+          "repository": "erp",
+          "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Api/ProcurementVendorRoutes.cs",
+          "line": 913,
+          "sourceCommit": "c38202e57afff83abbcdcbb05f95a27d38a8be26",
+          "sourceUrl": "https://github.com/georgemunganga/erp/blob/c38202e57afff83abbcdcbb05f95a27d38a8be26/backend/hrm-api/src/Mightyfin.Erp.Hrm.Api/ProcurementVendorRoutes.cs#L913"
+        },
+        {
+          "repository": "erp",
+          "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Api/ProcurementVendorRoutes.cs",
+          "line": 132,
+          "sourceCommit": "c38202e57afff83abbcdcbb05f95a27d38a8be26",
+          "sourceUrl": "https://github.com/georgemunganga/erp/blob/c38202e57afff83abbcdcbb05f95a27d38a8be26/backend/hrm-api/src/Mightyfin.Erp.Hrm.Api/ProcurementVendorRoutes.cs#L132"
+        }
+      ],
+      "manualUrls": [
+        "https://www.zoho.com/procurement/help/vendors/add-vendors/",
+        "https://www.zoho.com/procurement/help/vendors/vendor-onboarding/"
+      ],
+      "workflowLimit": "Internal typed references exist; external verification is separate."
+    },
+    {
+      "id": "FT-07",
+      "module": "Vendor",
+      "manualFieldOrControl": "portal access toggle",
+      "erpFieldOrAction": "PortalAccessRequested stored as Requested",
+      "state": "PRESENT_IN_DTO",
+      "sourceEvidence": [
+        {
+          "repository": "erp",
+          "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Api/ProcurementVendorRoutes.cs",
+          "line": 917,
+          "sourceCommit": "c38202e57afff83abbcdcbb05f95a27d38a8be26",
+          "sourceUrl": "https://github.com/georgemunganga/erp/blob/c38202e57afff83abbcdcbb05f95a27d38a8be26/backend/hrm-api/src/Mightyfin.Erp.Hrm.Api/ProcurementVendorRoutes.cs#L917"
+        },
+        {
+          "repository": "erp",
+          "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Api/ProcurementVendorRoutes.cs",
+          "line": 137,
+          "sourceCommit": "c38202e57afff83abbcdcbb05f95a27d38a8be26",
+          "sourceUrl": "https://github.com/georgemunganga/erp/blob/c38202e57afff83abbcdcbb05f95a27d38a8be26/backend/hrm-api/src/Mightyfin.Erp.Hrm.Api/ProcurementVendorRoutes.cs#L137"
+        }
+      ],
+      "manualUrls": [
+        "https://www.zoho.com/procurement/help/vendors/add-vendors/",
+        "https://www.zoho.com/procurement/help/vendors/vendor-onboarding/"
+      ],
+      "workflowLimit": "Requested state creates no external supplier identity, invite or portal access."
+    },
+    {
+      "id": "FT-08",
+      "module": "Vendor",
+      "manualFieldOrControl": "bank details self-entry",
+      "erpFieldOrAction": "No Procurement bank input; Finance ownership disclosed in UI",
+      "state": "OWNER_REFERENCE",
+      "sourceEvidence": [
+        {
+          "repository": "erp",
+          "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Api/ProcurementVendorRoutes.cs",
+          "line": 913,
+          "sourceCommit": "c38202e57afff83abbcdcbb05f95a27d38a8be26",
+          "sourceUrl": "https://github.com/georgemunganga/erp/blob/c38202e57afff83abbcdcbb05f95a27d38a8be26/backend/hrm-api/src/Mightyfin.Erp.Hrm.Api/ProcurementVendorRoutes.cs#L913"
+        },
+        {
+          "repository": "module-connect",
+          "path": "reference-ui/src/features/VendorEditorForm.tsx",
+          "line": 68,
+          "sourceCommit": "c370275e9242f447cade47bec31c2fb42aa75637",
+          "sourceUrl": "https://github.com/georgemunganga/module-connect/blob/c370275e9242f447cade47bec31c2fb42aa75637/reference-ui/src/features/VendorEditorForm.tsx#L68"
+        }
+      ],
+      "manualUrls": [
+        "https://www.zoho.com/procurement/help/vendors/vendor-onboarding/"
+      ],
+      "workflowLimit": "Bank details and verification require Finance and supplier identity; no data stored in vendor form."
+    },
+    {
+      "id": "FT-09",
+      "module": "Vendor",
+      "manualFieldOrControl": "qualification documents",
+      "erpFieldOrAction": "EvidenceDocumentRefId on qualification and review action",
+      "state": "PRESENT_IN_DTO",
+      "sourceEvidence": [
+        {
+          "repository": "erp",
+          "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Api/ProcurementVendorRoutes.cs",
+          "line": 934,
+          "sourceCommit": "c38202e57afff83abbcdcbb05f95a27d38a8be26",
+          "sourceUrl": "https://github.com/georgemunganga/erp/blob/c38202e57afff83abbcdcbb05f95a27d38a8be26/backend/hrm-api/src/Mightyfin.Erp.Hrm.Api/ProcurementVendorRoutes.cs#L934"
+        },
+        {
+          "repository": "erp",
+          "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Api/ProcurementVendorRoutes.cs",
+          "line": 42,
+          "sourceCommit": "c38202e57afff83abbcdcbb05f95a27d38a8be26",
+          "sourceUrl": "https://github.com/georgemunganga/erp/blob/c38202e57afff83abbcdcbb05f95a27d38a8be26/backend/hrm-api/src/Mightyfin.Erp.Hrm.Api/ProcurementVendorRoutes.cs#L42"
+        }
+      ],
+      "manualUrls": [
+        "https://www.zoho.com/procurement/help/vendors/vendor-onboarding/"
+      ],
+      "workflowLimit": "Reference is not a verified scanner Clean result or complete vendor onboarding."
+    },
+    {
+      "id": "FT-10",
+      "module": "Vendor",
+      "manualFieldOrControl": "submit/reject/approve/suspend/reactivate",
+      "erpFieldOrAction": "versioned status actions with reviewer checks",
+      "state": "PERSISTED_AND_WIRED",
+      "sourceEvidence": [
+        {
+          "repository": "erp",
+          "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Api/ProcurementVendorRoutes.cs",
+          "line": 23,
+          "sourceCommit": "c38202e57afff83abbcdcbb05f95a27d38a8be26",
+          "sourceUrl": "https://github.com/georgemunganga/erp/blob/c38202e57afff83abbcdcbb05f95a27d38a8be26/backend/hrm-api/src/Mightyfin.Erp.Hrm.Api/ProcurementVendorRoutes.cs#L23"
+        },
+        {
+          "repository": "erp",
+          "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Api/ProcurementVendorRoutes.cs",
+          "line": 743,
+          "sourceCommit": "c38202e57afff83abbcdcbb05f95a27d38a8be26",
+          "sourceUrl": "https://github.com/georgemunganga/erp/blob/c38202e57afff83abbcdcbb05f95a27d38a8be26/backend/hrm-api/src/Mightyfin.Erp.Hrm.Api/ProcurementVendorRoutes.cs#L743"
+        }
+      ],
+      "manualUrls": [
+        "https://www.zoho.com/procurement/help/vendors/approvals-for-vendors/",
+        "https://www.zoho.com/procurement/help/vendors/manage-vendors/"
+      ],
+      "workflowLimit": "Internal reviewer workflow; configurable presets and external notifications unverified."
+    },
+    {
+      "id": "FT-11",
+      "module": "Item",
+      "manualFieldOrControl": "goods/service type and immutable used type",
+      "erpFieldOrAction": "ItemInput Kind, stock/asset flags",
+      "state": "PERSISTED_AND_WIRED",
+      "sourceEvidence": [
+        {
+          "repository": "erp",
+          "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Api/ProcurementItemEndpoints.cs",
+          "line": 400,
+          "sourceCommit": "c38202e57afff83abbcdcbb05f95a27d38a8be26",
+          "sourceUrl": "https://github.com/georgemunganga/erp/blob/c38202e57afff83abbcdcbb05f95a27d38a8be26/backend/hrm-api/src/Mightyfin.Erp.Hrm.Api/ProcurementItemEndpoints.cs#L400"
+        },
+        {
+          "repository": "module-connect",
+          "path": "reference-ui/src/features/LiveItems.tsx",
+          "line": 150,
+          "sourceCommit": "c370275e9242f447cade47bec31c2fb42aa75637",
+          "sourceUrl": "https://github.com/georgemunganga/module-connect/blob/c370275e9242f447cade47bec31c2fb42aa75637/reference-ui/src/features/LiveItems.tsx#L150"
+        }
+      ],
+      "manualUrls": [
+        "https://www.zoho.com/procurement/help/items/create-items/",
+        "https://www.zoho.com/procurement/help/items/manage-items/"
+      ],
+      "workflowLimit": "Type-after-transaction immutability must be evaluated by route validation; field alone proves no rule."
+    },
+    {
+      "id": "FT-12",
+      "module": "Item",
+      "manualFieldOrControl": "name, code/SKU and category",
+      "erpFieldOrAction": "ItemInput Code, Name, CategoryCode",
+      "state": "PERSISTED_AND_WIRED",
+      "sourceEvidence": [
+        {
+          "repository": "erp",
+          "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Api/ProcurementItemEndpoints.cs",
+          "line": 400,
+          "sourceCommit": "c38202e57afff83abbcdcbb05f95a27d38a8be26",
+          "sourceUrl": "https://github.com/georgemunganga/erp/blob/c38202e57afff83abbcdcbb05f95a27d38a8be26/backend/hrm-api/src/Mightyfin.Erp.Hrm.Api/ProcurementItemEndpoints.cs#L400"
+        },
+        {
+          "repository": "module-connect",
+          "path": "reference-ui/src/features/LiveItems.tsx",
+          "line": 148,
+          "sourceCommit": "c370275e9242f447cade47bec31c2fb42aa75637",
+          "sourceUrl": "https://github.com/georgemunganga/module-connect/blob/c370275e9242f447cade47bec31c2fb42aa75637/reference-ui/src/features/LiveItems.tsx#L148"
+        }
+      ],
+      "manualUrls": [
+        "https://www.zoho.com/procurement/help/items/create-items/",
+        "https://www.zoho.com/procurement/help/items/preferences/"
+      ],
+      "workflowLimit": "Field/control evidence only; not broader workflow acceptance."
+    },
+    {
+      "id": "FT-13",
+      "module": "Item",
+      "manualFieldOrControl": "unit and purchase-unit conversion",
+      "erpFieldOrAction": "UnitCode, PurchaseUnitCode, PurchaseUnitConversion",
+      "state": "PRESENT_IN_DTO",
+      "sourceEvidence": [
+        {
+          "repository": "erp",
+          "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Api/ProcurementItemEndpoints.cs",
+          "line": 400,
+          "sourceCommit": "c38202e57afff83abbcdcbb05f95a27d38a8be26",
+          "sourceUrl": "https://github.com/georgemunganga/erp/blob/c38202e57afff83abbcdcbb05f95a27d38a8be26/backend/hrm-api/src/Mightyfin.Erp.Hrm.Api/ProcurementItemEndpoints.cs#L400"
+        },
+        {
+          "repository": "erp",
+          "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Api/ProcurementItemEndpoints.cs",
+          "line": 332,
+          "sourceCommit": "c38202e57afff83abbcdcbb05f95a27d38a8be26",
+          "sourceUrl": "https://github.com/georgemunganga/erp/blob/c38202e57afff83abbcdcbb05f95a27d38a8be26/backend/hrm-api/src/Mightyfin.Erp.Hrm.Api/ProcurementItemEndpoints.cs#L332"
+        }
+      ],
+      "manualUrls": [
+        "https://www.zoho.com/procurement/help/items/create-items/",
+        "https://www.zoho.com/procurement/help/items/preferences/"
+      ],
+      "workflowLimit": "Fixed exact precision validation; user-settable precision preference absent."
+    },
+    {
+      "id": "FT-14",
+      "module": "Item",
+      "manualFieldOrControl": "cost/purchase price",
+      "erpFieldOrAction": "Supplier catalog EntryInput UnitPrice, not item header cost price",
+      "state": "PERSISTED_AND_WIRED",
+      "sourceEvidence": [
+        {
+          "repository": "erp",
+          "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Api/ProcurementItemEndpoints.cs",
+          "line": 424,
+          "sourceCommit": "c38202e57afff83abbcdcbb05f95a27d38a8be26",
+          "sourceUrl": "https://github.com/georgemunganga/erp/blob/c38202e57afff83abbcdcbb05f95a27d38a8be26/backend/hrm-api/src/Mightyfin.Erp.Hrm.Api/ProcurementItemEndpoints.cs#L424"
+        },
+        {
+          "repository": "module-connect",
+          "path": "reference-ui/src/features/LiveItems.tsx",
+          "line": 164,
+          "sourceCommit": "c370275e9242f447cade47bec31c2fb42aa75637",
+          "sourceUrl": "https://github.com/georgemunganga/module-connect/blob/c370275e9242f447cade47bec31c2fb42aa75637/reference-ui/src/features/LiveItems.tsx#L164"
+        }
+      ],
+      "manualUrls": [
+        "https://www.zoho.com/procurement/help/items/create-items/",
+        "https://www.zoho.com/procurement/help/items/other-actions-for-items/"
+      ],
+      "workflowLimit": "Supplier-specific catalog price is governed separately from item Draft."
+    },
+    {
+      "id": "FT-15",
+      "module": "Item",
+      "manualFieldOrControl": "preferred vendor",
+      "erpFieldOrAction": "SupplierId on catalog price entry",
+      "state": "PRESENT_IN_DTO",
+      "sourceEvidence": [
+        {
+          "repository": "erp",
+          "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Api/ProcurementItemEndpoints.cs",
+          "line": 424,
+          "sourceCommit": "c38202e57afff83abbcdcbb05f95a27d38a8be26",
+          "sourceUrl": "https://github.com/georgemunganga/erp/blob/c38202e57afff83abbcdcbb05f95a27d38a8be26/backend/hrm-api/src/Mightyfin.Erp.Hrm.Api/ProcurementItemEndpoints.cs#L424"
+        },
+        {
+          "repository": "module-connect",
+          "path": "reference-ui/src/features/LiveItems.tsx",
+          "line": 163,
+          "sourceCommit": "c370275e9242f447cade47bec31c2fb42aa75637",
+          "sourceUrl": "https://github.com/georgemunganga/module-connect/blob/c370275e9242f447cade47bec31c2fb42aa75637/reference-ui/src/features/LiveItems.tsx#L163"
+        }
+      ],
+      "manualUrls": [
+        "https://www.zoho.com/procurement/help/items/create-items/",
+        "https://www.zoho.com/procurement/help/items/other-actions-for-items/"
+      ],
+      "workflowLimit": "No simple preferred-vendor field on ItemInput; UI directs user to supplier price."
+    },
+    {
+      "id": "FT-16",
+      "module": "Item",
+      "manualFieldOrControl": "expense account and tax",
+      "erpFieldOrAction": "ExpenseAccountRef, TaxCodeRef",
+      "state": "PERSISTED_AND_WIRED",
+      "sourceEvidence": [
+        {
+          "repository": "erp",
+          "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Api/ProcurementItemEndpoints.cs",
+          "line": 365,
+          "sourceCommit": "c38202e57afff83abbcdcbb05f95a27d38a8be26",
+          "sourceUrl": "https://github.com/georgemunganga/erp/blob/c38202e57afff83abbcdcbb05f95a27d38a8be26/backend/hrm-api/src/Mightyfin.Erp.Hrm.Api/ProcurementItemEndpoints.cs#L365"
+        },
+        {
+          "repository": "module-connect",
+          "path": "reference-ui/src/features/LiveItems.tsx",
+          "line": 161,
+          "sourceCommit": "c370275e9242f447cade47bec31c2fb42aa75637",
+          "sourceUrl": "https://github.com/georgemunganga/module-connect/blob/c370275e9242f447cade47bec31c2fb42aa75637/reference-ui/src/features/LiveItems.tsx#L161"
+        }
+      ],
+      "manualUrls": [
+        "https://www.zoho.com/procurement/help/items/create-items/",
+        "https://www.zoho.com/procurement/help/items/preferences/"
+      ],
+      "workflowLimit": "Owner references only; no Finance ledger account posting is inferred."
+    },
+    {
+      "id": "FT-17",
+      "module": "Item",
+      "manualFieldOrControl": "activate/deactivate item",
+      "erpFieldOrAction": "versioned routes, activation self-approval denied",
+      "state": "PERSISTED_AND_WIRED",
+      "sourceEvidence": [
+        {
+          "repository": "erp",
+          "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Api/ProcurementItemEndpoints.cs",
+          "line": 24,
+          "sourceCommit": "c38202e57afff83abbcdcbb05f95a27d38a8be26",
+          "sourceUrl": "https://github.com/georgemunganga/erp/blob/c38202e57afff83abbcdcbb05f95a27d38a8be26/backend/hrm-api/src/Mightyfin.Erp.Hrm.Api/ProcurementItemEndpoints.cs#L24"
+        },
+        {
+          "repository": "erp",
+          "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Api/ProcurementItemEndpoints.cs",
+          "line": 168,
+          "sourceCommit": "c38202e57afff83abbcdcbb05f95a27d38a8be26",
+          "sourceUrl": "https://github.com/georgemunganga/erp/blob/c38202e57afff83abbcdcbb05f95a27d38a8be26/backend/hrm-api/src/Mightyfin.Erp.Hrm.Api/ProcurementItemEndpoints.cs#L168"
+        }
+      ],
+      "manualUrls": [
+        "https://www.zoho.com/procurement/help/items/manage-items/",
+        "https://www.zoho.com/procurement/help/items/overview/"
+      ],
+      "workflowLimit": "Field/control evidence only; not broader workflow acceptance."
+    },
+    {
+      "id": "FT-18",
+      "module": "Item",
+      "manualFieldOrControl": "publish/withdraw supplier catalog price",
+      "erpFieldOrAction": "independent catalog entry state route",
+      "state": "PERSISTED_AND_WIRED",
+      "sourceEvidence": [
+        {
+          "repository": "erp",
+          "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Api/ProcurementItemEndpoints.cs",
+          "line": 29,
+          "sourceCommit": "c38202e57afff83abbcdcbb05f95a27d38a8be26",
+          "sourceUrl": "https://github.com/georgemunganga/erp/blob/c38202e57afff83abbcdcbb05f95a27d38a8be26/backend/hrm-api/src/Mightyfin.Erp.Hrm.Api/ProcurementItemEndpoints.cs#L29"
+        },
+        {
+          "repository": "erp",
+          "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Api/ProcurementItemEndpoints.cs",
+          "line": 267,
+          "sourceCommit": "c38202e57afff83abbcdcbb05f95a27d38a8be26",
+          "sourceUrl": "https://github.com/georgemunganga/erp/blob/c38202e57afff83abbcdcbb05f95a27d38a8be26/backend/hrm-api/src/Mightyfin.Erp.Hrm.Api/ProcurementItemEndpoints.cs#L267"
+        }
+      ],
+      "manualUrls": [
+        "https://www.zoho.com/procurement/help/items/manage-items/",
+        "https://www.zoho.com/procurement/help/items/overview/"
+      ],
+      "workflowLimit": "Not general batch import/export or catalog punchout."
+    },
+    {
+      "id": "FT-19",
+      "module": "PR",
+      "manualFieldOrControl": "purpose/needed date and notes",
+      "erpFieldOrAction": "NewRequest Purpose, NeededBy, NotesToApprover",
+      "state": "PERSISTED_AND_WIRED",
+      "sourceEvidence": [
+        {
+          "repository": "erp",
+          "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Api/ProcurementRequestRoutes.cs",
+          "line": 572,
+          "sourceCommit": "c38202e57afff83abbcdcbb05f95a27d38a8be26",
+          "sourceUrl": "https://github.com/georgemunganga/erp/blob/c38202e57afff83abbcdcbb05f95a27d38a8be26/backend/hrm-api/src/Mightyfin.Erp.Hrm.Api/ProcurementRequestRoutes.cs#L572"
+        },
+        {
+          "repository": "erp",
+          "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Api/ProcurementRequestRoutes.cs",
+          "line": 65,
+          "sourceCommit": "c38202e57afff83abbcdcbb05f95a27d38a8be26",
+          "sourceUrl": "https://github.com/georgemunganga/erp/blob/c38202e57afff83abbcdcbb05f95a27d38a8be26/backend/hrm-api/src/Mightyfin.Erp.Hrm.Api/ProcurementRequestRoutes.cs#L65"
+        }
+      ],
+      "manualUrls": [
+        "https://www.zoho.com/procurement/help/my-requests/create-purchase-requests/",
+        "https://www.zoho.com/procurement/help/my-requests/overview/"
+      ],
+      "workflowLimit": "Field/control evidence only; not broader workflow acceptance."
+    },
+    {
+      "id": "FT-20",
+      "module": "PR",
+      "manualFieldOrControl": "delivery address/location",
+      "erpFieldOrAction": "DeliveryLocationRef and DeliveryAddressText",
+      "state": "PERSISTED_AND_WIRED",
+      "sourceEvidence": [
+        {
+          "repository": "erp",
+          "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Api/ProcurementRequestRoutes.cs",
+          "line": 574,
+          "sourceCommit": "c38202e57afff83abbcdcbb05f95a27d38a8be26",
+          "sourceUrl": "https://github.com/georgemunganga/erp/blob/c38202e57afff83abbcdcbb05f95a27d38a8be26/backend/hrm-api/src/Mightyfin.Erp.Hrm.Api/ProcurementRequestRoutes.cs#L574"
+        },
+        {
+          "repository": "module-connect",
+          "path": "reference-ui/src/features/LiveRequests.tsx",
+          "line": 280,
+          "sourceCommit": "c370275e9242f447cade47bec31c2fb42aa75637",
+          "sourceUrl": "https://github.com/georgemunganga/module-connect/blob/c370275e9242f447cade47bec31c2fb42aa75637/reference-ui/src/features/LiveRequests.tsx#L280"
+        }
+      ],
+      "manualUrls": [
+        "https://www.zoho.com/procurement/help/my-requests/create-purchase-requests/",
+        "https://www.zoho.com/procurement/help/my-requests/overview/"
+      ],
+      "workflowLimit": "Field/control evidence only; not broader workflow acceptance."
+    },
+    {
+      "id": "FT-21",
+      "module": "PR",
+      "manualFieldOrControl": "catalog item or custom description",
+      "erpFieldOrAction": "CatalogItemId, CatalogEntryId, Description",
+      "state": "PERSISTED_AND_WIRED",
+      "sourceEvidence": [
+        {
+          "repository": "erp",
+          "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Api/ProcurementRequestRoutes.cs",
+          "line": 583,
+          "sourceCommit": "c38202e57afff83abbcdcbb05f95a27d38a8be26",
+          "sourceUrl": "https://github.com/georgemunganga/erp/blob/c38202e57afff83abbcdcbb05f95a27d38a8be26/backend/hrm-api/src/Mightyfin.Erp.Hrm.Api/ProcurementRequestRoutes.cs#L583"
+        },
+        {
+          "repository": "module-connect",
+          "path": "reference-ui/src/features/LiveRequests.tsx",
+          "line": 309,
+          "sourceCommit": "c370275e9242f447cade47bec31c2fb42aa75637",
+          "sourceUrl": "https://github.com/georgemunganga/module-connect/blob/c370275e9242f447cade47bec31c2fb42aa75637/reference-ui/src/features/LiveRequests.tsx#L309"
+        }
+      ],
+      "manualUrls": [
+        "https://www.zoho.com/procurement/help/my-requests/create-purchase-requests/",
+        "https://www.zoho.com/procurement/help/purchase-requests/convert-requested-items/"
+      ],
+      "workflowLimit": "Field/control evidence only; not broader workflow acceptance."
+    },
+    {
+      "id": "FT-22",
+      "module": "PR",
+      "manualFieldOrControl": "requested quantity and estimated unit rate",
+      "erpFieldOrAction": "RequestLineInput decimal RequestedQuantity, EstimatedUnitPrice",
+      "state": "PERSISTED_AND_WIRED",
+      "sourceEvidence": [
+        {
+          "repository": "erp",
+          "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Api/ProcurementRequestRoutes.cs",
+          "line": 583,
+          "sourceCommit": "c38202e57afff83abbcdcbb05f95a27d38a8be26",
+          "sourceUrl": "https://github.com/georgemunganga/erp/blob/c38202e57afff83abbcdcbb05f95a27d38a8be26/backend/hrm-api/src/Mightyfin.Erp.Hrm.Api/ProcurementRequestRoutes.cs#L583"
+        },
+        {
+          "repository": "erp",
+          "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Api/ProcurementRequestRoutes.cs",
+          "line": 266,
+          "sourceCommit": "c38202e57afff83abbcdcbb05f95a27d38a8be26",
+          "sourceUrl": "https://github.com/georgemunganga/erp/blob/c38202e57afff83abbcdcbb05f95a27d38a8be26/backend/hrm-api/src/Mightyfin.Erp.Hrm.Api/ProcurementRequestRoutes.cs#L266"
+        }
+      ],
+      "manualUrls": [
+        "https://www.zoho.com/procurement/help/my-requests/create-purchase-requests/",
+        "https://www.zoho.com/procurement/help/purchase-requests/convert-requested-items/"
+      ],
+      "workflowLimit": "Estimate is not a supplier quote or actual AP amount."
+    },
+    {
+      "id": "FT-23",
+      "module": "PR",
+      "manualFieldOrControl": "line discount/tax/category/preferred supplier",
+      "erpFieldOrAction": "DiscountPercent, TaxCodeRef, CategoryCode, PreferredSupplierId",
+      "state": "PRESENT_IN_DTO",
+      "sourceEvidence": [
+        {
+          "repository": "erp",
+          "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Api/ProcurementRequestRoutes.cs",
+          "line": 585,
+          "sourceCommit": "c38202e57afff83abbcdcbb05f95a27d38a8be26",
+          "sourceUrl": "https://github.com/georgemunganga/erp/blob/c38202e57afff83abbcdcbb05f95a27d38a8be26/backend/hrm-api/src/Mightyfin.Erp.Hrm.Api/ProcurementRequestRoutes.cs#L585"
+        },
+        {
+          "repository": "module-connect",
+          "path": "reference-ui/src/features/LiveRequests.tsx",
+          "line": 313,
+          "sourceCommit": "c370275e9242f447cade47bec31c2fb42aa75637",
+          "sourceUrl": "https://github.com/georgemunganga/module-connect/blob/c370275e9242f447cade47bec31c2fb42aa75637/reference-ui/src/features/LiveRequests.tsx#L313"
+        }
+      ],
+      "manualUrls": [
+        "https://www.zoho.com/procurement/help/my-requests/create-purchase-requests/",
+        "https://www.zoho.com/procurement/help/purchase-requests/purchase-request-preferences/"
+      ],
+      "workflowLimit": "UI displayed estimated total excludes discount/tax/delivery; do not call it gross."
+    },
+    {
+      "id": "FT-24",
+      "module": "PR",
+      "manualFieldOrControl": "specification attachment",
+      "erpFieldOrAction": "SpecificationDocumentRefId on line",
+      "state": "OWNER_REFERENCE",
+      "sourceEvidence": [
+        {
+          "repository": "erp",
+          "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Api/ProcurementRequestRoutes.cs",
+          "line": 587,
+          "sourceCommit": "c38202e57afff83abbcdcbb05f95a27d38a8be26",
+          "sourceUrl": "https://github.com/georgemunganga/erp/blob/c38202e57afff83abbcdcbb05f95a27d38a8be26/backend/hrm-api/src/Mightyfin.Erp.Hrm.Api/ProcurementRequestRoutes.cs#L587"
+        },
+        {
+          "repository": "erp",
+          "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Api/ProcurementRequestRoutes.cs",
+          "line": 20,
+          "sourceCommit": "c38202e57afff83abbcdcbb05f95a27d38a8be26",
+          "sourceUrl": "https://github.com/georgemunganga/erp/blob/c38202e57afff83abbcdcbb05f95a27d38a8be26/backend/hrm-api/src/Mightyfin.Erp.Hrm.Api/ProcurementRequestRoutes.cs#L20"
+        }
+      ],
+      "manualUrls": [
+        "https://www.zoho.com/procurement/help/my-requests/create-purchase-requests/"
+      ],
+      "workflowLimit": "Reference field does not prove upload/preview/delete or scanner Clean."
+    },
+    {
+      "id": "FT-25",
+      "module": "PR",
+      "manualFieldOrControl": "submit/return/withdraw statuses",
+      "erpFieldOrAction": "versioned scoped source routes",
+      "state": "PERSISTED_AND_WIRED",
+      "sourceEvidence": [
+        {
+          "repository": "erp",
+          "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Api/ProcurementRequestRoutes.cs",
+          "line": 26,
+          "sourceCommit": "c38202e57afff83abbcdcbb05f95a27d38a8be26",
+          "sourceUrl": "https://github.com/georgemunganga/erp/blob/c38202e57afff83abbcdcbb05f95a27d38a8be26/backend/hrm-api/src/Mightyfin.Erp.Hrm.Api/ProcurementRequestRoutes.cs#L26"
+        },
+        {
+          "repository": "erp",
+          "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Api/ProcurementRequestRoutes.cs",
+          "line": 205,
+          "sourceCommit": "c38202e57afff83abbcdcbb05f95a27d38a8be26",
+          "sourceUrl": "https://github.com/georgemunganga/erp/blob/c38202e57afff83abbcdcbb05f95a27d38a8be26/backend/hrm-api/src/Mightyfin.Erp.Hrm.Api/ProcurementRequestRoutes.cs#L205"
+        }
+      ],
+      "manualUrls": [
+        "https://www.zoho.com/procurement/help/my-requests/approvals-for-my-requests/",
+        "https://www.zoho.com/procurement/help/my-requests/manage-purchase-requests/",
+        "https://www.zoho.com/procurement/help/my-requests/overview/"
+      ],
+      "workflowLimit": "Submitted withdrawal is blocked when active Core case or confirmed Finance reservation exists."
+    },
+    {
+      "id": "FT-26",
+      "module": "PR",
+      "manualFieldOrControl": "named approval decision",
+      "erpFieldOrAction": "Core ApprovalCase/Stage/Assignment with source policy",
+      "state": "PERSISTED_AND_WIRED",
+      "sourceEvidence": [
+        {
+          "repository": "erp",
+          "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Api/ProcurementApprovalExecutionRoutes.cs",
+          "line": 24,
+          "sourceCommit": "c38202e57afff83abbcdcbb05f95a27d38a8be26",
+          "sourceUrl": "https://github.com/georgemunganga/erp/blob/c38202e57afff83abbcdcbb05f95a27d38a8be26/backend/hrm-api/src/Mightyfin.Erp.Hrm.Api/ProcurementApprovalExecutionRoutes.cs#L24"
+        },
+        {
+          "repository": "erp",
+          "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Api/ProcurementApprovalExecutionRoutes.cs",
+          "line": 90,
+          "sourceCommit": "c38202e57afff83abbcdcbb05f95a27d38a8be26",
+          "sourceUrl": "https://github.com/georgemunganga/erp/blob/c38202e57afff83abbcdcbb05f95a27d38a8be26/backend/hrm-api/src/Mightyfin.Erp.Hrm.Api/ProcurementApprovalExecutionRoutes.cs#L90"
+        }
+      ],
+      "manualUrls": [
+        "https://www.zoho.com/procurement/help/my-requests/approvals-for-my-requests/",
+        "https://www.zoho.com/procurement/help/my-requests/overview/"
+      ],
+      "workflowLimit": "Not arbitrary ad hoc approver selection or post-approval reversal."
+    },
+    {
+      "id": "FT-27",
+      "module": "PR",
+      "manualFieldOrControl": "hold/processed/custom intermediate state",
+      "erpFieldOrAction": "No matching PR state route in inspected request/approval maps",
+      "state": "ABSENT",
+      "sourceEvidence": [
+        {
+          "repository": "erp",
+          "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Api/ProcurementRequestRoutes.cs",
+          "line": 20,
+          "sourceCommit": "c38202e57afff83abbcdcbb05f95a27d38a8be26",
+          "sourceUrl": "https://github.com/georgemunganga/erp/blob/c38202e57afff83abbcdcbb05f95a27d38a8be26/backend/hrm-api/src/Mightyfin.Erp.Hrm.Api/ProcurementRequestRoutes.cs#L20"
+        },
+        {
+          "repository": "erp",
+          "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Api/ProcurementApprovalExecutionRoutes.cs",
+          "line": 24,
+          "sourceCommit": "c38202e57afff83abbcdcbb05f95a27d38a8be26",
+          "sourceUrl": "https://github.com/georgemunganga/erp/blob/c38202e57afff83abbcdcbb05f95a27d38a8be26/backend/hrm-api/src/Mightyfin.Erp.Hrm.Api/ProcurementApprovalExecutionRoutes.cs#L24"
+        }
+      ],
+      "manualUrls": [
+        "https://www.zoho.com/procurement/help/my-requests/overview/",
+        "https://www.zoho.com/procurement/help/purchase-requests/manage-purchase-requests/",
+        "https://www.zoho.com/procurement/help/purchase-requests/purchase-request-preferences/"
+      ],
+      "workflowLimit": "Field/control evidence only; not broader workflow acceptance."
+    },
+    {
+      "id": "FT-28",
+      "module": "RFQ",
+      "manualFieldOrControl": "RFQ title/method/currency",
+      "erpFieldOrAction": "SourcingDraftInput Title, Method, CurrencyCode",
+      "state": "PERSISTED_AND_WIRED",
+      "sourceEvidence": [
+        {
+          "repository": "erp",
+          "path": "backend/procurement-api/src/Mightyfin.Erp.Procurement.Application/ProcurementSourcingDraftRules.cs",
+          "line": 6,
+          "sourceCommit": "c38202e57afff83abbcdcbb05f95a27d38a8be26",
+          "sourceUrl": "https://github.com/georgemunganga/erp/blob/c38202e57afff83abbcdcbb05f95a27d38a8be26/backend/procurement-api/src/Mightyfin.Erp.Procurement.Application/ProcurementSourcingDraftRules.cs#L6"
+        },
+        {
+          "repository": "erp",
+          "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Api/ProcurementSourcingExecutionRoutes.cs",
+          "line": 30,
+          "sourceCommit": "c38202e57afff83abbcdcbb05f95a27d38a8be26",
+          "sourceUrl": "https://github.com/georgemunganga/erp/blob/c38202e57afff83abbcdcbb05f95a27d38a8be26/backend/hrm-api/src/Mightyfin.Erp.Hrm.Api/ProcurementSourcingExecutionRoutes.cs#L30"
+        }
+      ],
+      "manualUrls": [
+        "https://www.zoho.com/procurement/help/request-for-quotes/create-request-for-quotes/",
+        "https://www.zoho.com/procurement/help/request-for-quotes/overview/"
+      ],
+      "workflowLimit": "Field/control evidence only; not broader workflow acceptance."
+    },
+    {
+      "id": "FT-29",
+      "module": "RFQ",
+      "manualFieldOrControl": "approved PR requested lines",
+      "erpFieldOrAction": "SourcingLineInput PurchaseRequestLineId, Quantity",
+      "state": "PERSISTED_AND_WIRED",
+      "sourceEvidence": [
+        {
+          "repository": "erp",
+          "path": "backend/procurement-api/src/Mightyfin.Erp.Procurement.Application/ProcurementSourcingDraftRules.cs",
+          "line": 3,
+          "sourceCommit": "c38202e57afff83abbcdcbb05f95a27d38a8be26",
+          "sourceUrl": "https://github.com/georgemunganga/erp/blob/c38202e57afff83abbcdcbb05f95a27d38a8be26/backend/procurement-api/src/Mightyfin.Erp.Procurement.Application/ProcurementSourcingDraftRules.cs#L3"
+        },
+        {
+          "repository": "erp",
+          "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Api/ProcurementSourcingExecutionRoutes.cs",
+          "line": 31,
+          "sourceCommit": "c38202e57afff83abbcdcbb05f95a27d38a8be26",
+          "sourceUrl": "https://github.com/georgemunganga/erp/blob/c38202e57afff83abbcdcbb05f95a27d38a8be26/backend/hrm-api/src/Mightyfin.Erp.Hrm.Api/ProcurementSourcingExecutionRoutes.cs#L31"
+        }
+      ],
+      "manualUrls": [
+        "https://www.zoho.com/procurement/help/request-for-quotes/create-request-for-quotes/",
+        "https://www.zoho.com/procurement/help/request-for-quotes/publish-request-for-quotes/"
+      ],
+      "workflowLimit": "Field/control evidence only; not broader workflow acceptance."
+    },
+    {
+      "id": "FT-30",
+      "module": "RFQ",
+      "manualFieldOrControl": "bid open/close dates",
+      "erpFieldOrAction": "SourcingDraftInput OpensAt/ClosesAt and commercial prepare",
+      "state": "PERSISTED_AND_WIRED",
+      "sourceEvidence": [
+        {
+          "repository": "erp",
+          "path": "backend/procurement-api/src/Mightyfin.Erp.Procurement.Application/ProcurementSourcingDraftRules.cs",
+          "line": 6,
+          "sourceCommit": "c38202e57afff83abbcdcbb05f95a27d38a8be26",
+          "sourceUrl": "https://github.com/georgemunganga/erp/blob/c38202e57afff83abbcdcbb05f95a27d38a8be26/backend/procurement-api/src/Mightyfin.Erp.Procurement.Application/ProcurementSourcingDraftRules.cs#L6"
+        },
+        {
+          "repository": "erp",
+          "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Api/ProcurementRfqCommercialRoundRoutes.cs",
+          "line": 12,
+          "sourceCommit": "c38202e57afff83abbcdcbb05f95a27d38a8be26",
+          "sourceUrl": "https://github.com/georgemunganga/erp/blob/c38202e57afff83abbcdcbb05f95a27d38a8be26/backend/hrm-api/src/Mightyfin.Erp.Hrm.Api/ProcurementRfqCommercialRoundRoutes.cs#L12"
+        }
+      ],
+      "manualUrls": [
+        "https://www.zoho.com/procurement/help/request-for-quotes/create-request-for-quotes/",
+        "https://www.zoho.com/procurement/help/request-for-quotes/publish-request-for-quotes/"
+      ],
+      "workflowLimit": "Field/control evidence only; not broader workflow acceptance."
+    },
+    {
+      "id": "FT-31",
+      "module": "RFQ",
+      "manualFieldOrControl": "evaluation tax/currency and document requirements",
+      "erpFieldOrAction": "PrincipalRfqCommercialDraftInput typed modes and DocumentUseSelection",
+      "state": "PRESENT_IN_DTO",
+      "sourceEvidence": [
+        {
+          "repository": "erp",
+          "path": "backend/procurement-api/src/Mightyfin.Erp.Procurement.Application/PrincipalRfqCommercialDraft.cs",
+          "line": 8,
+          "sourceCommit": "c38202e57afff83abbcdcbb05f95a27d38a8be26",
+          "sourceUrl": "https://github.com/georgemunganga/erp/blob/c38202e57afff83abbcdcbb05f95a27d38a8be26/backend/procurement-api/src/Mightyfin.Erp.Procurement.Application/PrincipalRfqCommercialDraft.cs#L8"
+        },
+        {
+          "repository": "erp",
+          "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Api/ProcurementRfqCommercialRoundRoutes.cs",
+          "line": 10,
+          "sourceCommit": "c38202e57afff83abbcdcbb05f95a27d38a8be26",
+          "sourceUrl": "https://github.com/georgemunganga/erp/blob/c38202e57afff83abbcdcbb05f95a27d38a8be26/backend/hrm-api/src/Mightyfin.Erp.Hrm.Api/ProcurementRfqCommercialRoundRoutes.cs#L10"
+        }
+      ],
+      "manualUrls": [
+        "https://www.zoho.com/procurement/help/request-for-quotes/create-request-for-quotes/",
+        "https://www.zoho.com/procurement/help/request-for-quotes/preferences/"
+      ],
+      "workflowLimit": "Draft/zero-document Prepare is accepted; no submitted supplier offer follows automatically."
+    },
+    {
+      "id": "FT-32",
+      "module": "RFQ",
+      "manualFieldOrControl": "vendor invitation/manual contact",
+      "erpFieldOrAction": "Core publication review and buyer manual contact",
+      "state": "PERSISTED_AND_WIRED",
+      "sourceEvidence": [
+        {
+          "repository": "erp",
+          "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Api/ProcurementPrincipalSourcingPublicationRoutes.cs",
+          "line": 25,
+          "sourceCommit": "c38202e57afff83abbcdcbb05f95a27d38a8be26",
+          "sourceUrl": "https://github.com/georgemunganga/erp/blob/c38202e57afff83abbcdcbb05f95a27d38a8be26/backend/hrm-api/src/Mightyfin.Erp.Hrm.Api/ProcurementPrincipalSourcingPublicationRoutes.cs#L25"
+        },
+        {
+          "repository": "erp",
+          "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Api/ProcurementPrincipalSourcingPublicationRoutes.cs",
+          "line": 39,
+          "sourceCommit": "c38202e57afff83abbcdcbb05f95a27d38a8be26",
+          "sourceUrl": "https://github.com/georgemunganga/erp/blob/c38202e57afff83abbcdcbb05f95a27d38a8be26/backend/hrm-api/src/Mightyfin.Erp.Hrm.Api/ProcurementPrincipalSourcingPublicationRoutes.cs#L39"
+        }
+      ],
+      "manualUrls": [
+        "https://www.zoho.com/procurement/help/request-for-quotes/publish-request-for-quotes/",
+        "https://www.zoho.com/procurement/help/request-for-quotes/surrogate-bids/"
+      ],
+      "workflowLimit": "Buyer contact is not proof of delivered vendor email or portal authentication."
+    },
+    {
+      "id": "FT-33",
+      "module": "RFQ",
+      "manualFieldOrControl": "team member/point of contact portal profile",
+      "erpFieldOrAction": "Current Core named actors and assignments",
+      "state": "NOT_VERIFIED",
+      "sourceEvidence": [
+        {
+          "repository": "erp",
+          "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Api/ProcurementPrincipalSourcingPublicationRoutes.cs",
+          "line": 25,
+          "sourceCommit": "c38202e57afff83abbcdcbb05f95a27d38a8be26",
+          "sourceUrl": "https://github.com/georgemunganga/erp/blob/c38202e57afff83abbcdcbb05f95a27d38a8be26/backend/hrm-api/src/Mightyfin.Erp.Hrm.Api/ProcurementPrincipalSourcingPublicationRoutes.cs#L25"
+        }
+      ],
+      "manualUrls": [
+        "https://www.zoho.com/procurement/help/request-for-quotes/create-request-for-quotes/"
+      ],
+      "workflowLimit": "No supplier-visible team/point-of-contact portal workflow is accepted."
+    },
+    {
+      "id": "FT-34",
+      "module": "RFQ",
+      "manualFieldOrControl": "buyer surrogate bid quantity/unit price",
+      "erpFieldOrAction": "Manual quotation under current buyer scope",
+      "state": "PERSISTED_AND_WIRED",
+      "sourceEvidence": [
+        {
+          "repository": "erp",
+          "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Api/ProcurementPrincipalSourcingManualQuoteRoutes.cs",
+          "line": 117,
+          "sourceCommit": "c38202e57afff83abbcdcbb05f95a27d38a8be26",
+          "sourceUrl": "https://github.com/georgemunganga/erp/blob/c38202e57afff83abbcdcbb05f95a27d38a8be26/backend/hrm-api/src/Mightyfin.Erp.Hrm.Api/ProcurementPrincipalSourcingManualQuoteRoutes.cs#L117"
+        },
+        {
+          "repository": "erp",
+          "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Api/ProcurementRfqCommercialRoundRoutes.cs",
+          "line": 19,
+          "sourceCommit": "c38202e57afff83abbcdcbb05f95a27d38a8be26",
+          "sourceUrl": "https://github.com/georgemunganga/erp/blob/c38202e57afff83abbcdcbb05f95a27d38a8be26/backend/hrm-api/src/Mightyfin.Erp.Hrm.Api/ProcurementRfqCommercialRoundRoutes.cs#L19"
+        }
+      ],
+      "manualUrls": [
+        "https://www.zoho.com/procurement/help/request-for-quotes/surrogate-bids/"
+      ],
+      "workflowLimit": "A buyer-recorded quote never becomes an authenticated vendor bid."
+    },
+    {
+      "id": "FT-35",
+      "module": "RFQ",
+      "manualFieldOrControl": "original offer document and scan",
+      "erpFieldOrAction": "OriginalDocumentVersionId, Available scan and retained use",
+      "state": "OWNER_REFERENCE",
+      "sourceEvidence": [
+        {
+          "repository": "erp",
+          "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Api/ProcurementRfqCommercialRoundOffer.cs",
+          "line": 15,
+          "sourceCommit": "c38202e57afff83abbcdcbb05f95a27d38a8be26",
+          "sourceUrl": "https://github.com/georgemunganga/erp/blob/c38202e57afff83abbcdcbb05f95a27d38a8be26/backend/hrm-api/src/Mightyfin.Erp.Hrm.Api/ProcurementRfqCommercialRoundOffer.cs#L15"
+        },
+        {
+          "repository": "erp",
+          "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Api/ProcurementRfqCommercialRoundOffer.cs",
+          "line": 137,
+          "sourceCommit": "c38202e57afff83abbcdcbb05f95a27d38a8be26",
+          "sourceUrl": "https://github.com/georgemunganga/erp/blob/c38202e57afff83abbcdcbb05f95a27d38a8be26/backend/hrm-api/src/Mightyfin.Erp.Hrm.Api/ProcurementRfqCommercialRoundOffer.cs#L137"
+        }
+      ],
+      "manualUrls": [
+        "https://www.zoho.com/procurement/help/request-for-quotes/create-request-for-quotes/",
+        "https://www.zoho.com/procurement/help/request-for-quotes/surrogate-bids/"
+      ],
+      "workflowLimit": "Scanner C04 real Clean proof remains needed; zero-document Prepare is insufficient."
+    },
+    {
+      "id": "FT-36",
+      "module": "RFQ",
+      "manualFieldOrControl": "sealed close/open and assessment",
+      "erpFieldOrAction": "commercial close/open-offers/assessment commands",
+      "state": "PRESENT_IN_DTO",
+      "sourceEvidence": [
+        {
+          "repository": "erp",
+          "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Api/ProcurementRfqCommercialRoundRoutes.cs",
+          "line": 21,
+          "sourceCommit": "c38202e57afff83abbcdcbb05f95a27d38a8be26",
+          "sourceUrl": "https://github.com/georgemunganga/erp/blob/c38202e57afff83abbcdcbb05f95a27d38a8be26/backend/hrm-api/src/Mightyfin.Erp.Hrm.Api/ProcurementRfqCommercialRoundRoutes.cs#L21"
+        },
+        {
+          "repository": "erp",
+          "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Api/ProcurementRfqCommercialRoundRoutes.cs",
+          "line": 31,
+          "sourceCommit": "c38202e57afff83abbcdcbb05f95a27d38a8be26",
+          "sourceUrl": "https://github.com/georgemunganga/erp/blob/c38202e57afff83abbcdcbb05f95a27d38a8be26/backend/hrm-api/src/Mightyfin.Erp.Hrm.Api/ProcurementRfqCommercialRoundRoutes.cs#L31"
+        }
+      ],
+      "manualUrls": [
+        "https://www.zoho.com/procurement/help/request-for-quotes/award-request-for-quotes/",
+        "https://www.zoho.com/procurement/help/request-for-quotes/overview/"
+      ],
+      "workflowLimit": "Route/source present; accepted P32 Draft preparation receipt does not prove full producer-backed award."
+    },
+    {
+      "id": "FT-37",
+      "module": "RFQ",
+      "manualFieldOrControl": "human shortlist rationale",
+      "erpFieldOrAction": "P36 Selection Rationale and exact proposed quantity/value",
+      "state": "PRESENT_IN_DTO",
+      "sourceEvidence": [
+        {
+          "repository": "erp",
+          "path": "backend/procurement-api/src/Mightyfin.Erp.Procurement.Application/PrincipalRfqRecommendationDraft.cs",
+          "line": 17,
+          "sourceCommit": "c38202e57afff83abbcdcbb05f95a27d38a8be26",
+          "sourceUrl": "https://github.com/georgemunganga/erp/blob/c38202e57afff83abbcdcbb05f95a27d38a8be26/backend/procurement-api/src/Mightyfin.Erp.Procurement.Application/PrincipalRfqRecommendationDraft.cs#L17"
+        },
+        {
+          "repository": "erp",
+          "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Api/ProcurementRfqCommercialRoundRoutes.cs",
+          "line": 37,
+          "sourceCommit": "c38202e57afff83abbcdcbb05f95a27d38a8be26",
+          "sourceUrl": "https://github.com/georgemunganga/erp/blob/c38202e57afff83abbcdcbb05f95a27d38a8be26/backend/hrm-api/src/Mightyfin.Erp.Hrm.Api/ProcurementRfqCommercialRoundRoutes.cs#L37"
+        }
+      ],
+      "manualUrls": [
+        "https://www.zoho.com/procurement/help/request-for-quotes/award-request-for-quotes/"
+      ],
+      "workflowLimit": "Human recommendation Draft; no winner or award effect."
+    },
+    {
+      "id": "FT-38",
+      "module": "RFQ",
+      "manualFieldOrControl": "split supplier award quantity",
+      "erpFieldOrAction": "P38 mapped review line exists; SaveChanges insertion veto",
+      "state": "SCHEMA_ONLY",
+      "sourceEvidence": [
+        {
+          "repository": "erp",
+          "path": "backend/procurement-api/src/Mightyfin.Erp.Procurement.Infrastructure/Data/ProcurementRfqAwardReviewMapping.cs",
+          "line": 202,
+          "sourceCommit": "c38202e57afff83abbcdcbb05f95a27d38a8be26",
+          "sourceUrl": "https://github.com/georgemunganga/erp/blob/c38202e57afff83abbcdcbb05f95a27d38a8be26/backend/procurement-api/src/Mightyfin.Erp.Procurement.Infrastructure/Data/ProcurementRfqAwardReviewMapping.cs#L202"
+        },
+        {
+          "repository": "erp",
+          "path": "backend/procurement-api/src/Mightyfin.Erp.Procurement.Infrastructure/Data/ProcurementRfqAwardReviewMapping.cs",
+          "line": 310,
+          "sourceCommit": "c38202e57afff83abbcdcbb05f95a27d38a8be26",
+          "sourceUrl": "https://github.com/georgemunganga/erp/blob/c38202e57afff83abbcdcbb05f95a27d38a8be26/backend/procurement-api/src/Mightyfin.Erp.Procurement.Infrastructure/Data/ProcurementRfqAwardReviewMapping.cs#L310"
+        }
+      ],
+      "manualUrls": [
+        "https://www.zoho.com/procurement/help/request-for-quotes/award-request-for-quotes/"
+      ],
+      "workflowLimit": "No authoritative residual-held-capacity adapter, Core policy or API."
+    },
+    {
+      "id": "FT-39",
+      "module": "RFQ",
+      "manualFieldOrControl": "award submit/approve/publish/notify",
+      "erpFieldOrAction": "No P38 route mapping; schema/rollback only",
+      "state": "ABSENT",
+      "sourceEvidence": [
+        {
+          "repository": "erp",
+          "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Api/ProcurementHostIntegration.cs",
+          "line": 143,
+          "sourceCommit": "c38202e57afff83abbcdcbb05f95a27d38a8be26",
+          "sourceUrl": "https://github.com/georgemunganga/erp/blob/c38202e57afff83abbcdcbb05f95a27d38a8be26/backend/hrm-api/src/Mightyfin.Erp.Hrm.Api/ProcurementHostIntegration.cs#L143"
+        },
+        {
+          "repository": "erp",
+          "path": "backend/procurement-api/src/Mightyfin.Erp.Procurement.Infrastructure/Data/ProcurementRfqAwardReviewMapping.cs",
+          "line": 310,
+          "sourceCommit": "c38202e57afff83abbcdcbb05f95a27d38a8be26",
+          "sourceUrl": "https://github.com/georgemunganga/erp/blob/c38202e57afff83abbcdcbb05f95a27d38a8be26/backend/procurement-api/src/Mightyfin.Erp.Procurement.Infrastructure/Data/ProcurementRfqAwardReviewMapping.cs#L310"
+        }
+      ],
+      "manualUrls": [
+        "https://www.zoho.com/procurement/help/request-for-quotes/award-request-for-quotes/",
+        "https://www.zoho.com/procurement/help/request-for-quotes/manage-request-for-quotes/",
+        "https://www.zoho.com/procurement/help/request-for-quotes/overview/"
+      ],
+      "workflowLimit": "Field/control evidence only; not broader workflow acceptance."
+    },
+    {
+      "id": "FT-40",
+      "module": "RFQ",
+      "manualFieldOrControl": "supplier portal bid/acknowledgement",
+      "erpFieldOrAction": "No external supplier endpoint in inspected publication/quote routes",
+      "state": "ABSENT",
+      "sourceEvidence": [
+        {
+          "repository": "erp",
+          "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Api/ProcurementPrincipalSourcingPublicationRoutes.cs",
+          "line": 25,
+          "sourceCommit": "c38202e57afff83abbcdcbb05f95a27d38a8be26",
+          "sourceUrl": "https://github.com/georgemunganga/erp/blob/c38202e57afff83abbcdcbb05f95a27d38a8be26/backend/hrm-api/src/Mightyfin.Erp.Hrm.Api/ProcurementPrincipalSourcingPublicationRoutes.cs#L25"
+        },
+        {
+          "repository": "erp",
+          "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Api/ProcurementPrincipalSourcingManualQuoteRoutes.cs",
+          "line": 117,
+          "sourceCommit": "c38202e57afff83abbcdcbb05f95a27d38a8be26",
+          "sourceUrl": "https://github.com/georgemunganga/erp/blob/c38202e57afff83abbcdcbb05f95a27d38a8be26/backend/hrm-api/src/Mightyfin.Erp.Hrm.Api/ProcurementPrincipalSourcingManualQuoteRoutes.cs#L117"
+        }
+      ],
+      "manualUrls": [
+        "https://www.zoho.com/procurement/help/request-for-quotes/overview/",
+        "https://www.zoho.com/procurement/help/request-for-quotes/publish-request-for-quotes/",
+        "https://www.zoho.com/procurement/help/request-for-quotes/surrogate-bids/"
+      ],
+      "workflowLimit": "Field/control evidence only; not broader workflow acceptance."
+    },
+    {
+      "id": "FT-41",
+      "module": "PO",
+      "manualFieldOrControl": "supplier, ship-to and bill-to",
+      "erpFieldOrAction": "OrderDraftInput SupplierId, ShipToRef, BillToRef",
+      "state": "PERSISTED_AND_WIRED",
+      "sourceEvidence": [
+        {
+          "repository": "erp",
+          "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Api/ProcurementOrderDraftRoutes.cs",
+          "line": 262,
+          "sourceCommit": "c38202e57afff83abbcdcbb05f95a27d38a8be26",
+          "sourceUrl": "https://github.com/georgemunganga/erp/blob/c38202e57afff83abbcdcbb05f95a27d38a8be26/backend/hrm-api/src/Mightyfin.Erp.Hrm.Api/ProcurementOrderDraftRoutes.cs#L262"
+        },
+        {
+          "repository": "erp",
+          "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Api/ProcurementPrincipalOrderDraftRoutes.cs",
+          "line": 46,
+          "sourceCommit": "c38202e57afff83abbcdcbb05f95a27d38a8be26",
+          "sourceUrl": "https://github.com/georgemunganga/erp/blob/c38202e57afff83abbcdcbb05f95a27d38a8be26/backend/hrm-api/src/Mightyfin.Erp.Hrm.Api/ProcurementPrincipalOrderDraftRoutes.cs#L46"
+        }
+      ],
+      "manualUrls": [
+        "https://www.zoho.com/procurement/help/purchase-orders/create-purchase-orders/"
+      ],
+      "workflowLimit": "References do not prove rendered vendor/customer address or external dispatch."
+    },
+    {
+      "id": "FT-42",
+      "module": "PO",
+      "manualFieldOrControl": "payment terms and delivery date",
+      "erpFieldOrAction": "PaymentTermRef, ExpectedDeliveryOn",
+      "state": "PERSISTED_AND_WIRED",
+      "sourceEvidence": [
+        {
+          "repository": "erp",
+          "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Api/ProcurementOrderDraftRoutes.cs",
+          "line": 262,
+          "sourceCommit": "c38202e57afff83abbcdcbb05f95a27d38a8be26",
+          "sourceUrl": "https://github.com/georgemunganga/erp/blob/c38202e57afff83abbcdcbb05f95a27d38a8be26/backend/hrm-api/src/Mightyfin.Erp.Hrm.Api/ProcurementOrderDraftRoutes.cs#L262"
+        },
+        {
+          "repository": "erp",
+          "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Api/ProcurementPrincipalOrderDraftRoutes.cs",
+          "line": 46,
+          "sourceCommit": "c38202e57afff83abbcdcbb05f95a27d38a8be26",
+          "sourceUrl": "https://github.com/georgemunganga/erp/blob/c38202e57afff83abbcdcbb05f95a27d38a8be26/backend/hrm-api/src/Mightyfin.Erp.Hrm.Api/ProcurementPrincipalOrderDraftRoutes.cs#L46"
+        }
+      ],
+      "manualUrls": [
+        "https://www.zoho.com/procurement/help/purchase-orders/create-purchase-orders/",
+        "https://www.zoho.com/procurement/help/purchase-orders/preferences/"
+      ],
+      "workflowLimit": "Field/control evidence only; not broader workflow acceptance."
+    },
+    {
+      "id": "FT-43",
+      "module": "PO",
+      "manualFieldOrControl": "line quantity, unit price, tax",
+      "erpFieldOrAction": "OrderDraftLineInput exact decimals",
+      "state": "PERSISTED_AND_WIRED",
+      "sourceEvidence": [
+        {
+          "repository": "erp",
+          "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Api/ProcurementOrderDraftRoutes.cs",
+          "line": 265,
+          "sourceCommit": "c38202e57afff83abbcdcbb05f95a27d38a8be26",
+          "sourceUrl": "https://github.com/georgemunganga/erp/blob/c38202e57afff83abbcdcbb05f95a27d38a8be26/backend/hrm-api/src/Mightyfin.Erp.Hrm.Api/ProcurementOrderDraftRoutes.cs#L265"
+        },
+        {
+          "repository": "erp",
+          "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Api/ProcurementPrincipalOrderDraftRoutes.cs",
+          "line": 46,
+          "sourceCommit": "c38202e57afff83abbcdcbb05f95a27d38a8be26",
+          "sourceUrl": "https://github.com/georgemunganga/erp/blob/c38202e57afff83abbcdcbb05f95a27d38a8be26/backend/hrm-api/src/Mightyfin.Erp.Hrm.Api/ProcurementPrincipalOrderDraftRoutes.cs#L46"
+        }
+      ],
+      "manualUrls": [
+        "https://www.zoho.com/procurement/help/purchase-orders/create-purchase-orders/"
+      ],
+      "workflowLimit": "No claim of Finance tax posting."
+    },
+    {
+      "id": "FT-44",
+      "module": "PO",
+      "manualFieldOrControl": "source conversion from approved PR",
+      "erpFieldOrAction": "ApprovedPrincipalDirectSources + source selections",
+      "state": "PERSISTED_AND_WIRED",
+      "sourceEvidence": [
+        {
+          "repository": "erp",
+          "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Api/ProcurementPrincipalOrderDraftRoutes.cs",
+          "line": 22,
+          "sourceCommit": "c38202e57afff83abbcdcbb05f95a27d38a8be26",
+          "sourceUrl": "https://github.com/georgemunganga/erp/blob/c38202e57afff83abbcdcbb05f95a27d38a8be26/backend/hrm-api/src/Mightyfin.Erp.Hrm.Api/ProcurementPrincipalOrderDraftRoutes.cs#L22"
+        },
+        {
+          "repository": "erp",
+          "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Api/ProcurementPrincipalOrderDraftRoutes.cs",
+          "line": 44,
+          "sourceCommit": "c38202e57afff83abbcdcbb05f95a27d38a8be26",
+          "sourceUrl": "https://github.com/georgemunganga/erp/blob/c38202e57afff83abbcdcbb05f95a27d38a8be26/backend/hrm-api/src/Mightyfin.Erp.Hrm.Api/ProcurementPrincipalOrderDraftRoutes.cs#L44"
+        }
+      ],
+      "manualUrls": [
+        "https://www.zoho.com/procurement/help/purchase-orders/create-purchase-orders/",
+        "https://www.zoho.com/procurement/help/purchase-requests/convert-requested-items/"
+      ],
+      "workflowLimit": "This is direct approved-source PO, not P38 awarded RFQ to PO."
+    },
+    {
+      "id": "FT-45",
+      "module": "PO",
+      "manualFieldOrControl": "source conversion from RFQ award",
+      "erpFieldOrAction": "No P38 output adapter; source denied",
+      "state": "ABSENT",
+      "sourceEvidence": [
+        {
+          "repository": "erp",
+          "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Api/ProcurementPrincipalOrderDraftRoutes.cs",
+          "line": 44,
+          "sourceCommit": "c38202e57afff83abbcdcbb05f95a27d38a8be26",
+          "sourceUrl": "https://github.com/georgemunganga/erp/blob/c38202e57afff83abbcdcbb05f95a27d38a8be26/backend/hrm-api/src/Mightyfin.Erp.Hrm.Api/ProcurementPrincipalOrderDraftRoutes.cs#L44"
+        },
+        {
+          "repository": "erp",
+          "path": "backend/procurement-api/src/Mightyfin.Erp.Procurement.Infrastructure/Data/ProcurementRfqAwardReviewMapping.cs",
+          "line": 310,
+          "sourceCommit": "c38202e57afff83abbcdcbb05f95a27d38a8be26",
+          "sourceUrl": "https://github.com/georgemunganga/erp/blob/c38202e57afff83abbcdcbb05f95a27d38a8be26/backend/procurement-api/src/Mightyfin.Erp.Procurement.Infrastructure/Data/ProcurementRfqAwardReviewMapping.cs#L310"
+        }
+      ],
+      "manualUrls": [
+        "https://www.zoho.com/procurement/help/purchase-orders/create-purchase-orders/",
+        "https://www.zoho.com/procurement/help/request-for-quotes/manage-request-for-quotes/"
+      ],
+      "workflowLimit": "Field/control evidence only; not broader workflow acceptance."
+    },
+    {
+      "id": "FT-46",
+      "module": "PO",
+      "manualFieldOrControl": "funding reference/attested amount",
+      "erpFieldOrAction": "FundingInput manual/external evidence refs",
+      "state": "PRESENT_IN_DTO",
+      "sourceEvidence": [
+        {
+          "repository": "erp",
+          "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Api/ProcurementPrincipalOrderDraftRoutes.cs",
+          "line": 26,
+          "sourceCommit": "c38202e57afff83abbcdcbb05f95a27d38a8be26",
+          "sourceUrl": "https://github.com/georgemunganga/erp/blob/c38202e57afff83abbcdcbb05f95a27d38a8be26/backend/hrm-api/src/Mightyfin.Erp.Hrm.Api/ProcurementPrincipalOrderDraftRoutes.cs#L26"
+        },
+        {
+          "repository": "erp",
+          "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Api/ProcurementPrincipalOrderDraftRoutes.cs",
+          "line": 66,
+          "sourceCommit": "c38202e57afff83abbcdcbb05f95a27d38a8be26",
+          "sourceUrl": "https://github.com/georgemunganga/erp/blob/c38202e57afff83abbcdcbb05f95a27d38a8be26/backend/hrm-api/src/Mightyfin.Erp.Hrm.Api/ProcurementPrincipalOrderDraftRoutes.cs#L66"
+        }
+      ],
+      "manualUrls": [
+        "https://www.zoho.com/procurement/help/purchase-orders/approvals-for-purchase-orders/",
+        "https://www.zoho.com/procurement/help/purchase-orders/create-purchase-orders/"
+      ],
+      "workflowLimit": "Funding evidence is not actual Finance budget or AP posting."
+    },
+    {
+      "id": "FT-47",
+      "module": "PO",
+      "manualFieldOrControl": "submit/review/issue/acknowledgment",
+      "erpFieldOrAction": "Core assignment decisions and typed issue/acknowledgment commands",
+      "state": "PERSISTED_AND_WIRED",
+      "sourceEvidence": [
+        {
+          "repository": "erp",
+          "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Api/ProcurementPrincipalOrderDraftRoutes.cs",
+          "line": 67,
+          "sourceCommit": "c38202e57afff83abbcdcbb05f95a27d38a8be26",
+          "sourceUrl": "https://github.com/georgemunganga/erp/blob/c38202e57afff83abbcdcbb05f95a27d38a8be26/backend/hrm-api/src/Mightyfin.Erp.Hrm.Api/ProcurementPrincipalOrderDraftRoutes.cs#L67"
+        },
+        {
+          "repository": "erp",
+          "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Api/ProcurementPrincipalOrderDraftRoutes.cs",
+          "line": 69,
+          "sourceCommit": "c38202e57afff83abbcdcbb05f95a27d38a8be26",
+          "sourceUrl": "https://github.com/georgemunganga/erp/blob/c38202e57afff83abbcdcbb05f95a27d38a8be26/backend/hrm-api/src/Mightyfin.Erp.Hrm.Api/ProcurementPrincipalOrderDraftRoutes.cs#L69"
+        }
+      ],
+      "manualUrls": [
+        "https://www.zoho.com/procurement/help/purchase-orders/approvals-for-purchase-orders/",
+        "https://www.zoho.com/procurement/help/purchase-orders/overview/"
+      ],
+      "workflowLimit": "Field/control evidence only; not broader workflow acceptance."
+    },
+    {
+      "id": "FT-48",
+      "module": "PO",
+      "manualFieldOrControl": "post-issue partial line cancel/reopen",
+      "erpFieldOrAction": "No route in direct PO command list",
+      "state": "ABSENT",
+      "sourceEvidence": [
+        {
+          "repository": "erp",
+          "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Api/ProcurementPrincipalOrderDraftRoutes.cs",
+          "line": 61,
+          "sourceCommit": "c38202e57afff83abbcdcbb05f95a27d38a8be26",
+          "sourceUrl": "https://github.com/georgemunganga/erp/blob/c38202e57afff83abbcdcbb05f95a27d38a8be26/backend/hrm-api/src/Mightyfin.Erp.Hrm.Api/ProcurementPrincipalOrderDraftRoutes.cs#L61"
+        },
+        {
+          "repository": "erp",
+          "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Api/ProcurementPrincipalOrderDraftRoutes.cs",
+          "line": 72,
+          "sourceCommit": "c38202e57afff83abbcdcbb05f95a27d38a8be26",
+          "sourceUrl": "https://github.com/georgemunganga/erp/blob/c38202e57afff83abbcdcbb05f95a27d38a8be26/backend/hrm-api/src/Mightyfin.Erp.Hrm.Api/ProcurementPrincipalOrderDraftRoutes.cs#L72"
+        }
+      ],
+      "manualUrls": [
+        "https://www.zoho.com/procurement/help/purchase-orders/cancel-purchase-orders/"
+      ],
+      "workflowLimit": "Field/control evidence only; not broader workflow acceptance."
+    },
+    {
+      "id": "FT-49",
+      "module": "PO",
+      "manualFieldOrControl": "direct PO-to-bill Draft conversion",
+      "erpFieldOrAction": "P31 invoice source/mapping separate; no direct PO conversion route",
+      "state": "ABSENT",
+      "sourceEvidence": [
+        {
+          "repository": "erp",
+          "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Api/ProcurementPrincipalOrderDraftRoutes.cs",
+          "line": 43,
+          "sourceCommit": "c38202e57afff83abbcdcbb05f95a27d38a8be26",
+          "sourceUrl": "https://github.com/georgemunganga/erp/blob/c38202e57afff83abbcdcbb05f95a27d38a8be26/backend/hrm-api/src/Mightyfin.Erp.Hrm.Api/ProcurementPrincipalOrderDraftRoutes.cs#L43"
+        },
+        {
+          "repository": "erp",
+          "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Api/ProcurementPrincipalInvoiceSourceRoutes.cs",
+          "line": 1,
+          "sourceCommit": "c38202e57afff83abbcdcbb05f95a27d38a8be26",
+          "sourceUrl": "https://github.com/georgemunganga/erp/blob/c38202e57afff83abbcdcbb05f95a27d38a8be26/backend/hrm-api/src/Mightyfin.Erp.Hrm.Api/ProcurementPrincipalInvoiceSourceRoutes.cs#L1"
+        }
+      ],
+      "manualUrls": [
+        "https://www.zoho.com/procurement/help/purchase-orders/convert-purchase-orders/"
+      ],
+      "workflowLimit": "Procurement invoice Draft/source bridge is missing; Finance owns later posting."
+    },
+    {
+      "id": "FT-50",
+      "module": "Receive",
+      "manualFieldOrControl": "PO/issued-version source",
+      "erpFieldOrAction": "ReceiptDraft PurchaseOrderId and IssuedVersionId",
+      "state": "PERSISTED_AND_WIRED",
+      "sourceEvidence": [
+        {
+          "repository": "erp",
+          "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Api/ProcurementReceivingRoutes.cs",
+          "line": 20,
+          "sourceCommit": "c38202e57afff83abbcdcbb05f95a27d38a8be26",
+          "sourceUrl": "https://github.com/georgemunganga/erp/blob/c38202e57afff83abbcdcbb05f95a27d38a8be26/backend/hrm-api/src/Mightyfin.Erp.Hrm.Api/ProcurementReceivingRoutes.cs#L20"
+        },
+        {
+          "repository": "erp",
+          "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Api/ProcurementReceivingRoutes.cs",
+          "line": 39,
+          "sourceCommit": "c38202e57afff83abbcdcbb05f95a27d38a8be26",
+          "sourceUrl": "https://github.com/georgemunganga/erp/blob/c38202e57afff83abbcdcbb05f95a27d38a8be26/backend/hrm-api/src/Mightyfin.Erp.Hrm.Api/ProcurementReceivingRoutes.cs#L39"
+        }
+      ],
+      "manualUrls": [
+        "https://www.zoho.com/procurement/help/purchase-receives/create-purchase-receives/",
+        "https://www.zoho.com/procurement/help/purchase-receives/overview/"
+      ],
+      "workflowLimit": "Field/control evidence only; not broader workflow acceptance."
+    },
+    {
+      "id": "FT-51",
+      "module": "Receive",
+      "manualFieldOrControl": "site and received date",
+      "erpFieldOrAction": "ReceiptDraft SiteId, ReceivedAt",
+      "state": "PERSISTED_AND_WIRED",
+      "sourceEvidence": [
+        {
+          "repository": "erp",
+          "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Api/ProcurementReceivingRoutes.cs",
+          "line": 21,
+          "sourceCommit": "c38202e57afff83abbcdcbb05f95a27d38a8be26",
+          "sourceUrl": "https://github.com/georgemunganga/erp/blob/c38202e57afff83abbcdcbb05f95a27d38a8be26/backend/hrm-api/src/Mightyfin.Erp.Hrm.Api/ProcurementReceivingRoutes.cs#L21"
+        },
+        {
+          "repository": "erp",
+          "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Api/ProcurementReceivingRoutes.cs",
+          "line": 39,
+          "sourceCommit": "c38202e57afff83abbcdcbb05f95a27d38a8be26",
+          "sourceUrl": "https://github.com/georgemunganga/erp/blob/c38202e57afff83abbcdcbb05f95a27d38a8be26/backend/hrm-api/src/Mightyfin.Erp.Hrm.Api/ProcurementReceivingRoutes.cs#L39"
+        }
+      ],
+      "manualUrls": [
+        "https://www.zoho.com/procurement/help/purchase-receives/create-purchase-receives/"
+      ],
+      "workflowLimit": "Field/control evidence only; not broader workflow acceptance."
+    },
+    {
+      "id": "FT-52",
+      "module": "Receive",
+      "manualFieldOrControl": "partial goods quantity/rejected quantity",
+      "erpFieldOrAction": "ReceiptLineDraft ReceivedQuantity/RejectedQuantity",
+      "state": "PERSISTED_AND_WIRED",
+      "sourceEvidence": [
+        {
+          "repository": "erp",
+          "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Api/ProcurementReceivingRoutes.cs",
+          "line": 20,
+          "sourceCommit": "c38202e57afff83abbcdcbb05f95a27d38a8be26",
+          "sourceUrl": "https://github.com/georgemunganga/erp/blob/c38202e57afff83abbcdcbb05f95a27d38a8be26/backend/hrm-api/src/Mightyfin.Erp.Hrm.Api/ProcurementReceivingRoutes.cs#L20"
+        },
+        {
+          "repository": "erp",
+          "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Api/ProcurementReceivingRoutes.cs",
+          "line": 40,
+          "sourceCommit": "c38202e57afff83abbcdcbb05f95a27d38a8be26",
+          "sourceUrl": "https://github.com/georgemunganga/erp/blob/c38202e57afff83abbcdcbb05f95a27d38a8be26/backend/hrm-api/src/Mightyfin.Erp.Hrm.Api/ProcurementReceivingRoutes.cs#L40"
+        }
+      ],
+      "manualUrls": [
+        "https://www.zoho.com/procurement/help/purchase-receives/create-purchase-receives/",
+        "https://www.zoho.com/procurement/help/purchase-receives/manage-purchase-receives/"
+      ],
+      "workflowLimit": "Controlled record/inspect/accept is distinct from a free toggle."
+    },
+    {
+      "id": "FT-53",
+      "module": "Receive",
+      "manualFieldOrControl": "record/inspect/accept goods",
+      "erpFieldOrAction": "distinct authority routes",
+      "state": "PERSISTED_AND_WIRED",
+      "sourceEvidence": [
+        {
+          "repository": "erp",
+          "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Api/ProcurementPrincipalReceivingRoutes.cs",
+          "line": 36,
+          "sourceCommit": "c38202e57afff83abbcdcbb05f95a27d38a8be26",
+          "sourceUrl": "https://github.com/georgemunganga/erp/blob/c38202e57afff83abbcdcbb05f95a27d38a8be26/backend/hrm-api/src/Mightyfin.Erp.Hrm.Api/ProcurementPrincipalReceivingRoutes.cs#L36"
+        },
+        {
+          "repository": "erp",
+          "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Api/ProcurementPrincipalReceivingRoutes.cs",
+          "line": 38,
+          "sourceCommit": "c38202e57afff83abbcdcbb05f95a27d38a8be26",
+          "sourceUrl": "https://github.com/georgemunganga/erp/blob/c38202e57afff83abbcdcbb05f95a27d38a8be26/backend/hrm-api/src/Mightyfin.Erp.Hrm.Api/ProcurementPrincipalReceivingRoutes.cs#L38"
+        }
+      ],
+      "manualUrls": [
+        "https://www.zoho.com/procurement/help/purchase-receives/create-purchase-receives/",
+        "https://www.zoho.com/procurement/help/purchase-receives/overview/"
+      ],
+      "workflowLimit": "Field/control evidence only; not broader workflow acceptance."
+    },
+    {
+      "id": "FT-54",
+      "module": "Receive",
+      "manualFieldOrControl": "service deliverable/period/quantity",
+      "erpFieldOrAction": "ServiceDraft typed fields and certify route",
+      "state": "PERSISTED_AND_WIRED",
+      "sourceEvidence": [
+        {
+          "repository": "erp",
+          "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Api/ProcurementReceivingRoutes.cs",
+          "line": 26,
+          "sourceCommit": "c38202e57afff83abbcdcbb05f95a27d38a8be26",
+          "sourceUrl": "https://github.com/georgemunganga/erp/blob/c38202e57afff83abbcdcbb05f95a27d38a8be26/backend/hrm-api/src/Mightyfin.Erp.Hrm.Api/ProcurementReceivingRoutes.cs#L26"
+        },
+        {
+          "repository": "erp",
+          "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Api/ProcurementPrincipalReceivingRoutes.cs",
+          "line": 43,
+          "sourceCommit": "c38202e57afff83abbcdcbb05f95a27d38a8be26",
+          "sourceUrl": "https://github.com/georgemunganga/erp/blob/c38202e57afff83abbcdcbb05f95a27d38a8be26/backend/hrm-api/src/Mightyfin.Erp.Hrm.Api/ProcurementPrincipalReceivingRoutes.cs#L43"
+        }
+      ],
+      "manualUrls": [
+        "https://www.zoho.com/procurement/help/purchase-receives/create-purchase-receives/",
+        "https://www.zoho.com/procurement/help/purchase-receives/overview/"
+      ],
+      "workflowLimit": "Field/control evidence only; not broader workflow acceptance."
+    },
+    {
+      "id": "FT-55",
+      "module": "Receive",
+      "manualFieldOrControl": "draft edit/cancel",
+      "erpFieldOrAction": "versioned draft route and cancel",
+      "state": "PERSISTED_AND_WIRED",
+      "sourceEvidence": [
+        {
+          "repository": "erp",
+          "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Api/ProcurementPrincipalReceivingRoutes.cs",
+          "line": 32,
+          "sourceCommit": "c38202e57afff83abbcdcbb05f95a27d38a8be26",
+          "sourceUrl": "https://github.com/georgemunganga/erp/blob/c38202e57afff83abbcdcbb05f95a27d38a8be26/backend/hrm-api/src/Mightyfin.Erp.Hrm.Api/ProcurementPrincipalReceivingRoutes.cs#L32"
+        },
+        {
+          "repository": "erp",
+          "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Api/ProcurementPrincipalReceivingRoutes.cs",
+          "line": 35,
+          "sourceCommit": "c38202e57afff83abbcdcbb05f95a27d38a8be26",
+          "sourceUrl": "https://github.com/georgemunganga/erp/blob/c38202e57afff83abbcdcbb05f95a27d38a8be26/backend/hrm-api/src/Mightyfin.Erp.Hrm.Api/ProcurementPrincipalReceivingRoutes.cs#L35"
+        }
+      ],
+      "manualUrls": [
+        "https://www.zoho.com/procurement/help/purchase-receives/manage-purchase-receives/"
+      ],
+      "workflowLimit": "Field/control evidence only; not broader workflow acceptance."
+    },
+    {
+      "id": "FT-56",
+      "module": "Receive",
+      "manualFieldOrControl": "In Transit/Received/Billed transitions",
+      "erpFieldOrAction": "No Billed/Partially Billed projection or transit toggle in route list",
+      "state": "ABSENT",
+      "sourceEvidence": [
+        {
+          "repository": "erp",
+          "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Api/ProcurementPrincipalReceivingRoutes.cs",
+          "line": 23,
+          "sourceCommit": "c38202e57afff83abbcdcbb05f95a27d38a8be26",
+          "sourceUrl": "https://github.com/georgemunganga/erp/blob/c38202e57afff83abbcdcbb05f95a27d38a8be26/backend/hrm-api/src/Mightyfin.Erp.Hrm.Api/ProcurementPrincipalReceivingRoutes.cs#L23"
+        },
+        {
+          "repository": "erp",
+          "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Api/ProcurementPrincipalReceivingRoutes.cs",
+          "line": 44,
+          "sourceCommit": "c38202e57afff83abbcdcbb05f95a27d38a8be26",
+          "sourceUrl": "https://github.com/georgemunganga/erp/blob/c38202e57afff83abbcdcbb05f95a27d38a8be26/backend/hrm-api/src/Mightyfin.Erp.Hrm.Api/ProcurementPrincipalReceivingRoutes.cs#L44"
+        }
+      ],
+      "manualUrls": [
+        "https://www.zoho.com/procurement/help/purchase-receives/create-purchase-receives/",
+        "https://www.zoho.com/procurement/help/purchase-receives/manage-purchase-receives/",
+        "https://www.zoho.com/procurement/help/purchase-receives/overview/"
+      ],
+      "workflowLimit": "Field/control evidence only; not broader workflow acceptance."
+    },
+    {
+      "id": "FT-57",
+      "module": "Receive",
+      "manualFieldOrControl": "delivery files/import",
+      "erpFieldOrAction": "DeliveryNoteRef/EvidenceReference only; no generic file/import route",
+      "state": "OWNER_REFERENCE",
+      "sourceEvidence": [
+        {
+          "repository": "erp",
+          "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Api/ProcurementReceivingRoutes.cs",
+          "line": 21,
+          "sourceCommit": "c38202e57afff83abbcdcbb05f95a27d38a8be26",
+          "sourceUrl": "https://github.com/georgemunganga/erp/blob/c38202e57afff83abbcdcbb05f95a27d38a8be26/backend/hrm-api/src/Mightyfin.Erp.Hrm.Api/ProcurementReceivingRoutes.cs#L21"
+        },
+        {
+          "repository": "erp",
+          "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Api/ProcurementReceivingRoutes.cs",
+          "line": 24,
+          "sourceCommit": "c38202e57afff83abbcdcbb05f95a27d38a8be26",
+          "sourceUrl": "https://github.com/georgemunganga/erp/blob/c38202e57afff83abbcdcbb05f95a27d38a8be26/backend/hrm-api/src/Mightyfin.Erp.Hrm.Api/ProcurementReceivingRoutes.cs#L24"
+        }
+      ],
+      "manualUrls": [
+        "https://www.zoho.com/procurement/help/purchase-receives/create-purchase-receives/",
+        "https://www.zoho.com/procurement/help/purchase-receives/other-actions-for-purchase-receives/"
+      ],
+      "workflowLimit": "Reference is not scanner-backed upload or CSV import."
+    },
+    {
+      "id": "FT-58",
+      "module": "Contract",
+      "manualFieldOrControl": "supplier/title/type",
+      "erpFieldOrAction": "ContractDraftInput SupplierId, Title, ContractType",
+      "state": "PERSISTED_AND_WIRED",
+      "sourceEvidence": [
+        {
+          "repository": "erp",
+          "path": "backend/procurement-api/src/Mightyfin.Erp.Procurement.Application/ProcurementContractDraftRules.cs",
+          "line": 5,
+          "sourceCommit": "c38202e57afff83abbcdcbb05f95a27d38a8be26",
+          "sourceUrl": "https://github.com/georgemunganga/erp/blob/c38202e57afff83abbcdcbb05f95a27d38a8be26/backend/procurement-api/src/Mightyfin.Erp.Procurement.Application/ProcurementContractDraftRules.cs#L5"
+        },
+        {
+          "repository": "erp",
+          "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Api/ProcurementContractDraftRoutes.cs",
+          "line": 19,
+          "sourceCommit": "c38202e57afff83abbcdcbb05f95a27d38a8be26",
+          "sourceUrl": "https://github.com/georgemunganga/erp/blob/c38202e57afff83abbcdcbb05f95a27d38a8be26/backend/hrm-api/src/Mightyfin.Erp.Hrm.Api/ProcurementContractDraftRoutes.cs#L19"
+        }
+      ],
+      "manualUrls": [],
+      "workflowLimit": "Field/control evidence only; not broader workflow acceptance."
+    },
+    {
+      "id": "FT-59",
+      "module": "Contract",
+      "manualFieldOrControl": "currency and ceiling",
+      "erpFieldOrAction": "ContractDraftInput CurrencyCode and exact CeilingAmount",
+      "state": "PERSISTED_AND_WIRED",
+      "sourceEvidence": [
+        {
+          "repository": "erp",
+          "path": "backend/procurement-api/src/Mightyfin.Erp.Procurement.Application/ProcurementContractDraftRules.cs",
+          "line": 5,
+          "sourceCommit": "c38202e57afff83abbcdcbb05f95a27d38a8be26",
+          "sourceUrl": "https://github.com/georgemunganga/erp/blob/c38202e57afff83abbcdcbb05f95a27d38a8be26/backend/procurement-api/src/Mightyfin.Erp.Procurement.Application/ProcurementContractDraftRules.cs#L5"
+        },
+        {
+          "repository": "erp",
+          "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Api/ProcurementContractDraftRoutes.cs",
+          "line": 41,
+          "sourceCommit": "c38202e57afff83abbcdcbb05f95a27d38a8be26",
+          "sourceUrl": "https://github.com/georgemunganga/erp/blob/c38202e57afff83abbcdcbb05f95a27d38a8be26/backend/hrm-api/src/Mightyfin.Erp.Hrm.Api/ProcurementContractDraftRoutes.cs#L41"
+        }
+      ],
+      "manualUrls": [],
+      "workflowLimit": "Field/control evidence only; not broader workflow acceptance."
+    },
+    {
+      "id": "FT-60",
+      "module": "Contract",
+      "manualFieldOrControl": "effective/expiry/renewal notice",
+      "erpFieldOrAction": "ContractDraftInput dates validated",
+      "state": "PERSISTED_AND_WIRED",
+      "sourceEvidence": [
+        {
+          "repository": "erp",
+          "path": "backend/procurement-api/src/Mightyfin.Erp.Procurement.Application/ProcurementContractDraftRules.cs",
+          "line": 6,
+          "sourceCommit": "c38202e57afff83abbcdcbb05f95a27d38a8be26",
+          "sourceUrl": "https://github.com/georgemunganga/erp/blob/c38202e57afff83abbcdcbb05f95a27d38a8be26/backend/procurement-api/src/Mightyfin.Erp.Procurement.Application/ProcurementContractDraftRules.cs#L6"
+        },
+        {
+          "repository": "erp",
+          "path": "backend/procurement-api/src/Mightyfin.Erp.Procurement.Application/ProcurementContractDraftRules.cs",
+          "line": 21,
+          "sourceCommit": "c38202e57afff83abbcdcbb05f95a27d38a8be26",
+          "sourceUrl": "https://github.com/georgemunganga/erp/blob/c38202e57afff83abbcdcbb05f95a27d38a8be26/backend/procurement-api/src/Mightyfin.Erp.Procurement.Application/ProcurementContractDraftRules.cs#L21"
+        }
+      ],
+      "manualUrls": [],
+      "workflowLimit": "Field/control evidence only; not broader workflow acceptance."
+    },
+    {
+      "id": "FT-61",
+      "module": "Contract",
+      "manualFieldOrControl": "rate item/unit price/max quantity",
+      "erpFieldOrAction": "ContractRateDraftInput exact price and quantity",
+      "state": "PERSISTED_AND_WIRED",
+      "sourceEvidence": [
+        {
+          "repository": "erp",
+          "path": "backend/procurement-api/src/Mightyfin.Erp.Procurement.Application/ProcurementContractRateRules.cs",
+          "line": 5,
+          "sourceCommit": "c38202e57afff83abbcdcbb05f95a27d38a8be26",
+          "sourceUrl": "https://github.com/georgemunganga/erp/blob/c38202e57afff83abbcdcbb05f95a27d38a8be26/backend/procurement-api/src/Mightyfin.Erp.Procurement.Application/ProcurementContractRateRules.cs#L5"
+        },
+        {
+          "repository": "erp",
+          "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Api/ProcurementContractRateRoutes.cs",
+          "line": 16,
+          "sourceCommit": "c38202e57afff83abbcdcbb05f95a27d38a8be26",
+          "sourceUrl": "https://github.com/georgemunganga/erp/blob/c38202e57afff83abbcdcbb05f95a27d38a8be26/backend/hrm-api/src/Mightyfin.Erp.Hrm.Api/ProcurementContractRateRoutes.cs#L16"
+        }
+      ],
+      "manualUrls": [],
+      "workflowLimit": "Field/control evidence only; not broader workflow acceptance."
+    },
+    {
+      "id": "FT-62",
+      "module": "Contract",
+      "manualFieldOrControl": "internal submit/review/correct",
+      "erpFieldOrAction": "Core assignment routes default off and readiness guarded",
+      "state": "PERSISTED_AND_WIRED",
+      "sourceEvidence": [
+        {
+          "repository": "erp",
+          "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Api/ProcurementContractReviewRoutes.cs",
+          "line": 27,
+          "sourceCommit": "c38202e57afff83abbcdcbb05f95a27d38a8be26",
+          "sourceUrl": "https://github.com/georgemunganga/erp/blob/c38202e57afff83abbcdcbb05f95a27d38a8be26/backend/hrm-api/src/Mightyfin.Erp.Hrm.Api/ProcurementContractReviewRoutes.cs#L27"
+        },
+        {
+          "repository": "erp",
+          "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Api/ProcurementContractReviewRoutes.cs",
+          "line": 42,
+          "sourceCommit": "c38202e57afff83abbcdcbb05f95a27d38a8be26",
+          "sourceUrl": "https://github.com/georgemunganga/erp/blob/c38202e57afff83abbcdcbb05f95a27d38a8be26/backend/hrm-api/src/Mightyfin.Erp.Hrm.Api/ProcurementContractReviewRoutes.cs#L42"
+        }
+      ],
+      "manualUrls": [],
+      "workflowLimit": "Private P35 evidence only when explicitly enabled; approval is not signature/Active."
+    },
+    {
+      "id": "FT-63",
+      "module": "Contract",
+      "manualFieldOrControl": "signature/activation",
+      "erpFieldOrAction": "No route in draft/internal review map",
+      "state": "ABSENT",
+      "sourceEvidence": [
+        {
+          "repository": "erp",
+          "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Api/ProcurementContractDraftRoutes.cs",
+          "line": 16,
+          "sourceCommit": "c38202e57afff83abbcdcbb05f95a27d38a8be26",
+          "sourceUrl": "https://github.com/georgemunganga/erp/blob/c38202e57afff83abbcdcbb05f95a27d38a8be26/backend/hrm-api/src/Mightyfin.Erp.Hrm.Api/ProcurementContractDraftRoutes.cs#L16"
+        },
+        {
+          "repository": "erp",
+          "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Api/ProcurementContractReviewRoutes.cs",
+          "line": 27,
+          "sourceCommit": "c38202e57afff83abbcdcbb05f95a27d38a8be26",
+          "sourceUrl": "https://github.com/georgemunganga/erp/blob/c38202e57afff83abbcdcbb05f95a27d38a8be26/backend/hrm-api/src/Mightyfin.Erp.Hrm.Api/ProcurementContractReviewRoutes.cs#L27"
+        }
+      ],
+      "manualUrls": [],
+      "workflowLimit": "Field/control evidence only; not broader workflow acceptance."
+    },
+    {
+      "id": "FT-64",
+      "module": "Contract",
+      "manualFieldOrControl": "framework release/utilisation",
+      "erpFieldOrAction": "No owned drawdown or ceiling-consumption route",
+      "state": "ABSENT",
+      "sourceEvidence": [
+        {
+          "repository": "erp",
+          "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Api/ProcurementContractDraftRoutes.cs",
+          "line": 16,
+          "sourceCommit": "c38202e57afff83abbcdcbb05f95a27d38a8be26",
+          "sourceUrl": "https://github.com/georgemunganga/erp/blob/c38202e57afff83abbcdcbb05f95a27d38a8be26/backend/hrm-api/src/Mightyfin.Erp.Hrm.Api/ProcurementContractDraftRoutes.cs#L16"
+        },
+        {
+          "repository": "erp",
+          "path": "backend/hrm-api/src/Mightyfin.Erp.Hrm.Api/ProcurementContractRateRoutes.cs",
+          "line": 16,
+          "sourceCommit": "c38202e57afff83abbcdcbb05f95a27d38a8be26",
+          "sourceUrl": "https://github.com/georgemunganga/erp/blob/c38202e57afff83abbcdcbb05f95a27d38a8be26/backend/hrm-api/src/Mightyfin.Erp.Hrm.Api/ProcurementContractRateRoutes.cs#L16"
+        }
+      ],
+      "manualUrls": [],
+      "workflowLimit": "Field/control evidence only; not broader workflow acceptance."
+    }
+  ]
+}
