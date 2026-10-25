@@ -34,6 +34,15 @@ class P35CookieSourceAdmission(unittest.TestCase):
                       'PasswordChangedAt==null', 'LastLoginAt==null'):
             self.assertIn(fence, SERVE)
 
+    def test_browser_contract_buyer_has_only_scoped_vendor_read_dependency(self):
+        # The imported editor reads a vendor list and an individual vendor before
+        # choosing the retained supplier. The P35 buyer alone gets that read.
+        buyer = FIXTURE[FIXTURE.index('(Buyer,"p30_po_buyer"'):FIXTURE.index('(PoFinance,"p30_po_finance"')]
+        self.assertIn('principalContractReviewProfile?",procurement-vendor-read,procurement-contract-read', buyer)
+        self.assertEqual(FIXTURE.count('procurement-vendor-read'), 1)
+        self.assertNotIn('procurement-vendor-edit', buyer)
+        self.assertNotIn('procurement-vendor-create', buyer)
+
     def test_normal_host_and_completion_do_not_self_certify_browser(self):
         self.assertIn('normalLocalAuthentication:true', SERVE)
         self.assertIn('actual is ProcurementContractReviewStoreReadiness', SERVE)

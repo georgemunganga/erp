@@ -77,7 +77,7 @@ internal sealed class PrincipalApprovalFixture(string owner, bool browserBuyerPr
                     +(principalPoProfile?",procurement-vendor-approve,procurement-po-finance-confirm":"")),
                 (Ungranted,"p25_ungranted","")}.Concat(principalPoProfile
                 ?new[]{(Buyer,"p30_po_buyer","procurement-access,procurement-po-convert,procurement-po-read,procurement-po-edit,procurement-po-submit,procurement-po-issue"
-                    +(principalContractReviewProfile?",procurement-contract-read,procurement-contract-create,procurement-contract-edit,procurement-contract-submit,procurement-contract-review-read,procurement-contract-review":"")),
+                    +(principalContractReviewProfile?",procurement-vendor-read,procurement-contract-read,procurement-contract-create,procurement-contract-edit,procurement-contract-submit,procurement-contract-review-read,procurement-contract-review":"")),
                     (PoFinance,"p30_po_finance","procurement-access,procurement-po-finance-confirm"),
                     (PoApprover,"p30_po_approver","procurement-access,procurement-po-approve"),
                     (PoAck,"p30_po_ack","procurement-access,procurement-po-dispatch-confirm")}
