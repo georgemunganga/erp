@@ -4563,23 +4563,28 @@
   "originalUiTraceMethod": "Line anchors reference the preserved supplied presentation source. PREVIEW_ONLY means the interaction used local AppRecord/store or display-only state; NOT_PRESENT means no matching operation was found in the inspected preview component. Existing live counterparts are separate source and require their own evidence.",
   "acceptanceBoundary": "A traceable action plan, not completed UAT. Existing browser-local handlers illustrate intent only; shared Core/Finance ownership and backend authority remain binding. DECIDE items do not block unrelated already-defined CRUD work.",
   "executionRoadmap": {
-    "version": "1.1",
+    "version": "1.2",
     "updated": "2026-10-25",
-    "status": "PLANNED_NOT_UAT_ACCEPTANCE",
+    "status": "EXECUTING_NOT_UAT_ACCEPTANCE",
     "currentProduction": {
-      "productCommit": "b3e190baedef2260bd270d5155b52b0da7ea3c81",
-      "uiCommit": "7cf8f55ff2d17e219c7e4985b2b635f80ee5b407",
-      "image": "sha256:e8330656f4e91f72a4f9cc04ecd0e0e827e1d73fb34c3b95915d3259ce3f0d30",
-      "schemaLine": "compatible P24",
-      "releaseEvidence": "docs/procurement/release/P24-SCOPED-CSV-RELEASE-20261025.md",
-      "sourceHostTestsPassed": 1057,
-      "privateBrowserCasesPassed": 3,
+      "productCommit": "cb18353d94af016ca65cd939ced76f6f97222c27",
+      "uiCommit": "092121409c3d032706b1ba0ca305a24c2d84ede7",
+      "image": "sha256:89375b1514f5a9cd5d2b255b94f09f2bba0a43020025e43ad6e30531084dd998",
+      "schemaLine": "compatible P24; no M0/M2 deployment migrations",
+      "releaseEvidence": "docs/procurement/release/P24-M2-SELECTED-CSV-RELEASE-20261025.md",
+      "sourceHostTestsPassed": 1081,
+      "sourceFocusedTestsPassed": 116,
+      "uiUnitTestsPassed": 93,
+      "mockedBrowserCasesPassed": 23,
+      "privateBrowserFilesVerified": 2,
       "businessUatAccepted": false
     },
     "alreadyDeployedSlices": [
       "Core first-use permitted company/branch chooser",
       "Shared-session sign-out/password authorization without HRM admission",
-      "Vendor/Item All and search-result CSV exports with explicit permissions and audited server scope"
+      "Vendor/Item All and search-result CSV exports with explicit permissions and audited server scope",
+      "Vendor/Item selected-row CSV exports with all-or-nothing current server scope and typed audit evidence",
+      "Bounded permitted-branch own-request All listing, additive branch references and explicit branch requirement for request writes"
     ],
     "mandatorySchemaPromotionGate": {
       "id": "R0",
@@ -4589,7 +4594,8 @@
         "Rehearse genuine migrations over a restored representative P24 dataset; verify retained history, source/constraint/quantity invariants and independent owner evidence.",
         "Verify actual restricted application roles, unavailable dependencies, safe startup and paired API/publisher compatibility; preserve flags off until that capability is accepted.",
         "Verify backup restore and rollback strategy. If retained financial/commercial history prevents schema rollback, document the compatible code/fix-forward path and refuse destructive Down."
-      ]
+      ],
+      "currentCheckpoint": "docs/procurement/gap-closure/R0-P29-REHEARSAL-CHECKPOINT-20261025.md"
     },
     "definitionOfDone": [
       "Update the applicable 28-section feature specification and UI/API/schema/action trace before implementation.",
@@ -4682,7 +4688,7 @@
         "workPackages": [
           "Exercise existing vendor/item/contact/site/qualification CRUD and lifecycle in the supplied forms; fix individual gaps before adding alternative forms.",
           "Complete scoped template download, import mapping, dry-run validation, row errors, duplicate handling, retry-safe commit and recovery using existing shared import infrastructure where it fits.",
-          "Add selected-row export, approved cloning/batch operations and saved views with server scope. Keep the deployed All/search-result CSV exports.",
+          "Selected-row and All/search-result CSV exports are deployed. Complete approved cloning/batch operations and saved views with server scope.",
           "Persist selected numbering, precision, terms and supplier approval preferences under their owning policies. Decide duplicate-vendor merge/alias semantics before exposing merge; retain approved transaction history."
         ],
         "exitCriteria": [
@@ -4952,6 +4958,19 @@
       }
     ],
     "completionClaim": "No whole milestone, finding or business UAT is marked complete by this plan. Existing deployed slices remain bounded.",
-    "milestoneDocument": "docs/procurement/gap-closure/PROCUREMENT-FINISH-MILESTONES-20261025.md"
+    "milestoneDocument": "docs/procurement/gap-closure/PROCUREMENT-FINISH-MILESTONES-20261025.md",
+    "productionHistory": [
+      {
+        "productCommit": "b3e190baedef2260bd270d5155b52b0da7ea3c81",
+        "uiCommit": "7cf8f55ff2d17e219c7e4985b2b635f80ee5b407",
+        "image": "sha256:e8330656f4e91f72a4f9cc04ecd0e0e827e1d73fb34c3b95915d3259ce3f0d30",
+        "schemaLine": "compatible P24",
+        "releaseEvidence": "docs/procurement/release/P24-SCOPED-CSV-RELEASE-20261025.md",
+        "sourceHostTestsPassed": 1057,
+        "privateBrowserCasesPassed": 3,
+        "businessUatAccepted": false,
+        "status": "SUPERSEDED_BY_M0_THEN_M2_RELEASES"
+      }
+    ]
   }
 }

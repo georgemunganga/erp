@@ -1,5 +1,7 @@
 # Procurement finish milestones
 
+**R0 integration in progress:** [Current rehearsal checkpoint](R0-P29-REHEARSAL-CHECKPOINT-20261025.md) records draft ERP PR96, the P29 source reconciliation and isolated backup/restore. The M2 live release and main baselines remain unchanged; migration/runtime acceptance and full Procurement completion remain open.
+
 Updated 25 October 2026. This is the execution order for the existing **55 grouped audit findings**, which mix implementation, integration, verification, release, documentation and scope decisions. They are not 55 confirmed production defects or 55 features to rebuild. Preserve the supplied UI and shared ERP components. This plan does not approve spending policy or mark business UAT complete.
 
 ## Current verified baseline
