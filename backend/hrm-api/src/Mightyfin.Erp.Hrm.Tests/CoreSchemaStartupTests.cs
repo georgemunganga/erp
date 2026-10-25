@@ -71,6 +71,10 @@ public sealed class CoreSchemaStartupTests
         => Assert.Throws<InvalidOperationException>(() => CoreHostStartupPolicy.Parse([first, second]));
 
     [Theory]
+    [InlineData("--run-outbux-publisher")]
+    [InlineData("--run-unknown-worker")]
+    [InlineData("--apply-migratons-only")]
+    [InlineData("--apply-unknown-operation")]
     [InlineData("--run-outbox-publisher=true")]
     [InlineData("--run-outbox-publisher-extra")]
     [InlineData("--run-outboxpublisher")]

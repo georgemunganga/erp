@@ -12,9 +12,9 @@ public static class CoreHostStartupPolicy
         var options = arguments.ToArray();
         foreach (var option in options)
         {
-            if ((option.StartsWith("--apply-migration", StringComparison.OrdinalIgnoreCase)
+            if ((option.StartsWith("--apply-", StringComparison.OrdinalIgnoreCase)
                     && !string.Equals(option, ownerFlag, StringComparison.Ordinal))
-                || (option.StartsWith("--run-outbox", StringComparison.OrdinalIgnoreCase)
+                || (option.StartsWith("--run-", StringComparison.OrdinalIgnoreCase)
                     && !string.Equals(option, publisherFlag, StringComparison.Ordinal)))
                 throw new InvalidOperationException("A startup mode flag is invalid; use the exact supported option.");
         }
