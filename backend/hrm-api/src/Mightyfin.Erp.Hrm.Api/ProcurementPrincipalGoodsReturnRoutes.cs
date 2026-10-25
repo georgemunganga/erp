@@ -10,7 +10,7 @@ using Mightyfin.Erp.Procurement.Infrastructure.Approvals;
 
 namespace Mightyfin.Erp.Hrm.Api;
 
-/// <summary>Unregistered P37 draft-only adapter. No submit, supplier send or counter mutation.</summary>
+/// <summary>Default-off P37 draft-only adapter. No submit, supplier send or counter mutation.</summary>
 public static partial class ProcurementPrincipalReceivingRoutes
 {
     private const string ReturnRead = "procurement-return-read";
@@ -20,7 +20,7 @@ public static partial class ProcurementPrincipalReceivingRoutes
     public sealed record ReturnRevisionInput(long ExpectedRevision, string Quantity, string Reason, string? EvidenceReference);
     public sealed record ReturnCancelInput(long ExpectedRevision, string Reason);
 
-    /// <summary>Only root activation after genuine P37 migration, finite ACL and real owner proof may call this.</summary>
+    /// <summary>Normal composition maps guarded routes; explicit options, real readiness and current action are checked per call.</summary>
     public static void MapReturnRoutes(WebApplication app)
     {
         var group = app.MapGroup("/api/procurement/v1/returns/principal-drafts");

@@ -82,7 +82,8 @@ internal sealed class PrincipalApprovalFixture(string owner, bool browserBuyerPr
                 :Array.Empty<(Guid,string,string)>()).Concat(principalReceivingProfile?new[]{
                     (Receiver,"p30_receiving_actor","procurement-access,procurement-receipt-view,procurement-receipt-create,procurement-receipt-edit,procurement-receipt-record,procurement-receipt-inspect,procurement-receipt-accept"
                         +(principalGoodsReturnProfile?",procurement-return-read,procurement-return-create,procurement-return-edit":"")),
-                    (ReceiverPeer,"p30_receiving_peer","procurement-access,procurement-receipt-view,procurement-receipt-create,procurement-receipt-edit,procurement-receipt-record"),
+                    (ReceiverPeer,"p30_receiving_peer","procurement-access,procurement-receipt-view,procurement-receipt-create,procurement-receipt-edit,procurement-receipt-record"
+                        +(principalGoodsReturnProfile?",procurement-return-read,procurement-return-edit":"")),
                     (Inspector,"p30_receiving_inspector","procurement-access,procurement-receipt-inspect"),
                     (Acceptor,"p30_receiving_acceptor","procurement-access,procurement-receipt-accept"),
                     (ServiceOwner,"p30_receiving_service_owner","procurement-access,procurement-service-certify"),

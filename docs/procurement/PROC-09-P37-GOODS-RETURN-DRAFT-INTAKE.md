@@ -236,3 +236,26 @@ eligibility/scope/state, stored Core permission revocation despite a stale claim
 verbatim source labels and unchanged original acknowledgements. Twelve added cases
 are authored but not executed here; fresh owning SDK/finite-role/runtime gates
 remain separate. There is no database model or migration change.
+
+
+## Integrated-next source checkpoint (uncompiled)
+
+This lane ordinarily merges the default-off composition/private native hook
+`51cd1ba7` with read projections `39cb74a0`. Normal Program registers the concrete
+provider and guarded routes; `PrincipalGoodsReturnDrafts:Enabled` remains false
+by default and availability metadata is false unless actual captured physical,
+finite execution and upstream source admission pass. Mapping does not grant an
+action or enable the feature. Existing root C2e SDK/runtime work is separate and
+unchanged.
+
+The private hook now compares GET list/detail using typed current fields and the
+new labels/actions, while comparing original receipt bytes only for write replay
+and GET command recovery. It requires empty actions for a same-branch noncreator
+who has Read/Edit and for the creator after Edit revocation with Read retained;
+the corresponding revise/recovery denials must not change persisted footprints.
+Cancelled GETs are read only. Labels are compared to retained issued supplier,
+PO-line and actual physical observation facts read from the owning private graph.
+The earlier captured schema/private finite SQL receipts remain narrowly scoped;
+this combined source, private hook, current authentication/HTTP and future UI
+still require actual execution/independent owner acceptance. No whole-module,
+production, dispatch, inventory, supplier-credit or Finance claim is made.
