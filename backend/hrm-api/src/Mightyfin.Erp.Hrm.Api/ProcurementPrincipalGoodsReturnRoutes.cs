@@ -130,12 +130,13 @@ public static partial class ProcurementPrincipalReceivingRoutes
         return (head, revisions[^1], source.Labels);
     }
 
-    private static Reply ReturnComplete(ProcurementDbContext db, PrincipalGoodsReturnDraft head,
+    internal static Reply ReturnComplete(ProcurementDbContext db, PrincipalGoodsReturnDraft head,
         PrincipalGoodsReturnRevision revision, string operation, Guid key, string actor, string requestJson, int status)
     {
         var body = PrincipalGoodsReturnRules.ResponseJson(head, revision);
         db.AddScoped(new PrincipalGoodsReturnCommandReceipt
         {
+            TenantId = head.TenantId, LegalEntityId = head.LegalEntityId,
             DraftId = head.Id, BranchId = head.BranchId, CommandKey = key, Operation = operation,
             ActorPrincipalId = actor, RequestJson = requestJson,
             RequestSha256 = ProcurementEvidenceEncoding.PolicyJsonDigest(requestJson), ResponseJson = body,
