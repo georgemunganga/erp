@@ -77,6 +77,9 @@ public static class ProcurementActionCatalog
             ["procurement-sourcing-offers-open"] = [],
             ["procurement-sourcing-opened-offer-read"] = [],
             ["procurement-sourcing-evaluate"] = [],
+            // A named opened-offer reader may prepare a human proposal. This
+            // does not confer award, supplier notification or PO authority.
+            ["procurement-sourcing-recommend-draft"] = [],
             ["procurement-sourcing-round-open"] = [],
             ["procurement-invoice-read"] = ["ap_processor", "procurement_buyer", "procurement_manager"],
             // Payment recording/review is controlled by explicit Core grants. Registering

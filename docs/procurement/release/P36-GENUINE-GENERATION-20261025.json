@@ -1,0 +1,35 @@
+{
+  "actualExit": {
+    "cliExitCode": 0,
+    "containerExitCode": 0,
+    "oomKilled": false,
+    "timedOut": false
+  },
+  "authoredOverlayIncludedInRaw": false,
+  "capabilityEnabled": false,
+  "databaseExecuted": false,
+  "generatedFileSha256": {
+    "20261025014631_P36HumanRecommendationDraft.Designer.cs": "87d95bd36f8536a215ad86a993f6bc686c05afca95a61c6f2e0414f92cf698f0",
+    "20261025014631_P36HumanRecommendationDraft.cs": "ca2228f6279766a1884a850260e89fd92d29df0a11af6d011db94e3e5d76d71c",
+    "ProcurementDbContextModelSnapshot.cs": "5782d8bab4c61193e6695e0e7e7586b11e1c5eb0bdb4e7f655c94bac039380c9"
+  },
+  "generationExitSha256": "9b8277518c13ba1ab644018ae9f339342c45a51890fdc913e2def553caa30157",
+  "generationManifestSha256": "14f1581d3286a121cbbd7bcdca04868add0b2c8e6b7aa02fe03f1746bdc45f04",
+  "generatorPlanSha256": "8ca5b421801745be900d313cb43214a0819cbfa31a6bcd3c4cc18843c8d0459f",
+  "migrationId": "20261025014631_P36HumanRecommendationDraft",
+  "reviewedDelta": {
+    "changedExistingModelEntitiesOnlyForThoseKeys": [
+      "SourcingLine",
+      "PrincipalRfqCommercialRoundSealRecord",
+      "PrincipalRfqCommercialOfferSubmissionRecord"
+    ],
+    "checks": 4,
+    "indexes": 14,
+    "mappedForeignKeys": 10,
+    "newTables": 4,
+    "stableExistingParentAlternateKeys": 3
+  },
+  "sdkValidationPerformed": false,
+  "sourceCommit": "9b5e0dcb96c110de7f1ff309b50b8ed6786a05fb",
+  "status": "ACTUAL_GENUINE_EF_GENERATION_ONLY_NOT_SCHEMA_OR_RUNTIME_ACCEPTANCE"
+}

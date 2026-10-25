@@ -79,6 +79,10 @@ public static class ProcurementHostIntegration
             .Get<ProcurementRfqCommercialOptions>() ?? new());
         services.AddScoped<IProcurementRfqCommercialReadiness,
             ProcurementRfqCommercialStoreReadiness>();
+        // P36 remains default-off and physically unavailable until its own
+        // exact PostgreSQL catalog capture and finite privileges are reviewed.
+        services.AddScoped<IProcurementRfqRecommendationDraftReadiness,
+            ProcurementRfqRecommendationStoreReadiness>();
         services.AddScoped<IProcurementOrderSchemaReadiness, ProcurementOrderSchemaReadiness>();
         services.AddScoped<IProcurementApprovalSchemaReadiness, ProcurementApprovalSchemaReadiness>();
         services.AddSingleton<IProcurementFinanceCheckerSchemaReadiness, ProcurementFinanceCheckerSchemaReadiness>();

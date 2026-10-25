@@ -18,6 +18,7 @@ public sealed class ProcurementRfqCommercialOptions
     public bool Enabled { get; set; }
     public bool OfferOpeningEnabled { get; set; }
     public bool CriterionAssessmentEnabled { get; set; }
+    public bool RecommendationDraftEnabled { get; set; }
 }
 public interface IProcurementRfqCommercialReadiness
 {
