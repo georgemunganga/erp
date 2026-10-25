@@ -1,0 +1,215 @@
+{
+  "schemaVersion": 1,
+  "status": "PASS_PRIVATE_SCOPED_VENDOR_ITEM_EXPORT_ACCEPTANCE",
+  "dateUtc": "2026-10-25",
+  "scope": "Human-readable, current-Core-authorized Vendor and Item CSV exports in a fresh synthetic private environment.",
+  "sources": {
+    "productCommit": "86ed727774853140fee93a35aa6ce05362e71edf",
+    "toolCommit": "65c656ec43a4e64fd5619d2d02ea993d73e0c163",
+    "uiCommit": "7cf8f55ff2d17e219c7e4985b2b635f80ee5b407"
+  },
+  "sourceAcceptance": {
+    "focusedHostPassed": 76,
+    "fullHostPassed": 1378,
+    "failed": 0,
+    "skipped": 0,
+    "domainRerun": false,
+    "domain1697CarriedFromAcceptedParentOnly": true,
+    "sdkReceipt": {
+      "artifact": "result.private.json",
+      "sha256": "69b0ebba3be4497954eb2af556edf32b0c4daa290dd3391147b80d3746145ed2"
+    },
+    "genuineApiPublicationFiles": 150,
+    "apiPublicationReceipt": {
+      "artifact": "result.private.json",
+      "sha256": "ff146a29dbe6fbe4c3a2462b3f7d85db2c04074937e270c883661160787d5d05"
+    },
+    "toolBuildReceipt": {
+      "artifact": "result.private.json",
+      "sha256": "12f53149f4bfa3140a44ef0838b279759235806c009711d34268023a469e4b88"
+    },
+    "liveUiBuildReceipt": {
+      "artifact": "result.json",
+      "sha256": "298932b6d16bd9988c016f86e702eacbc2493f41ec563838be6dd59d4ffc7e59"
+    },
+    "liveUiFullFileManifest": {
+      "artifact": "accepted-live-ui-dist.private.json",
+      "sha256": "ef93f935606f6978e3a495c06164887f1bba901cbeaf5e24b931b2b66caec924"
+    }
+  },
+  "privateVerification": {
+    "normalLocalPasswordAndSessionCookie": true,
+    "apiMocksOrIdentityHeaders": false,
+    "employeeFixtureCount": 0,
+    "finiteCoreAndRecordRuntimeConnections": true,
+    "syntheticDataOnly": true,
+    "phases": [
+      {
+        "phase": "realCookieHttp",
+        "newExportAuditCount": 13,
+        "strictOwnerVerified": true,
+        "ownerReceipt": {
+          "artifact": "http-attempt03-live.owner-result.private.json",
+          "sha256": "f625d39b02754ede5b95895af6dcbb3c98e3a161df2f9b0f76b5e4b2c864867a"
+        },
+        "before": {
+          "artifact": "http-attempt03-live.owner-before.private.json",
+          "sha256": "53ae8541f703b9611c6425b299486dcf2e20067569a64ffbb8d4afc786d8fa90"
+        },
+        "after": {
+          "artifact": "http-attempt03-live.owner-after.private.json",
+          "sha256": "b2547c56c541c5eb166ce1807ff82ef1b217af635b0cf5948cfb043b1efb9b13"
+        }
+      },
+      {
+        "phase": "realCookieBrowser",
+        "newExportAuditCount": 2,
+        "strictOwnerVerified": true,
+        "ownerReceipt": {
+          "artifact": "browser-stream.owner-result.private.json",
+          "sha256": "1aeabc793283d3e73a83c49505f7482037229574eed4129add64a65821664f39"
+        },
+        "before": {
+          "artifact": "browser-stream.owner-before.private.json",
+          "sha256": "1ec0ff03145b26ad96a6cd4a5a7030505a935a44526932a36445b617ce90f721"
+        },
+        "after": {
+          "artifact": "browser-stream.owner-after.private.json",
+          "sha256": "b87fb37b863e0bb8e39551b6ae59d2971aab462bdb4463917462f46a30fcf654"
+        }
+      },
+      {
+        "phase": "sameCookieGrantRevocation",
+        "newExportAuditCount": 1,
+        "strictOwnerVerified": true,
+        "ownerReceipt": {
+          "artifact": "revocation-live.owner-result.private.json",
+          "sha256": "07702fdb447f0395fd8629109370e942586b972e6753e8aab370cc71a332091a"
+        },
+        "before": {
+          "artifact": "revocation-live.owner-before.private.json",
+          "sha256": "035ee0930832c606e2181714a346d95e10c4018bd70e877a391c559d54f6a39f"
+        },
+        "after": {
+          "artifact": "revocation-live.owner-after.private.json",
+          "sha256": "1ec0ff03145b26ad96a6cd4a5a7030505a935a44526932a36445b617ce90f721"
+        }
+      }
+    ],
+    "selectedAcceptedNewExportAudits": 16,
+    "checks": [
+      "Current explicit export grants; legacy admin and absent export-grant denial.",
+      "Actual tenant/company and selected-branch authority; exact owner-seeded visibility controls.",
+      "Restricted typed human CSV fields, UTF-8 BOM, quoting, CRLF and spreadsheet formula neutralization.",
+      "10001 matching items denied; 10000 accepted; bounded filtered exports and empty results.",
+      "SELECT-only Record login without audit INSERT returns 503 and no CSV/new export audit.",
+      "Exactly one matching append-only export audit per accepted CSV, with actor/scope/filter/payload/row-count bindings.",
+      "Supplier and item row counts/hashes unchanged; prior export audits retained.",
+      "Real browser menu downloads read via Download.createReadStream; strict two-export owner delta.",
+      "One synthetic current-Core permissions CSV CAS; an existing cookie immediately receives 403 after export authority revocation."
+    ],
+    "receipts": {
+      "terminal-acceptance.private.json": {
+        "artifact": "terminal-acceptance.private.json",
+        "sha256": "a5716515e9493f63316024930842a1401b6cb254df2f51f9eac0a8a68e9eb661"
+      },
+      "initializer-exit.private.json": {
+        "artifact": "initializer-exit.private.json",
+        "sha256": "baef76dfb62d18c206d274661b9b65adc1729cfe014658c2b1a42747ac247cde"
+      },
+      "http-attempt03-live.http-result.private.json": {
+        "artifact": "http-attempt03-live.http-result.private.json",
+        "sha256": "0357f57b7e344798ca85be48471fe4117a5e7b7b18fd3850b58e9098a417c324"
+      },
+      "browser-stream-phase.private.json": {
+        "artifact": "browser-stream-phase.private.json",
+        "sha256": "dd51f54cb490e7c5615554f54f4a2216d4238b024461ef16675bd81ad18c2230"
+      },
+      "browser-stream-result.private.json.vendors": {
+        "artifact": "browser-stream-result.private.json.vendors",
+        "sha256": "0fc5f2230ea707c18f5facca5f3d1d6e6d0b1fe33ad483a2231845662391bbb5"
+      },
+      "browser-stream-result.private.json.items": {
+        "artifact": "browser-stream-result.private.json.items",
+        "sha256": "4a485261d6618e9be4bf65fb008bb7e88b08d89900385f0fadf9f5c2d152e2b0"
+      },
+      "revocation-live.http-result.private.json": {
+        "artifact": "revocation-live.http-result.private.json",
+        "sha256": "1ff014c0b2ee11af27de5cd60ab2a53c70ff930b1cda481eb70e3b9491edd3d3"
+      },
+      "be01-csv-revoke-receipt.private.json": {
+        "artifact": "be01-csv-revoke-receipt.private.json",
+        "sha256": "cae24c5727bea5e45bc41003381cb82d559a85c06f0c9e61342fc844d896e4cd"
+      }
+    }
+  },
+  "retainedEarlierAttempts": [
+    {
+      "outcome": "Tool01 failed compilation: missing HrUserBranchAssignment namespace; fixed by one using.",
+      "evidence": {
+        "artifact": "tool-build.log",
+        "sha256": "2422010e56b14fc69a75def77debe8638f52a1ee37e9e058f19f770bef551bab"
+      }
+    },
+    {
+      "outcome": "Tool02 stopped on SDK static-web-assets write to read-only API obj; retry used a private API metadata copy.",
+      "evidence": {
+        "artifact": "tool-build.log",
+        "sha256": "6cbaf9b30dbfb749f8f34272ce4ee1add35c1cbc03c888d06ade744a7b9bc9aa"
+      }
+    },
+    {
+      "outcome": "Runtime01 failed finite-role setup on an incorrect HRM branch-assignment table literal. Original fresh database and logs retained.",
+      "evidence": {
+        "artifact": "initializer-exit.private.json",
+        "sha256": "d0f0f48141595facb0e72ae0098c121613d6e3c73112f722d57be25bf30c67af"
+      }
+    },
+    {
+      "outcome": "First HTTP attempt performed positive exports, then its unfiltered audit-denial test hit the 10001 cap. It has no terminal acceptance; corrected test uses bounded search.",
+      "evidence": {
+        "artifact": "http.source-before.private.json",
+        "sha256": "3a64262a40ddefed91d9ca344c7aeb4add4a78e428e8a6bbf8ea6d8979e09a13"
+      },
+      "failureLog": {
+        "artifact": "http.http.log",
+        "sha256": "a7fd2484f812b7dc63ac729a506f71d21f491ee00a9c1cb035bf370ddce2c8d3"
+      }
+    },
+    {
+      "outcome": "Initial browser attempt reached a demo-mode UI artifact and failed. Genuine live-mode build11 was produced separately.",
+      "evidence": {
+        "artifact": "browser-exit.private.json",
+        "sha256": "01614b0e7bf86220a2287c6fd76f9b3a5c06913c2e0762c9eb3958c397f0bbee"
+      }
+    },
+    {
+      "outcome": "Live browser response-body attempt passed UI tests, but strict owner check rejected four audits for two expected exports. Installed Playwright response-body fallback could re-fetch the URL. Download-stream attempt independently proved exactly two new audits without weakening the guard.",
+      "evidence": {
+        "artifact": "browser-live-exit.private.json",
+        "sha256": "ff8ae5796bcef71911ff9c5c3eaea341819c471f669549e252b830106edd4305"
+      },
+      "strictOwnerFailureLog": {
+        "artifact": "live-browser-after.owner-reconcile.log",
+        "sha256": "14710ff1b0bbb372629ef7573b81695fac3b6da5b9a9c2b733af447e446e7881"
+      },
+      "ownerBefore": {
+        "artifact": "browser-live.owner-before.private.json",
+        "sha256": "b2547c56c541c5eb166ce1807ff82ef1b217af635b0cf5948cfb043b1efb9b13"
+      },
+      "ownerAfter": {
+        "artifact": "browser-live.owner-after.private.json",
+        "sha256": "035ee0930832c606e2181714a346d95e10c4018bd70e877a391c559d54f6a39f"
+      }
+    }
+  ],
+  "limits": {
+    "productionChanged": false,
+    "productionRolloutAccepted": false,
+    "businessUatSignoff": false,
+    "p24CompatibleBackportAccepted": false,
+    "wholeProcurementModuleComplete": false,
+    "generalHrmCrudOrExternalLedgerClaim": false
+  },
+  "evidenceHandling": "Raw credentials, principal/record identifiers, captures, SQL and control-plane files remain protected. Public receipt contains only source and artifact hashes."
+}
