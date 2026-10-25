@@ -4,9 +4,8 @@ Updated 25 October 2026. This is the execution order for the existing **55 group
 
 ## Current verified baseline
 
-Production uses compatible P24 product `b3e190ba`, UI `7cf8f55f` and API/publisher image `e8330656`. [Release evidence](../release/P24-SCOPED-CSV-RELEASE-20261025.md) records 1,057 backend tests, three private real-browser cases and public deployment checks. These prove the released slices, not the whole module.
+**Current deployed M2 selected-export checkpoint — 25 October 2026:** [Release](../release/P24-M2-SELECTED-CSV-RELEASE-20261025.md) records exact product `cb18353d94af016ca65cd939ced76f6f97222c27`, UI `092121409c3d032706b1ba0ca305a24c2d84ede7`, API/publisher image `89375b1514f5a9cd5d2b255b94f09f2bba0a43020025e43ad6e30531084dd998`. Vendor/Item All/search/selected CSV and bounded M0 scope remain released. Local 116 focused/1,081 Host, 93 UI units/23 mocks and private normal-cookie HTTP/two browsers/revocation with owner audit deltas 6/2/1 passed. Cutover: healthy API/running publisher, zero restarts, Core validate-only, 150 image files/five served UI hashes exact, four pages 200/four anonymous APIs 401; old M0 pair retained stopped. No schema/grant changes or production test writes. M2 remains partial; imports/batch/saved views, broader operational All, production-user UAT and later-model R0 gates stay open. Main remains ERP `cafcffd2` / UI `403bfdac`; no new collaborator assignment. Earlier checkpoints below are historical.
 
-Already deployed: permitted first-use company/branch selection, shared-session authorization without HRM access, and Vendor/Item All/search CSV exports. M0 and M2 are **partially delivered**. Operational All-branch aggregation, remaining imports/batch operations and business UAT remain open. Existing later-model workflow code must be assessed and completed rather than rewritten.
 
 ## Mandatory schema gate — R0
 
@@ -61,13 +60,13 @@ Exit checks:
 
 ### M2 — Vendor/item completeness and shared data operations
 
-**Selected CSV private checkpoint (25 October):** [M2 selected-export verification](../release/P24-M2-SELECTED-CSV-PRIVATE-VERIFICATION-20261025.md) passed 116 focused/1,081 Host tests, 93 UI units/23 mocked browser cases and actual normal-cookie PostgreSQL HTTP/two real browser files with independent owner deltas6/2/1. Full fixed CSV bytes/cells bind typed owner-before rows; same-cookie explicit grant revocation denied403. This bounded selected-row slice is privately accepted, not deployed by that receipt. Whole M2, imports, batch/clone, saved views and business UAT remain open.
+**Selected CSV private checkpoint (25 October):** [M2 selected-export verification](../release/P24-M2-SELECTED-CSV-PRIVATE-VERIFICATION-20261025.md) passed 116 focused/1,081 Host tests, 93 UI units/23 mocked browser cases and actual normal-cookie PostgreSQL HTTP/two real browser files with independent owner deltas 6/2/1. Full fixed CSV bytes/cells bind typed owner-before rows; same-cookie explicit grant revocation denied 403. That private receipt is historical source-phase evidence; the separate selected-export release above now records deployment. Whole M2, imports, batch/clone, saved views and business UAT remain open.
 
 Owner: Procurement master data and Core data-transfer services. Depends on: M0. Dependencies apply to the affected operation; a pending decision must not stop unrelated defined CRUD.
 
 - Exercise existing vendor/item/contact/site/qualification CRUD and lifecycle in the supplied forms; fix individual gaps before adding alternative forms.
 - Complete scoped template download, import mapping, dry-run validation, row errors, duplicate handling, retry-safe commit and recovery using existing shared import infrastructure where it fits.
-- Add selected-row export, approved cloning/batch operations and saved views with server scope. Keep the deployed All/search-result CSV exports.
+- Selected-row and All/search CSV exports are deployed; complete approved cloning/batch operations and saved views with server scope.
 - Persist selected numbering, precision, terms and supplier approval preferences under their owning policies. Decide duplicate-vendor merge/alias semantics before exposing merge; retain approved transaction history.
 
 Exit checks:

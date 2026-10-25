@@ -1,5 +1,8 @@
 # P24 branch-scope compatibility finding
 
+**Current deployed M2 selected-export checkpoint — 25 October 2026:** [Release](../procurement/release/P24-M2-SELECTED-CSV-RELEASE-20261025.md) records exact product `cb18353d94af016ca65cd939ced76f6f97222c27`, UI `092121409c3d032706b1ba0ca305a24c2d84ede7`, API/publisher image `89375b1514f5a9cd5d2b255b94f09f2bba0a43020025e43ad6e30531084dd998`. Vendor/Item All/search/selected CSV and bounded M0 scope remain released. Local 116 focused/1,081 Host, 93 UI units/23 mocks and private normal-cookie HTTP/two browsers/revocation with owner audit deltas 6/2/1 passed. Cutover: healthy API/running publisher, zero restarts, Core validate-only, 150 image files/five served UI hashes exact, four pages 200/four anonymous APIs 401; old M0 pair retained stopped. No schema/grant changes or production test writes. M2 remains partial; imports/batch/saved views, broader operational All, production-user UAT and later-model R0 gates stay open. Main remains ERP `cafcffd2` / UI `403bfdac`; no new collaborator assignment. Earlier checkpoints below are historical.
+
+
 Status: inherited behavior recorded; broader operational All-branch support remains open.
 
 ## M0 request/plan/contract list slice deployed; broader C01 remains open
