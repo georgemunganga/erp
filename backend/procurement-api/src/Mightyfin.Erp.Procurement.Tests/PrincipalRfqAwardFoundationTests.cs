@@ -16,7 +16,7 @@ public sealed class PrincipalRfqAwardFoundationTests
     private static readonly DateTimeOffset Now=new(2026,10,25,4,0,0,TimeSpan.Zero);
 
     private static string Rules(string? ceiling="100") =>
-        "{\"schemaVersion\":1,\"transactionType\":\"SupplierAward\",\"allocationMode\":\"FullOfferLineOnly\",\"currencyCode\":\"ZMW\",\"maximumAmountExact\":\""
+        "{\"schemaVersion\":1,\"transactionType\":\"SupplierAward\",\"allocationMode\":\"FullOfferLineOnly\",\"reviewBranchId\":\"22222222-2222-4222-8222-222222222222\",\"currencyCode\":\"ZMW\",\"maximumAmountExact\":\""
         +ceiling+"\",\"stages\":[{\"code\":\"REVIEW\",\"mode\":\"All\",\"principalIds\":[\""+Reviewer+"\"]}]}";
 
     private static PrincipalRfqAwardFoundation.CurrentPerson Person(string id,string action,
@@ -133,6 +133,11 @@ public sealed class PrincipalRfqAwardFoundationTests
         Assert.Throws<InvalidOperationException>(()=>Qualify(x.Selection,x.Retained,
             x.Policy,x.Maker,x.Reviewers));
         x.Policy.RulesJson=Rules();x.Policy.LegalEntityId=Guid.CreateVersion7();
+        Assert.Throws<InvalidOperationException>(()=>Qualify(x.Selection,x.Retained,
+            x.Policy,x.Maker,x.Reviewers));
+        x.Policy.LegalEntityId=Company;
+        x.Policy.RulesJson=Rules().Replace(Branch.ToString("D"),Guid.CreateVersion7().ToString("D"),
+            StringComparison.Ordinal);
         Assert.Throws<InvalidOperationException>(()=>Qualify(x.Selection,x.Retained,
             x.Policy,x.Maker,x.Reviewers));
         Assert.Throws<InvalidOperationException>(()=>PrincipalRfqAwardFoundation.ParseRules("{}"));

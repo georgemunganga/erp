@@ -18,7 +18,7 @@ public static class PrincipalRfqAwardFoundation
     public const string ReadAction = "procurement-sourcing-award-read";
 
     public sealed record Stage(string Code, string Mode, IReadOnlyList<string> PrincipalIds);
-    public sealed record Rules(string CurrencyCode, string MaximumAmountExact,
+    public sealed record Rules(Guid ReviewBranchId, string CurrencyCode, string MaximumAmountExact,
         IReadOnlyList<Stage> Stages);
     public sealed record CurrentPerson(string PrincipalId, Guid? WorkerAliasId,
         bool OrganisationWide, IReadOnlySet<Guid> AllowedBranches,
@@ -51,7 +51,7 @@ public static class PrincipalRfqAwardFoundation
         using var parsed=JsonDocument.Parse(json!,new JsonDocumentOptions {MaxDepth=16});
         _=ProcurementEvidenceEncoding.PolicyJsonDigest(json!);
         var root=parsed.RootElement;
-        Only(root,"schemaVersion","transactionType","allocationMode","currencyCode",
+        Only(root,"schemaVersion","transactionType","allocationMode","reviewBranchId","currencyCode",
             "maximumAmountExact","stages");
         Need(root.GetProperty("schemaVersion").GetInt32()==1
             && root.GetProperty("transactionType").GetString()=="SupplierAward"
@@ -59,6 +59,10 @@ public static class PrincipalRfqAwardFoundation
             "RfqAwardPolicyInvalid");
         var currency=root.GetProperty("currencyCode").GetString();
         var ceiling=root.GetProperty("maximumAmountExact").GetString();
+        var branchText=root.GetProperty("reviewBranchId").GetString();
+        Need(Guid.TryParseExact(branchText,"D",out var configuredBranch)
+            && configuredBranch!=Guid.Empty
+            && branchText==configuredBranch.ToString("D"),"RfqAwardPolicyInvalid");
         Need(currency is {Length:3} && currency.All(x=>x is >= 'A' and <= 'Z')
             && Money(ceiling)>0,"RfqAwardPolicyInvalid");
         var rows=root.GetProperty("stages");
@@ -84,7 +88,7 @@ public static class PrincipalRfqAwardFoundation
                 "RfqAwardPolicyInvalid");
             stages.Add(new(code!,mode!,Array.AsReadOnly(ids.Select(x=>x!).Order(StringComparer.Ordinal).ToArray())));
         }
-        return new(currency!,Canonical(Money(ceiling),8),stages.AsReadOnly());
+        return new(configuredBranch,currency!,Canonical(Money(ceiling),8),stages.AsReadOnly());
     }
 
     public static PrincipalRfqAwardCandidate Qualify(
@@ -117,6 +121,7 @@ public static class PrincipalRfqAwardFoundation
             && (policy.EffectiveTo is null || policy.EffectiveTo>now),
             "RfqAwardSourceOrPolicyUnavailable");
         var rules=ParseRules(policy.RulesJson);
+        Need(rules.ReviewBranchId==branchId,"RfqAwardPolicyBranchChanged");
         var principals=rules.Stages.SelectMany(x=>x.PrincipalIds).ToHashSet(StringComparer.Ordinal);
         Need(ProcurementPrincipalEvidence.Canonical(maker.PrincipalId)
             && ProcurementPrincipalEvidence.OptionalWorker(maker.WorkerAliasId)
