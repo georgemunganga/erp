@@ -1,0 +1,66 @@
+{
+  "status": "PASS_PRIVATE_P33_NORMAL_COOKIE_BROWSER_AND_INDEPENDENT_OWNER_ONLY",
+  "dateUtc": "2026-10-25",
+  "source": {
+    "product": "521c986ceffcb11411751c68707f49d40d92c493",
+    "compiledTool": "e66be30a8590c0c5e9674313e603f068dbce6631",
+    "acceptedStagedApplication": "2e70d479aca06ad102c84c116413e732466a0716",
+    "browserTestOnly": "b20071b2138193458f160658a787a3561fc95bfb",
+    "ownerPythonOnly": "0e93520bfa9b98b1c0ea01a4c5fbcb844bf78544"
+  },
+  "evidence": {
+    "reviewedPlanSha256": "17b3fc88617c505fb3e7d828ea9b87a9e4a494b597532e38c3be49b3b4e886e7",
+    "nativeResultSha256": "746a8b92ce2ad36fdd769b9b0636e74debea19ebbe0e67257b8812bb5b79d722",
+    "nativeRunnerReceiptSha256": "39ec663ae7871d96896d7c85266a2ba9c98170f23da3e44091c030df60e7095a",
+    "browserResultSha256": "9c8d88c1d19edfd72e61c303298767f65c4ec9b271a0aa63b4671016c04ad29e",
+    "independentOwnerResultSha256": "c4d4ff3b2ccb98964175a4817b5080d97e35ffa6bdfd42cd886a6701f2e1ae39",
+    "combinedBrowserOwnerReceiptSha256": "6ed4232979b1722631faf10c7d8c0f6c6fd97776879c334fc153c208ca862518",
+    "stagedApplicationManifestSha256": "ee51169d2d4d514c339362c5a7e6bad6db582cb981fd25e2f79a3390d17d0d01"
+  },
+  "acceptedScope": {
+    "freshPrivateCohort": true,
+    "nativeHttpRequests": 124,
+    "realLocalPasswordAndSecureSessionCookieBrowser": true,
+    "browserDraftCreateEditHistoryReloadCancel": true,
+    "browserOriginalCommandKeysObserved": true,
+    "browserLogoutSessionRevoked": true,
+    "independentReadOnlyOwnerReconciliation": true,
+    "originalFourNativeOrdersUnchanged": true,
+    "sourceAllocationRestored": true,
+    "threeOwnedCommandReceiptsAndDigestsVerified": true,
+    "auditAndOutboxBound": true,
+    "finitePrivateRoleAndPhysicalReadiness": true,
+    "workerlessCoreBuyer": true,
+    "syntheticPrivateCohort": true,
+    "productionTouched": false,
+    "normalCookiePlaywrightCases": 1,
+    "normalCookiePlaywrightWorkers": 1,
+    "normalCookiePlaywrightRetries": 0
+  },
+  "limits": {
+    "actualP33BusinessReviewIssueOrSupplierDispatchAccepted": false,
+    "financePostingOrPaymentAccepted": false,
+    "productionRestoreOrDeploymentAccepted": false,
+    "wholeProcurementModuleComplete": false
+  },
+  "retainedFailedAttempts": [
+    {
+      "cohort": "01",
+      "resultSha256": "01b2d0ca56a3794d7ce7a95294a5865458e45c431cf2b99cc5acb0dfe77048de",
+      "nativeRunnerReceiptSha256": "ad1fe0943b9e0c6fa604158e91dab6d3072558cbb899af14b8e291dacdf4ad14",
+      "outcome": "Preflight readiness failed after 124 native observations; no browser fixture or Playwright acceptance."
+    },
+    {
+      "cohort": "02",
+      "nativeResultSha256": "69b398a9b9010d862cfbf95dd450e89f1d46c66d896e902f3d3489cc5a4fcb28",
+      "browserResultSha256": "14e19fc4fac7ff196f003de192892674d3de50397b3a6270c189753b0b4a92e7",
+      "outcome": "Native 124 passed; browser Create/Edit/History passed, then the test remained on History and sent no Cancel POST. Browser status failed at cancel-internal-draft; no independent final owner acceptance."
+    }
+  ],
+  "nextGates": [
+    "P35 configured policy and Core governed contract workflow positive private API plus owner reconciliation",
+    "P35 original UI and populated rollback evidence",
+    "Remaining Procurement integrations, production restore, authenticated UAT and release review"
+  ],
+  "sourceReview": "P33-NORMAL-COOKIE-SOURCE-REVIEW-20261025.md"
+}

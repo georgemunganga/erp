@@ -107,12 +107,11 @@
   },
   "productionTouched": false,
   "positiveP33NativeHttpAccepted": true,
-  "positiveP33HttpBrowserAccepted": false,
+  "positiveP33HttpBrowserAccepted": true,
   "positiveP35HttpBrowserAccepted": false,
   "wholeProcurementModuleComplete": false,
   "remaining": [
     "P32/P35 actual finite-role positive workflow evidence; SDK07 source validation passed, P35 native01 failed before all P35 mutations and fresh02 is pending",
-    "P33 corrected private cookie fixture/tool compilation, fresh normal-cookie UI and independent owner reconciliation; failed01 ran no browser",
     "P35 populated rollback, actual API/Core workflow, independent raw owner graph and original UI acceptance",
     "Real Core document scanning and P31 consumer workflow evidence; private Core session38HTTP plus independent owner and original HBA restoration are already accepted separately",
     "Production restore/finite-role/API/publisher cutover and authenticated UAT; remaining commercial, return and payment integrations"
@@ -211,5 +210,14 @@
     "privateHbaRestored": true,
     "productionAuthenticationClaim": false
   },
-  "initialUnified03CacheLineage": "Accepted P33 validation03 then failed P35 unified01 then failed P35 unified02 partial cache, explicitly inventoried before unified03; no clean-fresh-build claim"
+  "initialUnified03CacheLineage": "Accepted P33 validation03 then failed P35 unified01 then failed P35 unified02 partial cache, explicitly inventoried before unified03; no clean-fresh-build claim",
+  "p33NormalCookie": {
+    "receipt": "P33-NORMAL-COOKIE-ACCEPTANCE-20261025.json",
+    "status": "PASS_PRIVATE_P33_NORMAL_COOKIE_BROWSER_AND_INDEPENDENT_OWNER_ONLY",
+    "nativeHttpRequests": 124,
+    "browserResultSha256": "9c8d88c1d19edfd72e61c303298767f65c4ec9b271a0aa63b4671016c04ad29e",
+    "independentOwnerResultSha256": "c4d4ff3b2ccb98964175a4817b5080d97e35ffa6bdfd42cd886a6701f2e1ae39",
+    "combinedReceiptSha256": "6ed4232979b1722631faf10c7d8c0f6c6fd97776879c334fc153c208ca862518",
+    "scope": "Private workerless buyer Create/Edit/History/Cancel with normal local cookie, exact receipt owner proof, source allocation restored; not P35/release."
+  }
 }
