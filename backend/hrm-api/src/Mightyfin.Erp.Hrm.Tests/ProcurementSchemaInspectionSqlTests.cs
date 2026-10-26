@@ -36,4 +36,23 @@ public sealed class ProcurementSchemaInspectionSqlTests
         Assert.Contains("i.indexrelid='\"procurement\".\"ux_created\"'::regclass", partial);
         Assert.Contains("i.indisunique AND i.indisvalid AND i.indimmediate AND i.indexprs IS NULL", partial);
     }
+
+    [Theory]
+    [InlineData("procurement.purchase_request_approval_outcomes.ck_pr_approval_outcome_evidence")]
+    [InlineData("procurement.purchase_request_finance_release_requests.ck_pr_finance_release_request")]
+    public void Captured_P25_checks_accept_only_the_two_exact_restored_definitions(string key)
+    {
+        var expected = ProcurementPrincipalApprovalStoreReadiness.CheckDefinitions[key];
+        var restored = ProcurementPrincipalApprovalStoreReadiness.RestoredCheckDefinitions[key];
+        Assert.NotEqual(expected, restored);
+        Assert.True(ProcurementPrincipalApprovalStoreReadiness.MatchesCapturedCheck(key, expected, expected));
+        Assert.True(ProcurementPrincipalApprovalStoreReadiness.MatchesCapturedCheck(key, expected, restored));
+        Assert.False(ProcurementPrincipalApprovalStoreReadiness.MatchesCapturedCheck(key + "-other", expected, restored));
+        Assert.False(ProcurementPrincipalApprovalStoreReadiness.MatchesCapturedCheck(key, expected,
+            restored.Replace("'Returned'", "'Denied'", StringComparison.Ordinal)));
+        Assert.False(ProcurementPrincipalApprovalStoreReadiness.MatchesCapturedCheck(key, expected,
+            restored.Replace("'Rejected'", "'Returned'", StringComparison.Ordinal)));
+        Assert.False(ProcurementPrincipalApprovalStoreReadiness.MatchesCapturedCheck(key, expected,
+            restored + " AND true"));
+    }
 }
