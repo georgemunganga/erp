@@ -38,6 +38,8 @@ public sealed class ProcurementMasterImportContractTests
             ["displayName"] = "displayName", ["countryCode"] = "countryCode", ["notes"] = null! };
         var request = new MasterImportPreviewRequest(1, "vendors.csv", csv, mapping, "reject", []);
         Assert.Equal("validation-failed", ProcurementMasterImportContracts.Parse(request, "Vendor").Code);
+        Assert.Null(ProcurementMasterImportContracts.ReadSnapshot("{}"));
+        Assert.Null(ProcurementMasterImportContracts.ReadSnapshot("{\"rows\":[null]}"));
         mapping["notes"] = "";
         Assert.Null(ProcurementMasterImportContracts.Parse(request, "Vendor").Code);
         mapping["notes"] = "not-an-import-field";

@@ -92,7 +92,18 @@ internal static class ProcurementMasterImportContracts
     internal static MasterImportSnapshot? ReadSnapshot(string? text)
     {
         if (string.IsNullOrEmpty(text)) return null;
-        try { return JsonSerializer.Deserialize<MasterImportSnapshot>(text, Json); }
+        try
+        {
+            var snapshot = JsonSerializer.Deserialize<MasterImportSnapshot>(text, Json);
+            if (snapshot is null || snapshot.Rows is not { Length: > 0 and <= 1000 }
+                || snapshot.Mapping is null || snapshot.AcknowledgedSimilarityRows is null
+                || snapshot.FileName is null || snapshot.ActorSubjectId is null || snapshot.TenantId is null
+                || snapshot.Rows.Any(row => row is null || row.Fields is null
+                    || row.Fields.Values.Any(value => value is null)
+                    || row.Disposition is null || row.StartLine < 2 || row.EndLine < row.StartLine
+                    || row.RowNumber < 2)) return null;
+            return snapshot;
+        }
         catch (JsonException) { return null; }
     }
 

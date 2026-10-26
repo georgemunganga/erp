@@ -58,7 +58,8 @@ public static class ProcurementMasterImportRoutes
     private static IResult Unavailable(HttpContext http)
     {
         http.Response.Headers.CacheControl = "no-store";
-        return Error(StatusCodes.Status503ServiceUnavailable, "import-unavailable");
+        return Results.Json(new { code = "import-unavailable", traceId = http.TraceIdentifier },
+            statusCode: StatusCodes.Status503ServiceUnavailable);
     }
 
     private static async Task<bool> Ready(ProcurementDbContext db, HrmDbContext core,
@@ -469,9 +470,13 @@ public static class ProcurementMasterImportRoutes
             return Results.Bytes(Encoding.UTF8.GetBytes(resultText), "application/json");
         }
         catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
+        catch (DbUpdateException error) when (error.InnerException is PostgresException pg
+            && (pg.SqlState is "42501" or "42P01" or "42703")) { return Unavailable(http); }
         catch (DbUpdateException) { return Error(409, "import-conflict"); }
         catch (PostgresException error) when (error.SqlState is "40001" or "40P01" or "23505")
         { return Error(409, "import-conflict"); }
+        catch (PostgresException error) when (error.SqlState is "42501" or "42P01" or "42703")
+        { return Unavailable(http); }
         catch (InvalidOperationException) { return Error(409, "import-preview-stale"); }
     }
 
