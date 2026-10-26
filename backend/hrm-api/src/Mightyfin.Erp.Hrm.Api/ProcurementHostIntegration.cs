@@ -49,8 +49,9 @@ public static class ProcurementHostIntegration
             .Get<ProcurementPrincipalOrderDraftOptions>() ?? new ProcurementPrincipalOrderDraftOptions();
         principalOrderOptions.ExecutionDatabaseConfigured = !string.IsNullOrWhiteSpace(executionConnection);
         services.AddSingleton(principalOrderOptions);
-        // P30 owner migration, finite privileges and actual readiness capture have not run.
-        services.AddScoped<IProcurementPrincipalOrderDraftReadiness, UnavailableProcurementPrincipalOrderDraftReadiness>();
+        // P30 remains default-off. Its real inspector also stays unavailable
+        // until the three physical CHECK strings are captured from genuine Up.
+        services.AddScoped<IProcurementPrincipalOrderDraftReadiness, ProcurementPrincipalOrderDraftSchemaReadiness>();
         var sourcingOptions = configuration.GetSection("Procurement:SourcingDrafts").Get<ProcurementSourcingDraftExecutionOptions>() ?? new();
         sourcingOptions.ExecutionDatabaseConfigured = !string.IsNullOrWhiteSpace(executionConnection);
         services.AddSingleton(sourcingOptions);

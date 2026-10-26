@@ -19,6 +19,15 @@ internal static class ProcurementSchemaInspectionSql
         "SELECT EXISTS(SELECT 1 FROM pg_index i WHERE i.indrelid=" + Literal(table.Schema + "." + table.Name)
         + "::regclass AND i.indisunique AND i.indisvalid AND i.indimmediate AND i.indexprs IS NULL " + (predicate is null ? "AND i.indpred IS NULL" : "AND pg_get_expr(i.indpred,i.indrelid)=" + Literal(predicate)) + " AND i.indnkeyatts=i.indnatts AND ARRAY(SELECT a.attname::text FROM unnest(i.indkey::smallint[]) WITH ORDINALITY k(n,p) JOIN pg_attribute a ON a.attrelid=i.indrelid AND a.attnum=k.n ORDER BY k.p)=" + Columns(columns) + (name is null ? "" : " AND i.indisready AND i.indislive AND i.indexrelid=" + Literal(Quote(table.Schema!) + "." + Quote(name)) + "::regclass") + ")";
 
+    internal static string IndexSql(StoreObjectIdentifier table, string[] columns, string name, bool unique) =>
+        "SELECT EXISTS(SELECT 1 FROM pg_index i WHERE i.indrelid=" + Literal(table.Schema + "." + table.Name)
+        + "::regclass AND i.indisunique=" + (unique ? "true" : "false")
+        + " AND i.indisvalid AND i.indisready AND i.indislive AND i.indimmediate"
+        + " AND i.indexprs IS NULL AND i.indpred IS NULL AND i.indnkeyatts=i.indnatts"
+        + " AND ARRAY(SELECT a.attname::text FROM unnest(i.indkey::smallint[]) WITH ORDINALITY k(n,p)"
+        + " JOIN pg_attribute a ON a.attrelid=i.indrelid AND a.attnum=k.n ORDER BY k.p)=" + Columns(columns)
+        + " AND i.indexrelid=" + Literal(Quote(table.Schema!) + "." + Quote(name)) + "::regclass)";
+
     internal static string SelectAllColumnsSql(IEntityType entity, StoreObjectIdentifier table) =>
         "SELECT " + string.Join(',', entity.GetProperties().Select(x => Quote(x.GetColumnName(table)!)))
         + " FROM " + Quote(table.Schema!) + "." + Quote(table.Name) + " LIMIT 0";
