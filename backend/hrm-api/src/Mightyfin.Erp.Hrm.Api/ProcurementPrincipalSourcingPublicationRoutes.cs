@@ -366,10 +366,11 @@ public static partial class ProcurementSourcingExecutionRoutes
             var final = approval.State is "Approved" or "Returned" or "Rejected";
             if (approval.State == "Approved")
             {
-                // Hold the opening's policy row through this transaction. A concurrent
-                // supersession must wait; an already expired or replaced policy cannot
-                // turn an old review case into a fresh publication authority.
-                await db.Database.ExecuteSqlInterpolatedAsync($"SELECT id FROM procurement.policy_versions WHERE tenant_id={scope.TenantId} AND legal_entity_id={scope.LegalEntityId} AND id={opening.PolicyVersionId} FOR SHARE", token);
+                // Both this decision and policy publication run in serializable transactions.
+                // Re-read the current policy within that transaction; a concurrent
+                // supersession must serialize before or after this decision, or abort
+                // one transaction for retry. A row lock here would require policy
+                // UPDATE privilege on the execution role.
                 var activePolicies = await db.PolicyVersions.AsNoTracking().Where(x =>
                     x.PolicyKey == SourcingPublicationPolicyRules.PolicyKey && x.State == "Published"
                     && x.EffectiveFrom <= now && (x.EffectiveTo == null || x.EffectiveTo > now))
