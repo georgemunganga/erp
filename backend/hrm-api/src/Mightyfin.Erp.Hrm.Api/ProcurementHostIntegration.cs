@@ -198,9 +198,15 @@ public static class ProcurementHostIntegration
                         && (publicationPerson.Permissions.Contains("procurement-sourcing-submit")
                             || publicationPerson.Permissions.Contains("procurement-sourcing-publish"));
                 }
-                var principalSourcingPublication = principalSourcingPublicationRead
-                    && principalSourcingSourceDrafts && publicationOptions is { Enabled: true }
+                // A publish-only reviewer has a current M4 read/action grant but no
+                // RFQ convert/cancel grant. New publication work needs the physical
+                // P29 store, not that separate buyer capability.
+                var publicationApprovalStoreReady = principalSourcingPublicationRead && sourcingSourceDrafts
+                    && publicationOptions is { Enabled: true }
                     && await ProcurementPrincipalApprovalCapability.ConfiguredStoreReadyAsync(services, ct);
+                var principalSourcingPublication = ProcurementPrincipalSourcingPublicationCapability.NewWork(
+                    principalSourcingPublicationRead, sourcingSourceDrafts,
+                    publicationOptions is { Enabled: true }, publicationApprovalStoreReady);
                 return Results.Ok(new
                 {
                     module = "procurement",
@@ -286,6 +292,16 @@ public static class ProcurementHostIntegration
             }
         }).RequireAuthorization("procurement-access");
     }
+}
+
+internal static class ProcurementPrincipalSourcingPublicationCapability
+{
+    // The actor-specific read bit already requires a current submit or publish
+    // action. The buyer's separate convert/cancel capability is not a prerequisite
+    // for an assigned publish-only reviewer.
+    internal static bool NewWork(bool actorCanRead, bool physicalSourceReady,
+        bool enabled, bool approvalStoreReady)
+        => actorCanRead && physicalSourceReady && enabled && approvalStoreReady;
 }
 
 public sealed class ProcurementRequestScope : IProcurementScope, IApprovalScope, Mightyfin.Erp.Core.Documents.Domain.IDocumentScope
