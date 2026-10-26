@@ -865,6 +865,7 @@ public sealed partial class ProcurementDbContext(DbContextOptions<ProcurementDbC
                 .Select(x => x.Entity).ToArray();
             if (batch.TotalRows < 1 || own.Length != batch.TotalRows
                 || batch.AppliedRows != own.Count(x => x.Disposition == "create")
+                || createdMasters.Length != batch.AppliedRows
                 || own.Select(x => x.RowNumber).Distinct().Count() != own.Length
                 || own.Where(x => x.CreatedRecordId is not null).Select(x => x.CreatedRecordId).Distinct().Count()
                     != batch.AppliedRows
@@ -878,11 +879,56 @@ public sealed partial class ProcurementDbContext(DbContextOptions<ProcurementDbC
                         && !createdMasters.Any(master => master.Id == createdId
                             && master.TenantId == x.TenantId && master.LegalEntityId == x.LegalEntityId))
                 || Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(batch.ResultText!)))
-                    .ToLowerInvariant() != batch.ResultSha256)
+                    .ToLowerInvariant() != batch.ResultSha256
+                || !ValidMasterImportResult(batch, own))
                 throw new InvalidOperationException("Import commit receipts must exactly accompany the scoped batch.");
         }
         if (receipts.Any(x => !transitions.Any(b => b.Entity.Id == x.ImportBatchId
             && b.Entity.TenantId == x.TenantId && b.Entity.LegalEntityId == x.LegalEntityId)))
             throw new InvalidOperationException("An import row receipt needs its owning batch commit.");
+    }
+
+    public static bool ValidMasterImportResult(ImportBatch batch, IReadOnlyList<ImportRowReceipt> receipts)
+    {
+        if (batch.ResultText is null || batch.ResultSha256 is null
+            || Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(batch.ResultText)))
+                .ToLowerInvariant() != batch.ResultSha256
+            || receipts.Count != batch.TotalRows) return false;
+        try
+        {
+            using var document = JsonDocument.Parse(batch.ResultText);
+            var root = document.RootElement;
+            if (root.ValueKind != JsonValueKind.Object
+                || root.EnumerateObject().Select(x => x.Name).OrderBy(x => x, StringComparer.Ordinal)
+                    .SequenceEqual(new[] { "batchId", "created", "rows", "skipped" }) is false
+                || root.GetProperty("batchId").GetGuid() != batch.Id
+                || root.GetProperty("created").GetInt32() != batch.AppliedRows
+                || root.GetProperty("skipped").GetInt32() != batch.TotalRows - batch.AppliedRows)
+                return false;
+            var rows = root.GetProperty("rows");
+            if (rows.ValueKind != JsonValueKind.Array || rows.GetArrayLength() != receipts.Count) return false;
+            var saved = receipts.OrderBy(x => x.RowNumber).ToArray();
+            for (var i = 0; i < saved.Length; i++)
+            {
+                var result = rows[i];
+                if (result.ValueKind != JsonValueKind.Object
+                    || result.EnumerateObject().Select(x => x.Name).OrderBy(x => x, StringComparer.Ordinal)
+                        .SequenceEqual(new[] { "disposition", "recordId", "rowNumber" }) is false
+                    || result.GetProperty("rowNumber").GetInt32() != saved[i].RowNumber
+                    || result.GetProperty("disposition").GetString() != saved[i].Disposition)
+                    return false;
+                var recordId = result.GetProperty("recordId");
+                if (saved[i].CreatedRecordId is Guid createdId)
+                {
+                    if (recordId.ValueKind != JsonValueKind.String || recordId.GetGuid() != createdId)
+                        return false;
+                }
+                else if (recordId.ValueKind != JsonValueKind.Null) return false;
+            }
+            return true;
+        }
+        catch (JsonException) { return false; }
+        catch (InvalidOperationException) { return false; }
+        catch (FormatException) { return false; }
     }
 }

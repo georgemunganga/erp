@@ -1,5 +1,6 @@
 using System.Security.Cryptography;
 using System.Text;
+using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using Mightyfin.Erp.Hrm.Api;
 using Mightyfin.Erp.Procurement.Domain;
@@ -36,11 +37,13 @@ public sealed class ProcurementMasterImportPersistenceTests
         State = "Previewed", TotalRows = 1, ExpiresAt = DateTimeOffset.UtcNow.AddMinutes(15),
     };
 
-    private static void Commit(ImportBatch batch)
+    private static void Commit(ImportBatch batch, Guid? createdId = null)
     {
         batch.State = "Committed"; batch.AppliedRows = 1;
         batch.CommitCommandKey = Guid.NewGuid(); batch.CommitRequestSha256 = new string('b', 64);
-        batch.ResultText = "{\"created\":1}"; batch.ResultSha256 = Hash(batch.ResultText);
+        batch.ResultText = JsonSerializer.Serialize(new { batchId = batch.Id, created = 1, skipped = 0,
+            rows = new[] { new { rowNumber = 2, disposition = "create", recordId = createdId } } });
+        batch.ResultSha256 = Hash(batch.ResultText);
     }
 
     [Fact]
@@ -85,13 +88,54 @@ public sealed class ProcurementMasterImportPersistenceTests
         db.AddScoped(new ImportRowReceipt { ImportBatchId = batch.Id, RowNumber = 2,
             StartLine = 2, EndLine = 2, Disposition = "create", CreatedRecordId = item.Id,
             RowSha256 = new string('c', 64) });
-        Commit(batch);
+        Commit(batch, item.Id);
         await db.SaveChangesAsync();
         db.ChangeTracker.Clear();
         Assert.Equal(1, await db.CatalogItems.CountAsync());
         Assert.Equal(item.Id, (await db.ImportRowReceipts.SingleAsync()).CreatedRecordId);
         batch = await db.ImportBatches.SingleAsync();
         batch.ResultText = "{\"created\":2}";
+        await Assert.ThrowsAsync<InvalidOperationException>(() => db.SaveChangesAsync());
+    }
+
+    [Fact]
+    public void Self_hashed_wrong_batch_row_count_or_extra_field_is_not_a_replayable_result()
+    {
+        var batch = NewPreview(Guid.NewGuid().ToString("D"));
+        var createdId = Guid.NewGuid();
+        Commit(batch, createdId);
+        var receipt = new ImportRowReceipt { ImportBatchId = batch.Id, RowNumber = 2,
+            StartLine = 2, EndLine = 2, Disposition = "create", CreatedRecordId = createdId,
+            RowSha256 = new string('c', 64) };
+        Assert.True(ProcurementDbContext.ValidMasterImportResult(batch, [receipt]));
+        foreach (var wrong in new[] {
+            batch.ResultText!.Replace(batch.Id.ToString("D"), Guid.NewGuid().ToString("D")),
+            batch.ResultText!.Replace("\"rowNumber\":2", "\"rowNumber\":3"),
+            batch.ResultText!.Replace("\"created\":1", "\"created\":2"),
+            batch.ResultText!.Replace("\"rows\":", "\"privateField\":1,\"rows\":"),
+            batch.ResultText!.Replace("\"rows\":", "\"created\":1,\"rows\":") })
+        {
+            batch.ResultText = wrong;
+            batch.ResultSha256 = Hash(wrong);
+            Assert.False(ProcurementDbContext.ValidMasterImportResult(batch, [receipt]));
+        }
+    }
+
+    [Fact]
+    public async Task A_second_unreceipted_master_cannot_ride_the_same_import_commit()
+    {
+        await using var fixture = new Fixture();
+        await using var db = fixture.Db();
+        var batch = NewPreview(fixture.Actor); db.AddScoped(batch); await db.SaveChangesAsync();
+        var first = new CatalogItem { Code = "SKU-1", Name = "One", Kind = "Goods",
+            CategoryCode = "FAST", UnitCode = "EA", Status = "Inactive" };
+        var second = new CatalogItem { Code = "SKU-2", Name = "Two", Kind = "Goods",
+            CategoryCode = "FAST", UnitCode = "EA", Status = "Inactive" };
+        db.AddScoped(first); db.AddScoped(second);
+        db.AddScoped(new ImportRowReceipt { ImportBatchId = batch.Id, RowNumber = 2,
+            StartLine = 2, EndLine = 2, Disposition = "create", CreatedRecordId = first.Id,
+            RowSha256 = new string('c', 64) });
+        Commit(batch, first.Id);
         await Assert.ThrowsAsync<InvalidOperationException>(() => db.SaveChangesAsync());
     }
 }

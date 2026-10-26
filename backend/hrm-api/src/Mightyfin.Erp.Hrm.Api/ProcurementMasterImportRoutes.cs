@@ -81,6 +81,9 @@ public static class ProcurementMasterImportRoutes
                            'commit_request_sha256','result_text','result_sha256',
                            'version','updated_at','updated_by']::text[]))
                        = has_column_privilege(current_user,'procurement.import_batches',a.attname,'UPDATE'))
+                       AND count(*) FILTER (WHERE a.attname = ANY(ARRAY[
+                           'state','applied_rows','commit_command_key','commit_request_sha256',
+                           'result_text','result_sha256','version','updated_at','updated_by']::text[])) = 9
                        FROM pg_attribute a WHERE a.attrelid='procurement.import_batches'::regclass
                            AND a.attnum > 0 AND NOT a.attisdropped),false)
                    AND has_table_privilege(current_user,'procurement.import_row_receipts','SELECT')
@@ -102,17 +105,44 @@ public static class ProcurementMasterImportRoutes
             if (!SameDatabase(db, core)) return false;
             var coreIdentity = await core.Database.SqlQueryRaw<bool>("""
                 SELECT has_schema_privilege(current_user,'hrm','USAGE')
-                   AND has_table_privilege(current_user,'hrm.local_users','SELECT')
-                   AND has_table_privilege(current_user,'hrm.local_users','UPDATE')
-                   AND has_table_privilege(current_user,'hrm.tenant_role_assignments','SELECT')
-                   AND has_table_privilege(current_user,'hrm.tenant_role_assignments','UPDATE') AS "Value"
+                   AND has_column_privilege(current_user,'hrm.local_users','tenant_id','SELECT')
+                   AND has_column_privilege(current_user,'hrm.local_users','id','SELECT')
+                   AND has_column_privilege(current_user,'hrm.local_users','is_active','SELECT')
+                   AND has_column_privilege(current_user,'hrm.local_users','is_archived','SELECT')
+                   AND has_column_privilege(current_user,'hrm.local_users','roles_csv','SELECT')
+                   AND has_column_privilege(current_user,'hrm.local_users','worker_id','SELECT')
+                   AND has_column_privilege(current_user,'hrm.local_users','locked_until','SELECT')
+                   AND EXISTS (SELECT 1 FROM pg_attribute a
+                       WHERE a.attrelid='hrm.local_users'::regclass AND a.attnum > 0 AND NOT a.attisdropped
+                           AND has_column_privilege(current_user,'hrm.local_users',a.attname,'UPDATE'))
+                   AND has_column_privilege(current_user,'hrm.tenant_role_assignments','tenant_id','SELECT')
+                   AND has_column_privilege(current_user,'hrm.tenant_role_assignments','role_key','SELECT')
+                   AND has_column_privilege(current_user,'hrm.tenant_role_assignments','active','SELECT')
+                   AND has_column_privilege(current_user,'hrm.tenant_role_assignments','is_archived','SELECT')
+                   AND has_column_privilege(current_user,'hrm.tenant_role_assignments','permissions_csv','SELECT')
+                   AND EXISTS (SELECT 1 FROM pg_attribute a
+                       WHERE a.attrelid='hrm.tenant_role_assignments'::regclass
+                           AND a.attnum > 0 AND NOT a.attisdropped
+                           AND has_column_privilege(current_user,'hrm.tenant_role_assignments',a.attname,'UPDATE'))
+                   AND has_table_privilege(current_user,'hrm.legal_entities','SELECT')
+                   AND has_table_privilege(current_user,'hrm.hr_user_branch_assignments','SELECT')
+                   AND has_table_privilege(current_user,'hrm.work_locations','SELECT')
+                   AND has_table_privilege(current_user,'hrm.org_units','SELECT')
+                   AS "Value"
                 """).SingleAsync(ct);
             if (!coreIdentity || kind != "Vendor") return coreIdentity;
             // Currency is Core-owned. Its connection holds the selected company
             // row lock; the Procurement Record role receives no HRM grant.
             return await core.Database.SqlQueryRaw<bool>("""
-                SELECT has_table_privilege(current_user,'hrm.legal_entities','SELECT')
-                   AND has_table_privilege(current_user,'hrm.legal_entities','UPDATE') AS "Value"
+                SELECT has_column_privilege(current_user,'hrm.legal_entities','tenant_id','SELECT')
+                   AND has_column_privilege(current_user,'hrm.legal_entities','id','SELECT')
+                   AND has_column_privilege(current_user,'hrm.legal_entities','is_archived','SELECT')
+                   AND has_column_privilege(current_user,'hrm.legal_entities','currency','SELECT')
+                   AND EXISTS (SELECT 1 FROM pg_attribute a
+                       WHERE a.attrelid='hrm.legal_entities'::regclass
+                           AND a.attnum > 0 AND NOT a.attisdropped
+                           AND has_column_privilege(current_user,'hrm.legal_entities',a.attname,'UPDATE'))
+                   AS "Value"
                 """).SingleAsync(ct);
         }
         catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
@@ -344,7 +374,8 @@ public static class ProcurementMasterImportRoutes
             var currency = kind == "Vendor" ? await LockedCurrency(core, scope, ct) : null;
             await using var tx = await db.Database.BeginTransactionAsync(IsolationLevel.Serializable, ct);
             if (!await LockBatch(db, scope, kind, request.BatchId, ct)) return Error(404, "import-not-found");
-            if (!await LockedCurrentGrant(core, scope, kind, ct))
+            if (!await LockedCurrentGrant(core, scope, kind, ct)
+                || !await CurrentScopeAllowed(core, scope, ct))
                 return Error(403, "forbidden");
             var batch = await db.ImportBatches.SingleOrDefaultAsync(x => x.Id == request.BatchId, ct);
             if (batch is null || batch.RecordType != kind || batch.ActorSubjectId != scope.SubjectId)
@@ -355,7 +386,8 @@ public static class ProcurementMasterImportRoutes
             if (batch.State == "Committed")
             {
                 if (batch.CommitCommandKey != request.CommandKey || batch.CommitRequestSha256 != commandDigest
-                    || batch.PreviewSha256 != request.PreviewSha256 || !ValidSavedResult(batch))
+                    || batch.PreviewSha256 != request.PreviewSha256
+                    || !await ValidSavedResult(db, batch, ct))
                     return Error(409, "import-conflict");
                 http.Response.Headers.CacheControl = "no-store";
                 return Results.Bytes(Encoding.UTF8.GetBytes(batch.ResultText!), "application/json");
@@ -442,9 +474,13 @@ public static class ProcurementMasterImportRoutes
         catch (InvalidOperationException) { return Error(409, "import-preview-stale"); }
     }
 
-    private static bool ValidSavedResult(ImportBatch batch) => batch.ResultText is not null
-        && ProcurementMasterImportContracts.IsHash(batch.ResultSha256)
-        && ProcurementMasterImportContracts.Hash(batch.ResultText) == batch.ResultSha256;
+    private static async Task<bool> ValidSavedResult(ProcurementDbContext db,
+        ImportBatch batch, CancellationToken ct)
+    {
+        var receipts = await db.ImportRowReceipts.AsNoTracking()
+            .Where(x => x.ImportBatchId == batch.Id).ToArrayAsync(ct);
+        return ProcurementDbContext.ValidMasterImportResult(batch, receipts);
+    }
 
     private static async Task<bool> LockBatch(ProcurementDbContext db, ProcurementRequestScope scope,
         string kind, Guid batchId, CancellationToken ct)
@@ -493,6 +529,7 @@ public static class ProcurementMasterImportRoutes
     private static async Task<bool> LockedCurrentGrant(HrmDbContext core,
         ProcurementRequestScope scope, string kind, CancellationToken ct)
     {
+        if (!Guid.TryParse(scope.SubjectId, out var subject) || subject == Guid.Empty) return false;
         // Hold Core actor and assigned role rows until the Procurement commit.
         // A revoked user or permission while waiting for the batch lock is denied.
         await using var user = core.Database.GetDbConnection().CreateCommand();
@@ -504,7 +541,7 @@ public static class ProcurementMasterImportRoutes
         var tenant = user.CreateParameter(); tenant.ParameterName = "tenant";
         tenant.Value = scope.TenantId; user.Parameters.Add(tenant);
         var actor = user.CreateParameter(); actor.ParameterName = "actor";
-        actor.Value = Guid.Parse(scope.SubjectId); user.Parameters.Add(actor);
+        actor.Value = subject; user.Parameters.Add(actor);
         var rolesCsv = await user.ExecuteScalarAsync(ct) as string;
         if (rolesCsv is null) return false;
         var assigned = LocalIdentityRoutes.ParseRoles(rolesCsv);
@@ -527,6 +564,29 @@ public static class ProcurementMasterImportRoutes
             && HasImportActions(current, kind);
     }
 
+    private static async Task<bool> CurrentScopeAllowed(HrmDbContext core,
+        ProcurementRequestScope scope, CancellationToken ct)
+    {
+        // Re-read the actual Core company/branch assignment after any wait for
+        // the batch lock. A previous shell selection is never a lasting grant.
+        if (!await core.LegalEntities.AsNoTracking().AnyAsync(x => x.TenantId == scope.TenantId
+            && x.Id == scope.LegalEntityId && !x.IsArchived, ct)) return false;
+        var assigned = await core.UserBranchAssignments.AsNoTracking()
+            .Where(x => x.TenantId == scope.TenantId && x.UserId == scope.PrincipalId && !x.IsArchived)
+            .Select(x => x.LocationId).Distinct().ToArrayAsync(ct);
+        var companyBranches = await core.WorkLocations.AsNoTracking()
+            .Where(x => x.TenantId == scope.TenantId && x.LegalEntityId == scope.LegalEntityId
+                && !x.IsArchived && (assigned.Length == 0 || assigned.Contains(x.Id)))
+            .Select(x => x.Id).ToArrayAsync(ct);
+        if (assigned.Length > 0 && companyBranches.Length == 0) return false;
+        if (scope.WorkLocationId is Guid branch && !companyBranches.Contains(branch)) return false;
+        if (scope.OrgUnitId is Guid orgUnit && (assigned.Length > 0
+            || !await core.OrgUnits.AsNoTracking().AnyAsync(x => x.TenantId == scope.TenantId
+                && x.Id == orgUnit && x.LegalEntityId == scope.LegalEntityId
+                && !x.IsArchived && x.Status == "active", ct))) return false;
+        return true;
+    }
+
     private static async Task<IResult> Recover(Guid batchId, ProcurementDbContext db,
         HrmDbContext core, IConfiguration config,
         ProcurementRequestScope scope, HttpContext http, string kind, CancellationToken ct)
@@ -541,7 +601,7 @@ public static class ProcurementMasterImportRoutes
         http.Response.Headers.CacheControl = "no-store";
         if (batch.State == "Committed")
         {
-            if (!ValidSavedResult(batch)) return Unavailable(http);
+            if (!await ValidSavedResult(db, batch, ct)) return Unavailable(http);
             return Results.Ok(new { state = "Committed", batchId, result =
                 JsonSerializer.Deserialize<JsonElement>(batch.ResultText!) });
         }
