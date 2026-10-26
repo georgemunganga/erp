@@ -126,7 +126,8 @@ public static partial class ProcurementPrincipalOrderDraftRoutes
                     funding.ObservedAt,attestedGrossAmountExact=ProcurementEvidenceEncoding.Decimal(funding.AttestedGrossAmount)},
                 release=release is null?null:new{release.Id,release.Reason,release.RequestedAt,
                     release.RequestedByPrincipalId,release.OriginalDirectSourceSha256},
-                canRecordFunding=order.Status=="Draft",canConfirmRelease=order.Status=="ReleasePending",
+                canRecordFunding=order.Status=="Draft"&&GovernedWritesAvailable(http,scope),
+                canConfirmRelease=order.Status=="ReleasePending"&&GovernedWritesAvailable(http,scope),
                 previewOnly=true,financeLedgerChanged=false},Json));
         },ct);
     }
@@ -279,7 +280,7 @@ public static partial class ProcurementPrincipalOrderDraftRoutes
         var activeTask=order.Status=="PendingApproval"&&workflow.State=="Pending"
             &&stage.State=="Active"&&task.State=="Pending";
         var canReturnOrReject=false;var canApprove=false;
-        if(activeTask)
+        if(activeTask&&GovernedWritesAvailable(http,scope))
         {
             try
             {

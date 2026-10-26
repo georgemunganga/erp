@@ -67,7 +67,8 @@ public static partial class ProcurementPrincipalOrderDraftRoutes
         }
     }
     private static IResult Error(string code,int status)=>Results.Json(new{code,
-        message=status==503?"Purchase orders are unavailable or this save could not be confirmed. Keep the command reference and check again."
+        message=code=="OrderBranchRequired"?"Choose a branch before saving an order. Select All branches to view orders across your permitted branches."
+            :status==503?"Purchase orders are unavailable or this save could not be confirmed. Keep the command reference and check again."
             :"Refresh this order and check your access, sources and remaining quantities."},statusCode:status);
     private static Guid Key(HttpContext http)=>Guid.TryParse(http.Request.Headers["Idempotency-Key"],out var key)&&key!=Guid.Empty
         ?key:throw new Problem("OrderCommandKeyRequired",400);

@@ -31,6 +31,10 @@ public static partial class ProcurementPrincipalOrderDraftRoutes
     {
         group.MapGet("/principal-governed-orders",GovernedBuyerList).RequireAuthorization("procurement-po-read");
         group.MapGet("/{id:guid}/principal-governed-detail",GovernedBuyerDetail).RequireAuthorization("procurement-po-read");
+        // Purpose-only action reads enforce the selected operation's permission
+        // inside the current company/branch transaction, without buyer-wide read.
+        group.MapGet("/principal-operation-work",GovernedOperationWork).RequireAuthorization("procurement-access");
+        group.MapGet("/{id:guid}/principal-operation-detail",GovernedOperationDetail).RequireAuthorization("procurement-access");
         group.MapGet("/{id:guid}/principal-review/{assignmentId:guid}",Review).RequireAuthorization("procurement-po-approve");
         group.MapGet("/principal-finance-work",FinanceWork).RequireAuthorization("procurement-po-finance-confirm");
         group.MapGet("/{id:guid}/principal-finance-detail",FinanceDetail).RequireAuthorization("procurement-po-finance-confirm");
@@ -50,6 +54,9 @@ public static partial class ProcurementPrincipalOrderDraftRoutes
         Func<ProcurementDbContext,ApprovalDbContext,HrmDbContext,IAuthorizationService,CancellationToken,Task<Reply>> operation,
         CancellationToken ct)
     {
+        if (!GovernedContextAllowed(HttpMethods.IsGet(http.Request.Method), scope.WorkLocationId,
+                scope.IsExplicitAllBranches))
+            return Error("OrderBranchRequired",422);
         var options=http.RequestServices.GetService<ProcurementOrderExecutionOptions>();
         var physical=http.RequestServices.GetService<IProcurementPrincipalOrderGovernanceReadiness>();
         // Historical reads do not acquire new-work authority. The inherited
@@ -65,6 +72,14 @@ public static partial class ProcurementPrincipalOrderDraftRoutes
             return await operation(db,cases,core,auth,token);
         },ct);
     }
+
+    internal static bool GovernedContextAllowed(bool read,Guid? branch,bool explicitAll) =>
+        branch is { } id && id!=Guid.Empty && !explicitAll
+        || read && branch is null && explicitAll;
+
+    private static bool GovernedWritesAvailable(HttpContext http,ProcurementRequestScope scope) =>
+        http.RequestServices.GetRequiredService<ProcurementOrderExecutionOptions>().PrincipalExecutionEnabled
+        && GovernedContextAllowed(false,scope.WorkLocationId,scope.IsExplicitAllBranches);
 
     private static string GovernanceAction(string operation)=>operation switch
     {

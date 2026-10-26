@@ -1,6 +1,10 @@
 using System.Text.Json;
+using Microsoft.AspNetCore.Authorization;
+using Mightyfin.Erp.Core.Approvals.Infrastructure;
+using Mightyfin.Erp.Hrm.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
 using Mightyfin.Erp.Procurement.Application;
+using Mightyfin.Erp.Procurement.Infrastructure.Data;
 
 namespace Mightyfin.Erp.Hrm.Api;
 
@@ -34,13 +38,56 @@ public static partial class ProcurementPrincipalOrderDraftRoutes
     },ct);
 
     private static Task<IResult> GovernedBuyerDetail(Guid id,HttpContext http,
-        ProcurementRequestScope scope,CancellationToken ct)=>RunGoverned(http,scope,async(db,cases,core,auth,token)=>
+        ProcurementRequestScope scope,CancellationToken ct)=>RunGoverned(http,scope,
+        (db,cases,core,auth,token)=>GovernedDetail(db,cases,core,auth,http,scope,id,
+            "procurement-po-read",true,token),ct);
+
+    private static Task<IResult> GovernedOperationDetail(Guid id,string operation,HttpContext http,
+        ProcurementRequestScope scope,CancellationToken ct)=>RunGoverned(http,scope,
+        (db,cases,core,auth,token)=>GovernedDetail(db,cases,core,auth,http,scope,id,
+            OperationReadAction(operation),false,token),ct);
+
+    private static string OperationReadAction(string operation)=>operation switch
+    {
+        "Issue"=>"procurement-po-issue", "Ack"=>"procurement-po-dispatch-confirm",
+        _=>throw new Problem("OrderOperationInvalid",422)
+    };
+
+    private static Task<IResult> GovernedOperationWork(string operation,int? page,int? pageSize,string? q,
+        HttpContext http,ProcurementRequestScope scope,CancellationToken ct)
+        =>RunGoverned(http,scope,async(db,cases,core,auth,token)=>
+    {
+        var action=OperationReadAction(operation);
+        var actor=await Actor(core,scope,http,auth,action,null,false,token);
+        var branches=await ProcurementExecutionRecordScope.Branches(core,scope,null,false,token);
+        var paging=ProcurementSourcingDiscoveryQueries.Paging(page,pageSize,q);
+        var status=operation=="Issue"?"Approved":"IssuePending";
+        var query=db.PurchaseOrders.AsNoTracking().Where(x=>x.PrincipalDraftSchemaVersion==2
+            &&x.Status==status&&x.CurrentRevision==1);
+        if(scope.WorkLocationId is { } selected)query=query.Where(x=>x.BranchRef==selected);
+        if(!actor.OrganisationWide)query=query.Where(x=>x.BranchRef!=null&&branches.Contains(x.BranchRef.Value));
+        if(paging.Search.Length>0)query=query.Where(x=>EF.Functions.ILike(x.Number,paging.Pattern,"\\"));
+        var total=await query.CountAsync(token);
+        var items=await query.OrderBy(x=>x.CreatedAt).ThenBy(x=>x.Id)
+            .Skip(paging.Offset).Take(paging.Size).Select(x=>new{x.Id,x.Number,x.SupplierId,
+                x.BranchRef,x.CurrencyCode,x.Status,x.Version,x.CurrentRevision}).ToArrayAsync(token);
+        return new Reply(JsonSerializer.Serialize(new{items,total,page=paging.Number,pageSize=paging.Size,
+            operation,detailEligibilityRequired=true,readOnlyPreview=true},Json));
+    },ct);
+
+    private static async Task<Reply> GovernedDetail(ProcurementDbContext db,ApprovalDbContext cases,
+        HrmDbContext core,IAuthorizationService auth,HttpContext http,ProcurementRequestScope scope,
+        Guid id,string readAction,bool requireBuyer,CancellationToken token)
     {
         // Retain the original buyer fence. Finance and assigned reviewers use
         // their own purpose-specific views and do not gain general PO access.
-        _=await Owned(db,core,scope,http,auth,"procurement-po-read",id,token);
-        var load=await LoadGoverned(db,cases,core,scope,http,auth,"procurement-po-read",id,token,lockSources:false);
+        if(requireBuyer)_=await Owned(db,core,scope,http,auth,"procurement-po-read",id,token);
+        else _=await Actor(core,scope,http,auth,readAction,null,false,token);
+        var load=await LoadGoverned(db,cases,core,scope,http,auth,readAction,id,token,lockSources:false);
         var order=load.Order;
+        if(!requireBuyer && (readAction=="procurement-po-issue"?order.Status!="Approved":order.Status!="IssuePending"))
+            throw new Problem("OrderOperationTaskNotFound",404);
+        var isBuyer=order.BuyerSubjectId==scope.SubjectId;
         if(!GovernedBuyerState(order.Status))throw new Problem("OrderStateNeedsReview",409);
         var expectedAllocation=order.Status switch
         {
@@ -76,7 +123,8 @@ public static partial class ProcurementPrincipalOrderDraftRoutes
         var options=http.RequestServices.GetRequiredService<ProcurementOrderExecutionOptions>();
         async Task<bool> Can(string action,bool requireGovernance=true)
         {
-            if(requireGovernance&&!options.PrincipalExecutionEnabled)return false;
+            if(!GovernedContextAllowed(false,scope.WorkLocationId,scope.IsExplicitAllBranches)
+                || requireGovernance&&!options.PrincipalExecutionEnabled)return false;
             try{_=await Actor(core,scope,http,auth,action,order.BranchRef,true,token);return true;}
             catch(Problem){return false;}
         }
@@ -87,16 +135,16 @@ public static partial class ProcurementPrincipalOrderDraftRoutes
                 or ApprovedDemandLoadException or JsonException or ArgumentException or OverflowException)
             {return false;}
         }
-        var canSubmit=order.Status=="Draft"&&order.CurrentRevision==0&&funding is not null
+        var canSubmit=isBuyer&&order.Status=="Draft"&&order.CurrentRevision==0&&funding is not null
             &&submission is null&&release is null&&await Can("procurement-po-submit")
             &&await Eligible(async()=>{_=await PrepareSubmission(db,core,scope,http,auth,load,now,token);});
         var canIssue=order.Status=="Approved"&&order.CurrentRevision==1&&issued is null&&release is null
             &&await Can("procurement-po-issue")
             &&await Eligible(async()=>{_=await PrepareIssue(db,cases,core,scope,http,load,now,false,token);});
-        var canRequestRelease=funding is not null&&release is null&&issued is null
+        var canRequestRelease=isBuyer&&funding is not null&&release is null&&issued is null
             &&(order.Status is "Draft" or "PendingApproval" or "Approved" or "Returned" or "Rejected")
             &&await Can("procurement-po-edit");
-        var canCancelDraft=order.Status=="Draft"&&order.CurrentRevision==0&&funding is null
+        var canCancelDraft=isBuyer&&order.Status=="Draft"&&order.CurrentRevision==0&&funding is null
             &&submission is null&&release is null&&await Can("procurement-po-edit",false);
         var canRecordAcknowledgment=order.Status=="IssuePending"&&issued is not null
             &&acknowledgment is null&&options.HasApprovedDeliveryPolicy
@@ -128,5 +176,5 @@ public static partial class ProcurementPrincipalOrderDraftRoutes
             allowedDeliveryChannels=options.HasApprovedDeliveryPolicy?options.AllowedDeliveryChannels:[],
             actionEligibilityIsCurrentPreview=true,actionsRevalidatedOnSave=true,
             manualExternalEvidenceOnly=true,financeLedgerChanged=false,supplierSendPerformed=false},Json));
-    },ct);
+    }
 }
