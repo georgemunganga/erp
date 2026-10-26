@@ -2,6 +2,18 @@
 
 This checkpoint supersedes earlier status paragraphs, not historical acceptance records. Procurement is not complete. The coordinator continues M0–M10, preserving the imported UI and shared ERP components. The technical release below is deployed; whole-module business UAT remains open. Earlier no-deployment statements are historical.
 
+## Current UAT and UI update
+
+UI PR85 is merged through main `dfed2dd1954e8dc735a3bd8ff03449d4b00e6911`; deployed product is `9b6ab3442aa1583a339dcfed311adad393a29706` with test-only successor `544df3d698fa4bac3704860d8616413cae732d61`. The static release is `m0-signin-9b6-20261026`; backend image and schema remain the technical release below. Anonymous Procurement now offers sign-in and retry, distinct from permission denial. TypeScript, 39 focused units, seven mocked browser cases, five exact served assets and live anonymous navigation to Core sign-in passed. [Evidence](../release/M0-ANONYMOUS-RECOVERY-DEPLOYMENT-20261026.json) retains the failed verifier attempt and rollback. This supersedes the anonymous-recovery issue paragraph below.
+
+[Fresh M3b acceptance](M3B-FRESH-BROWSER-ACCEPTANCE-20261026.json) now proves real-cookie request submission, manual funding evidence, shared Core approval, internal order create, lost-acknowledgement original-key recovery, cancellation, released quantity, and All read/write boundaries. Typed owner checks reconcile the new order graph and 200 original table projections; all 57 cohort sessions are revoked. Failed grant-expiry, locator, stale-version and timing attempts remain retained. This full business flow used D35/e032; the newer 9b6 UI recovery has its separate evidence above. PO issue, dispatch and later milestones are not claimed.
+
+[Current M2a acceptance](M2A-CURRENT-MAINLINE-ACCEPTANCE-20261026.json) proves D35/9b6 real-cookie import HTTP and four browser phases against a fresh clone using finite Core, Record and Maintenance roles. Preview/commit/replay, lost-response recovery across branch→All, unavailable-new-work recovery, persisted expiry and quota checks passed; 200 original tables are unchanged and 18/18 sessions revoked. Private Unix trust and co-resident fixture owner remain explicit limits. **Production imports and maintenance remain off pending reviewed configuration activation.**
+
+The live administrator account separately signed in and read Core company choices, Procurement context/schema metadata, Vendors, Items and Requests in company-All scope, then logged out. `workerLinked=false`; no employee link was required and no purchasing record was written.
+
+M4 internal RFQ publication review is draft ERP PR114; independent source review closed policy-currentness, typed-receipt binding and policy-resubmission findings. Full coherent suites and representative nonempty migration/runtime/finite-role/browser evidence are still pending. It remains disabled; no held mixed PO/receiving migration was merged.
+
 ## Deployed technical release — 26 October, 15:21 UTC
 
 ERP main `c8eac4c54b009bbafe3cf916992abdbcf3562a61` includes PR111; UI main `7f75d327a2bb8eb399f48b370da0cc53a0a831b9` includes PR84. Deployed product is `d35ecc090b0de0abcab1e38be09fd25c52a1d0aa`, UI `e032805303e23e1658d5a66808d9b0d6f1ce991c`, paired API/publisher image `c9ea9f7bd48c112bf20cc5cbb6f20d48850075942dfa37f366af9c41f352464b`, and Procurement static release `m3b-d35-e032-20261026`. Use these published mains or descendants for new assignments. Core/HRM SSR and Accounting were preserved.

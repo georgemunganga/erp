@@ -1,0 +1,28 @@
+{
+  "status": "DEPLOYED_M0_ANONYMOUS_SCOPE_RECOVERY_WITH_PUBLIC_BROWSER_VERIFICATION",
+  "uiMain": "dfed2dd1954e8dc735a3bd8ff03449d4b00e6911",
+  "compiledProductSource": "9b6ab3442aa1583a339dcfed311adad393a29706",
+  "testOnlySourceHead": "544df3d698fa4bac3704860d8616413cae732d61",
+  "staticRelease": "m0-signin-9b6-20261026",
+  "deploymentReceiptSha256": "5cbf3ac670233b9baee352ddd547b94e7c42a2f3556c2b724193395bd09da753",
+  "publicBrowserReceiptSha256": "a06b819e1560bc6031eb543f54a20c3d2b9d38cefedf6c4882aeb07ef7e0d498",
+  "sourceValidationSha256": "f40fc5c592998b4156dc073b4f09ab56085ec0ec604f8d8c7a8c4c35c1c8ca94",
+  "checks": {
+    "typeScript": true,
+    "focusedUnits": 39,
+    "mockedBrowserCases": 7,
+    "genuineServedFiles": 5,
+    "liveAnonymousSigninAction": true,
+    "liveRetryAction": true,
+    "liveCoreSigninNavigation": true,
+    "backendContainersUnchanged": true,
+    "databaseSchemaChanged": false,
+    "otherNginxBytesPreserved": true,
+    "businessMutations": false
+  },
+  "limits": [
+    "A first static-deploy verifier used size instead of bytes; it restored the previous alias and is retained.",
+    "Compiled product9b6 is byte-identical to the product in test-only successor544df3d; build was not rerun for that selector-only test edit.",
+    "Seven mocked browser cases are separate from real public production navigation; no business CRUD claim from anonymous checks."
+  ]
+}

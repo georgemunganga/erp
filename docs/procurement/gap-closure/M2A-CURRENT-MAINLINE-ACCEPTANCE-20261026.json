@@ -1,0 +1,48 @@
+{
+  "backendSourceCommit": "d35ecc090b0de0abcab1e38be09fd25c52a1d0aa",
+  "browserPhaseCount": 4,
+  "browserPhases": {
+    "item-expired": {
+      "exitSha256": "fa333bd5173347b5eafa7c9c2238edd05f82edf7d3d48dd9c319a167c48eefed",
+      "receiptSha256": "cc6b93e4046faeacf661136c29886dcbccace1d13b62e0b5accf8a8da496c5f8"
+    },
+    "item-lost-commit": {
+      "exitSha256": "2397ff19fd6797968e21ad1f96efe1f25f54937075e51dac197f01bc9821c1e2",
+      "receiptSha256": "a301f7e6c41d8f51be8731140bd939a785f2ee94574ef993a75de7215ec9c71c"
+    },
+    "vendor-create": {
+      "exitSha256": "c5e9c61efbe707c1dd43dce41c2d7b63abc8cf5d074d8f3db96ad4892c1f5b58",
+      "receiptSha256": "141498106e29f13182cf455aaee3eaf77fbc1e3b4a2a19639d5a75622a03271a"
+    },
+    "vendor-quota": {
+      "exitSha256": "6ecca804ded94dac0a573cc0dd3ef115e702731cf8805451038501ec4a04afd4",
+      "receiptSha256": "ca0b6abb3627623b5e754030d57febe8d32cee35a775b5b1a7842e504f960521"
+    }
+  },
+  "browserPlanSha256": "85e7ff755a7ee34b66abac5b0dbd136c20a8c3b919ec85c594c91da881b52101",
+  "httpResultSha256": "d1ac227cd545a60c63a790ffbd95156b7509e9d085772040868da8441936cd82",
+  "initializerExitSha256": "51396ccd14bbf11d3f6fe33ac82c278fc82ef425110a37a41d22c98f5a04d48e",
+  "initializerResultSha256": "d67b44151873b814cc9566ab97652f9f28969db01a6a5a0ef2108f1f3bd23797",
+  "originalRowsUnchanged": true,
+  "originalTableCount": 200,
+  "ownerReconcileSha256": "e4bb6c51102aecae6bc556b91b46569d087c12618249a28d7ebded63837170e5",
+  "privateUnixSocketTrustNotScramProof": true,
+  "productionImportEnabledClaim": false,
+  "productionTouched": false,
+  "proxyExitSha256": "6e0b46a33c3ecd1434b960ea3c69bdb4bc460012d93e3344bd99361eff73801a",
+  "roleAdmissionSha256": "7d9d023f39942f60c3403e0e226f8738327971ed4da029eb75847cb5ef6874aa",
+  "runtimePlanSha256": "d366527b3af97897b0bf1d521171d1a1378bcbd92c6c87e16b6bf78a104cd4d4",
+  "schemaVersion": 1,
+  "status": "PASS_PRIVATE_M2A_CURRENT_MAINLINE_REAL_COOKIE_HTTP_BROWSER_OWNER_AND_CLEAN_STOP",
+  "syntheticSessions": 18,
+  "syntheticSessionsRevoked": 18,
+  "uiSourceCommit": "9b6ab3442aa1583a339dcfed311adad393a29706",
+  "protectedAcceptanceSha256": "07456769935d9fa7e5a835a60ea772bc44aa1617cf5d6f403cfc056976b5d6e7",
+  "boundaries": [
+    "Core/Record/Maintenance are separate finite private database sessions with production grant-matrix semantics.",
+    "Private database authentication uses Unix-socket trust, not a SCRAM transport proof.",
+    "Setup/control/owner snapshots share the fixture process; production process isolation is not proved here.",
+    "Expiry includes a controlled private evidence deadline adjustment and real finite maintenance; not elapsed production retention.",
+    "This verifies current import workflows; cloning/batch/saved views and whole Procurement UAT remain separate."
+  ]
+}
