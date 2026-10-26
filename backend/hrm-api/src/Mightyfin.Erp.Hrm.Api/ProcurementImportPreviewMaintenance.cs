@@ -122,6 +122,7 @@ public sealed class ProcurementImportPreviewMaintenance(
               AND preview_snapshot_text IS NOT NULL
               AND commit_command_key IS NULL AND commit_request_sha256 IS NULL
               AND result_text IS NULL AND result_sha256 IS NULL AND result_json IS NULL
+              AND applied_rows=0
             ORDER BY expires_at,id
             LIMIT @limit FOR UPDATE SKIP LOCKED
         ), changed AS (
