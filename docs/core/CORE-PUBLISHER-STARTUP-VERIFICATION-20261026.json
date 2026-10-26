@@ -43,5 +43,13 @@
   "productionCoreSuperuserRemediated": false,
   "realTransportDeliveryProven": false,
   "finiteRoleQueuedEventProcessingProven": false,
-  "businessUatAccepted": false
+  "businessUatAccepted": false,
+  "independentReview": {
+    "status": "CLEAR_FOR_BOUNDED_PRIVATE_EMPTY_OUTBOX_STARTUP_AND_CLEAN_STOP",
+    "successfulEmptyClaimCommands": 6,
+    "rawCanonicalDumpsReconciled": true,
+    "actualFiniteRolePrivilegesReadBack": true,
+    "priorFailedRunHashesUnchanged": true,
+    "rawResultRemainsUnmodified": true
+  }
 }
