@@ -1,0 +1,34 @@
+{
+  "status": "COMPLETED_BOUNDED_CLEANUP_NOT_UAT_COMPLETION",
+  "date": "2026-10-26",
+  "erpPublishedMain": "de449645a5cf4b46da1024c821252ac46b625103",
+  "cache": {
+    "removedArchives": 3,
+    "reclaimedBytes": 299087290,
+    "privateJournal": "root-completed-cache-archive-cleanup-20261026_run01/retirement.private.json",
+    "sha256": "9d5fb1afb472365383fc7e6c5b4118d55c63a2973ebe843884cb819e5bdc8ea9",
+    "contents": "Completed bin/obj only; no source, logs, TRX, SQL, database or rollback image",
+    "initialAttempt": "Refused before deletion because process scan included its own command; preserved empty journal and corrected own-process exclusion."
+  },
+  "branches": {
+    "removedRemotePrBranches": [
+      117,
+      118
+    ],
+    "privateJournal": "root-merged-release-branch-cleanup-20261026_run01/retirement.private.json",
+    "sha256": "ffdfd12326694f380b751549083c3813b36f6260fe2e7029d68a240051fa2bd6",
+    "checks": [
+      "PR merged",
+      "exact remote head",
+      "head ancestor of main",
+      "no open PR",
+      "exact force-with-lease delete"
+    ],
+    "localWorktreesRetained": true
+  },
+  "limits": [
+    "No blanket Docker/database/evidence pruning",
+    "No new workflow deployment or activation",
+    "Full Procurement UAT remains open"
+  ]
+}
