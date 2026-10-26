@@ -28,5 +28,15 @@
   "previewCommitRecoveryImplemented": false,
   "browserImportAcceptance": false,
   "productionChanged": false,
-  "businessUatAccepted": false
+  "businessUatAccepted": false,
+  "independentRawReview": {
+    "status": "PASS",
+    "actualFocusedTrxSha256": "51f615cfd8f366576e851d8a04af224f3831a86673e2c8e942c6ba153193ebb3",
+    "sourceFilesVerified": 955,
+    "owningDllPdbMatches": 26,
+    "copiedParityEntriesMatched": 30,
+    "readonlyParentFilesVerified": 277,
+    "readonlyApiObjFilesVerified": 34,
+    "originalFailureHashesUnchanged": true
+  }
 }
