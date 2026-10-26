@@ -47,7 +47,9 @@ public sealed class ProcurementSchemaInspectionSqlTests
         Assert.NotEqual(expected, restored);
         Assert.True(ProcurementPrincipalApprovalStoreReadiness.MatchesCapturedCheck(key, expected, expected));
         Assert.True(ProcurementPrincipalApprovalStoreReadiness.MatchesCapturedCheck(key, expected, restored));
+        Assert.False(ProcurementPrincipalApprovalStoreReadiness.MatchesCapturedCheck(key + "-other", expected, expected));
         Assert.False(ProcurementPrincipalApprovalStoreReadiness.MatchesCapturedCheck(key + "-other", expected, restored));
+        Assert.False(ProcurementPrincipalApprovalStoreReadiness.MatchesCapturedCheck(key, restored, restored));
         Assert.False(ProcurementPrincipalApprovalStoreReadiness.MatchesCapturedCheck(key, expected,
             restored.Replace("'Returned'", "'Denied'", StringComparison.Ordinal)));
         Assert.False(ProcurementPrincipalApprovalStoreReadiness.MatchesCapturedCheck(key, expected,

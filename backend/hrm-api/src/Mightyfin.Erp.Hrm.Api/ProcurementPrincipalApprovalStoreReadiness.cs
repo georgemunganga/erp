@@ -52,8 +52,9 @@ public sealed class ProcurementPrincipalApprovalStoreReadiness(IApprovalScope co
         ["procurement.purchase_request_finance_release_requests.ck_pr_finance_release_request"]="CHECK ((((outcome)::text = ANY (ARRAY[('Rejected'::character varying)::text, ('Returned'::character varying)::text])) AND (reserved_amount >= (0)::numeric) AND ((currency_code)::text ~ '^[A-Z]{3}$'::text) AND (length(btrim((reservation_ref)::text)) > 0) AND (length(btrim((effect_key)::text)) > 0) AND (length(btrim((owner_queue)::text)) > 0) AND (length(btrim((requested_by_subject_id)::text)) > 0)))",
     };
     internal static bool MatchesCapturedCheck(string key,string expected,string actual) =>
-        actual==expected || RestoredCheckDefinitions.TryGetValue(key,out var restored)
-            && CheckDefinitions.TryGetValue(key,out var captured) && expected==captured && actual==restored;
+        CheckDefinitions.TryGetValue(key,out var captured) && expected==captured
+            && (actual==captured || RestoredCheckDefinitions.TryGetValue(key,out var restored)
+                && actual==restored);
 
     internal static readonly IReadOnlyDictionary<string,string> PartialPredicates=new Dictionary<string,string>(StringComparer.Ordinal)
     {
