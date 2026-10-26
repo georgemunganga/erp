@@ -1,0 +1,32 @@
+{
+  "status": "PASS_SHARED_PARSER_PREREQUISITE_NOT_COMPLETE_IMPORT",
+  "source": "41d609cc8b1bfc67a2f007c9dd855aba347641e7",
+  "resultSha256": "b9f0da5edd993fd18d86aa63b81cfe38fadcabdf710ca80f20e2df9b437352e2",
+  "actualApplicationBuild": "PASS",
+  "actualHostTestBuild": "PASS",
+  "focusedParserTests": 14,
+  "failed": 0,
+  "skipped": 0,
+  "all13OwningProductsParity": true,
+  "apiParentSource": "43bf09b97ab65ad985fb6996489a0d8dbfd7802d",
+  "apiParentFocusedStartupTestsNotRerun": 26,
+  "priorFullSuiteSourceNotRerun": "ea59a3a5093eb91f8c63a9219f6e85c33cdc3ff4",
+  "priorFullSuitesNotRerun": {
+    "Host": 1251,
+    "Procurement": 1414,
+    "Approval": 30
+  },
+  "priorFailedAttempt": {
+    "source": "a0c9c724390164009b100fbfe28b595015518dfc",
+    "compilerError": "CS1929: byte-order marker collection inferred int rather than byte",
+    "exit": 1,
+    "hostTestsExecuted": false,
+    "rawLogsAndExitRetained": true
+  },
+  "existingHrmParserAndCallersChanged": false,
+  "apiPublicationOrDatabaseOrRolesOrUiChanged": false,
+  "previewCommitRecoveryImplemented": false,
+  "browserImportAcceptance": false,
+  "productionChanged": false,
+  "businessUatAccepted": false
+}
