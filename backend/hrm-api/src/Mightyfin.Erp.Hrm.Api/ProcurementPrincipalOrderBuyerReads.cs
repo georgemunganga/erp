@@ -74,9 +74,9 @@ public static partial class ProcurementPrincipalOrderDraftRoutes
             throw new Problem("OrderGovernanceEvidenceChanged",409);
         var now=DateTimeOffset.UtcNow;
         var options=http.RequestServices.GetRequiredService<ProcurementOrderExecutionOptions>();
-        async Task<bool> Can(string action)
+        async Task<bool> Can(string action,bool requireGovernance=true)
         {
-            if(!options.PrincipalExecutionEnabled)return false;
+            if(requireGovernance&&!options.PrincipalExecutionEnabled)return false;
             try{_=await Actor(core,scope,http,auth,action,order.BranchRef,true,token);return true;}
             catch(Problem){return false;}
         }
@@ -97,7 +97,7 @@ public static partial class ProcurementPrincipalOrderDraftRoutes
             &&(order.Status is "Draft" or "PendingApproval" or "Approved" or "Returned" or "Rejected")
             &&await Can("procurement-po-edit");
         var canCancelDraft=order.Status=="Draft"&&order.CurrentRevision==0&&funding is null
-            &&submission is null&&release is null&&await Can("procurement-po-edit");
+            &&submission is null&&release is null&&await Can("procurement-po-edit",false);
         var canRecordAcknowledgment=order.Status=="IssuePending"&&issued is not null
             &&acknowledgment is null&&options.HasApprovedDeliveryPolicy
             &&await Can("procurement-po-dispatch-confirm");
