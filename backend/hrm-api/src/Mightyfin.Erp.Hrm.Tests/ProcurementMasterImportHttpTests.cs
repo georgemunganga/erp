@@ -9,6 +9,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Mightyfin.Erp.Hrm.Api;
 using Mightyfin.Erp.Hrm.Application;
+using Mightyfin.Erp.Hrm.Application.ConfigAndExtras;
 using Mightyfin.Erp.Hrm.Domain.Entities;
 using Mightyfin.Erp.Hrm.Infrastructure.Data;
 using Mightyfin.Erp.Procurement.Application;

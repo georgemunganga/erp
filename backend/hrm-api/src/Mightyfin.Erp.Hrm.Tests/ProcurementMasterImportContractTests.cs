@@ -142,15 +142,15 @@ public sealed class ProcurementMasterImportContractTests
         foreach (var kind in new[] { "vendors", "items" })
         {
             var root = $"/api/procurement/v1/{kind}/import";
-            Assert.True(ProcurementHostIntegration.AllCompanyMasterImportPath(root + "/schema", "GET"));
-            Assert.True(ProcurementHostIntegration.AllCompanyMasterImportPath(root + "/SCHEMA", "GET"));
-            Assert.True(ProcurementHostIntegration.AllCompanyMasterImportPath(root + "/template", "GET"));
-            Assert.True(ProcurementHostIntegration.AllCompanyMasterImportPath(root + "/" + Guid.NewGuid(), "GET"));
-            Assert.True(ProcurementHostIntegration.AllCompanyMasterImportPath(root + "/preview", "POST"));
-            Assert.True(ProcurementHostIntegration.AllCompanyMasterImportPath(root + "/commit", "POST"));
-            Assert.False(ProcurementHostIntegration.AllCompanyMasterImportPath(root + "/commit", "GET"));
-            Assert.False(ProcurementHostIntegration.AllCompanyMasterImportPath(root + "/preview/other", "POST"));
-            Assert.False(ProcurementHostIntegration.AllCompanyMasterImportPath(root + "/other", "POST"));
+            Assert.True(ProcurementScopeMiddleware.AllCompanyMasterImportPath(root + "/schema", "GET"));
+            Assert.True(ProcurementScopeMiddleware.AllCompanyMasterImportPath(root + "/SCHEMA", "GET"));
+            Assert.True(ProcurementScopeMiddleware.AllCompanyMasterImportPath(root + "/template", "GET"));
+            Assert.True(ProcurementScopeMiddleware.AllCompanyMasterImportPath(root + "/" + Guid.NewGuid(), "GET"));
+            Assert.True(ProcurementScopeMiddleware.AllCompanyMasterImportPath(root + "/preview", "POST"));
+            Assert.True(ProcurementScopeMiddleware.AllCompanyMasterImportPath(root + "/commit", "POST"));
+            Assert.False(ProcurementScopeMiddleware.AllCompanyMasterImportPath(root + "/commit", "GET"));
+            Assert.False(ProcurementScopeMiddleware.AllCompanyMasterImportPath(root + "/preview/other", "POST"));
+            Assert.False(ProcurementScopeMiddleware.AllCompanyMasterImportPath(root + "/other", "POST"));
         }
     }
 }
