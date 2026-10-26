@@ -214,12 +214,52 @@ public static class ProcurementMasterImportRoutes
         catch (Exception error) { LogFailure(http, kind, stage, error); return false; }
     }
 
-    private static bool SameDatabase(ProcurementDbContext db, HrmDbContext core) =>
-        db.Database.GetDbConnection() is NpgsqlConnection procurementConnection
-        && core.Database.GetDbConnection() is NpgsqlConnection identity
-        && string.Equals(procurementConnection.Host, identity.Host, StringComparison.OrdinalIgnoreCase)
-        && procurementConnection.Port == identity.Port
-        && string.Equals(procurementConnection.Database, identity.Database, StringComparison.Ordinal);
+    private static bool SameDatabase(ProcurementDbContext db, HrmDbContext core)
+    {
+        if (db.Database.GetDbConnection() is not NpgsqlConnection procurementConnection
+            || core.Database.GetDbConnection() is not NpgsqlConnection identity
+            || procurementConnection.State is not (ConnectionState.Closed or ConnectionState.Open)
+            || identity.State is not (ConnectionState.Closed or ConnectionState.Open)) return false;
+        // Npgsql's Host is null and Port is zero until its connector opens. The
+        // catalog filter deliberately holds Procurement open while Core stays
+        // closed, so compare configured endpoints and pin any opened connector.
+        return SameDatabaseEndpoints(procurementConnection.ConnectionString,
+            procurementConnection.State == ConnectionState.Open,
+            procurementConnection.Host, procurementConnection.Port,
+            identity.ConnectionString, identity.State == ConnectionState.Open,
+            identity.Host, identity.Port);
+    }
+
+    internal static bool SameDatabaseEndpoints(string? procurementConnectionString,
+        bool procurementOpen, string? procurementObservedHost, int procurementObservedPort,
+        string? coreConnectionString, bool coreOpen, string? coreObservedHost, int coreObservedPort)
+    {
+        if (string.IsNullOrWhiteSpace(procurementConnectionString)
+            || string.IsNullOrWhiteSpace(coreConnectionString)) return false;
+        try
+        {
+            static NpgsqlConnectionStringBuilder Settings(string value) =>
+                new(value.StartsWith("postgresql", StringComparison.OrdinalIgnoreCase) && value.Contains('?')
+                    ? NpgsqlConnectionStringNormalizer.Normalize(value) : value);
+            var procurement = Settings(procurementConnectionString);
+            var core = Settings(coreConnectionString);
+            return !string.IsNullOrWhiteSpace(procurement.Host)
+                && !string.IsNullOrWhiteSpace(procurement.Database)
+                && procurement.Port > 0
+                && !string.IsNullOrWhiteSpace(core.Host)
+                && !string.IsNullOrWhiteSpace(core.Database)
+                && core.Port > 0
+                && string.Equals(procurement.Host, core.Host, StringComparison.OrdinalIgnoreCase)
+                && procurement.Port == core.Port
+                && string.Equals(procurement.Database, core.Database, StringComparison.Ordinal)
+                && (!procurementOpen || (string.Equals(procurementObservedHost, procurement.Host,
+                    StringComparison.OrdinalIgnoreCase) && procurementObservedPort == procurement.Port))
+                && (!coreOpen || (string.Equals(coreObservedHost, core.Host,
+                    StringComparison.OrdinalIgnoreCase) && coreObservedPort == core.Port));
+        }
+        catch (ArgumentException) { return false; }
+        catch (FormatException) { return false; }
+    }
 
     // Read-only result recovery survives a paused/new-work-disabled import service.
     // Current import and native create/manage policies and Core scope middleware
