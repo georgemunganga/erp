@@ -5,7 +5,7 @@ This checkpoint supersedes earlier status paragraphs, not historical acceptance 
 ## Published baselines and ownership
 
 - ERP code baseline: `ff255065ab3240d7949315aafd62395db3d03838` (main, PR100 merged). The default-off M2a source and prior CSV reader are verified; historical pending-build statements are superseded below.
-- UI main: `403bfdac505d593921a5bab1ba3388896205325f`. Reviewed UI compatibility branch `codex/procurement-scoped-exports-ui-20261025` is `44a577e894490dec779f7d477910553fb12c5839`; do not merge its full advanced ancestry merely on M2 evidence.
+- UI main: `704ac9c642d00e3672cd81e7c1df2d9cb50be160` (narrow PR83 merged). The 139-file held ancestry was excluded; the accepted native test product remains the earlier `bf182` build.
 - Live remains product `cb18353d94af016ca65cd939ced76f6f97222c27`, UI `092121409c3d032706b1ba0ca305a24c2d84ede7`, API/publisher image `sha256:89375b1514f5a9cd5d2b255b94f09f2bba0a43020025e43ad6e30531084dd998`.
 - Coordinator owns M2a vendor/item import and its backend/UI/database acceptance. Do not duplicate it. Manus retains the independent [Core scanner assignment](../../collaboration/manus/MANUS-CORE-DOCUMENT-SCANNER-04.md); no new overlapping task is assigned.
 
@@ -21,9 +21,9 @@ The [sanitized acceptance record](M2A-NATIVE-IMPORT-ACCEPTANCE-20261026.json) li
 
 All failed attempts remain retained, including the original Item connection-state boundary failure and the browser forwarding-wait race. Those were corrected and followed by the fresh final passing cohort. Hosted CI remains blocked by GitHub's account billing lock; local acceptance is not a hosted CI pass.
 
-The UI draft branch has a 15-file M2a delta on the deployed UI tree, but would bring 139 held files into UI main wholesale. The coordinator is verifying a narrow mainline port with the original wizard and shared ERP controls. Its acceptance is separate from the verified `bf182` product; neither the held ancestry nor production workflow flags may be activated on this proof.
+UI [PR83](https://github.com/georgemunganga/module-connect/pull/83) is merged through main `704ac9c642d00e3672cd81e7c1df2d9cb50be160`. The narrow 35-file port excludes the 139-file held ancestry and preserves the original wizard/shared ERP controls. Clean committed source `cd4f51996d5c0bd5628675d327373fde49ec9b33` passed TypeScript, 99 unit tests, a fresh live build and 23 mocked browser tests. Its [mainline evidence](M2A-UI-MAINLINE-VERIFICATION-20261026.json) is separate from the earlier real-API `bf182` acceptance; real API/cookie acceptance for this port remains a release gate.
 
-Next: finish the narrow UI port, close production least-privilege and nonempty publisher gates, then continue M1–M9. M2a acceptance does not complete the rest of M2 or authorize changes to Finance, Inventory or supplier eligibility.
+Next: close the production least-privilege and nonempty publisher gates, verify the mainline UI against the real API, then continue M1–M9. M2a acceptance does not complete the rest of M2 or authorize changes to Finance, Inventory or supplier eligibility.
 
 ## Remaining finish sequence
 
