@@ -9,11 +9,11 @@
     "skipped": 0
   },
   "privateStore": {
-    "companies": 2,
     "rows": 2,
     "tenantCorrectAuditRows": 4,
     "originalTablesUnchanged": 198,
-    "finiteRoleVerified": true
+    "finiteRoleVerified": true,
+    "tenants": 2
   },
   "publisherProcessAccepted": true,
   "productionTouched": false,
@@ -40,7 +40,6 @@
     "Whole-module UAT, production role deployment and external notification delivery remain open."
   ],
   "publisherProcess": {
-    "companies": 2,
     "secondPairRows": 2,
     "totalRows": 4,
     "tenantCorrectAuditRows": 8,
@@ -48,7 +47,8 @@
     "cleanExit": 0,
     "network": "none",
     "transport": "smtp-skipped",
-    "externalDelivery": false
+    "externalDelivery": false,
+    "tenants": 2
   },
   "hostedCi": {
     "run": "https://github.com/georgemunganga/erp/actions/runs/40274531522",
