@@ -63,7 +63,8 @@ public static class BoundedCsvRecordReader
         bound.Validate();
         if (source.Length > bound.MaxBytes) throw new BoundedCsvException("byte-limit", 1);
         var inputBytes = source.Length;
-        if (source.StartsWith([0xEF, 0xBB, 0xBF])) source = source[3..];
+        ReadOnlySpan<byte> utf8Bom = [0xEF, 0xBB, 0xBF];
+        if (source.StartsWith(utf8Bom)) source = source[3..];
         string text;
         try { text = StrictUtf8.GetString(source); }
         catch (DecoderFallbackException) { throw new BoundedCsvException("invalid-utf8", 1); }
