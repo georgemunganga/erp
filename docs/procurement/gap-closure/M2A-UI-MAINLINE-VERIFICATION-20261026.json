@@ -1,0 +1,58 @@
+{
+  "schemaVersion": 1,
+  "status": "ACCEPTED_NARROW_MAINLINE_UI_SOURCE_MOCKED_VALIDATION_ONLY",
+  "date": "2026-10-26",
+  "sourceCommit": "cd4f51996d5c0bd5628675d327373fde49ec9b33",
+  "sourceTree": "4743b3f2715f0cb5feadedd9fb8e71e8a7e6a009",
+  "mergedUiMain": "704ac9c642d00e3672cd81e7c1df2d9cb50be160",
+  "pullRequest": "https://github.com/georgemunganga/module-connect/pull/83",
+  "mainlineBase": "403bfdac505d593921a5bab1ba3388896205325f",
+  "changedFiles": 35,
+  "byteIdenticalToPriorNativeUi": 31,
+  "manualProductAdaptations": [
+    "AppShell.tsx",
+    "ProcurementLiveGate.tsx",
+    "procurement-live.ts"
+  ],
+  "otherDifference": "procurement-live.test.ts excludes held-only capability assertions",
+  "held139FileAncestryMerged": false,
+  "newRoutesOrPackages": false,
+  "originalWizardAndSharedErpControlsPreserved": true,
+  "nodeVersion": "v22.23.3",
+  "typeScript": "PASS",
+  "unit": {
+    "passed": 99,
+    "files": 8,
+    "failed": 0
+  },
+  "liveBuild": "PASS",
+  "mockBrowser": {
+    "passed": 23,
+    "failed": 0,
+    "workers": 1,
+    "retries": 0
+  },
+  "sourceBeforeAfterByteIdentical": true,
+  "changedSourceInventorySha256": "a6c2221e1d855b984e7aa1a75a9c22a0c58a311863bf80b7f005b5086534ba27",
+  "gitCleanBeforeAndAfter": true,
+  "result": {
+    "path": "/home/amizo/erp-backups/procurement-m2a-mainline-ui-validation-20261026_run03/result.private.json",
+    "sha256": "da6bde8a7d25bd9e084b68001219b10f1688748231eb1d32643e948e0f1d02ae"
+  },
+  "independentReview": {
+    "path": "/home/amizo/erp-backups/procurement-m2a-mainline-ui-validation-20261026_run03/independent-mainline-ui-review.private.json",
+    "sha256": "cceb5478a1bf6df08e51d8d8b7308420924b0abfd427e424e19a753b1c0ce07d"
+  },
+  "realApiAndNormalCookieAccepted": false,
+  "deployed": false,
+  "priorNativeUiProduct": "bf1821935662bdbf5d9f395c32b5682659e813d4",
+  "priorNativeAcceptance": "M2A-NATIVE-IMPORT-ACCEPTANCE-20261026.json; applies to the earlier product, not automatic acceptance of this port",
+  "failedAttemptsPreserved": [
+    "run01 TypeScript held-capability assertions",
+    "run02 uncommitted-source validation; post-commit run03 closes source binding"
+  ],
+  "remaining": [
+    "Real API/cookie acceptance for the port before deployment",
+    "Production least-privilege/schema/configuration rollout and remaining Procurement/UAT milestones"
+  ]
+}
