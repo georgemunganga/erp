@@ -155,7 +155,7 @@ public sealed partial class ProcurementDbContext
                 || row.CommandKey == Guid.Empty || row.ActorPrincipalId != scope.SubjectId
                 || row.ActorCoreLinkedWorkerId != scope.CoreLinkedWorkerId
                 || row.CommandSha256 is not { Length: 64 }
-                || row.ResponseSha256 != ProcurementEvidenceEncoding.Digest(row.ResponseJson)
+                || !PrincipalRfqPublicationReceiptResult.Matches(row, opening, decision)
                 || row.ResultVersion < 1 || row.CompletedAt == default
                 || (row.Operation == "Open" ? row.DecisionId is not null || row.ResponseStatusCode != 201
                     || Entry(opening).State != EntityState.Added || opening.MakerPrincipalId != row.ActorPrincipalId

@@ -46,7 +46,8 @@ public static partial class ProcurementSourcingExecutionRoutes
 
     private static async Task RequirePrincipalPublication(HttpContext http, ProcurementDbContext db, CancellationToken ct)
     {
-        if (!http.RequestServices.GetRequiredService<ProcurementPrincipalSourcingPublicationOptions>().Enabled
+        if (!HttpMethods.IsGet(http.Request.Method)
+                && !http.RequestServices.GetRequiredService<ProcurementPrincipalSourcingPublicationOptions>().Enabled
             || !PrincipalSourceAvailable(http)
             || !HttpMethods.IsGet(http.Request.Method)
                 && !await ProcurementPrincipalApprovalCapability.ConfiguredStoreReadyAsync(http.RequestServices, ct)
@@ -210,6 +211,18 @@ public static partial class ProcurementSourcingExecutionRoutes
         }, ct);
     }
 
+    private static async Task RequirePublicationReceiptGraph(ProcurementDbContext db,
+        SourcingPublicationReceipt receipt, CancellationToken ct)
+    {
+        var opening = await db.SourcingPublicationOpenings.AsNoTracking()
+            .SingleOrDefaultAsync(x => x.Id == receipt.OpeningId, ct);
+        var decision = receipt.DecisionId is { } id
+            ? await db.SourcingPublicationDecisions.AsNoTracking().SingleOrDefaultAsync(x => x.Id == id, ct)
+            : null;
+        if (opening is null || !PrincipalRfqPublicationReceiptResult.Matches(receipt, opening, decision))
+            throw new Problem("SourcingReceiptNeedsReview", 409);
+    }
+
     private static async Task<Reply?> PrincipalPublicationReplay(ProcurementDbContext db,
         HrmDbContext core, ProcurementRequestScope scope, HttpContext http,
         IAuthorizationService auth, RfqPrincipalActor actor, string permission,
@@ -225,17 +238,13 @@ public static partial class ProcurementSourcingExecutionRoutes
         if (receipt.Operation != "Open" || receipt.SourcingEventId != target
             || receipt.CommandSha256 != fingerprint)
             throw new Problem("SourcingCommandKeyConflict", 409);
-        if (receipt.ResponseSha256 != ProcurementEvidenceEncoding.Digest(receipt.ResponseJson)
-            || receipt.ResponseStatusCode != 201)
-            throw new Problem("SourcingReceiptNeedsReview", 409);
+        await RequirePublicationReceiptGraph(db, receipt, ct);
         return new Reply(receipt.ResponseJson, receipt.ResponseStatusCode);
     }
 
     private static Task<IResult> PrincipalPublicationRecover(Guid key, HttpContext http,
         ProcurementRequestScope scope, CancellationToken ct)
     {
-        if (!http.RequestServices.GetRequiredService<ProcurementPrincipalSourcingPublicationOptions>().Enabled)
-            return PrincipalPublicationDisabled(http);
         return Run(http, scope, async (db, unusedCases, core, auth, token) =>
         {
             await RequirePrincipalPublication(http, db, token);
@@ -255,8 +264,7 @@ public static partial class ProcurementSourcingExecutionRoutes
             _ = await PrincipalActor(core, scope, http, auth, permission, ev.BranchRef, true, token);
             if (receipt.Operation == "Open" && ev.OwnerSubjectId != scope.SubjectId)
                 throw new Problem("SourcingReceiptNotFound", 404);
-            if (receipt.ResponseSha256 != ProcurementEvidenceEncoding.Digest(receipt.ResponseJson))
-                throw new Problem("SourcingReceiptNeedsReview", 409);
+            await RequirePublicationReceiptGraph(db, receipt, token);
             return new Reply(receipt.ResponseJson, receipt.ResponseStatusCode);
         }, ct);
     }
@@ -298,9 +306,7 @@ public static partial class ProcurementSourcingExecutionRoutes
                 if (previous.Operation != "Decide" || previous.SourcingEventId != id
                     || previous.CommandSha256 != fingerprint || previous.DecisionId is null)
                     throw new Problem("SourcingCommandKeyConflict", 409);
-                if (previous.ResponseSha256 != ProcurementEvidenceEncoding.Digest(previous.ResponseJson)
-                    || previous.ResponseStatusCode != 200)
-                    throw new Problem("SourcingReceiptNeedsReview", 409);
+                await RequirePublicationReceiptGraph(db, previous, token);
                 return new Reply(previous.ResponseJson, 200);
             }
             await RequirePrincipalSourcingKeyUnused(db, key, token);
@@ -360,6 +366,26 @@ public static partial class ProcurementSourcingExecutionRoutes
             var final = approval.State is "Approved" or "Returned" or "Rejected";
             if (approval.State == "Approved")
             {
+                // Hold the opening's policy row through this transaction. A concurrent
+                // supersession must wait; an already expired or replaced policy cannot
+                // turn an old review case into a fresh publication authority.
+                await db.Database.ExecuteSqlInterpolatedAsync($"SELECT id FROM procurement.policy_versions WHERE tenant_id={scope.TenantId} AND legal_entity_id={scope.LegalEntityId} AND id={opening.PolicyVersionId} FOR SHARE", token);
+                var activePolicies = await db.PolicyVersions.AsNoTracking().Where(x =>
+                    x.PolicyKey == SourcingPublicationPolicyRules.PolicyKey && x.State == "Published"
+                    && x.EffectiveFrom <= now && (x.EffectiveTo == null || x.EffectiveTo > now))
+                    .Take(2).ToArrayAsync(token);
+                if (activePolicies.Length != 1 || activePolicies[0].Id != opening.PolicyVersionId)
+                    throw new Problem("SourcingPolicyChanged", 409);
+                var currentPolicy = activePolicies[0];
+                var policyIdentity = await db.SourcingPolicyIdentityEvidenceRecords.AsNoTracking()
+                    .Where(x => x.PolicyVersionId == currentPolicy.Id).ToArrayAsync(token);
+                var createdIdentity = policyIdentity.SingleOrDefault(x => x.Stage == "Created");
+                var submittedIdentity = policyIdentity.SingleOrDefault(x => x.Stage == "Submitted");
+                var publishedIdentity = policyIdentity.SingleOrDefault(x => x.Stage == "Published");
+                if (createdIdentity is null || submittedIdentity is null || publishedIdentity is null
+                    || !PrincipalRfqPublicationCoreWorkflow.CurrentPolicyPermitsApproval(opening,
+                        currentPolicy, createdIdentity, submittedIdentity, publishedIdentity, now))
+                    throw new Problem("SourcingPolicyChanged", 409);
                 foreach (var pin in draft.Lines)
                 {
                     var source = await ApprovedDemandSourceLoader.LoadAsync(db, cases, scope,
@@ -378,6 +404,11 @@ public static partial class ProcurementSourcingExecutionRoutes
                     if (finance.Mode != source.Submission.FinanceEvidenceMode
                         || finance.Reference != source.Submission.ManualEvidenceAuthorityRef)
                         throw new Problem("SourcingFinanceAuthorityChanged", 409);
+                    var currentScenario = new PolicyScenario(ev.CurrencyCode, pin.EstimatedValue,
+                        source.Line.CategoryCode, source.Line.PurchaseType, ev.BranchRef);
+                    var currentRule = SourcingPublicationPolicyRules.Evaluate(currentPolicy.RulesJson, currentScenario);
+                    if (currentRule.Status != "Match" || currentRule.Controls is null || currentRule.Stages.Count == 0)
+                        throw new Problem("SourcingPolicyChanged", 409);
                 }
                 using var snapshot = JsonDocument.Parse(opening.SnapshotJson);
                 var ids = snapshot.RootElement.GetProperty("supplierIds").EnumerateArray()

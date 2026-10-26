@@ -86,4 +86,34 @@ public sealed class PrincipalRfqPublicationCoreWorkflowTests
         Assert.Throws<InvalidOperationException>(() => PrincipalRfqPublicationCoreWorkflow.Open(f.Draft, 1,
             f.Policy, f.Created, f.Submitted, f.Published, [f.Scenario], [f.Reviewer], f.Shortlist, f.Now));
     }
+
+    [Fact]
+    public void Approval_requires_the_opening_policy_to_remain_current_and_identical()
+    {
+        var f = Fixture();
+        var opening = new SourcingPublicationOpening
+        {
+            TenantId = f.Draft.TenantId, LegalEntityId = f.Draft.CompanyId,
+            PolicyVersionId = f.Policy.Id, PolicyVersionNumber = f.Policy.PolicyVersionNumber,
+            PolicyRulesSha256 = ProcurementEvidenceEncoding.PolicyJsonDigest(f.Policy.RulesJson),
+            PublishedPolicyEvidenceId = f.Published.Id,
+        };
+        bool Current() => PrincipalRfqPublicationCoreWorkflow.CurrentPolicyPermitsApproval(opening,
+            f.Policy, f.Created, f.Submitted, f.Published, f.Now);
+        Assert.True(Current());
+        f.Policy.EffectiveTo = f.Now;
+        Assert.False(Current());
+        f.Policy.EffectiveTo = null;
+        f.Policy.State = "Draft";
+        Assert.False(Current());
+        f.Policy.State = "Published";
+        opening.PolicyVersionId = Guid.NewGuid();
+        Assert.False(Current());
+        opening.PolicyVersionId = f.Policy.Id;
+        opening.PolicyRulesSha256 = new string('0', 64);
+        Assert.False(Current());
+        opening.PolicyRulesSha256 = ProcurementEvidenceEncoding.PolicyJsonDigest(f.Policy.RulesJson);
+        opening.PublishedPolicyEvidenceId = Guid.NewGuid();
+        Assert.False(Current());
+    }
 }

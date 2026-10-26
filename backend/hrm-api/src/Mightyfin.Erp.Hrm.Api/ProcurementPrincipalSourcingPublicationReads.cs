@@ -14,8 +14,6 @@ public static partial class ProcurementSourcingExecutionRoutes
     private static Task<IResult> PrincipalPublicationList(int? page, int? pageSize, string? q,
         string? state, HttpContext http, ProcurementRequestScope scope, CancellationToken ct)
     {
-        if (!http.RequestServices.GetRequiredService<ProcurementPrincipalSourcingPublicationOptions>().Enabled)
-            return PrincipalPublicationDisabled(http);
         return Run(http, scope, async (db, cases, core, auth, token) =>
         {
             await RequirePrincipalPublication(http, db, token);
@@ -67,8 +65,6 @@ public static partial class ProcurementSourcingExecutionRoutes
     private static Task<IResult> PrincipalPublicationRead(Guid id, HttpContext http,
         ProcurementRequestScope scope, CancellationToken ct)
     {
-        if (!http.RequestServices.GetRequiredService<ProcurementPrincipalSourcingPublicationOptions>().Enabled)
-            return PrincipalPublicationDisabled(http);
         return Run(http, scope, async (db, cases, core, auth, token) =>
         {
             await RequirePrincipalPublication(http, db, token);

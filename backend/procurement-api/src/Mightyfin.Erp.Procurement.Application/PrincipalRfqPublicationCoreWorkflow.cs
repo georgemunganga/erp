@@ -16,6 +16,29 @@ public static class PrincipalRfqPublicationCoreWorkflow
     public const string SourceType = "sourcing_publication";
     public const string Permission = "procurement-sourcing-publish";
 
+    /// <summary>An approval uses the same currently effective, independently published
+    /// rules that opened its case. Return and Reject remain possible after expiry.</summary>
+    public static bool CurrentPolicyPermitsApproval(SourcingPublicationOpening opening,
+        PolicyVersion policy, SourcingPolicyIdentityEvidence created,
+        SourcingPolicyIdentityEvidence submitted, SourcingPolicyIdentityEvidence published,
+        DateTimeOffset now)
+    {
+        if (opening is null || policy is null || created is null || submitted is null
+            || published is null || now == default || policy.State != "Published"
+            || policy.PolicyKey != SourcingPublicationPolicyRules.PolicyKey
+            || policy.EffectiveFrom > now || policy.EffectiveTo is { } end && now >= end
+            || policy.Id != opening.PolicyVersionId
+            || policy.PolicyVersionNumber != opening.PolicyVersionNumber
+            || policy.TenantId != opening.TenantId || policy.LegalEntityId != opening.LegalEntityId
+            || published.Id != opening.PublishedPolicyEvidenceId
+            || created.SchemaVersion != 2 || submitted.SchemaVersion != 2 || published.SchemaVersion != 2
+            || ProcurementEvidenceEncoding.PolicyJsonDigest(policy.RulesJson) != opening.PolicyRulesSha256)
+            return false;
+        try { SourcingPolicyIdentity.VerifyPublication(policy, created, submitted, published); }
+        catch (InvalidOperationException) { return false; }
+        return true;
+    }
+
     public static PrincipalRfqPublicationOpening Open(RfqPrincipalDraft draft, long eventVersion,
         PolicyVersion policy, SourcingPolicyIdentityEvidence created,
         SourcingPolicyIdentityEvidence submitted, SourcingPolicyIdentityEvidence published,
