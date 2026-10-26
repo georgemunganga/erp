@@ -1,5 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using System.Data;
+using System.Data.Common;
+using System.Globalization;
 using System.Text.Json;
 using Npgsql;
 using Mightyfin.Erp.Hrm.Application;
@@ -17,6 +19,8 @@ public static class ProcurementVendorRoutes
     {
         var group = app.MapGroup("/api/procurement/v1/vendors");
         group.MapGet("", ListAsync).RequireAuthorization("procurement-vendor-read");
+        group.MapGet("/export", ExportAsync).RequireAuthorization("procurement-vendor-read")
+            .RequireAuthorization("procurement-vendor-export");
         group.MapGet("/{id:guid}", GetAsync).RequireAuthorization("procurement-vendor-read");
         group.MapPost("", CreateAsync).RequireAuthorization("procurement-vendor-create");
         group.MapPut("/{id:guid}", UpdateAsync).RequireAuthorization("procurement-vendor-edit");
@@ -49,6 +53,20 @@ public static class ProcurementVendorRoutes
     {
         var number = Math.Clamp(page ?? 1, 1, 100000);
         var size = Math.Clamp(pageSize ?? 25, 1, 100);
+        var query = await VisibleQuery(db, scope, authorization, http, search, status);
+        var total = await query.CountAsync(ct);
+        var rows = await query.OrderBy(x => x.DisplayName).ThenBy(x => x.Id)
+            .Skip((number - 1) * size).Take(size)
+            .Select(x => new { x.Id, x.Number, x.DisplayName, x.LegalName, x.CountryCode,
+                x.Status, x.IsOrderable, x.Version, x.CreatedAt })
+            .ToListAsync(ct);
+        return Results.Ok(new { items = rows, total, page = number, pageSize = size });
+    }
+
+    private static async Task<IQueryable<Supplier>> VisibleQuery(ProcurementDbContext db,
+        ProcurementRequestScope scope, IAuthorizationService authorization, HttpContext http,
+        string? search, string? status)
+    {
         var query = db.Suppliers.AsNoTracking().AsQueryable();
         var canManage = (await authorization.AuthorizeAsync(http.User, "procurement-vendor-manage")).Succeeded;
         var canApprove = (await authorization.AuthorizeAsync(http.User, "procurement-vendor-approve")).Succeeded;
@@ -66,13 +84,40 @@ public static class ProcurementVendorRoutes
                 || EF.Functions.ILike(x.LegalName, $"%{term}%")
                 || EF.Functions.ILike(x.Number, $"%{term}%"));
         }
-        var total = await query.CountAsync(ct);
-        var rows = await query.OrderBy(x => x.DisplayName).ThenBy(x => x.Id)
-            .Skip((number - 1) * size).Take(size)
-            .Select(x => new { x.Id, x.Number, x.DisplayName, x.LegalName, x.CountryCode,
-                x.Status, x.IsOrderable, x.Version, x.CreatedAt })
-            .ToListAsync(ct);
-        return Results.Ok(new { items = rows, total, page = number, pageSize = size });
+        return query;
+    }
+
+    private static async Task<IResult> ExportAsync(ProcurementDbContext db, ProcurementRequestScope scope,
+        IAuthorizationService authorization, HttpContext http, IConfiguration configuration,
+        ILoggerFactory loggerFactory, string? search, string? status, CancellationToken ct)
+    {
+        if (!ProcurementHumanCsvExport.ValidFilters(http.Request))
+            return Results.BadRequest(new { code = "invalid-export-filter" });
+        var logger = loggerFactory.CreateLogger("Procurement.VendorCsvExport");
+        try
+        {
+            if (!await ProcurementHumanCsvExport.NativeReaderReadyAsync(db, configuration, ct))
+                return ProcurementHumanCsvExport.Unavailable(http, logger, "export-reader-unavailable");
+            var query = await VisibleQuery(db, scope, authorization, http, search, status);
+            var rows = await query.OrderBy(x => x.DisplayName).ThenBy(x => x.Id)
+                .Select(x => new { x.Number, x.DisplayName, x.LegalName, x.CountryCode,
+                    x.Status, x.IsOrderable, x.CreatedAt })
+                .Take(ProcurementHumanCsvExport.MaxRows + 1).ToListAsync(ct);
+            if (ProcurementHumanCsvExport.ExceedsLimit(rows.Count))
+                return Results.UnprocessableEntity(new { code = "export-limit-exceeded" });
+            var data = ProcurementHumanCsvExport.Encode(
+                ["Vendor Number", "Display Name", "Legal Name", "Country Code", "Status", "Orderable", "Created At UTC"],
+                rows.Select(x => new[] { x.Number, x.DisplayName, x.LegalName, x.CountryCode,
+                    x.Status, x.IsOrderable ? "true" : "false", x.CreatedAt.ToUniversalTime().ToString("O") }));
+            return await ProcurementHumanCsvExport.CompleteAsync(db, scope, http, "SupplierCsvExport",
+                System.Text.Json.JsonSerializer.Serialize(new { search = search?.Trim() ?? "", status = status?.Trim() ?? "" }),
+                rows.Count, data, $"vendors-{DateTime.UtcNow.ToString("yyyyMMdd", CultureInfo.InvariantCulture)}.csv", ct);
+        }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
+        catch (Exception error) when (error is DbException or DbUpdateException or TimeoutException)
+        {
+            return ProcurementHumanCsvExport.Unavailable(http, logger, "export-storage-unavailable");
+        }
     }
 
     private static async Task<IResult> GetAsync(Guid id, ProcurementDbContext db,

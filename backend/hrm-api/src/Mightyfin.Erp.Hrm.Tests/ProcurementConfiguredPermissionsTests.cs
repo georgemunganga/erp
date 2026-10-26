@@ -6,6 +6,48 @@ namespace Mightyfin.Erp.Hrm.Tests;
 
 public sealed class ProcurementConfiguredPermissionsTests
 {
+    [Fact]
+    public void Explicit_only_action_classification_is_exact_and_case_sensitive()
+    {
+        var explicitOnly = Mightyfin.Erp.Hrm.Application.ProcurementActionCatalog.BootstrapGrants.Keys
+            .Where(Mightyfin.Erp.Hrm.Application.ProcurementActionCatalog.RequiresExplicitConfiguredGrant)
+            .Order(StringComparer.Ordinal).ToArray();
+        Assert.Equal(new[] { "procurement-item-export", "procurement-return-create", "procurement-return-edit",
+            "procurement-return-read", "procurement-vendor-export" }, explicitOnly);
+        Assert.False(Mightyfin.Erp.Hrm.Application.ProcurementActionCatalog
+            .RequiresExplicitConfiguredGrant("Procurement-Vendor-Export"));
+    }
+
+    [Theory]
+    [InlineData("procurement-vendor-export", "procurement-vendor-read")]
+    [InlineData("procurement-item-export", "procurement-item-manage")]
+    public async Task Csv_export_requires_separate_explicit_Core_grant_even_for_legacy_admin(string export, string reader)
+    {
+        var options = new Microsoft.AspNetCore.Authorization.AuthorizationOptions();
+        ProcurementPermissions.AddPolicies(options);
+        Assert.NotNull(options.GetPolicy(export));
+        Assert.Empty(Mightyfin.Erp.Hrm.Application.ProcurementActionCatalog.BootstrapGrants[export]);
+        Assert.Contains(export, JobsAdminServiceImpl.PermissionKeys);
+        Assert.False(ProcurementPermissions.Allows(export, [new Claim(ClaimTypes.Role, "erp_admin")]));
+        Assert.False(ProcurementPermissions.Allows(export, [new Claim(ClaimTypes.Role, "procurement_manager")]));
+
+        await using var db = TestDbContextFactory.Create("tenant-a");
+        var admin = new TenantRoleAssignment { RoleKey = "erp_admin", RoleName = "ERP admin", Category = "system",
+            PermissionsCsv = "erp_admin", Active = true };
+        db.TenantRoleAssignments.Add(admin); await db.SaveChangesAsync();
+        Assert.DoesNotContain(export, await ProcurementPermissions.ResolveConfiguredActionsAsync(db, "erp_admin", default));
+        admin.PermissionsCsv = "procurement-access," + reader + "," + export;
+        await db.SaveChangesAsync();
+        var actions = await ProcurementPermissions.ResolveConfiguredActionsAsync(db, "erp_admin", default);
+        Assert.Contains(export, actions);
+        Assert.Contains(reader, actions);
+        var claims = new[] { new Claim(ClaimTypes.Role, "erp_admin"), new Claim(ProcurementPermissions.ConfiguredClaim, "true") }
+            .Concat(actions.Select(x => new Claim(ProcurementPermissions.ActionClaim, x))).ToArray();
+        Assert.True(ProcurementPermissions.Allows(export, claims));
+        admin.PermissionsCsv = "procurement-access," + reader; await db.SaveChangesAsync();
+        Assert.DoesNotContain(export, await ProcurementPermissions.ResolveConfiguredActionsAsync(db, "erp_admin", default));
+    }
+
     [Theory]
     [InlineData("procurement-return-read")]
     [InlineData("procurement-return-create")]

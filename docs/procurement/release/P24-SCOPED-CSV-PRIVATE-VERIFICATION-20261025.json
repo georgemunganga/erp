@@ -1,0 +1,120 @@
+{
+  "schemaVersion": 1,
+  "status": "PASS_PRIVATE_P24_SCOPED_CSV_EXPORTS_WITH_CORE_FIRST_USE_AND_INDEPENDENT_OWNER",
+  "date": "2026-10-25",
+  "productSourceCommit": "b3e190baedef2260bd270d5155b52b0da7ea3c81",
+  "uiSourceCommit": "7cf8f55ff2d17e219c7e4985b2b635f80ee5b407",
+  "sourceAcceptance": {
+    "focusedHostPassed": 92,
+    "fullHostPassed": 1057,
+    "domainRerun": false,
+    "applicationAndModelsUnchanged": true,
+    "apiPublicationFiles": 150,
+    "onlyPublishedApiDllAndPdbChanged": true,
+    "privateToolRuntimeFiles": 466
+  },
+  "privateVerification": {
+    "actualCookieHttpExports": 13,
+    "independentHttpOwnerAuditDelta": 13,
+    "firstUseBrowserCasesPassed": 1,
+    "firstUseFreshStorageAndCoreChoicesVerified": true,
+    "firstUseOwnerFullSnapshotEqual": true,
+    "firstUseExportAuditDelta": 0,
+    "actualCookieExportBrowserCasesPassed": 2,
+    "independentBrowserOwnerAuditDelta": 2,
+    "sameCookieRevocation403": true,
+    "independentRevocationOwnerAuditDelta": 1,
+    "totalNewExportAudits": 16,
+    "exactOneReaderRolePermissionsCas": true,
+    "configuredSyntheticCoreRoles": 6,
+    "legacyAdminExactPermissionsCsv": "erp_admin",
+    "legacyAdminAndNoExportListAllowedExportDenied": true,
+    "syntheticEmployees": 0,
+    "globalVendorRows": 9,
+    "globalItemRows": 10003,
+    "otherTenantSameCompanyControls": true,
+    "mastersUnchanged": true,
+    "coreRolesUnchangedExceptExactRevocation": true,
+    "finiteCoreAndRecordRoles": true,
+    "auditInsertDeniedSeparateRole": true,
+    "controlledHostExit": 0
+  },
+  "parentReceipts": {
+    "sdk": {
+      "receiptSha256": "39da1129660aac53fac2d108a703647d51d17bc83af98bf4535b3644970c9c5b",
+      "evidenceDirectory": "procurement-csv-export-p24-sdk-prep-20261025_run05"
+    },
+    "publication": {
+      "receiptSha256": "539aec030a0d741f97f3cbecab324b4103ea6c62c1b2d47f3b314e5f3badeda8",
+      "evidenceDirectory": "procurement-csv-export-p24-api-publication-prep-20261025_run05"
+    },
+    "tool": {
+      "receiptSha256": "320ffd9343314e3a1dbae88deda27c5ab360c2dd0c38e7352aa2608325aa12fa",
+      "evidenceDirectory": "procurement-csv-export-p24-tool-sdk-prep-20261025_run05"
+    }
+  },
+  "retainedPrivateInputSha256": {
+    "fixture.READY.private.json": "02dd65340a5c55f875b07c31fdc597cfbf9f9acc94dc8e38983c7badaa3a3d86",
+    "backend-container.private.json": "5bdd96e86c2b029f3465c400f111acc3022ce99e713c1b1f6384f5147b563f1d",
+    "proxy-receipt.private.json": "4ec48fc24a4864149a6167d95af33b2917e64dbed2694c81150877c64b0d1586",
+    "http.http-result.private.json": "c15db7be290061d763e20ba0e9eb5fde62eb19fe39eb196902fcc30e94f7db5d",
+    "http.owner-result.private.json": "88dcab12b006c12ec8949d85b8b61155e17e18a7855ae71e111b67615e3009f8",
+    "http.owner-before.private.json": "eccbb4cf558d7734834153db0026b760425e75cbaa138cb7fca684da0b2607ff",
+    "http.owner-after.private.json": "b470c18dc75d49bb8244f8bf29c89e20ab4e8a98c196088836b3347595c83ff0",
+    "http.phase.private.json": "2b09f7ec80fe8681a925b6f9789b10ba954ced9721160b0fb8eea5803fadbf0f",
+    "first-use.browser.private.json": "5d6b37968f0af5b2ce717b9ab35d6a487dcfafb629593fa883035c265142eefe",
+    "first-use.owner-result.private.json": "7c9d5585fb4e844d741b22b2d228ddecb457a58fb4bcc258a1bef3577bfd2b80",
+    "first-use.owner-before.private.json": "b470c18dc75d49bb8244f8bf29c89e20ab4e8a98c196088836b3347595c83ff0",
+    "first-use.owner-after.private.json": "b470c18dc75d49bb8244f8bf29c89e20ab4e8a98c196088836b3347595c83ff0",
+    "first-use.source-before.private.json": "a6aeb3ff60889fa7aae2339463d2c9fd821f32f816a8d4538269948ae1b01083",
+    "browser-result.private.json.vendors": "64150d03e4688374fd863814673ca90fe91040aaf822f058210a10171e23df16",
+    "browser-result.private.json.items": "f793d1a40be726d5f1d3bf15f09011073ac93ef45d0ff27cda50e8b2aeff4e87",
+    "browser.owner-result.private.json": "9d11d2da4593b3b9a9542985d301a13783779c1db22c87d558df2a02bf2bcedf",
+    "browser.owner-before.private.json": "b470c18dc75d49bb8244f8bf29c89e20ab4e8a98c196088836b3347595c83ff0",
+    "browser.owner-after.private.json": "e4788d0e464f74d475e0a57cedc9f4a8d7cfb7f7519cdcdd9a6d19c39804cbca",
+    "browser-phase.private.json": "a9f863bb24043dd09bc46aa17dd0aab5ebbc28ee7b3c73d815f5860709411ca4",
+    "browser-source-before.private.json": "13a670015fde1afd680185f08e34ecebbf2b5c5f6672195efbd77e6f755b9bec",
+    "browser-exit.private.json": "ff8ae5796bcef71911ff9c5c3eaea341819c471f669549e252b830106edd4305",
+    "browser-after.phase.private.json": "6d9df7feff3cb39a5bd8a2f80da94264663fe9719913261f22edb69f582cc8e5",
+    "revocation.http-result.private.json": "bec78fc351408d414670217755c097b0dca9c18ab03c1f0b6aaf978ddaa93cd8",
+    "revocation.owner-result.private.json": "0133f9da38ad05c22383bcde26f123b300d67391294af261e662abd41a8f70e8",
+    "revocation.owner-before.private.json": "e4788d0e464f74d475e0a57cedc9f4a8d7cfb7f7519cdcdd9a6d19c39804cbca",
+    "revocation.owner-after.private.json": "eb540ed389ab42c6504936453ce8eb065ab96ff59b7f3a1451210e794a958a5a",
+    "revocation.phase.private.json": "5fdebd83e20a439ec1a7b3be9713cd962080e4f5068fcf6ce8f83b6b4ca29080",
+    "be01-csv-revoke-receipt.private.json": "e970a24be01c1f9751bbea7d84f5c90169210f73281afe5f503f42f25bca7f22",
+    "initializer-exit.private.json": "baef76dfb62d18c206d274661b9b65adc1729cfe014658c2b1a42747ac247cde",
+    "result.private.json": "6ac0be64e043ff5a6e167ea243cfedb6f8274a44bb2800e95ba43763acc5700d",
+    "superseded-browser-config-1/browser-before.owner-before.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "superseded-browser-config-1/browser-before.phase.private.json": "feeaa82225ad39ba2360c1eb3233ab4173291df0cb1efe31af5ea155d5e1161f",
+    "superseded-browser-config-1/browser-before.source-before.private.json": "c4ec55d6a364a83ff2e07726d9feffa4ba961936410730efafda16474991148a",
+    "superseded-browser-config-1/browser-exit.private.json": "01614b0e7bf86220a2287c6fd76f9b3a5c06913c2e0762c9eb3958c397f0bbee",
+    "superseded-browser-config-1/browser-source-before.private.json": "d8ac027fc9a683eb4f7d40d9665f0df18a2fe82cb181753253c160837d4dc852",
+    "superseded-browser-config-1/browser.failed-owner-after.private.json": "b470c18dc75d49bb8244f8bf29c89e20ab4e8a98c196088836b3347595c83ff0",
+    "superseded-browser-config-1/browser.log": "47415f42a544ce03f6fbea1ab91f01a6a6f0801566f0264bbc207aadef9da8fc",
+    "superseded-browser-config-1/browser.owner-before.private.json": "b470c18dc75d49bb8244f8bf29c89e20ab4e8a98c196088836b3347595c83ff0"
+  },
+  "retainedFailures": [
+    "DB03 fixture privilege text lookup required denied schema usage; corrected OID lookup without grant widening",
+    "DB04 old Core unconditional startup DDL denied; canonical validate-only Core startup backported",
+    "DB05 Procurement-only logout403; canonical named shared-session authorization backported",
+    "DB06 absent configured legacy role denied list; fixture now has exact configured erp_admin legacy CSV without explicit exports",
+    "DB07 stale browser source hash admission and superseded old-directory test discovery failed before actual successful current browser; preserved separately"
+  ],
+  "limits": {
+    "productionChanged": false,
+    "runtimeImageBuiltByThisProof": false,
+    "deploymentAccepted": false,
+    "businessUat": false,
+    "newDefaultExportGrants": false,
+    "schemaOrModelChange": false,
+    "generalHrmCrud": false,
+    "financeOrInventoryIntegration": false
+  },
+  "sourceReferences": {
+    "backendPullRequest": "https://github.com/georgemunganga/erp/pull/93",
+    "uiPullRequest": "https://github.com/georgemunganga/module-connect/pull/79",
+    "compiledP24Source": "https://github.com/georgemunganga/erp/commit/b3e190baedef2260bd270d5155b52b0da7ea3c81",
+    "evidenceNotes": "P24-SCOPED-CSV-PRIVATE-VERIFICATION-20261025.md",
+    "scopeCompatibility": "../../core/KNOWN-P24-BRANCH-SCOPE-COMPATIBILITY-20261025.md"
+  }
+}

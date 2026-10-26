@@ -167,16 +167,21 @@ public sealed class ImportExportServiceImpl : IImportExportService
         }
 
         var sb = new StringBuilder();
-        sb.AppendLine(string.Join(",", header.Select(CsvQuote)));
+        sb.AppendLine(string.Join(",", header.Select(SharedCsv.Quote)));
         foreach (var row in rows)
         {
-            var cells = header.Select(k => row.TryGetValue(k, out var v) ? CsvQuote(v) : "");
+            var cells = header.Select(k => row.TryGetValue(k, out var v) ? SharedCsv.Quote(v) : "");
             sb.AppendLine(string.Join(",", cells));
         }
         return Encoding.UTF8.GetPreamble().Concat(Encoding.UTF8.GetBytes(sb.ToString())).ToArray();
     }
 
-    private static string CsvQuote(string value) =>
+}
+
+/// <summary>Existing HRM CSV quoting, exposed without changing its output bytes.</summary>
+public static class SharedCsv
+{
+    public static string Quote(string value) =>
         value == null ? "" : (value.Contains(',') || value.Contains('"') || value.Contains('\n'))
             ? $"\"{value.Replace("\"", "\"\"")}\"" : value;
 }

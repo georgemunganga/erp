@@ -136,18 +136,25 @@ internal sealed class PrincipalApprovalFixture(string owner, bool browserBuyerPr
     }
 }
 
-internal sealed class PrincipalApprovalHost(PrincipalApprovalFixture fixture,string owner,string record,string execution,bool actualSchema,bool privateManualEvidence=false,bool normalLocalAuthentication=false,bool principalExecutionEnabled=true):WebApplicationFactory<MonthlyLeaveAccrualWorker>
+internal sealed class PrincipalApprovalHost(PrincipalApprovalFixture fixture,string owner,string record,string execution,bool actualSchema,bool privateManualEvidence=false,bool normalLocalAuthentication=false,bool principalExecutionEnabled=true,bool csvExportOnly=false,string? csvCoreConnection=null):WebApplicationFactory<MonthlyLeaveAccrualWorker>
 {
     internal Dictionary<string,string?> Settings()
     {
         var settings=OfflineHost.Settings(owner,PrincipalApprovalFixture.Tenant);
-        if(Environment.GetEnvironmentVariable("P25_HTTP_PRODUCTION_POOLING")=="1")
+        if(csvExportOnly)
+        {
+            if(string.IsNullOrWhiteSpace(csvCoreConnection))
+                throw new InvalidOperationException("CSV normal-cookie host requires a finite Core connection.");
+            settings["ConnectionStrings:Hrm"]=csvCoreConnection;
+        }
+        if(!csvExportOnly && Environment.GetEnvironmentVariable("P25_HTTP_PRODUCTION_POOLING")=="1")
             settings["ConnectionStrings:Hrm"]=PrincipalApprovalRuntimePrivileges.CoreRuntimeConnection(owner);
         // Probe-only timing; model parity caching stays at its default off value.
         settings["Procurement:ReadinessPerformance:DiagnosticsEnabled"]="true";
         settings["Procurement:ReadinessPerformance:ModelParityCacheEnabled"]="false";
         settings["ConnectionStrings:Procurement"]=record;settings["ConnectionStrings:ProcurementApprovalExecution"]=execution;
-        settings["Procurement:Approvals:Enabled"]="true";settings["Procurement:Approvals:PrincipalExecutionEnabled"]=principalExecutionEnabled?"true":"false";
+        settings["Procurement:Approvals:Enabled"]=csvExportOnly?"false":"true";
+        settings["Procurement:Approvals:PrincipalExecutionEnabled"]=!csvExportOnly&&principalExecutionEnabled?"true":"false";
         if(fixture.PrincipalRfqProfile)
         {
             settings["Procurement:SourcingDrafts:Enabled"]="true";

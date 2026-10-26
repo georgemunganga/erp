@@ -1,5 +1,7 @@
 # Procurement gap plan with supplied UI interaction trace
 
+Execution update: use the [ordered finish milestones](PROCUREMENT-FINISH-MILESTONES-20261025.md) and the JSON `executionRoadmap` for current dependencies, R0 schema promotion and completion checks. M0/M2 remain partially delivered; no UAT status changes are made.
+
 Implementation update: CORE-04 and AUD-04 have [verified source changes](../../core/CORE-ROLE-PERMISSION-CATALOG-SOURCE-20261025.md). Their compatible Core release is [deployed](../../core/CORE-ROLE-CATALOG-RELEASE-20261025.md); authenticated business UAT remains pending and the original UAT register is unchanged. Core settings navigation is deployed; HRM module settings-route alignment remains separate.
 
 ERP source `c38202e57afff83abbcdcbb05f95a27d38a8be26`; supplied UI `c370275e9242f447cade47bec31c2fb42aa75637`. Exactly 55 audit findings. Preview interactions are **not** ERP authority.
@@ -8,6 +10,7 @@ Each finding separates the original presentation intent, current live component,
 
 ## BE-01 — bulk/import/export/clone/delete/custom views (IMPLEMENT)
 
+- Implementation checkpoint: [Vendor and Item scoped CSV verification](../release/PROC-SCOPED-CSV-SOURCE-VERIFICATION-20261025.md). Backend 76 focused and 1,378 host tests pass. Real-cookie API, two actual live UI journeys, independent database/audit reconciliation and same-session permission revocation pass. The [P24-compatible slice is deployed](../release/P24-SCOPED-CSV-RELEASE-20261025.md), with 92 focused/1,057 compatible Host tests and three private real-browser cases. This is one slice; imports, selected export, clone/bulk and saved views are still open.
 - Original UI (PREVIEW_ONLY): `reference-ui/src/features/RecordList.tsx:179` — Export current/selected view. Uses locally filtered AppRecord rows and browser CSV; local delete at line 224 leaves linked records unchanged.
 - Original flow detail: `reference-ui/src/features/RecordList.tsx:224` — Delete operates on local AppRecord and leaves linked records unchanged.
 - Original flow detail: `reference-ui/src/features/Catalogs.tsx:435` — Vendor/item import maps rows into local demo records.
@@ -33,13 +36,13 @@ Each finding separates the original presentation intent, current live component,
 ## BE-03 — PR recall/forward/hold/processed/reapprove (IMPLEMENT)
 
 - Original UI (PREVIEW_ONLY): `reference-ui/src/features/RecordDetail.tsx:340` — Approve (demo) / Reject (demo). changeStatus updates local AppRecord.status and lastLocalAction; no Core case transition.
-- Current live counterpart: `reference-ui/src/features/LiveRequests.tsx:132` on `/requests, /approvals`. Submit, return and review controls exist; recall, forward, hold and processed states need explicit contracts.
-- Backend: Request submit and shared Core review/decisions exist in source; version/source locks intentionally constrain recall and later modification. Gap: Current Core-case transitions and source locks do not prove every manual status reversal or submitter-selected approver.
-- Next slice (Core approval + Procurement): Specify and add only authorized PR transitions through existing Core case history and locked source versions.
-- Prerequisites: None hard-linked in this audit.
-- Tests: Maker recall before/after decision, reassignment denial, return/resubmit, stale CAS and retained approval history.
-- Acceptance: Source and Core history tests for each proposed transition, current authority and retained effects.
-- Source: `backend/hrm-api/src/Mightyfin.Erp.Hrm.Api/ProcurementApprovalExecutionRoutes.cs:24`, `backend/hrm-api/src/Mightyfin.Erp.Hrm.Api/ProcurementApprovalExecutionRoutes.cs:42`
+- Current live counterpart: `reference-ui/src/features/LiveRequests.tsx:327-413` and `LiveApprovals.tsx:156-225` on `/requests, /approvals`. Pre-case Withdraw, Return and resubmit are source/UI present. The original demo action is not a Core transition.
+- Backend: `ProcurementRequestRoutes.cs:187-370` implements pre-case actions; `ApprovalEngine.cs:49-91` supplies Core cancellation, but no Procurement active-case recall route or `Cancelled` outcome/release path exists. The current outcome CHECK and Finance release path do not support it.
+- Next slice (Core approval + Procurement + Finance): Use the default-off [28-section active-case recall draft](../PROC-03-PR-ACTIVE-CASE-RECALL.md): current maker, pending case before any decision/downstream use, source/version/key locks, Core Cancel plus typed Procurement outcome and durable release request, then independent Finance release before edit/resubmit. Forward, Hold and manual Processed remain separate decisions.
+- Prerequisites: Resolve the named Core permission/assignment and Finance release contracts; generate a genuine migration after P38, with populated-history Down veto. Do not edit historical migrations or infer release from Core cancellation.
+- Tests: Existing pre-case subset; active-case eligible/denied, revoked scope, stale CAS, duplicate/lost response, decision race, retained case/source/budget effects, Finance outage and independent confirmation, UI server availability, owner no-effects checks and schema rollback.
+- Acceptance: No active-case recall or UAT claim until API, UI, Core, Finance and physical schema evidence is bound to one source/build; `NOT_EXECUTED` remains the UAT status.
+- Source: `backend/hrm-api/src/Mightyfin.Erp.Hrm.Api/ProcurementRequestRoutes.cs:187-370`, `backend/core-api/src/Mightyfin.Erp.Core.Approvals.Domain/ApprovalEngine.cs:49-91`, `backend/procurement-api/src/Mightyfin.Erp.Procurement.Infrastructure/Data/ProcurementApprovalOutcomeMapping.cs:31-65`
 
 ## BE-04 — PR attachments and scanner truth (INTEGRATE)
 

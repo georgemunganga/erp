@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using System.Data;
+using System.Data.Common;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using System.Globalization;
@@ -18,6 +19,8 @@ public static class ProcurementItemEndpoints
         var items = app.MapGroup("/api/procurement/v1/items");
         items.AddEndpointFilter(ProcurementCatalogFencing.Write);
         items.MapGet("", List).RequireAuthorization("procurement-item-manage");
+        items.MapGet("/export", Export).RequireAuthorization("procurement-item-manage")
+            .RequireAuthorization("procurement-item-export");
         items.MapGet("/{id:guid}", Get).RequireAuthorization("procurement-item-manage");
         items.MapPost("", Create).Accepts<ItemInput>("application/json").RequireAuthorization("procurement-item-manage");
         items.MapPut("/{id:guid}", Update).Accepts<ItemUpdate>("application/json").RequireAuthorization("procurement-item-manage");
@@ -35,6 +38,18 @@ public static class ProcurementItemEndpoints
     {
         var number = Math.Max(1, page ?? 1);
         var size = Math.Clamp(pageSize ?? 25, 1, 100);
+        var query = ListQuery(db, search, status);
+        var total = await query.CountAsync(ct);
+        var rows = await query.OrderBy(x => x.Name).ThenBy(x => x.Code).ThenBy(x => x.Id)
+            .Skip((number - 1) * size).Take(size).Select(x => new ItemView(
+                x.Id, x.Code, x.Name, x.Kind, x.CategoryCode, x.UnitCode, x.Description, x.Status,
+                x.IsPurchasable, x.IsStockItem, x.IsAsset, x.Brand, x.LeadTimeDays, x.Version))
+            .ToListAsync(ct);
+        return Results.Ok(new { items = rows, total, page = number, pageSize = size });
+    }
+
+    private static IQueryable<CatalogItem> ListQuery(ProcurementDbContext db, string? search, string? status)
+    {
         var query = db.CatalogItems.AsNoTracking().AsQueryable();
         if (!string.IsNullOrWhiteSpace(search))
         {
@@ -42,13 +57,41 @@ public static class ProcurementItemEndpoints
             query = query.Where(x => EF.Functions.ILike(x.Code, $"%{term}%") || EF.Functions.ILike(x.Name, $"%{term}%"));
         }
         if (!string.IsNullOrWhiteSpace(status)) query = query.Where(x => x.Status == status.Trim());
-        var total = await query.CountAsync(ct);
-        var rows = await query.OrderBy(x => x.Name).ThenBy(x => x.Code)
-            .Skip((number - 1) * size).Take(size).Select(x => new ItemView(
-                x.Id, x.Code, x.Name, x.Kind, x.CategoryCode, x.UnitCode, x.Description, x.Status,
-                x.IsPurchasable, x.IsStockItem, x.IsAsset, x.Brand, x.LeadTimeDays, x.Version))
-            .ToListAsync(ct);
-        return Results.Ok(new { items = rows, total, page = number, pageSize = size });
+        return query;
+    }
+
+    private static async Task<IResult> Export(ProcurementDbContext db, ProcurementRequestScope scope,
+        HttpContext http, IConfiguration configuration, ILoggerFactory loggerFactory,
+        string? search, string? status, CancellationToken ct)
+    {
+        if (!ProcurementHumanCsvExport.ValidFilters(http.Request))
+            return Results.BadRequest(new { code = "invalid-export-filter" });
+        var logger = loggerFactory.CreateLogger("Procurement.ItemCsvExport");
+        try
+        {
+            if (!await ProcurementHumanCsvExport.NativeReaderReadyAsync(db, configuration, ct))
+                return ProcurementHumanCsvExport.Unavailable(http, logger, "export-reader-unavailable");
+            var rows = await ListQuery(db, search, status)
+                .OrderBy(x => x.Name).ThenBy(x => x.Code).ThenBy(x => x.Id)
+                .Select(x => new { x.Code, x.Name, x.Kind, x.CategoryCode, x.UnitCode,
+                    x.Status, x.IsPurchasable, x.IsStockItem, x.IsAsset })
+                .Take(ProcurementHumanCsvExport.MaxRows + 1).ToListAsync(ct);
+            if (ProcurementHumanCsvExport.ExceedsLimit(rows.Count))
+                return Results.UnprocessableEntity(new { code = "export-limit-exceeded" });
+            var data = ProcurementHumanCsvExport.Encode(
+                ["Item Code", "Name", "Kind", "Category Code", "Unit Code", "Status", "Purchasable", "Stock Item", "Asset"],
+                rows.Select(x => new[] { x.Code, x.Name, x.Kind, x.CategoryCode, x.UnitCode,
+                    x.Status, x.IsPurchasable ? "true" : "false", x.IsStockItem ? "true" : "false",
+                    x.IsAsset ? "true" : "false" }));
+            return await ProcurementHumanCsvExport.CompleteAsync(db, scope, http, "CatalogItemCsvExport",
+                JsonSerializer.Serialize(new { search = search?.Trim() ?? "", status = status?.Trim() ?? "" }),
+                rows.Count, data, $"items-{DateTime.UtcNow.ToString("yyyyMMdd", CultureInfo.InvariantCulture)}.csv", ct);
+        }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
+        catch (Exception error) when (error is DbException or DbUpdateException or TimeoutException)
+        {
+            return ProcurementHumanCsvExport.Unavailable(http, logger, "export-storage-unavailable");
+        }
     }
 
     private static async Task<IResult> Get(Guid id, ProcurementDbContext db, CancellationToken ct)

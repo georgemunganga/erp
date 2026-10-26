@@ -117,7 +117,12 @@
         "repository": "module-connect",
         "sourceUrl": "https://github.com/georgemunganga/module-connect/blob/c370275e9242f447cade47bec31c2fb42aa75637/reference-ui/src/features/RecordList.tsx#L179"
       },
-      "uatStatus": "NOT_EXECUTED"
+      "uatStatus": "NOT_EXECUTED",
+      "releaseCheckpoint": {
+        "status": "PARTIAL_SLICE_DEPLOYED",
+        "evidence": "docs/procurement/release/P24-SCOPED-CSV-RELEASE-20261025.md",
+        "scope": "Vendor/Item All/search CSV only; imports, selected export, clone/bulk and views remain open."
+      }
     },
     {
       "id": "BE-02",
@@ -226,11 +231,11 @@
           "repository": "module-connect",
           "sourceUrl": "https://github.com/georgemunganga/module-connect/blob/c370275e9242f447cade47bec31c2fb42aa75637/reference-ui/src/features/LiveRequests.tsx#L132"
         },
-        "intentAndLimit": "Submit, return and review controls exist; recall, forward, hold and processed states need explicit contracts.",
+        "intentAndLimit": "Pre-case Withdraw, Return and resubmit are source/UI present; opened-case recall, forward, hold and processed states need separate contracts.",
         "workspaceBase": "/procurement/workspace"
       },
       "currentBackend": {
-        "summary": "Request submit and shared Core review/decisions exist in source; version/source locks intentionally constrain recall and later modification.",
+        "summary": "Pre-case Withdraw, Return and resubmit exist; Core has a pending-case Cancel primitive, but Procurement has no active-case recall route, Cancelled outcome or Finance release path.",
         "evidence": [
           {
             "repository": "erp",
@@ -246,16 +251,19 @@
           }
         ]
       },
-      "gap": "Current Core-case transitions and source locks do not prove every manual status reversal or submitter-selected approver.",
-      "nextExecutableSlice": "Specify and add only authorized PR transitions through existing Core case history and locked source versions.",
-      "prerequisites": [],
-      "auditMilestoneHint": "Specify exact PR state machine/return and post-approval cancellation before adding routes.",
+      "gap": "Opened-case recall cannot be inferred from pre-case Withdraw or Core Cancel alone; current outcome CHECKs exclude Cancelled and Finance release must be independently confirmed before edit/resubmit.",
+      "nextExecutableSlice": "Implement the default-off pending-case recall draft: current maker and scope, no prior decision or downstream consumption, typed version/key recovery, atomic Core Cancel plus Procurement outcome/release request, then independent Finance release before edit/resubmit. Forward, Hold and Processed remain separate decisions.",
+      "prerequisites": [
+        "Named Core permission/assignment decision, independent Finance release contract, genuine post-P38 migration and guarded Down"
+      ],
+      "auditMilestoneHint": "Use PROC-03 active-case recall draft; retain pre-case actions and exclude post-decision cancellation from v1.",
       "verification": {
-        "focusedTests": "Maker recall before/after decision, reassignment denial, return/resubmit, stale CAS and retained approval history.",
-        "acceptance": "Source and Core history tests for each proposed transition, current authority and retained effects."
+        "focusedTests": "Pre-case Withdraw/Return/resubmit subset; eligible maker recall, post-decision/downstream denial, revoked scope, stale CAS, lost-response replay, decision race, Finance release and retained-history rollback.",
+        "acceptance": "Require same-version API/UI/Core/Finance and owner evidence plus post-P38 schema Up/Down and populated veto; opened-case recall and UAT remain unaccepted."
       },
       "specPaths": [
-        "docs/procurement/PROC-03-APPROVAL-AND-BUDGET-CONTROL.md"
+        "docs/procurement/PROC-03-APPROVAL-AND-BUDGET-CONTROL.md",
+        "docs/procurement/PROC-03-PR-ACTIVE-CASE-RECALL.md"
       ],
       "launchScope": "selected operational launch workflows",
       "modeMeaning": "Primary next action; implementation still requires focused tests and deployment evidence before live claims.",
@@ -328,7 +336,7 @@
           }
         ]
       },
-      "gap": "PR typed source has fields/lines; the manual\u2019s upload, preview and delete interaction is not established by PR routes.",
+      "gap": "PR typed source has fields/lines; the manual’s upload, preview and delete interaction is not established by PR routes.",
       "nextExecutableSlice": "Connect the request to Core Documents upload/use with genuine scanner availability and purpose-scoped document evidence.",
       "prerequisites": [
         "EXTERNAL:Core Documents genuine scanner"
@@ -657,16 +665,16 @@
           }
         ]
       },
-      "gap": "A direct PO\u2192typed Procurement invoice Draft/link/source/capture action and Billed/Partially Billed receive projection are not established. P31 invoice source/comparison exists but genuine scanned invoice evidence remains gated; later Finance AP posting is a separate owner, not an excuse to omit Procurement Draft CRUD.",
+      "gap": "A direct PO→typed Procurement invoice Draft/link/source/capture action and Billed/Partially Billed receive projection are not established. P31 invoice source/comparison exists but genuine scanned invoice evidence remains gated; later Finance AP posting is a separate owner, not an excuse to omit Procurement Draft CRUD.",
       "nextExecutableSlice": "Add Procurement-owned PO/receipt source link and invoice Draft capture; keep AP posting with Finance and document scan truthful.",
       "prerequisites": [
         "BE-04",
         "PAY-02"
       ],
-      "auditMilestoneHint": "Finish P31 Core scanner proof and add bounded Procurement PO/receive\u2192invoice Draft bridge; keep Finance ledger posting separate.",
+      "auditMilestoneHint": "Finish P31 Core scanner proof and add bounded Procurement PO/receive→invoice Draft bridge; keep Finance ledger posting separate.",
       "verification": {
         "focusedTests": "Partial receipt to bill line/quantity match, duplicate source, wrong supplier/currency/branch and genuine scanned original.",
-        "acceptance": "Producer-backed PO\u2192invoice Draft/source link and scan-backed invoice evidence with exact line/quantity reconciliation; then separate Finance posting acceptance."
+        "acceptance": "Producer-backed PO→invoice Draft/source link and scan-backed invoice evidence with exact line/quantity reconciliation; then separate Finance posting acceptance."
       },
       "specPaths": [
         "docs/procurement/PROC-08-PURCHASE-ORDERS-AND-AMENDMENTS.md"
@@ -1542,7 +1550,7 @@
         "status": "NOT_PRESENT",
         "path": "reference-ui/src/features/CatalogDetail.tsx",
         "line": 693,
-        "controlOrNearestLayout": "Merge Vendors \u00b7 unavailable",
+        "controlOrNearestLayout": "Merge Vendors · unavailable",
         "originalHandlerOrLocalFlow": "Original vendor More menu explicitly disables merge; no reparenting handler.",
         "sourceCommit": "c370275e9242f447cade47bec31c2fb42aa75637",
         "currentLiveCounterpart": {
@@ -1824,7 +1832,7 @@
         "component": {
           "path": "reference-ui/src/features/FinanceReleasePanel.tsx",
           "line": 56,
-          "exampleControl": "{loading ? <p role=\"status\">Loading Finance release requests\u2026</p> : data?.records.length ? <div className=\"overflow-x-auto\"><RecordTable><th",
+          "exampleControl": "{loading ? <p role=\"status\">Loading Finance release requests…</p> : data?.records.length ? <div className=\"overflow-x-auto\"><RecordTable><th",
           "sourceCommit": "c370275e9242f447cade47bec31c2fb42aa75637",
           "repository": "module-connect",
           "sourceUrl": "https://github.com/georgemunganga/module-connect/blob/c370275e9242f447cade47bec31c2fb42aa75637/reference-ui/src/features/FinanceReleasePanel.tsx#L56"
@@ -1878,7 +1886,7 @@
         "currentLiveCounterpart": {
           "path": "reference-ui/src/features/FinanceReleasePanel.tsx",
           "line": 56,
-          "exampleControl": "{loading ? <p role=\"status\">Loading Finance release requests\u2026</p> : data?.records.length ? <div className=\"overflow-x-auto\"><RecordTable><th",
+          "exampleControl": "{loading ? <p role=\"status\">Loading Finance release requests…</p> : data?.records.length ? <div className=\"overflow-x-auto\"><RecordTable><th",
           "sourceCommit": "c370275e9242f447cade47bec31c2fb42aa75637",
           "repository": "module-connect",
           "sourceUrl": "https://github.com/georgemunganga/module-connect/blob/c370275e9242f447cade47bec31c2fb42aa75637/reference-ui/src/features/FinanceReleasePanel.tsx#L56"
@@ -3436,7 +3444,7 @@
           }
         ]
       },
-      "gap": "The directory text saying \u201cHRM permissions today\u201d is stale. Remaining gap is coverage of newer action families, scoped role-administration UX and deployed positive/negative verification; no absent-designer claim. Branch assignment absence can mean organization-wide scope by policy and is not itself a defect.",
+      "gap": "The directory text saying “HRM permissions today” is stale. Remaining gap is coverage of newer action families, scoped role-administration UX and deployed positive/negative verification; no absent-designer claim. Branch assignment absence can mean organization-wide scope by policy and is not itself a defect.",
       "nextExecutableSlice": "Generate/synchronize permission choices from backend action catalog while retaining unknown explicit stored actions.",
       "prerequisites": [],
       "auditMilestoneHint": "Shared role administration",
@@ -3674,7 +3682,7 @@
         "status": "PREVIEW_ONLY",
         "path": "reference-ui/src/features/Settings.tsx",
         "line": 1577,
-        "controlOrNearestLayout": "New Field \u00b7 module",
+        "controlOrNearestLayout": "New Field · module",
         "originalHandlerOrLocalFlow": "Preview layout field form; no typed schema/validation/migration owner.",
         "sourceCommit": "c370275e9242f447cade47bec31c2fb42aa75637",
         "currentLiveCounterpart": {
@@ -4553,5 +4561,430 @@
     }
   ],
   "originalUiTraceMethod": "Line anchors reference the preserved supplied presentation source. PREVIEW_ONLY means the interaction used local AppRecord/store or display-only state; NOT_PRESENT means no matching operation was found in the inspected preview component. Existing live counterparts are separate source and require their own evidence.",
-  "acceptanceBoundary": "A traceable action plan, not completed UAT. Existing browser-local handlers illustrate intent only; shared Core/Finance ownership and backend authority remain binding. DECIDE items do not block unrelated already-defined CRUD work."
+  "acceptanceBoundary": "A traceable action plan, not completed UAT. Existing browser-local handlers illustrate intent only; shared Core/Finance ownership and backend authority remain binding. DECIDE items do not block unrelated already-defined CRUD work.",
+  "executionRoadmap": {
+    "version": "1.4",
+    "updated": "2026-10-26",
+    "status": "EXECUTING_NOT_UAT_ACCEPTANCE",
+    "currentProduction": {
+      "productCommit": "cb18353d94af016ca65cd939ced76f6f97222c27",
+      "uiCommit": "092121409c3d032706b1ba0ca305a24c2d84ede7",
+      "image": "sha256:89375b1514f5a9cd5d2b255b94f09f2bba0a43020025e43ad6e30531084dd998",
+      "schemaLine": "compatible P24; no M0/M2 deployment migrations",
+      "releaseEvidence": "docs/procurement/release/P24-M2-SELECTED-CSV-RELEASE-20261025.md",
+      "sourceHostTestsPassed": 1081,
+      "sourceFocusedTestsPassed": 116,
+      "uiUnitTestsPassed": 93,
+      "mockedBrowserCasesPassed": 23,
+      "privateBrowserFilesVerified": 2,
+      "businessUatAccepted": false
+    },
+    "alreadyDeployedSlices": [
+      "Core first-use permitted company/branch chooser",
+      "Shared-session sign-out/password authorization without HRM admission",
+      "Vendor/Item All and search-result CSV exports with explicit permissions and audited server scope",
+      "Vendor/Item selected-row CSV exports with all-or-nothing current server scope and typed audit evidence",
+      "Bounded permitted-branch own-request All listing, additive branch references and explicit branch requirement for request writes"
+    ],
+    "mandatorySchemaPromotionGate": {
+      "id": "R0",
+      "appliesBefore": "Every capability requiring a model/migration later than the live P24 baseline",
+      "required": [
+        "Identify the actual live migration history, target model graph and required forward migrations; do not deploy a later API graph directly onto P24.",
+        "Rehearse genuine migrations over a restored representative P24 dataset; verify retained history, source/constraint/quantity invariants and independent owner evidence.",
+        "Verify actual restricted application roles, unavailable dependencies, safe startup and paired API/publisher compatibility; preserve flags off until that capability is accepted.",
+        "Verify backup restore and rollback strategy. If retained financial/commercial history prevents schema rollback, document the compatible code/fix-forward path and refuse destructive Down."
+      ],
+      "currentCheckpoint": "docs/procurement/gap-closure/R0-P29-REHEARSAL-CHECKPOINT-20261025.md"
+    },
+    "definitionOfDone": [
+      "Update the applicable 28-section feature specification and UI/API/schema/action trace before implementation.",
+      "Reuse existing UI and Core services; fix/integrate existing implementation before writing replacement code.",
+      "Use a genuine migration only when a schema change is needed; preserve historical migrations and test populated-history safety.",
+      "Run relevant domain/API permission, scope, state, retry, concurrency and failure tests.",
+      "Run actual Playwright UI → API → PostgreSQL journeys and independent audit/data reconciliation for affected operations; label mocks separately.",
+      "Review the change, commit/push PR evidence, deploy the accepted compatible slice and smoke-test it; record business acceptance separately."
+    ],
+    "sequencingNote": "Milestone numbers are the existing audit IDs, not a new parallel numbering scheme. Dependencies are operation-specific: unrelated ready CRUD may proceed while an individual owner/policy decision is pending. Document verification blocks only flows whose policies require those documents. Independent work requires non-overlapping ownership and fresh published reviewed prerequisite baselines.",
+    "nextExecutablePackages": [
+      "M0.1: reconcile published/deployed/source/schema baseline and existing accepted prerequisites.",
+      "M0.2: define/test remaining operational company/all-branch reads and explicit posting-branch behavior.",
+      "M1.1: complete shared real-scanner/document-use acceptance with its existing owner.",
+      "M2.1: verify vendor/item CRUD field matrix, then scoped import preview/validation/recovery and remaining data operations."
+    ],
+    "externalDependencies": [
+      "Finance/AP ledger, bank execution and Finance-confirmed statuses require the separately owned Finance module; Accounting UI import is not that backend.",
+      "Inventory/Assets posting and reconciliation require their owning adapters.",
+      "Approval thresholds, overrides, required documents, bank/remittance verification, contract activation and supplier portal scope require named policy ownership; no amounts or approvals are invented.",
+      "The organisation-wide/unassigned branch authority policy must be explicit before changing existing scope semantics; do not silently widen access or remove legitimate configured access."
+    ],
+    "milestones": [
+      {
+        "id": "M0",
+        "name": "Core access, branch scope and release baseline",
+        "status": "PARTIALLY_DEPLOYED",
+        "owner": "Core and release engineering",
+        "dependsOn": [],
+        "findingIds": [
+          "PAY-18",
+          "CORE-02",
+          "CORE-03",
+          "CORE-04",
+          "CORE-13",
+          "AUD-01",
+          "AUD-02",
+          "AUD-03",
+          "AUD-04"
+        ],
+        "workPackages": [
+          "Reconcile published ERP/UI main, reviewed branches, deployed product and physical schema; merge only accepted prerequisites before assigning collaborators.",
+          "Complete company/all-branch versus selected-branch behavior across lists, creates, approvals, pickers and exports. Company-wide viewing never invents a posting branch; branch-bound commands require an authorized explicit or configured default branch.",
+          "Use Core organisation currency and permitted headquarters defaults. Verify roles CRUD/readback, current grants, branding/settings ownership and HRM settings-route alignment without requiring an employee link."
+        ],
+        "exitCriteria": [
+          "A current operation/source/schema/UI/live matrix distinguishes implemented, privately verified, deployed and business-accepted states.",
+          "Real-session tests cover assigned/unassigned, organisation-wide, cross-company/tenant, revoked scope, system-user-only and employee-linked accounts.",
+          "Core settings/role edits round-trip without manufacturing or dropping grants; unsupported settings are explicit."
+        ]
+      },
+      {
+        "id": "M1",
+        "name": "Shared documents and usable attachments",
+        "status": "NOT_CLOSED",
+        "owner": "Core Documents and Procurement",
+        "dependsOn": [
+          "M0"
+        ],
+        "findingIds": [
+          "BE-04",
+          "BE-13",
+          "PAY-02",
+          "PAY-13"
+        ],
+        "workPackages": [
+          "Complete genuine scanner acceptance and reuse Core upload/storage/download/version/retention services.",
+          "Bind request, supplier bid, invoice, payment and credit evidence to its current authorized business purpose and original document.",
+          "Keep pending, infected, stale, unavailable and unauthorized files unusable; optional evidence remains optional when the applicable policy permits it."
+        ],
+        "exitCriteria": [
+          "Actual upload → scan → authorized attach/retrieve/retire works through existing screens.",
+          "Real scanner and independent owner evidence prove Clean/current-original semantics; UI filenames or mocked scanner results do not qualify."
+        ]
+      },
+      {
+        "id": "M2",
+        "name": "Vendor/item completeness and shared data operations",
+        "status": "PARTIALLY_DEPLOYED",
+        "owner": "Procurement master data and Core data-transfer services",
+        "dependsOn": [
+          "M0"
+        ],
+        "findingIds": [
+          "BE-01",
+          "BE-02",
+          "BE-17",
+          "BE-18"
+        ],
+        "workPackages": [
+          "Exercise existing vendor/item/contact/site/qualification CRUD and lifecycle in the supplied forms; fix individual gaps before adding alternative forms.",
+          "Complete scoped template download, import mapping, dry-run validation, row errors, duplicate handling, retry-safe commit and recovery using existing shared import infrastructure where it fits.",
+          "Selected-row and All/search-result CSV exports are deployed. Complete approved cloning/batch operations and saved views with server scope.",
+          "Persist selected numbering, precision, terms and supplier approval preferences under their owning policies. Decide duplicate-vendor merge/alias semantics before exposing merge; retain approved transaction history."
+        ],
+        "exitCriteria": [
+          "Create/edit/refresh/state-change workflows persist all supported fields and enforce current permissions, scope and versions.",
+          "Malformed imports and partial failures have recoverable per-row outcomes; replay cannot duplicate records.",
+          "Every enabled import/export/batch/clone control has a real contract and actual browser/API/database proof."
+        ]
+      },
+      {
+        "id": "M3",
+        "name": "Purchase requests, approvals, funding and line routing",
+        "status": "NOT_CLOSED",
+        "owner": "Procurement buying, Core approvals and Finance interface",
+        "dependsOn": [
+          "M0",
+          "M2"
+        ],
+        "findingIds": [
+          "BE-03",
+          "BE-09",
+          "PAY-10",
+          "CORE-05",
+          "CORE-11"
+        ],
+        "workPackages": [
+          "Complete draft → submit → approve/reject/return → revise/resubmit and permitted withdrawal using the shared Core engine and current users.",
+          "Implement active-case recall only after its named permission, assignment and independent reservation-release contracts are settled; use the existing 28-section recall draft. No edit/resubmit while a required release remains unconfirmed.",
+          "Accept line-level direct PO/RFQ routing, partial/cross-request consolidation and remaining-quantity conservation.",
+          "Consume Finance-owned budget contracts; an explicit policy may permit controlled manual funding evidence. Missing Finance must be visible and must never manufacture available balance, reservation or release."
+        ],
+        "exitCriteria": [
+          "A workerless permitted Core user completes the eligible request path in the existing UI.",
+          "Maker/checker, delegation, limits, policy versions, lost responses and decision/cancellation races are enforced and audited.",
+          "Approved quantities cannot be sourced or ordered twice; hard budget controls cannot be bypassed."
+        ],
+        "conditionalDependsOn": [
+          {
+            "milestone": "M1",
+            "when": "The submitted request policy requires scanned original documents."
+          }
+        ]
+      },
+      {
+        "id": "M4",
+        "name": "RFQs, bids, evaluation and awards",
+        "status": "NOT_CLOSED",
+        "owner": "Procurement sourcing and Core approvals",
+        "dependsOn": [
+          "M1",
+          "M3"
+        ],
+        "findingIds": [
+          "BE-11",
+          "BE-12"
+        ],
+        "workPackages": [
+          "Accept invitation/publish/close/reopen/cancel and supplier or surrogate bid capture with genuine original-document evidence.",
+          "Preserve sealed access, bid versions, technical/commercial evaluation and independent award authority.",
+          "Finish split awards, round/source identity, retained reservations and residual capacity; adopt awards into POs without duplicate consumption.",
+          "Verify existing later-model sourcing work before implementing missing code; keep held capabilities off until their exact schema/source/role/document gates pass."
+        ],
+        "exitCriteria": [
+          "An approved request can produce an authorized, orderable award and a linked PO source.",
+          "Actual tests cover late/conflicting bids, sealed access, wrong supplier, stale originals, cross-round over-allocation and repeated commands."
+        ]
+      },
+      {
+        "id": "M5",
+        "name": "Purchase orders, delivery, inspection and returns",
+        "status": "NOT_CLOSED",
+        "owner": "Procurement purchasing/receiving; Inventory/Assets interfaces",
+        "dependsOn": [
+          "M3"
+        ],
+        "findingIds": [
+          "BE-06",
+          "BE-07",
+          "BE-10"
+        ],
+        "workPackages": [
+          "Complete standard/blanket PO creation, approvals, issue/dispatch evidence, acknowledgement, controlled revisions, partial cancellation and closure.",
+          "Complete partial goods receipts, service milestones, inspection, rejection, reversal, return and replacement/credit references.",
+          "Keep receipt and invoice progress separate; deliver accepted quantities to Inventory/Assets through owned contracts. Contract-release purchasing additionally requires M7 contract activation."
+        ],
+        "exitCriteria": [
+          "Original order/receive screens support real partial fulfilment, revisions and recovery without overwriting history.",
+          "Concurrent receipts, returns and invoices conserve authorized quantity/value; over-receipt is policy-controlled.",
+          "Stock and asset ledgers stay with their owning modules; unavailable adapters show truthful pending/unavailable status."
+        ],
+        "conditionalDependsOn": [
+          {
+            "milestone": "M4",
+            "when": "PO creation consumes a sourcing award."
+          }
+        ],
+        "workPackagePrerequisites": [
+          "Contract-release orders require M7a contract activation, which can be accepted early after M0/M1/M2; the remainder of M7 is not a prerequisite for standard or award-backed POs."
+        ]
+      },
+      {
+        "id": "M6",
+        "name": "Bills, matching, credits and manual payments",
+        "status": "NOT_CLOSED",
+        "owner": "Procurement payables and Finance interface",
+        "dependsOn": [
+          "M5"
+        ],
+        "findingIds": [
+          "BE-08",
+          "PAY-01",
+          "PAY-03",
+          "PAY-04",
+          "PAY-05",
+          "PAY-06",
+          "PAY-07",
+          "PAY-08",
+          "PAY-12"
+        ],
+        "workPackages": [
+          "M6a: Finish existing bill/Inbox intake, manual capture/edit, PO/receipt-to-bill conversion, duplicate detection, two/three-way matching and exception review. OCR/email connectors are separate from controlled manual/file intake.",
+          "M6b: Complete standalone/itemized credits, partial application/unapplication, refunds and compensating corrections with retained evidence.",
+          "M6c: Complete manual payment recording, supplier advances, multi-invoice allocations, excess balances and batch per-line outcomes with independent configured authority and retry recovery.",
+          "M6d: Publish/verify the Finance/AP handoff and callback contract. Keep payment screens and manual records usable under policy while Finance is unbuilt; do not implement a substitute GL, bank execution or fabricated Finance Paid."
+        ],
+        "exitCriteria": [
+          "Bill → match/exception → approval → credit/payment record → remaining balance reconciles on the existing screens.",
+          "Price/quantity/tax differences, duplicates, cross-supplier/currency scope, stale versions, concurrent claims and uncertain acknowledgements have tested outcomes.",
+          "Manual payment evidence and Finance-confirmed posting/payment statuses remain distinguishable; absent adapters are explicit."
+        ],
+        "conditionalDependsOn": [
+          {
+            "milestone": "M1",
+            "when": "File intake, matching or policy requires current scanned evidence."
+          }
+        ]
+      },
+      {
+        "id": "M7",
+        "name": "Contracts, recurrence, communications and reports",
+        "status": "NOT_CLOSED",
+        "owner": "Procurement and shared Core services",
+        "dependsOn": [
+          "M2",
+          "M5",
+          "M6"
+        ],
+        "findingIds": [
+          "BE-05",
+          "BE-15",
+          "BE-19",
+          "PAY-09",
+          "PAY-11",
+          "PAY-14",
+          "PAY-15",
+          "PAY-16",
+          "PAY-17",
+          "CORE-01",
+          "CORE-08",
+          "CORE-09"
+        ],
+        "workPackages": [
+          "M7a: Complete signed/authorized contract activation, amendment lineage, framework/blanket drawdown ceilings, expiry and renewal alerts.",
+          "M7b: Execute due recurring commitments exactly once using Core business dates, current policy, retained template versions and pause/resume recovery.",
+          "M7c: Bind shared PDF/print/email templates, internal/supplier-visible comments, scoped sharing, notification delivery and workflow/schedule logs to real business events.",
+          "M7d: Reconcile Home, approvals, spend, commitments, supplier performance, aging and savings reports against full scoped persisted queries; define time/currency/FX and metric owners.",
+          "Keep global branding, organisation, identity, numbering infrastructure and reusable presentation in Core; Procurement settings expose only their owned behavior."
+        ],
+        "exitCriteria": [
+          "A contract release cannot exceed its effective ceiling; recurring children cannot duplicate under retry/catch-up.",
+          "Documents/notifications have authorized recipients and observable outcomes; outbox existence alone is not delivery.",
+          "Dashboard totals, drilldowns and exports reconcile with known source records across the full query."
+        ],
+        "earlyWorkPackages": [
+          {
+            "package": "M7a contract activation",
+            "dependsOn": [
+              "M0",
+              "M2"
+            ],
+            "conditionalDependency": "M1 where signed/scanned originals are required",
+            "reason": "Accept this package before contract-release purchasing; it does not wait for the full reporting/recurrence milestone."
+          }
+        ]
+      },
+      {
+        "id": "M8",
+        "name": "Supplier portal and external participation",
+        "status": "SCOPE_DECISION_REQUIRED",
+        "owner": "Core external identity and Procurement",
+        "dependsOn": [
+          "M1",
+          "M4",
+          "M5",
+          "M6"
+        ],
+        "findingIds": [
+          "BE-14",
+          "BE-16",
+          "CORE-12"
+        ],
+        "workPackages": [
+          "Keep portal work explicitly planned; confirm launch inclusion before activation rather than silently declaring it unnecessary.",
+          "Implement restricted invitation/login, own-supplier profile corrections, bids, PO acknowledgement, invoice/credit submission, document access and payment visibility.",
+          "Keep remittance verification with its Finance owner and never give suppliers internal ERP accounts as a shortcut."
+        ],
+        "exitCriteria": [
+          "Real external sessions complete selected supplier journeys in the retained portal UI.",
+          "Cross-supplier/company/tenant/attachment access is denied; invitation/token expiry, revocation and recovery are tested.",
+          "If deferred, the deferral and unavailable UI are recorded; it cannot be described as completed portal parity."
+        ]
+      },
+      {
+        "id": "M9",
+        "name": "Integrated UAT, safe rollout and handover",
+        "status": "NOT_COMPLETE",
+        "owner": "QA, engineering, operations and business owner",
+        "dependsOn": [
+          "M0",
+          "M1",
+          "M2",
+          "M3",
+          "M4",
+          "M5",
+          "M6",
+          "M7"
+        ],
+        "findingIds": [
+          "AUD-05"
+        ],
+        "workPackages": [
+          "Run the selected complete procure-to-pay journeys against one pinned UI/API/schema/configuration cohort with normal sessions and independent database/audit reconciliation.",
+          "Include M8 acceptance if portal is selected. Test negative scope/SoD, partial/concurrent transactions, stale sources, retries, integration outages and recovery.",
+          "Rehearse upgrade/restore/rollback from the live schema, then release accepted capabilities incrementally with backup, monitoring, support ownership and post-deploy smoke tests.",
+          "Record business UAT acceptance and every deferred operation explicitly. Keep Finance/Inventory/Assets adapter readiness separate from Procurement internal completion."
+        ],
+        "exitCriteria": [
+          "Every selected visible action is traceable to behavior, permission/scope, state/rules, persistence, audit and an accepted operation-level test.",
+          "Business UAT and release sign-off are recorded; technical test counts and anonymous page 200 responses do not substitute.",
+          "Exact live capability matrix, schema/API documents, rollback/support runbook and Git release records are published."
+        ],
+        "conditionalDependsOn": [
+          {
+            "milestone": "M8",
+            "when": "Supplier portal is included in the launch scope."
+          }
+        ]
+      },
+      {
+        "id": "M10",
+        "name": "Optional ERP platform extensions",
+        "status": "FUTURE_SCOPE_DECISION",
+        "owner": "Core platform product owner",
+        "dependsOn": [],
+        "findingIds": [
+          "CORE-06",
+          "CORE-07",
+          "CORE-10"
+        ],
+        "workPackages": [
+          "Separately scope arbitrary custom modules/field designers, executable custom functions/buttons, general developer tooling and expanded integration/backup administration.",
+          "Reuse existing typed preferences now; do not make a generic low-code platform an automatic Procurement prerequisite."
+        ],
+        "exitCriteria": [
+          "Each selected extension has ownership, security/authorization and runtime acceptance before its designer/control is enabled.",
+          "Deferred extensions remain listed explicitly and are excluded only from the agreed launch scope, not claimed as implemented."
+        ]
+      }
+    ],
+    "completionClaim": "No whole milestone, finding or business UAT is marked complete by this plan. Existing deployed slices remain bounded.",
+    "milestoneDocument": "docs/procurement/gap-closure/PROCUREMENT-FINISH-MILESTONES-20261025.md",
+    "productionHistory": [
+      {
+        "productCommit": "b3e190baedef2260bd270d5155b52b0da7ea3c81",
+        "uiCommit": "7cf8f55ff2d17e219c7e4985b2b635f80ee5b407",
+        "image": "sha256:e8330656f4e91f72a4f9cc04ecd0e0e827e1d73fb34c3b95915d3259ce3f0d30",
+        "schemaLine": "compatible P24",
+        "releaseEvidence": "docs/procurement/release/P24-SCOPED-CSV-RELEASE-20261025.md",
+        "sourceHostTestsPassed": 1057,
+        "privateBrowserCasesPassed": 3,
+        "businessUatAccepted": false,
+        "status": "SUPERSEDED_BY_M0_THEN_M2_RELEASES"
+      }
+    ],
+    "publishedSource": {
+      "erpMain": "cda5b33b062f61d6aed1c3dc1736d28722e8db33",
+      "erpPr": 97,
+      "uiMain": "403bfdac505d593921a5bab1ba3388896205325f",
+      "sourcePublicationEvidence": "docs/core/CORE-PUBLISHER-STARTUP-VERIFICATION-20261026.json",
+      "productionChanged": false,
+      "businessUatAccepted": false,
+      "holds": [
+        "Core production runtime least privilege remains unresolved",
+        "Nonempty publisher event and real transport acceptance remain open",
+        "UI later-feature ancestry not promoted to main",
+        "New workflow cohort and migration/API/publisher release require their own acceptance"
+      ]
+    }
+  }
 }

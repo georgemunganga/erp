@@ -37,9 +37,21 @@ if (args.SequenceEqual(new[] { "--principal-approvals" }))
     await PrincipalApprovalHttpVerification.RunAsync();
     return;
 }
+if (args.SequenceEqual(new[] { "--private-csv-export-owner" }))
+{
+    await ProcurementCsvPrivateInitializer.RunAsync();
+    return;
+}
+if (args.SequenceEqual(new[] { "--preflight-be01-revocation-control" }))
+{
+    ProcurementCsvPrivateInitializer.PreflightRevocationControl();
+    Console.WriteLine("PASS_PRIVATE_BE01_REVOCATION_CONTROL_ONLY");
+    return;
+}
 
-// This tool never creates a database. The reviewed launcher must create a NEW clone of the
-// retained canonical private restored backup and run this binary in --network none.
+// The default compatibility modes below never create a database. Their reviewed
+// launcher creates a NEW clone of the retained private backup under --network none.
+// The explicit CSV owner mode above has its own fresh-database admission.
 var connection = Environment.GetEnvironmentVariable("ERP_HOST_SMOKE_CONNECTION")
     ?? throw new InvalidOperationException("Private new-clone connection required.");
 var freshHrmOnly = args.SequenceEqual(new[] { "--rehearse-fresh-hrm" });

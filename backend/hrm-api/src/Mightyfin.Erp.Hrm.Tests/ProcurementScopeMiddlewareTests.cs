@@ -113,6 +113,29 @@ public sealed class ProcurementScopeMiddlewareTests
         await Middleware(_ => { reached = true; return Task.CompletedTask; }).InvokeAsync(master, masterScope, db);
         Assert.True(reached);
 
+        foreach (var exportPath in new[] { "/api/procurement/v1/vendors/export", "/api/procurement/v1/items/export" })
+        {
+            var (export, exportScope) = Request(user.Id);
+            export.Request.Path = exportPath;
+            export.Request.Headers["X-Shell-Entity"] = company.Id.ToString("D");
+            export.Request.Headers["X-Shell-Branch-Scope"] = "all";
+            reached = false;
+            await Middleware(_ => { reached = true; return Task.CompletedTask; }).InvokeAsync(export, exportScope, db);
+            Assert.True(reached);
+            Assert.True(exportScope.IsExplicitAllBranches);
+            Assert.Equal(new[] { first.Id }, exportScope.PermittedWorkLocationIds);
+
+            var (write, deniedExportScope) = Request(user.Id);
+            write.Request.Path = exportPath;
+            write.Request.Method = "POST";
+            write.Request.Headers["X-Shell-Entity"] = company.Id.ToString("D");
+            write.Request.Headers["X-Shell-Branch-Scope"] = "all";
+            reached = false;
+            await Middleware(_ => { reached = true; return Task.CompletedTask; }).InvokeAsync(write, deniedExportScope, db);
+            Assert.False(reached);
+            Assert.Equal(400, write.Response.StatusCode);
+        }
+
         var (unknown, unknownScope) = Request(user.Id);
         unknown.Request.Path = $"/api/procurement/v1/vendors/{Guid.NewGuid():D}/bank-data";
         unknown.Request.Headers["X-Shell-Entity"] = company.Id.ToString("D");

@@ -1,0 +1,59 @@
+{
+  "status": "PASS_DEPLOYED_P24_M0_SCOPE_AND_PROCUREMENT_UI",
+  "verifiedAtUtc": "2026-10-25T20:56:24.794583+00:00",
+  "productSource": "8fe231438aebb1ade8ac47c4584dd2e7ee3866f5",
+  "uiSource": "bc871e75f37404d951f4211e6185dae3b1273e90",
+  "image": "sha256:ceb4cbeb80fc57fb65370bb55026c3c95c5804bf04746f473365b7257497ccf7",
+  "reviewedPlanSha256": "e1076df1473f2f16c5ced9a2083eb194f6c6f79f752dc83a29a28ce52a37740d",
+  "publicationManifestSha256": "cc722ea4fc7c3094e02ddeae8fa5ab210fa34a099cf3747d8f6c58e1e9dae020",
+  "privateOwnerAcceptanceSha256": "ce4fe5c948688dd7b5275f347d454498a830e23915e966679e1844f8e12aecd6",
+  "privateFiniteRolesAcceptanceSha256": "d10425b40ab469c60a686bb9a80d1a20fe9c66dde607bcfc43ccca98411916dc",
+  "writers": {
+    "erp-hrm-api": {
+      "image": "sha256:ceb4cbeb80fc57fb65370bb55026c3c95c5804bf04746f473365b7257497ccf7",
+      "running": true,
+      "restartCount": 0,
+      "validateOnlyCoreStartup": true,
+      "oldRetainedStopped": true
+    },
+    "erp-hrm-outbox-publisher": {
+      "image": "sha256:ceb4cbeb80fc57fb65370bb55026c3c95c5804bf04746f473365b7257497ccf7",
+      "running": true,
+      "restartCount": 0,
+      "validateOnlyCoreStartup": true,
+      "oldRetainedStopped": true
+    }
+  },
+  "nginxSha256": "b2b73f3de2de40eb076486e82d374aeaeb613e5e3eea1710891ba847343fa028",
+  "onlyProcurementAliasChanged": true,
+  "allFivePublicUiFilesMatchBuild": [
+    {
+      "path": "assets/index-fdHm1QyA.css",
+      "sha256": "ccd0ad140a720a4b8e16d2b9b879e693c1291412160199d40bf3bb440e313e51"
+    },
+    {
+      "path": "assets/index-uUfV7_vR.js",
+      "sha256": "bafe75e4523446f4afdc884b66838e133bb83256942d77bc34da6378edf3ffe9"
+    },
+    {
+      "path": "favicon.svg",
+      "sha256": "1a9d07c4ce8b5ce48f73b849aceaf7dd9f380580212a8b4dfe48e82b681335bf"
+    },
+    {
+      "path": "index.html",
+      "sha256": "2301b3d59ba476aedb38bec92aeab09779f09b9e07ee5a4df1ec51265e5f352b"
+    },
+    {
+      "path": "manus-routes.json",
+      "sha256": "02a0d68b92f098179bfadc815b656a06a0ee3e71eed519e62aec68339dfe4d19"
+    }
+  ],
+  "publicPages200": 4,
+  "anonymousApis401": 4,
+  "schemaOrRoleGrantChanged": false,
+  "productionBusinessTestWrites": 0,
+  "realProductionUserUat": false,
+  "businessAcceptance": false,
+  "wholeM0Closed": false,
+  "wholeModuleComplete": false
+}

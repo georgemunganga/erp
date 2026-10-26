@@ -1,0 +1,184 @@
+{
+  "schemaVersion": 1,
+  "status": "PASS_PRIVATE_P24_M2_SELECTED_CSV_NOT_DEPLOYMENT",
+  "date": "2026-10-25",
+  "backendSourceCommit": "cb18353d94af016ca65cd939ced76f6f97222c27",
+  "uiSourceCommit": "092121409c3d032706b1ba0ca305a24c2d84ede7",
+  "sourceVerification": {
+    "focusedHostTestsPassed": 116,
+    "fullHostTestsPassed": 1081,
+    "failed": 0,
+    "skipped": 0,
+    "domainRerun": false,
+    "applicationInfrastructureModelMigrationAndProjectSourceUnchanged": true,
+    "uiUnitsPassed": 93,
+    "typescriptAndNode22LiveBuildPassed": true,
+    "uiLiveFiles": 5,
+    "mockedBrowserCasesPassed": 23,
+    "mockedBrowserRetries": 0,
+    "genuineApiPublicationFiles": 150,
+    "onlyApiDllAndPdbChanged": true,
+    "privateFixtureToolRuntimeFiles": 465
+  },
+  "actualPrivateVerification": {
+    "transport": "NORMAL_LOCAL_PASSWORD_AND_SESSION_COOKIE",
+    "freshFictionalPostgreSql17Cohort": true,
+    "employeeFixtures": 0,
+    "httpSuccessfulFiles": 6,
+    "realBrowserFiles": 2,
+    "browserDevices": [
+      "desktop Vendor",
+      "mobile Item"
+    ],
+    "selectedRowsPerBrowserFile": 2,
+    "revocationPrecedingFile": 1,
+    "sameCookieAfterExplicitGrantRevocationStatus": 403,
+    "auditDeltas": [
+      6,
+      2,
+      1
+    ],
+    "oldAuditCountsPreserved": [
+      0,
+      6,
+      8
+    ],
+    "totalExportAudits": 9,
+    "supplierRows": 9,
+    "itemRows": 10003,
+    "selectedTwoAnd100ExactSetsPassed": true,
+    "invalidEmptyDuplicateRepeatedCombined101Denied400": true,
+    "missingHiddenForeignCompanyForeignTenantAndMixedPartialDenied404": true,
+    "denialsReturnedNoCsvAndNoSuccessAudit": true,
+    "existingAllAndSearchRegressionsPassed": true,
+    "legacyAndNoExportListAllowedSelectedDenied403": true,
+    "noAuditRoleSelectedRequestDenied503": true,
+    "everyFixedCsvCellAndExactBytesMatchTypedOwnerBefore": true,
+    "utcTimestampSevenFractionDigitsAndLowercaseBooleansVerified": true,
+    "formulaTabsQuotesCommasAndEmbeddedNewlinePositivesVerified": true,
+    "downloadStreamsUsedWithoutResponseBodyRefetch": true,
+    "allPriorAuditsPreserved": true,
+    "capturedBusinessMasterAndNonExportAuditHashesUnchanged": true,
+    "coreStableUserFieldsAndCapturedBusinessHashesUnchanged": true,
+    "coreAuthenticationFamiliesExcludedFromBroadBusinessHashes": true,
+    "onlyNamedSyntheticRoleCsvRevocationChangedRoles": true,
+    "completeReceiptSchemaValuesAndByteHashVerified": true,
+    "offlineOwnerReconciliationRepeated": true,
+    "controlledHostExit": 0,
+    "proxyStopped": true
+  },
+  "originalProducerStatuses": {
+    "http": "M2_HTTP_SELECTED_AND_REGRESSION_ONLY_OWNER_PENDING",
+    "browser": "BROWSER_UI_COOKIE_EXPORT_ONLY_OWNER_PENDING",
+    "controlPlane": "CONTROL_PLANE_FINISHED_BROWSER_AND_OWNER_UNVERIFIED",
+    "perPhaseOwner": "PASS_PRIVATE_M2_SELECTED_OWNER_AUDITS_AND_BUSINESS_HASHES_ONLY"
+  },
+  "retainedPrivateInputSha256": {
+    "plan.private.json": "85b1b8b85c0ef61985ab76c1ca6cbb86f7cb513bc61cae8cc2a1d3c639c7bf75",
+    "fixture.READY.private.json": "3847d2d73a586664a5491356a0e1fb0d4aad8383c634a2b6a65135d61ec4c657",
+    "backend-container.private.json": "db0bc23871363150bec0138fbad73bf381eb91fe0bf47b086a98c0b7fc17582f",
+    "proxy-receipt.private.json": "c953541d8aa32506f2af01acbb55065003ebbfba9ccfc9f1e70d7f84db75ad0e",
+    "http.http-result.private.json": "9593a4a1e80e8c19e2d9abcbc6c8219a9e4c356455d85c4a5bd53ac4429e6457",
+    "http.owner-before.private.json": "1f915c7b833a16d8fb7c1148e903ee8bd709ac184f4799e267671b2e83d5c863",
+    "http.owner-after.private.json": "4f7264518f0b2447c7981c5cf18c5afd926676f7993cffba47c9845ed329e53f",
+    "http.owner-result.private.json": "38b51b0575ec00fcb1502760bbe89eb3b1a46b322cb0aa5c7cff36cb2541c34d",
+    "http.phase.private.json": "d7510541e4f1b3503f2db65ce7d7a915b070a487fb3a8a3f32490a35a6084b1a",
+    "browser.expected-csv.private.json": "64b29b7043d41dccd89c23212d48434ba6154efc667b6961a44f53d091710782",
+    "browser.owner-before.private.json": "4f7264518f0b2447c7981c5cf18c5afd926676f7993cffba47c9845ed329e53f",
+    "browser.owner-after.private.json": "b34e0de86325f4cbdd97dd0dce815799695ec783cfc2ae03e4c5a54f97f7f2be",
+    "browser.owner-result.private.json": "638a2d6249a59d575e7d58a368e1875e5f7e03b8e9936ae73c622b5fdc9cd76a",
+    "browser-result.private.json.vendors": "0a18e1fefed257230e5434a846df3c02cbf463814bf0fbfdb06243d76b404ce0",
+    "browser-result.private.json.items": "f4ae42ec40c3c36dcbe68e338841a38b63519ea4baa1a9bbfdc4e7c9bdd0b833",
+    "browser-exit.private.json": "ff8ae5796bcef71911ff9c5c3eaea341819c471f669549e252b830106edd4305",
+    "browser-phase.private.json": "3dab3e7ed902c34dd5dcc2ccc4251b017a61f2863186a1cbaec340a4649c69d8",
+    "browser-after.phase.private.json": "899a9598654a4a4469768c806c612567c53f3e30ddf7d8cba609eddd000708be",
+    "revocation.http-result.private.json": "47878103d0d823c92fc97c014ecc1ad793e2272fce964b4aa72308e455782587",
+    "revocation.owner-before.private.json": "b34e0de86325f4cbdd97dd0dce815799695ec783cfc2ae03e4c5a54f97f7f2be",
+    "revocation.owner-after.private.json": "1a682776c003242a657391d3eb2a4ebe66431407b17cb368b0bfb39d3f5c2560",
+    "revocation.owner-result.private.json": "2b82d097fa7b103affaa4635cd5b5a7f9cafbac27af8a5908afbc29fd724f255",
+    "revocation.phase.private.json": "c9e32b7a6169a5daed58a546e4fd593307a046301e353c9831ab38cc36038a9c",
+    "m2-selected-csv-revoke-receipt.private.json": "fb4cc3e189c7925c8939d2332142d3845fcd00dcb37bfd1dd33bafa4a29aeb4b",
+    "initializer-exit.private.json": "baef76dfb62d18c206d274661b9b65adc1729cfe014658c2b1a42747ac247cde",
+    "result.private.json": "f8ad1c138a8535cd5ddcc1b312273ec9ccda6d10bb2942720fd76d40d5c2711a",
+    "proxy-stop.private.json": "257e5a410e4ea2804141eee8fc4e8fd19c3bc0b414fc9bf60b994cd988bbcc7d",
+    "release-owner-acceptance.private.json": "2130e778c125e71c233dc33e2f2b58f6f10f1a77ccabeedd0a6a6fc9c91f3bf9",
+    "release-finite-roles-acceptance.private.json": "68e7a80d3efd0fb70f3f6b38f35bf4447481c3156331ee4773f99ce6dff99937"
+  },
+  "parentEvidence": {
+    "sdk": {
+      "evidenceArtifact": "procurement-p24-m2-selected-sdk-prep-20261025_run01/result.private.json",
+      "sha256": "c2c27d7c508428b75231f1e2aecece198fc2047129902006a43541dc16d19dfd"
+    },
+    "publication": {
+      "evidenceArtifact": "procurement-p24-m2-selected-api-publication-prep-20261025_run01/result.private.json",
+      "sha256": "0d60ee9016bc0c12a32b05976b8899b7dfd654a11eb266a907e2a5d993b6871c"
+    },
+    "publicationManifest": {
+      "evidenceArtifact": "procurement-p24-m2-selected-api-publication-prep-20261025_run01/publish-manifest.private.json",
+      "sha256": "335780e1dbe747b7b7c8030bdeb046f17517b43b9bcf3316e3ea3bb860317ef3"
+    },
+    "failedTool01Exit": {
+      "evidenceArtifact": "procurement-p24-m2-selected-tool-sdk-prep-20261025_run01/exit.private.json",
+      "sha256": "e5b77a28f74e48ce03857f5549d5129ee0ab95eb7d9db8a8fe84c9ff9e011a51"
+    },
+    "failedTool01CompileLog": {
+      "evidenceArtifact": "procurement-p24-m2-selected-tool-sdk-prep-20261025_run01/build.log",
+      "sha256": "8e3e27b78f16205ffb0682f678e03321ab41478dcf35a9488f6c9f57a194034f"
+    },
+    "tool02": {
+      "evidenceArtifact": "procurement-p24-m2-selected-tool-sdk-prep-20261025_run02/result.private.json",
+      "sha256": "79828ea4cb7b183dcc972e06207eb3bdff254df8d599bd6c854316daf6dadbcd"
+    },
+    "tool02Manifest": {
+      "evidenceArtifact": "procurement-p24-m2-selected-tool-sdk-prep-20261025_run02/runtime-manifest.private.json",
+      "sha256": "a332f39584ea7e9fa267610cd94aa928b102286d9edd30defa604d2b2fb472fa"
+    },
+    "liveUiBuild": {
+      "evidenceArtifact": "procurement-m2-selected-export-ui-validation-20261025_run01/result.json",
+      "sha256": "e6964d848395d750cd172d3b291d1a889f74ffc88b632539815b98bfcc70c255"
+    },
+    "mockedBrowser23": {
+      "evidenceArtifact": "procurement-m2-selected-export-ui-validation-20261025_run01/mock-browser-report.json",
+      "sha256": "090d1a4975b10e95878f50c394a9a96f2a1e23a991cd56dc051c7a5d43ff8dfa"
+    },
+    "harness": {
+      "evidenceArtifact": "procurement-m2-selected-export-acceptance-prep-20261025_run01/plan.INCOMPLETE.json",
+      "sha256": "a694c3948f598725355d056e84bb47d4d3574e7b0d0f12299bc9bf1535804ee8"
+    }
+  },
+  "retainedFailuresAndReviewHistory": [
+    {
+      "stage": "Tool01 compile",
+      "outcome": "CS0117: unsupported IsArchived properties in private fixture; no DB/native run. Original source/logs/exit retained; Fixture02 uses genuinely unseeded missing IDs and existing visibility filters."
+    },
+    {
+      "stage": "Pre-runtime source review",
+      "outcome": "Receipt-path/SerializeAsync race held before launch; bounded complete-JSON polling plus strict equality/type/unique-key/hash guards replaced existence-only reading."
+    },
+    {
+      "stage": "Pre-runtime source review",
+      "outcome": "First-column/count CSV assertions held before launch; full owner-before typed projections and exact byte SHA, browser expectation/ordered-ID binding and mutation tests added. Old profiles retained unchanged."
+    }
+  ],
+  "scopeLimits": {
+    "deployedByThisReceipt": false,
+    "productionChanged": false,
+    "productionUserCrudUat": false,
+    "businessAcceptance": false,
+    "wholeM2Closed": false,
+    "wholeModuleComplete": false,
+    "softDeleteOrArchivedMasterCapabilityClaim": false,
+    "generalCoreImmutableClaim": false,
+    "productionFiniteRoleAcceptance": false,
+    "explicitSessionUserEqualsCurrentUserAssertion": false,
+    "schemaMigrationIntroduced": false,
+    "newDefaultExportGrants": false,
+    "financeInventoryScannerClaim": false,
+    "remainingM2": [
+      "imports and dry-run/mapping/recovery",
+      "approved cloning and batch operations",
+      "saved views",
+      "field-by-field lifecycle/UAT gates"
+    ]
+  }
+}

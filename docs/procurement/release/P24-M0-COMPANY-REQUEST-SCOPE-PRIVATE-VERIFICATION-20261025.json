@@ -1,0 +1,188 @@
+{
+  "schemaVersion": 1,
+  "status": "PASS_PRIVATE_P24_M0_COMPANY_REQUEST_LIST_SCOPE_NOT_DEPLOYMENT",
+  "date": "2026-10-25",
+  "source": {
+    "backendCommit": "8fe231438aebb1ade8ac47c4584dd2e7ee3866f5",
+    "apiCompiledCommit": "d4807f80ef6a716925b0a5158dcea26d86ada43f",
+    "apiByteAndSourceParityAcrossTestOnlyFix": true,
+    "uiCommit": "bc871e75f37404d951f4211e6185dae3b1273e90",
+    "backendSourceUrl": "https://github.com/georgemunganga/erp/commit/8fe231438aebb1ade8ac47c4584dd2e7ee3866f5",
+    "uiSourceUrl": "https://github.com/georgemunganga/module-connect/commit/bc871e75f37404d951f4211e6185dae3b1273e90",
+    "modelsMigrationsApplicationAndInfrastructureUnchanged": true
+  },
+  "sourceVerification": {
+    "focusedHostTestsPassed": 105,
+    "fullHostTestsPassed": 1070,
+    "failed": 0,
+    "skipped": 0,
+    "domainRerun": false,
+    "mappedRouteFixture": "Existing EF InMemory and synthetic authentication; not SQLite or PostgreSQL",
+    "uiUnitTestsPassed": 85,
+    "typescriptAndNode22LiveBuildPassed": true,
+    "builtUiFiles": 5,
+    "mockedBrowserCasesPassed": 16,
+    "mockedBrowserRetries": 0,
+    "genuineApiPublishedFiles": 150,
+    "onlyPublishedApiDllAndPdbChanged": true,
+    "privateToolRuntimeFiles": 465
+  },
+  "actualPrivateVerification": {
+    "transport": "NORMAL_LOCAL_PASSWORD_AND_SESSION_COOKIE",
+    "database": "Fresh fictional P24 PostgreSQL 17 cohort; identities omitted",
+    "employeeFixtures": 0,
+    "normalCookieHttpReadAndDeniedAllWritesPassed": true,
+    "allOwnRequestsBeforeRevocation": 4,
+    "permittedBranchesBeforeRevocation": 2,
+    "ownMakerAndActiveAssignmentIntersectionVerified": true,
+    "deniedBranchForeignCompanyForeignTenantOtherMakerExcluded": true,
+    "confinedBranchlessExcludedAndLegacyUnconfinedOwnBranchlessPreserved": true,
+    "companyOwnedPlanAndContractReadsVerified": true,
+    "allRequestPostAndPutDenied400": true,
+    "desktopAndMobileRealBrowserCasesPassed": 2,
+    "actualBranchLabelsVisible": true,
+    "allRequestCreateDisabledInUi": true,
+    "unexpectedPolicyReviewCalls": 0,
+    "readAndBrowserFullSnapshotsEqual": true,
+    "sameCookieBranchRevocationVerified": true,
+    "allOwnRequestsAfterRevocation": 2,
+    "revokedBranchDirectReadStatus": 403,
+    "currentCoreChoicesStatus": 200,
+    "originalRequestsPreserved": 10,
+    "newSelectedBranchRequestHeaders": 1,
+    "newRequestLines": 1,
+    "headerVersionAfterEdit": 2,
+    "lineVersionUnchanged": 1,
+    "newAudits": 3,
+    "newOutbox": 0,
+    "exactBranchBAssignmentArchivedBranchARetained": true,
+    "otherCapturedRowsUnchanged": true,
+    "finiteRolesPrivatelyVerified": true,
+    "controlledHostExit": 0,
+    "permissionFilteringBeforeCountAndPaginationVerified": true
+  },
+  "retainedPrivateInputSha256": {
+    "plan.private.json": "8909575c276e77c37802db23664063363e6e5ca4749ad355bc9ab17ead2b1b0a",
+    "fixture.READY.private.json": "e5a128f554cd9883c033f9f90d4c31474d1561a737cc76ac04d110ea3ba93715",
+    "backend-container.private.json": "3b354a21ec9a0cb6b16654e2c49fb49365cb486dfa14b0cd9a96e032afc48198",
+    "proxy-receipt.private.json": "797dcfd80c1f85f4ac85effa848108dec9956eb58b06efdc6e3f85b80a5eb95b",
+    "read.http-result.private.json": "85120b1c7be6f3f13328431198baf99794879f0b3582b3c5aa3347fa1b684e3b",
+    "read.phase.private.json": "516fe30a1c0bb9d7adfb5c5c1e12e90bd81b0346f4c409b8c7a22c2dd5c54ecd",
+    "browser-result.private.json.desktop": "c77029ad2b302faf072b37cf472316bb25860b10a4b504d11ba9cc8751ff1f2e",
+    "browser-result.private.json.mobile": "5460627e7ab15757aef6d93f29c87941fc3930614d1baecc66e655b47046870e",
+    "browser-exit.private.json": "ff8ae5796bcef71911ff9c5c3eaea341819c471f669549e252b830106edd4305",
+    "browser.phase.private.json": "4734e756b383713ec47182cd33f3b5c29d9e0e91486144b882f19dbfd03af586",
+    "revoke.http-result.private.json": "2bf2ad7c720f4bb0e40538706ec87801ca91dd2ccfc20312253921ee63950bf9",
+    "revoke.phase.private.json": "c6839983705ca4e3ae1295786b51cf95cd538a86d115d0f83f4dc477afe44d92",
+    "write.http-result.private.json": "d18ca3de2c0df8c20843cfc433d0a716158a030165df6d92447a8e9400ca8058",
+    "write.phase.private.json": "91231e1d37dae5590d62fa3fe17a2a4395a449686e81547eb011d796539d2a1e",
+    "owner-before.private.json": "d7e47f2659e4fc4072bb3b3a7f7ee2f952b086af8488825f35e35b3ab5082a25",
+    "owner-after-read.private.json": "d7e47f2659e4fc4072bb3b3a7f7ee2f952b086af8488825f35e35b3ab5082a25",
+    "owner-after-browser.private.json": "d7e47f2659e4fc4072bb3b3a7f7ee2f952b086af8488825f35e35b3ab5082a25",
+    "owner-after-revoke.private.json": "b52eef5170f32b6bdd7bff9f21691f1d951eab8919e6939114b66ff110192f38",
+    "owner-after-write.private.json": "5778cd5aaa192fa13f148602c463f8c61a9f007ba5451802b50d1dd9de237bd4",
+    "owner-result.private.json": "75057807d21ffe2469fb51c2c8fbc1b2df5e40b6d39914f77aa1bbca7b79d66a",
+    "m0-scope-revoke-receipt.private.json": "a5a018c9a7591d669c5af7021526c853b5ae9efeefa857f7d6f0b1d4ba1defbf",
+    "initializer-exit.private.json": "baef76dfb62d18c206d274661b9b65adc1729cfe014658c2b1a42747ac247cde",
+    "result.private.json": "ff39ce98fab74af015804c120576f041304aa322f2ba7b14147c53f38d58f2f0",
+    "release-owner-acceptance.private.json": "ce4fe5c948688dd7b5275f347d454498a830e23915e966679e1844f8e12aecd6",
+    "release-finite-roles-acceptance.private.json": "d10425b40ab469c60a686bb9a80d1a20fe9c66dde607bcfc43ccca98411916dc",
+    "superseded-browser-module-resolution/browser-exit.private.json": "01614b0e7bf86220a2287c6fd76f9b3a5c06913c2e0762c9eb3958c397f0bbee",
+    "superseded-browser-module-resolution/browser.log": "573690a329ca15fb2680faf220daa9dcd568292736d7c582d3c715cf15494142",
+    "superseded-browser-module-resolution/browser.source-before.private.json": "7780a383544e1a75b41a12276b84c139890c30885540df420c41b3c95d927702",
+    "superseded-browser-module-resolution/harness-plan.before-tooling.private.json": "3222be60e2657272156bd8c1d5e7d34d6701c45dc3fd25a2fcc1df0afa6611af",
+    "superseded-browser-module-resolution/runtime-plan.before-tooling.private.json": "0b03b90895cbe899eee8e83edc02a2c9ad1b443d541edaf837b8e00343f90b01"
+  },
+  "parentEvidence": {
+    "failedSdk06": {
+      "evidenceArtifact": "procurement-p24-operational-all-sdk-prep-20261025_run01/exit.private.json",
+      "sha256": "a1bf9b204c849034f72592227515c3f552d99e6ddb8dd5d8204be57554811796"
+    },
+    "failedSdk06CompileLog": {
+      "evidenceArtifact": "procurement-p24-operational-all-sdk-prep-20261025_run01/Mightyfin.Erp.Hrm.Tests-build.log",
+      "sha256": "8dcc2dbe2ef07191a4c82ce5f766321fbce3ddf728e4d91fae93d7a2f41f78a6"
+    },
+    "sdk07": {
+      "evidenceArtifact": "procurement-p24-operational-all-sdk-prep-20261025_run02/result.private.json",
+      "sha256": "8abde054e2f66f381fef60d38f627452b7a67f0191754b4babd6bdf39bf04d6a"
+    },
+    "sdk07Closure": {
+      "evidenceArtifact": "procurement-p24-operational-all-sdk-prep-20261025_run02/unchanged-products-and-refs.private.json",
+      "sha256": "9410416ca0330a6d087a04569daa29cce49678583682c4fea78d9864be01b7fd"
+    },
+    "publication": {
+      "evidenceArtifact": "procurement-p24-operational-all-api-publication-prep-20261025_run01/result.private.json",
+      "sha256": "d36c3a6b22ef27655984dfa52671829a4ff4b2f34f00061c93a12527a2c9f99b"
+    },
+    "publicationManifest": {
+      "evidenceArtifact": "procurement-p24-operational-all-api-publication-prep-20261025_run01/publish-manifest.private.json",
+      "sha256": "cc722ea4fc7c3094e02ddeae8fa5ab210fa34a099cf3747d8f6c58e1e9dae020"
+    },
+    "failedTool01": {
+      "evidenceArtifact": "procurement-p24-m0-tool-sdk-prep-20261025_run01/exit.private.json",
+      "sha256": "e5b77a28f74e48ce03857f5549d5129ee0ab95eb7d9db8a8fe84c9ff9e011a51"
+    },
+    "failedTool01CompileLog": {
+      "evidenceArtifact": "procurement-p24-m0-tool-sdk-prep-20261025_run01/build.log",
+      "sha256": "06a675e9c6e96c3ace32703aed697cc0c2313cf74938daa73c7b0e013f24b48e"
+    },
+    "failedTool02": {
+      "evidenceArtifact": "procurement-p24-m0-tool-sdk-prep-20261025_run02/exit.private.json",
+      "sha256": "e5b77a28f74e48ce03857f5549d5129ee0ab95eb7d9db8a8fe84c9ff9e011a51"
+    },
+    "failedTool02CompileLog": {
+      "evidenceArtifact": "procurement-p24-m0-tool-sdk-prep-20261025_run02/build.log",
+      "sha256": "9ca2a39861df5ff5914ee06ec748fdce3e5ada1b9b93a8b0e4f37883e773d942"
+    },
+    "tool03": {
+      "evidenceArtifact": "procurement-p24-m0-tool-sdk-prep-20261025_run03/result.private.json",
+      "sha256": "1ee862b24907a21151124d5aab6d69ab907f970ce2c4713d76d3ca1b8f24bbf2"
+    },
+    "tool03Manifest": {
+      "evidenceArtifact": "procurement-p24-m0-tool-sdk-prep-20261025_run03/runtime-manifest.private.json",
+      "sha256": "0d2cba06abf2a369f19f4e5c52ce0ab7d5e95fd5223ad62e3638fea16d8d32ff"
+    },
+    "liveUiBuild": {
+      "evidenceArtifact": "procurement-m0-request-ui-validation-20261025_run01/result.json",
+      "sha256": "3474730b983081c6906a256638f037d7b9cd8103a3a3cde6ca373924b4455f97"
+    },
+    "mockBrowser16": {
+      "evidenceArtifact": "procurement-m0-request-ui-validation-20261025_run01/mock-browser-report.json",
+      "sha256": "6c52486b251726813a5ef243b891a804186fb4215eaae90160f381de63bc7ebb"
+    }
+  },
+  "retainedFailures": [
+    {
+      "stage": "SDK06 Host.Tests compile",
+      "cause": "Two test helper calls used undefined New instead of existing Draft; API compiled successfully; no tests ran."
+    },
+    {
+      "stage": "Tool01 compile",
+      "cause": "SDK Compile glob included retained backup Program.cs; fixed private project Compile exclusion."
+    },
+    {
+      "stage": "Tool02 compile",
+      "cause": "ScopeDataset lacked two Application namespace imports; fixed imports only."
+    },
+    {
+      "stage": "Initial private browser launch",
+      "cause": "Missing module resolution prevented current test discovery/execution; zero tests; raw attempt and unchanged snapshots retained separately."
+    }
+  ],
+  "scopeLimits": {
+    "productionChanged": false,
+    "deployedByThisReceipt": false,
+    "productionUserUat": false,
+    "wholeProcurementAccepted": false,
+    "wholeOperationalAllBranchCapabilityAccepted": false,
+    "noNewDefaultRoleGrants": true,
+    "noSchemaMigrationIntroduced": true,
+    "generalRequestApprovalFinanceOrInventoryClaim": false,
+    "remainingOperationalScopes": [
+      "orders",
+      "receipts",
+      "invoices",
+      "dashboards and other branch-owned operational aggregation"
+    ]
+  }
+}
