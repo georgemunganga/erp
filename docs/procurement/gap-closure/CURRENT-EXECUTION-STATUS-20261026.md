@@ -4,9 +4,39 @@ This checkpoint supersedes earlier status paragraphs, not historical acceptance 
 
 ## Latest backend correction deployed
 
-ERP main `f1eb57e09a7ce081720e610633afab8a3dc8e22c` includes PR117. Backend product `237a936b25690f780cd09ca6ab3f90b1a05cc009` / image `c233ffd9e76f7579f52bfb03259985a7abc6691c94d05b9633773b2389f3aa0a` is deployed to API and publisher. The SMTP fallback now rejects expired or invalid account-link expiry before transport, retaining visible failed-retry semantics. Eight focused and all 1,327 Host tests passed, and 150 actual image files matched the genuine publication. Read-only canary and independent live release verification passed; all Env/Host settings, import+maintenance flags, schema200/histories56/28/1 and database role grants were preserved. Old containers remain stopped for rollback. [Deployment evidence](../release/CORE-ACCOUNT-LINK-EXPIRY-DEPLOYMENT-20261026.json) retains the failed healthcheck-metadata verifier attempt. This supersedes D35/C9 as the current backend, while the UI remains 9b6. A read-only production aggregate also observed one failed account-link retry with the fixed expiry-guard reason, without exposing payload or recipient. SMTP provider delivery remains open; whole-module UAT is not complete.
+ERP main `de449645a5cf4b46da1024c821252ac46b625103` includes PR117 and its deployment record PR118. Backend product `237a936b25690f780cd09ca6ab3f90b1a05cc009` / image `c233ffd9e76f7579f52bfb03259985a7abc6691c94d05b9633773b2389f3aa0a` is deployed to API and publisher. The SMTP fallback now rejects expired or invalid account-link expiry before transport, retaining visible failed-retry semantics. Eight focused and all 1,327 Host tests passed, and 150 actual image files matched the genuine publication. Read-only canary and independent live release verification passed; all Env/Host settings, import+maintenance flags, schema200/histories56/28/1 and database role grants were preserved. Old containers remain stopped for rollback. [Deployment evidence](../release/CORE-ACCOUNT-LINK-EXPIRY-DEPLOYMENT-20261026.json) retains the failed healthcheck-metadata verifier attempt. This supersedes D35/C9 as the current backend, while the UI remains 9b6. A read-only production aggregate also observed one failed account-link retry with the fixed expiry-guard reason, without exposing payload or recipient. SMTP provider delivery remains open; whole-module UAT is not complete.
 
 M4 source `e49b0631` passed 1,327 Host and 30 genuinely discovered Core Approval tests; Procurement1,434 and no-pending-model evidence are carried only by exact unchanged source/model parity. A populated 200-table clone passed Up/empty Down/Up; ten independent transactional marker tests proved each physical Down veto, with FK-bypass limits explicit. Real-cookie acceptance is in progress, including an actual branch-scope denial and normal-cookie independently activated PR authority. None of this activates M4 in production.
+
+## Latest in-progress workflow test and cleanup
+
+The original RFQ UI opened publication review and recovered its committed Open
+result after a deliberately lost response. A reviewer-only metadata availability
+bug was fixed in private source `9009562134f86f1c74ce5200034a330ea00d49df`,
+which passed 1,341 Host tests and a genuine 150-file publication. The subsequent
+real reviewer Decide still returned 409. Independent read-only reconciliation
+confirmed no decision, Decide receipt or invitation was committed; the case
+remains pending. A single original-key diagnostic retry also returned 409.
+Its original Finance evidence expired naturally and the private proxy/API were
+closed. Safe stage/code logging successor `d295e08850d24b317d76aa434aabe5da0c224ca0`
+is being built before a fresh normal-cookie authority/funding/source cohort.
+The underlying refusal is not yet isolated. This is a real unresolved UAT
+blocker, not a passed publication workflow or a production release.
+
+[Draft M5a PR119](https://github.com/georgemunganga/erp/pull/119) preserves source
+`e57de3c786e65e60da28285483ed9de9a8a942dd` for same-row PO governance,
+manual commitment/release evidence, shared Core approval and strict historical
+command recovery. Pending withdrawal uses the real Core cancellation engine;
+manual supplier acknowledgment retains its approved procedure and observation
+and recording times. Source review does not establish schema or runtime
+acceptance. Its migration, physical readiness, original UI binding and actual
+workflow tests remain required; the operational flag remains off.
+
+Cleanup removed three verified compiled-cache archives totalling 299,087,290
+bytes, preserving source, raw UAT results, DB backups and rollback products.
+Merged remote branches for PR117/118 were retired after exact-head and main
+ancestry checks. The [cleanup record](../release/UAT-CLEANUP-CHECKPOINT-20261026.json)
+contains exact journal hashes. Neither cleanup nor draft source completes UAT.
 
 ## Current UAT and UI update
 
