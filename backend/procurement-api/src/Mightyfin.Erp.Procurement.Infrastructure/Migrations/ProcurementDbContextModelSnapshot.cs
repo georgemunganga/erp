@@ -1213,9 +1213,23 @@ namespace Mightyfin.Erp.Procurement.Infrastructure.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("id");
 
+                    b.Property<string>("ActorSubjectId")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("actor_subject_id");
+
                     b.Property<int>("AppliedRows")
                         .HasColumnType("integer")
                         .HasColumnName("applied_rows");
+
+                    b.Property<Guid?>("CommitCommandKey")
+                        .HasColumnType("uuid")
+                        .HasColumnName("commit_command_key");
+
+                    b.Property<string>("CommitRequestSha256")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("commit_request_sha256");
 
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("timestamp with time zone")
@@ -1226,6 +1240,11 @@ namespace Mightyfin.Erp.Procurement.Infrastructure.Migrations
                         .HasMaxLength(200)
                         .HasColumnType("character varying(200)")
                         .HasColumnName("created_by");
+
+                    b.Property<string>("DuplicatePolicy")
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)")
+                        .HasColumnName("duplicate_policy");
 
                     b.Property<DateTimeOffset>("ExpiresAt")
                         .HasColumnType("timestamp with time zone")
@@ -1246,6 +1265,15 @@ namespace Mightyfin.Erp.Procurement.Infrastructure.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("legal_entity_id");
 
+                    b.Property<string>("PreviewSha256")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("preview_sha256");
+
+                    b.Property<string>("PreviewSnapshotText")
+                        .HasColumnType("text")
+                        .HasColumnName("preview_snapshot_text");
+
                     b.Property<string>("RecordType")
                         .IsRequired()
                         .HasMaxLength(60)
@@ -1255,6 +1283,19 @@ namespace Mightyfin.Erp.Procurement.Infrastructure.Migrations
                     b.Property<string>("ResultJson")
                         .HasColumnType("jsonb")
                         .HasColumnName("result_json");
+
+                    b.Property<string>("ResultSha256")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("result_sha256");
+
+                    b.Property<string>("ResultText")
+                        .HasColumnType("text")
+                        .HasColumnName("result_text");
+
+                    b.Property<int>("SchemaVersion")
+                        .HasColumnType("integer")
+                        .HasColumnName("schema_version");
 
                     b.Property<string>("State")
                         .IsRequired()
@@ -1288,11 +1329,101 @@ namespace Mightyfin.Erp.Procurement.Infrastructure.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasAlternateKey("TenantId", "LegalEntityId", "Id");
+                    b.HasIndex("TenantId", "LegalEntityId", "CommitCommandKey")
+                        .IsUnique()
+                        .HasDatabaseName("ix_import_batches_scope_command")
+                        .HasFilter("commit_command_key IS NOT NULL");
 
                     b.HasIndex("TenantId", "LegalEntityId", "State", "ExpiresAt");
 
                     b.ToTable("import_batches", "procurement");
+                });
+
+            modelBuilder.Entity("Mightyfin.Erp.Procurement.Domain.ImportRowReceipt", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("CreatedBy")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("created_by");
+
+                    b.Property<Guid?>("CreatedRecordId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("created_record_id");
+
+                    b.Property<string>("Disposition")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("disposition");
+
+                    b.Property<int>("EndLine")
+                        .HasColumnType("integer")
+                        .HasColumnName("end_line");
+
+                    b.Property<Guid>("ImportBatchId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("import_batch_id");
+
+                    b.Property<Guid>("LegalEntityId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("legal_entity_id");
+
+                    b.Property<int>("RowNumber")
+                        .HasColumnType("integer")
+                        .HasColumnName("row_number");
+
+                    b.Property<string>("RowSha256")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("row_sha256");
+
+                    b.Property<int>("StartLine")
+                        .HasColumnType("integer")
+                        .HasColumnName("start_line");
+
+                    b.Property<string>("TenantId")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)")
+                        .HasColumnName("tenant_id");
+
+                    b.Property<DateTimeOffset?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("updated_by");
+
+                    b.Property<long>("Version")
+                        .IsConcurrencyToken()
+                        .HasColumnType("bigint")
+                        .HasColumnName("version");
+
+                    b.HasKey("Id");
+
+                    b.HasAlternateKey("TenantId", "LegalEntityId", "Id");
+
+                    b.HasIndex("TenantId", "LegalEntityId", "ImportBatchId", "RowNumber")
+                        .IsUnique()
+                        .HasDatabaseName("ix_import_row_receipts_batch_row");
+
+                    b.ToTable("import_row_receipts", "procurement", t =>
+                        {
+                            t.HasCheckConstraint("ck_import_row_receipts_bounds", "row_number >= 2 AND start_line >= 2 AND end_line >= start_line");
+                        });
                 });
 
             modelBuilder.Entity("Mightyfin.Erp.Procurement.Domain.InvoiceException", b =>
@@ -11387,6 +11518,16 @@ namespace Mightyfin.Erp.Procurement.Infrastructure.Migrations
                         .HasForeignKey("TenantId", "LegalEntityId", "ReceivingSourceStateId", "SourcePurchaseOrderId", "IssuedBindingId", "PurchaseOrderLineId")
                         .HasPrincipalKey("TenantId", "LegalEntityId", "Id", "PurchaseOrderId", "IssuedVersionId", "PurchaseOrderLineId")
                         .OnDelete(DeleteBehavior.Restrict);
+                });
+
+            modelBuilder.Entity("Mightyfin.Erp.Procurement.Domain.ImportRowReceipt", b =>
+                {
+                    b.HasOne("Mightyfin.Erp.Procurement.Domain.ImportBatch", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId", "LegalEntityId", "ImportBatchId")
+                        .HasPrincipalKey("TenantId", "LegalEntityId", "Id")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
                 });
 
             modelBuilder.Entity("Mightyfin.Erp.Procurement.Domain.InvoiceException", b =>
