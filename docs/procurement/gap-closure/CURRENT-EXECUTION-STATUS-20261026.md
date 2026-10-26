@@ -2,6 +2,44 @@
 
 This checkpoint supersedes earlier status paragraphs, not historical acceptance records. Procurement is not complete. The coordinator continues M0–M10, preserving the imported UI and shared ERP components. The technical release below is deployed; whole-module business UAT remains open. Earlier no-deployment statements are historical.
 
+## Latest matched release deployed — M4 technical foundation
+
+Backend product `cca4772473b2a87411b3ca59a0a766fbd84187de` and UI product
+`b51216eaf4af07c3985faef9e8b51145c4bbf92f` are now deployed from published ERP
+main `63360f128911b0cd66eb4e44e0f79fabcd1a2345` and UI main
+`46782ccdb502d8be34e5abb7e25ff659cd325582`. Image `b6dc4e822fd7383e13c186e2bac4d0974dde4fb6922b53e20bf1e5be525f6fff`
+is healthy on API and publisher; the Procurement alias is
+`m4-rfq-cca477-b512-20261026`. This supersedes C233/9b6 as the active products;
+they remain retained for bounded rollback. Core3300 and Accounting are preserved.
+
+A fresh post-stop backup actually restored all 200 COPY table multisets. The
+single migration/grant transaction produced 203 tables and histories56/29/1,
+preserving all original 200 column/row projections and existing role attributes,
+memberships, global defaults and unrelated metadata. Readonly canary and an
+independent actual live review passed. Anonymous public Playwright verified
+seven routes, all five new file hashes and both retained old hashed assets,
+with no browser errors or mutation attempts. [Exact deployment evidence](../release/M4-PRODUCTION-DEPLOYMENT-20261026.json)
+links the protected receipts.
+
+**This release preserves existing flags; it does not activate the new RFQ
+workflow.** Imports/maintenance stay on; operational approvals, principal direct
+orders and manual payments remain off. There is no new business policy, real
+user grant, supplier send, external Finance execution or whole-module UAT sign-off.
+Bounded private internal publication/expired-case Return acceptance remains
+separate from production business use.
+
+The coordinator continues M5a: its pre-integration source compiled and passed
+12 Procurement/1 Host focused tests; genuine EF generation after M4 integration
+produced eight governance tables and expected receipt/CHECK extensions. An
+authored retained-evidence Down veto is under review. No M5a migration, readiness
+activation or UI workflow acceptance is included in this deployment.
+
+Seven further exact merged remote branches were retired after ancestry/open-PR
+checks; local worktrees, unique or advanced branches and all rollback products
+remain. This is in addition to the earlier two branches and 299,087,290 bytes of
+compiled-only archives recorded below. Historical no-deployment/old-image status
+paragraphs below are retained as chronology, not current release instructions.
+
 ## Latest backend correction deployed
 
 ERP main `de449645a5cf4b46da1024c821252ac46b625103` includes PR117 and its deployment record PR118. Backend product `237a936b25690f780cd09ca6ab3f90b1a05cc009` / image `c233ffd9e76f7579f52bfb03259985a7abc6691c94d05b9633773b2389f3aa0a` is deployed to API and publisher. The SMTP fallback now rejects expired or invalid account-link expiry before transport, retaining visible failed-retry semantics. Eight focused and all 1,327 Host tests passed, and 150 actual image files matched the genuine publication. Read-only canary and independent live release verification passed; all Env/Host settings, import+maintenance flags, schema200/histories56/28/1 and database role grants were preserved. Old containers remain stopped for rollback. [Deployment evidence](../release/CORE-ACCOUNT-LINK-EXPIRY-DEPLOYMENT-20261026.json) retains the failed healthcheck-metadata verifier attempt. This supersedes D35/C9 as the current backend, while the UI remains 9b6. A read-only production aggregate also observed one failed account-link retry with the fixed expiry-guard reason, without exposing payload or recipient. SMTP provider delivery remains open; whole-module UAT is not complete.

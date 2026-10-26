@@ -1,0 +1,96 @@
+{
+  "status": "DEPLOYED_VERIFIED_TECHNICAL_RELEASE_NOT_WORKFLOW_ACTIVATION",
+  "date": "2026-10-26",
+  "erpMain": "63360f128911b0cd66eb4e44e0f79fabcd1a2345",
+  "uiMain": "46782ccdb502d8be34e5abb7e25ff659cd325582",
+  "productSource": "cca4772473b2a87411b3ca59a0a766fbd84187de",
+  "uiProductSource": "b51216eaf4af07c3985faef9e8b51145c4bbf92f",
+  "imageId": "sha256:b6dc4e822fd7383e13c186e2bac4d0974dde4fb6922b53e20bf1e5be525f6fff",
+  "containers": {
+    "erp-hrm-api": "6f9811cd5b693c22e59aa0470baba1bfb4bfc363199214bffc09f2341ea3b220",
+    "erp-hrm-outbox-publisher": "179ca5302ceb25b66d45370bd36d7d655fc0f8c8bc00b1d4a9ad7b597146ddde"
+  },
+  "previousContainersRetainedStopped": true,
+  "procurementAlias": "/home/amizo/procurement-ui/releases/m4-rfq-cca477-b512-20261026/",
+  "core3300AndAccountingPreserved": true,
+  "schema": {
+    "tables": 203,
+    "histories": {
+      "hrm": 56,
+      "procurement": 29,
+      "coreApproval": 1
+    },
+    "originalColumnRowProjectionsPreservedAtAtomicSchemaPhase": 200,
+    "newAppendOnlyPublicationTables": 3,
+    "migrationAndFiniteAclOneTransaction": true,
+    "databaseRoleAttributesMembershipsAndGlobalDefaultsUnchanged": true
+  },
+  "backup": {
+    "bytes": 6330187,
+    "sha256": "9538ea393967270d205d5c48b973523db212a13e75463c610fe3a64b4b539bce",
+    "actualRestoreCopyTables": 200,
+    "sequences": 0,
+    "freshAfterExactWriterStops": true
+  },
+  "runtimeConfiguration": {
+    "explicitBooleanFlagChanges": {},
+    "allExistingEnvironmentAndHostConfigsPreserved": true,
+    "importsAndMaintenanceRemainEnabled": true,
+    "operationalApprovalsRemainDisabled": true,
+    "principalDirectOrderDraftsAndManualPaymentsRemainDisabled": true,
+    "newM4WorkflowActivated": false,
+    "businessPolicyOrUserGrantChanges": false
+  },
+  "verification": {
+    "privateInternalPublicationAndExpiredCaseReturn": true,
+    "publicPlaywrightAnonymousRoutes": 7,
+    "newPublicAssetsExact": 5,
+    "retainedOldAssetsExact": 2,
+    "blockedMutationAttempts": 0,
+    "browserErrors": 0,
+    "independentLiveReadonlyReview": true,
+    "productionAuthenticatedBusinessCrudClaimed": false
+  },
+  "receipts": {
+    "backupRestore": {
+      "privateEvidence": "procurement-m4-production-paired-release-prep-20261026_run01/backup/result.private.json",
+      "sha256": "021ba07571dbbdc81b1d7f57b7524117b3c238efaba52104071654a8c44e53e4"
+    },
+    "atomicSchema": {
+      "privateEvidence": "procurement-m4-production-paired-release-prep-20261026_run01/schema-result.private.json",
+      "sha256": "40fdaebcecec35c5438ac23a61c23dbba62c47e9a7c586548248ef51f60881ee"
+    },
+    "readonlyCanary": {
+      "privateEvidence": "procurement-m4-production-paired-release-prep-20261026_run01/canary-result.private.json",
+      "sha256": "38e0dc25c0ea1b725916c7ece6403ff101d4da8c553ed54779ba1980f7d7aa5e"
+    },
+    "deployment": {
+      "privateEvidence": "procurement-m4-production-paired-release-prep-20261026_run01/deployment-result.private.json",
+      "sha256": "73f4a42814d8562a8f6114cb84215d97077efdef83346413eb75a5fc5c2e13ac"
+    },
+    "independentReview": {
+      "privateEvidence": "procurement-m4-independent-followup-review-20261026_run01/review.production-deployment.private.json",
+      "sha256": "8f41a4f3455e795fcfcfdabc4f8f9e8dd5f15beb6a58c2e77e7172e276abf11e"
+    },
+    "publicPlaywright": {
+      "privateEvidence": "procurement-m4-paired-public-smoke-prep-20261026_run01/run02/result.private.json",
+      "sha256": "86ecaddc20a401f39c804de3e1ff968c37a3f016b9204f688906178c6228cd39"
+    }
+  },
+  "additionalCleanup": {
+    "mergedRemoteBranchesRetired": 7,
+    "allExactHeadsReachableFromMain": true,
+    "localWorktreesAndUniqueOrAdvancedBranchesRetained": true,
+    "journal": {
+      "privateEvidence": "root-merged-branch-followup-cleanup-20261026_run01/retirement.private.json",
+      "sha256": "317ce5ae0b1c0e483f932d16a1899c2d9246a5097b98292c6d1a9da71a70f336"
+    }
+  },
+  "limits": [
+    "Operational workflow flags were not enabled by this technical deployment.",
+    "No supplier delivery, external Finance posting/payment execution or whole Procurement UAT completion.",
+    "Manual private Finance references and synthetic fixture controls are not production financial evidence.",
+    "Basic old-image compatibility is bounded to reads, not rollback over future publication history.",
+    "SMTP provider delivery and Core document-scanner acceptance remain open."
+  ]
+}
