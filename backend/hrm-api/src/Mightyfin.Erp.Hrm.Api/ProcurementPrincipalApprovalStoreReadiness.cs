@@ -63,7 +63,7 @@ public sealed class ProcurementPrincipalApprovalStoreReadiness(IApprovalScope co
         ["procurement.spending_authority_identity_evidence.ux_authority_identity_origin"]="((stage)::text = 'Created'::text)",
     };
     internal static bool ManifestCaptured=>MigrationId.Length>0 && CheckDefinitions.Count>0 && PartialPredicates.Count>0;
-    private static readonly Type[] SourceTypes=[typeof(PurchaseRequest),typeof(PurchaseRequestLine),typeof(BudgetCheckSnapshot),
+    internal static readonly Type[] SourceTypes=[typeof(PurchaseRequest),typeof(PurchaseRequestLine),typeof(BudgetCheckSnapshot),
         typeof(ProcurementCategory),typeof(PolicyVersion),typeof(PolicyEvaluation),typeof(PurchaseRequestApprovalSubmission),typeof(PurchaseRequestAssignmentAuthorityEvidence),
         typeof(ProcurementSpendingAuthorityGrant),typeof(ProcurementSpendingAuthorityCategory),typeof(SpendingAuthorityIdentityRecord),
         typeof(PurchaseRequestApprovalOutcome),typeof(PurchaseRequestFinanceReleaseRequest),typeof(PurchaseRequestFinanceReleaseConfirmation),

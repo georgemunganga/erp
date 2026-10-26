@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Mightyfin.Erp.Hrm.Api;
+using Mightyfin.Erp.Procurement.Domain;
 using Mightyfin.Erp.Procurement.Infrastructure.Data;
 
 namespace Mightyfin.Erp.Hrm.Tests;
@@ -9,6 +10,15 @@ namespace Mightyfin.Erp.Hrm.Tests;
 /// require the separate migration rehearsal and private HTTP cohort.</summary>
 public sealed class ProcurementPrincipalOrderDraftReadinessTests
 {
+    [Fact]
+    public void New_purchase_order_check_is_owned_by_P30_not_hidden_in_P25_or_P29_exact_manifests()
+    {
+        Assert.DoesNotContain(typeof(PurchaseOrder), ProcurementPrincipalApprovalStoreReadiness.SourceTypes);
+        Assert.DoesNotContain(typeof(PurchaseOrder), ProcurementSourcingDraftSchemaReadiness.OwnedTypes);
+        Assert.Contains("ck_po_principal_draft_version",
+            ProcurementPrincipalOrderDraftSchemaReadiness.NewCheckNames);
+    }
+
     [Theory]
     [InlineData(false)][InlineData(true)]
     public async Task Uncaptured_physical_checks_never_accept_an_owning_context(bool write)
