@@ -57,7 +57,8 @@ public sealed class ProcurementImportPreviewMaintenance(
     internal const int SweepLimit = 50;
 
     internal const string AdmissionSql = """
-        SELECT NOT r.rolsuper AND NOT r.rolcreatedb AND NOT r.rolcreaterole AND NOT r.rolbypassrls
+        SELECT session_user=current_user
+           AND NOT r.rolsuper AND NOT r.rolcreatedb AND NOT r.rolcreaterole AND NOT r.rolbypassrls
            AND NOT has_database_privilege(current_user,current_database(),'CREATE')
            AND has_schema_privilege(current_user,'procurement','USAGE')
            AND NOT EXISTS (SELECT 1 FROM pg_namespace s
@@ -183,7 +184,11 @@ public sealed class ProcurementImportPreviewMaintenance(
         await using var connection = new NpgsqlConnection(TimedConnection(maintenance!));
         await connection.OpenAsync(ct);
         await using var admission = new NpgsqlCommand(AdmissionSql, connection) { CommandTimeout = 15 };
-        return await admission.ExecuteScalarAsync(ct) is true;
+        if (await admission.ExecuteScalarAsync(ct) is not true) return false;
+        await using var identity = new NpgsqlCommand("SELECT current_user", connection) { CommandTimeout = 15 };
+        return string.Equals(await identity.ExecuteScalarAsync(ct) as string,
+            new NpgsqlConnectionStringBuilder(Normalize(maintenance!)).Username,
+            StringComparison.Ordinal);
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)

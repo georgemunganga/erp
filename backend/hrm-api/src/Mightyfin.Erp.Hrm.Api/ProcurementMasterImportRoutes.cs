@@ -280,6 +280,13 @@ public static class ProcurementMasterImportRoutes
                 gate.Parameters.AddWithValue("scope", scope.TenantId + "|" + scope.LegalEntityId.ToString("D"));
                 await gate.ExecuteNonQueryAsync(ct);
             }
+            // The quota wait can outlive the middleware's Core decision. Pin
+            // current company, actor and role rows until this preview commits.
+            await using var coreTx = await core.Database.BeginTransactionAsync(IsolationLevel.ReadCommitted, ct);
+            await LockedCurrency(core, scope, ct);
+            if (!await LockedCurrentGrant(core, scope, kind, ct)
+                || !await CurrentScopeAllowed(core, scope, ct))
+                return Error(403, "forbidden");
             long actorCount;
             long companyBytes;
             await using (var count = new NpgsqlCommand("""
@@ -307,6 +314,7 @@ public static class ProcurementMasterImportRoutes
             db.AddScoped(batch);
             await db.SaveChangesAsync(ct);
             await quotaTx.CommitAsync(ct);
+            await coreTx.CommitAsync(ct);
         }
         catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
         catch (Exception) { return Unavailable(http); }
