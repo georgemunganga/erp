@@ -326,6 +326,9 @@ namespace Mightyfin.Erp.Procurement.Infrastructure.Migrations
                 oldClrType: typeof(Guid),
                 oldType: "uuid",
                 oldNullable: true);
+            // EF supplies a temporary default for the nullable-to-required
+            // transition. The retained schema had no default on this column.
+            migrationBuilder.Sql("ALTER TABLE procurement.sourcing_policy_identity_evidence ALTER COLUMN actor_worker_id DROP DEFAULT;");
 
             migrationBuilder.AddCheckConstraint(
                 name: "ck_authority_identity_evidence",

@@ -9,15 +9,14 @@ using static Mightyfin.Erp.Hrm.Api.ProcurementSchemaInspectionSql;
 
 namespace Mightyfin.Erp.Hrm.Api;
 
-/// <summary>Normal-host P30 readiness: read-only discovery on the policy command's actual
+/// <summary>Normal-host M4 readiness: read-only discovery on the policy command's actual
 /// owning connection/transaction. It supplies no identity, publication or configuration-version authority.</summary>
 public sealed class ProcurementSourcingPolicyIdentitySchemaReadiness : IProcurementSourcingPolicyIdentitySchemaReadiness
 {
-    // Replaced by the genuine RFQ-only migration ID and its captured check
-    // before this child feature can be enabled. The mixed held P30 migration
-    // is deliberately not part of this source branch.
-    internal const string MigrationId = "PENDING_M4_RFQ_PUBLICATION_MIGRATION";
-    internal const string CheckDefinition = "CHECK (((schema_version = ANY (ARRAY[1, 2])) AND (id <> '00000000-0000-0000-0000-000000000000'::uuid) AND (policy_version_id <> '00000000-0000-0000-0000-000000000000'::uuid) AND (policy_version_number > 0) AND (policy_record_version_at_action > 0) AND (actor_principal_id IS NOT NULL) AND (((schema_version = 1) AND (actor_worker_id IS NOT NULL) AND (actor_worker_id <> '00000000-0000-0000-0000-000000000000'::uuid) AND (length(btrim((actor_principal_id)::text)) > 0)) OR ((schema_version = 2) AND ((actor_worker_id IS NULL) OR (actor_worker_id <> '00000000-0000-0000-0000-000000000000'::uuid)) AND ((actor_principal_id)::text <> '00000000-0000-0000-0000-000000000000'::text) AND ((actor_principal_id)::text ~ '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'::text))) AND (rules_sha256 IS NOT NULL) AND ((rules_sha256)::text ~ '^[0-9a-f]{64}$'::text) AND (evidence_sha256 IS NOT NULL) AND ((evidence_sha256)::text ~ '^[0-9a-f]{64}$'::text) AND isfinite(action_at) AND ((((stage)::text = 'Created'::text) AND (policy_record_version_at_action = 1) AND (created_evidence_id IS NULL) AND (created_evidence_stage IS NULL) AND (submitted_evidence_id IS NULL) AND (submitted_evidence_stage IS NULL)) OR (((stage)::text = 'Submitted'::text) AND (created_evidence_id IS NOT NULL) AND (created_evidence_stage IS NOT NULL) AND ((created_evidence_stage)::text = 'Created'::text) AND (submitted_evidence_id IS NULL) AND (submitted_evidence_stage IS NULL)) OR (((stage)::text = 'Published'::text) AND (created_evidence_id IS NOT NULL) AND (created_evidence_stage IS NOT NULL) AND ((created_evidence_stage)::text = 'Created'::text) AND (submitted_evidence_id IS NOT NULL) AND (submitted_evidence_stage IS NOT NULL) AND ((submitted_evidence_stage)::text = 'Submitted'::text)))))";
+    // The mixed held P30 migration is deliberately absent. This exact M4 ID
+    // and its physical CHECK are captured from genuine private PostgreSQL.
+    internal const string MigrationId = M4PrincipalRfqPhysicalChecks.MigrationId;
+    internal static string CheckDefinition => M4PrincipalRfqPhysicalChecks.Native["ck_source_policy_identity"];
     internal static readonly IReadOnlyDictionary<string, string> PartialPredicates = new Dictionary<string, string>
     {
         ["ux_source_policy_identity_created"] = "((stage)::text = 'Created'::text)",
@@ -60,7 +59,7 @@ public sealed class ProcurementSourcingPolicyIdentitySchemaReadiness : IProcurem
             var checks = identity.GetCheckConstraints().ToArray();
             if (checks.Length != 1 || checks[0].Name != "ck_source_policy_identity") return false;
             command.CommandText = CheckSql(table, checks[0].Name);
-            if (await command.ExecuteScalarAsync(ct) is not string actual || actual != CheckDefinition) return false;
+            if (await command.ExecuteScalarAsync(ct) is not string actual || !M4PrincipalRfqPhysicalChecks.Matches("ck_source_policy_identity", actual)) return false;
             var foreigns = identity.GetForeignKeys().ToArray();
             if (foreigns.Length != ForeignNames.Count || !foreigns.Select(x => x.GetConstraintName()!).ToHashSet(StringComparer.Ordinal).SetEquals(ForeignNames)) return false;
             foreach (var foreign in foreigns)

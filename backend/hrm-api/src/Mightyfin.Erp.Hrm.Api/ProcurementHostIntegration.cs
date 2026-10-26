@@ -59,7 +59,7 @@ public static class ProcurementHostIntegration
         services.AddSingleton(configuration.GetSection("Procurement:SourcingPublication")
             .Get<ProcurementPrincipalSourcingPublicationOptions>() ?? new());
         services.AddScoped<IProcurementPrincipalSourcingPublicationReadiness,
-            UnavailablePrincipalSourcingPublicationReadiness>();
+            ProcurementPrincipalSourcingPublicationSchemaReadiness>();
         services.AddScoped<IProcurementOrderSchemaReadiness, ProcurementOrderSchemaReadiness>();
         services.AddScoped<IProcurementApprovalSchemaReadiness, ProcurementApprovalSchemaReadiness>();
         services.AddSingleton<IProcurementFinanceCheckerSchemaReadiness, ProcurementFinanceCheckerSchemaReadiness>();
