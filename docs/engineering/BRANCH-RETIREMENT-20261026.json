@@ -1,0 +1,234 @@
+{
+  "dateUtc": "2026-10-26",
+  "deletedTotals": {
+    "local": 18,
+    "remote": 7
+  },
+  "documentStatus": "RECORDED_ACTUAL_DELETION",
+  "furtherReview": {
+    "mergedPrExactHeadsNonancestral": {
+      "deleted": 0,
+      "erp": 13,
+      "mergeCommitReachableFromCurrentMain": 1,
+      "moduleConnect": 4
+    },
+    "onePotentialSquashOrRebaseMerge": "codex/manus-p35-ui-verification-07",
+    "recoveryBundlePrepared": false
+  },
+  "journalSha256": "c9742d8de3e72f4ea8fafec7a2183ea63951720558cbae65746c88e1978c3a32",
+  "localDeletionMethod": "ordinary git branch -d; no force; local absence verified",
+  "remoteDeletionMethod": "exact-head --force-with-lease; remote absence verified",
+  "repositories": [
+    {
+      "localBranchesAfter": 368,
+      "localBranchesBefore": 378,
+      "localDeleted": [
+        {
+          "absenceVerified": true,
+          "headBeforeDeletion": "35045b7e51efca2e756dd678b9de6a62477b03bc",
+          "name": "codex/core-outbox-acceptance-evidence-20261026",
+          "ordinaryBranchD": true
+        },
+        {
+          "absenceVerified": true,
+          "headBeforeDeletion": "a746c820a7e9196e725c6408cd4d4397d9181678",
+          "name": "codex/m2a-csv-reader-integration-20261026",
+          "ordinaryBranchD": true
+        },
+        {
+          "absenceVerified": true,
+          "headBeforeDeletion": "d00964b3d108dfac10765c9a8879e57484f50ba8",
+          "name": "codex/m2a-mainline-ui-evidence-20261026",
+          "ordinaryBranchD": true
+        },
+        {
+          "absenceVerified": true,
+          "headBeforeDeletion": "788c944a0acb4eada5246bdd7a5793e78d21689d",
+          "name": "codex/m2a-native-import-acceptance-20261026",
+          "ordinaryBranchD": true
+        },
+        {
+          "absenceVerified": true,
+          "headBeforeDeletion": "ff255065ab3240d7949315aafd62395db3d03838",
+          "name": "codex/m2a-native-import-checkpoint-20261026",
+          "ordinaryBranchD": true
+        },
+        {
+          "absenceVerified": true,
+          "headBeforeDeletion": "59d0e2b053baea1a68fb65dcb35ca081fef6733a",
+          "name": "codex/m2a-private-migration-evidence-20261026",
+          "ordinaryBranchD": true
+        },
+        {
+          "absenceVerified": true,
+          "headBeforeDeletion": "3ade873a5c4491caa810db4c930ccc039c5ea053",
+          "name": "codex/m3a-request-approval-acceptance-20261026",
+          "ordinaryBranchD": true
+        },
+        {
+          "absenceVerified": true,
+          "headBeforeDeletion": "97ada9875d0bb2caaf933cf05396c2f200700af4",
+          "name": "codex/procurement-execution-status-20261026",
+          "ordinaryBranchD": true
+        },
+        {
+          "absenceVerified": true,
+          "headBeforeDeletion": "ba6df4092a4c86ffb368a99c48cc67c21aaf2bb9",
+          "name": "codex/procurement-milestone-coverage-status",
+          "ordinaryBranchD": true
+        },
+        {
+          "absenceVerified": true,
+          "headBeforeDeletion": "05915e086efd21cb036ddf31f94c1688aa820aee",
+          "name": "codex/procurement-r0-p29-compatibility-20261025",
+          "ordinaryBranchD": true
+        }
+      ],
+      "protectedActivePr": {
+        "head": "3872f600d078de4e34d761f364f2bcd3b10b86ee",
+        "number": 111,
+        "stateAtFinalCheck": "OPEN"
+      },
+      "remainingRemoteClassification": {
+        "literalAncestorsProtectedOrCheckedOut": 5,
+        "missingLocalObjectAtAudit": 1,
+        "nonancestral": 277,
+        "protectedNonancestral": 55,
+        "unprotectedNonancestralPatchEquivalent": 1,
+        "unprotectedNonancestralUniquePatches": 221
+      },
+      "remoteDeleted": [
+        {
+          "absenceVerified": true,
+          "headBeforeDeletion": "ba6df4092a4c86ffb368a99c48cc67c21aaf2bb9",
+          "leaseMatched": true,
+          "name": "codex/procurement-milestone-coverage-status"
+        }
+      ],
+      "remoteHeadsAfter": 283,
+      "remoteHeadsBefore": 284,
+      "remoteMainAtDeletion": "e50fa95904a1629d0785ee2d5e2b927371f06dc3",
+      "repository": "georgemunganga/erp"
+    },
+    {
+      "localBranchesAfter": 104,
+      "localBranchesBefore": 112,
+      "localDeleted": [
+        {
+          "absenceVerified": true,
+          "headBeforeDeletion": "fea8e17b80f368c7345c3cf2ccaf4a322d409f4a",
+          "name": "codex/manual-payment-api-client",
+          "ordinaryBranchD": true
+        },
+        {
+          "absenceVerified": true,
+          "headBeforeDeletion": "9f42f89cb125f884f13117c06f695e580927fdc5",
+          "name": "codex/p29-principal-rfq-ui",
+          "ordinaryBranchD": true
+        },
+        {
+          "absenceVerified": true,
+          "headBeforeDeletion": "5db1130a60136890b5df402cdaa4047ec7ee07be",
+          "name": "codex/procurement-actual-supplier-lifecycle",
+          "ordinaryBranchD": true
+        },
+        {
+          "absenceVerified": true,
+          "headBeforeDeletion": "d2b609626b58f227f5e19f11efdf8fa9590b5999",
+          "name": "codex/procurement-authority-settings",
+          "ordinaryBranchD": true
+        },
+        {
+          "absenceVerified": true,
+          "headBeforeDeletion": "1e8f07fc7f7c58a16906494fc14dec86f33dc818",
+          "name": "codex/procurement-recurring-principal-ui",
+          "ordinaryBranchD": true
+        },
+        {
+          "absenceVerified": true,
+          "headBeforeDeletion": "5a48539c1ff6c8fbf8e70bd9b033661bfd5bf7e9",
+          "name": "codex/procurement-rfq-reload-recovery",
+          "ordinaryBranchD": true
+        },
+        {
+          "absenceVerified": true,
+          "headBeforeDeletion": "d7de3cc7f27f00d8d7836bc90667754c3f71b6bb",
+          "name": "codex/procurement-ui-complete",
+          "ordinaryBranchD": true
+        },
+        {
+          "absenceVerified": true,
+          "headBeforeDeletion": "ae54ca8633f81c5a61397e76c5ca1c5308dd42b3",
+          "name": "codex/procurement-unit-review-policy-ui",
+          "ordinaryBranchD": true
+        }
+      ],
+      "protectedActivePr": {
+        "head": "af55587861793a7c0dee434bb9270b890dbe1ce8",
+        "number": 84,
+        "stateAtFinalCheck": "OPEN"
+      },
+      "remainingRemoteClassification": {
+        "literalAncestorsProtectedOrCheckedOut": 5,
+        "missingLocalObjectAtAudit": 0,
+        "nonancestral": 62,
+        "protectedNonancestral": 56,
+        "unprotectedNonancestralPatchEquivalent": 0,
+        "unprotectedNonancestralUniquePatches": 6
+      },
+      "remoteDeleted": [
+        {
+          "absenceVerified": true,
+          "headBeforeDeletion": "5db1130a60136890b5df402cdaa4047ec7ee07be",
+          "leaseMatched": true,
+          "name": "codex/procurement-actual-supplier-lifecycle"
+        },
+        {
+          "absenceVerified": true,
+          "headBeforeDeletion": "d2b609626b58f227f5e19f11efdf8fa9590b5999",
+          "leaseMatched": true,
+          "name": "codex/procurement-authority-settings"
+        },
+        {
+          "absenceVerified": true,
+          "headBeforeDeletion": "1e8f07fc7f7c58a16906494fc14dec86f33dc818",
+          "leaseMatched": true,
+          "name": "codex/procurement-recurring-principal-ui"
+        },
+        {
+          "absenceVerified": true,
+          "headBeforeDeletion": "5a48539c1ff6c8fbf8e70bd9b033661bfd5bf7e9",
+          "leaseMatched": true,
+          "name": "codex/procurement-rfq-reload-recovery"
+        },
+        {
+          "absenceVerified": true,
+          "headBeforeDeletion": "d7de3cc7f27f00d8d7836bc90667754c3f71b6bb",
+          "leaseMatched": true,
+          "name": "codex/procurement-ui-complete"
+        },
+        {
+          "absenceVerified": true,
+          "headBeforeDeletion": "ae54ca8633f81c5a61397e76c5ca1c5308dd42b3",
+          "leaseMatched": true,
+          "name": "codex/procurement-unit-review-policy-ui"
+        }
+      ],
+      "remoteHeadsAfter": 67,
+      "remoteHeadsBefore": 73,
+      "remoteMainAtDeletion": "704ac9c642d00e3672cd81e7c1df2d9cb50be160",
+      "repository": "georgemunganga/module-connect"
+    }
+  ],
+  "safetyBoundary": {
+    "activePr111AndUi84Retained": true,
+    "checkedOutWorktreesChecked": true,
+    "heldBranchChainsMerged": false,
+    "mainAndExactHeadsRechecked": true,
+    "openPrHeadsAndBasesChecked": true,
+    "procurementComplete": false,
+    "productionChanged": false,
+    "sourceWorktreesOrCachesDeleted": false
+  },
+  "schemaVersion": 1
+}
