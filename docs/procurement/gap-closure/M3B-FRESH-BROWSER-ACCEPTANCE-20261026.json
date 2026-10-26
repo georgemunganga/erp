@@ -1,0 +1,68 @@
+{
+  "status": "PASS_PRIVATE_M3B_REQUEST_APPROVAL_AND_INTERNAL_ORDER_DRAFT_BROWSER_OWNER_PRESERVATION",
+  "verifiedUtc": "2026-10-26T16:09:42.547429+00:00",
+  "backendProduct": "d35ecc090b0de0abcab1e38be09fd25c52a1d0aa",
+  "uiProduct": "e032805303e23e1658d5a66808d9b0d6f1ce991c",
+  "productionMutation": false,
+  "evidence": {
+    "approvalBrowser": {
+      "sha256": "0ccc45ee858c9af41313f0693960576ca6abfb19f42535066996e567bf84edaa",
+      "status": "PASS_M3B_NORMAL_COOKIE_APPROVED_CASE_UI_ONLY"
+    },
+    "approvalOwner": {
+      "sha256": "937106a81c5da1c3b5e210e42f1eec9a720bc037b102a87de6061db21f7bf179",
+      "status": "PASS_PRIVATE_M3B_APPROVED_CASE_OWNER_ONLY"
+    },
+    "buyerBrowser": {
+      "sha256": "bf6c0f943ad740b610347dc2ee8791034a9a9fd2e164911102daa64e908e2439",
+      "status": "PRIVATE_M3B_REAL_BROWSER_UI_FLOW_OWNER_PENDING"
+    },
+    "buyerOwner": {
+      "sha256": "31ec3a4cae380e7b65835bf1af4fada1a570fd66d1720aa8ed5f84d1142e3861",
+      "status": "PASS_PRIVATE_M3B_FRESH_FULL_BROWSER_AND_TYPED_OWNER"
+    },
+    "originalRows": {
+      "sha256": "5ba308b8cccd12ddb1a48b235b6f2afd9867be753af3db6f570fc2bccac085c4",
+      "status": "PASS_PRIVATE_M3B_ORIGINAL_ROWS_UNCHANGED"
+    },
+    "runtimeStop": {
+      "sha256": "290c89ff7a667e672b4f26409f59f312030dafd2a70d031e4b29f8ed67ec03f9",
+      "status": "PRIVATE_PLAIN_API_EXACT_CONTAINER_STOPPED_BY_INTENTIONAL_CONTROLLER_SIGNAL"
+    }
+  },
+  "proved": {
+    "realPasswordCookies": true,
+    "workerlessCoreIdentities": true,
+    "newRequestSubmitAndPolicyEvaluation": true,
+    "distinctManualFundingReviewer": true,
+    "newScopedGrantMakerAndIndependentReviewer": true,
+    "sharedCoreCaseOpenAndIndependentApprove": true,
+    "oneOrderCreatePostStatus": 201,
+    "lostAcknowledgementOriginalKeyRecoveryWithoutSecondCreate": true,
+    "cancelStatus": 200,
+    "sourceQuantityReleased": true,
+    "companyAllRead": true,
+    "companyAllWriteDeniedByApiAndBlockedByUi": true,
+    "orderTypedReceipts": 2,
+    "orderAuditEvents": 4,
+    "orderOutboxEvents": 2,
+    "priorCancelledOrderGraphPreserved": true,
+    "originalTableProjectionsPreserved": 200,
+    "syntheticSessions": 57,
+    "unrevokedSyntheticSessions": 0,
+    "activeSyntheticSessions": 0,
+    "runtimeContainerExitCode": 0,
+    "controllerExitCode": 130
+  },
+  "limitations": [
+    "Original 200-table baseline comparison excludes only the two declared synthetic M3b tenants; new cohort rows are reconciled separately.",
+    "Private Core connector uses fixture owner and local trust; production finite-Core business writes are not established by this test.",
+    "Manual Finance evidence is synthetic; no external budget reservation, AP posting or payment was proved.",
+    "Earlier expired-grant case and failed browser locator/version/timing attempts remain retained.",
+    "Two historical session revocations used explicit owner CAS; later normal cookie logout evidence is separate.",
+    "Controller received intentional SIGTERM and exited 130 after stopping its exact runtime; not a controller exit-zero claim.",
+    "Quiet private detail reads took 5.73\u20137.28 seconds; concurrent build raised one read to 18.98 seconds. This is not a performance acceptance.",
+    "Latest UI anonymous-recovery product9b6 has separate seven-case mocked and public production checks; this full business flow used e032.",
+    "Order issue, supplier dispatch, receiving, Finance and whole-module UAT remain open."
+  ]
+}
