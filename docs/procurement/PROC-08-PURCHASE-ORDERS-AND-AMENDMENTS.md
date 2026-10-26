@@ -123,6 +123,14 @@ are prerequisites; P30 is not an issued PO, Finance commitment, or new buying
 policy. The existing `PROC-07` document concerns contracts, so this PO delta
 belongs here in `PROC-08`.
 
+The source now includes genuine EF migration
+`20261026074403_M3bPrincipalDirectOrderDraft`, generated from the bounded model.
+Its Up adds two PO markers, source bindings and command receipts. Legacy POs
+retain schema version 0 with no direct-source digest. An authored Down-first
+guard refuses to discard any principal draft, binding, receipt, reservation
+reference, audit or outbox marker. The migration has not been applied to a
+database; physical downgrade and finite-role acceptance are still pending.
+
 1. **Identification:** `PROC-08/O1/P30`, direct-purchase approved-demand conversion.
 2. **Outcome:** a workerless Core buyer can reserve an approved direct-purchase
    line in one internal PO draft and later release it without losing evidence.
