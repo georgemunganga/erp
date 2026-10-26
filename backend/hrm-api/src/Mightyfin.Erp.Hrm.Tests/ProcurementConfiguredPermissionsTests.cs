@@ -7,6 +7,35 @@ namespace Mightyfin.Erp.Hrm.Tests;
 public sealed class ProcurementConfiguredPermissionsTests
 {
     [Fact]
+    public async Task Master_import_actions_require_exact_current_explicit_Core_grants()
+    {
+        const string vendor = "procurement-vendor-import", item = "procurement-item-import";
+        foreach (var action in new[] { vendor, item })
+        {
+            Assert.Empty(Mightyfin.Erp.Hrm.Application.ProcurementActionCatalog.BootstrapGrants[action]);
+            Assert.True(Mightyfin.Erp.Hrm.Application.ProcurementActionCatalog.RequiresExplicitConfiguredGrant(action));
+            Assert.DoesNotContain(action, Mightyfin.Erp.Hrm.Application.ProcurementActionCatalog
+                .ResolveConfiguredActionsForRole("erp_admin", "erp_admin"));
+            Assert.False(ProcurementPermissions.Allows(action, [new Claim(ClaimTypes.Role, "erp_admin")]));
+            Assert.Contains(action, JobsAdminServiceImpl.PermissionKeys);
+        }
+        await using var db = TestDbContextFactory.Create("tenant-a");
+        var row = new TenantRoleAssignment { RoleKey = "importer", RoleName = "Importer", Category = "procurement",
+            PermissionsCsv = "procurement-access,procurement-vendor-create," + vendor, Active = true };
+        db.TenantRoleAssignments.Add(row); await db.SaveChangesAsync();
+        var actions = await ProcurementPermissions.ResolveConfiguredActionsAsync(db, row.RoleKey, default);
+        var claims = new[] { new Claim(ClaimTypes.Role, row.RoleKey),
+            new Claim(ProcurementPermissions.ConfiguredClaim, "true") }
+            .Concat(actions.Select(x => new Claim(ProcurementPermissions.ActionClaim, x))).ToArray();
+        Assert.True(ProcurementPermissions.Allows(vendor, claims));
+        Assert.True(ProcurementPermissions.Allows("procurement-vendor-create", claims));
+        Assert.False(ProcurementPermissions.Allows(item, claims));
+        row.PermissionsCsv = "procurement-access,procurement-vendor-create";
+        await db.SaveChangesAsync();
+        Assert.DoesNotContain(vendor, await ProcurementPermissions.ResolveConfiguredActionsAsync(db, row.RoleKey, default));
+    }
+
+    [Fact]
     public async Task Csv_export_actions_are_explicit_independent_grants_even_for_legacy_ERP_admin()
     {
         const string vendor = "procurement-vendor-export", item = "procurement-item-export";

@@ -7,7 +7,8 @@ public static class ProcurementActionCatalog
     public sealed record AdminAction(string Key, string Group, string Label);
 
     public static bool RequiresExplicitConfiguredGrant(string action) => action is
-        "procurement-vendor-export" or "procurement-item-export";
+        "procurement-vendor-export" or "procurement-item-export"
+        or "procurement-vendor-import" or "procurement-item-import";
 
     public static readonly IReadOnlyDictionary<string, string[]> BootstrapGrants =
         new Dictionary<string, string[]>(StringComparer.Ordinal)
@@ -15,6 +16,7 @@ public static class ProcurementActionCatalog
             ["procurement-access"] = ["employee", "manager", "procurement_requester", "procurement_buyer", "procurement_manager", "supplier_admin", "ap_processor", "finance_approver"],
             ["procurement-vendor-read"] = ["employee", "manager", "procurement_requester", "procurement_buyer", "procurement_manager", "supplier_admin", "ap_processor"],
             ["procurement-vendor-export"] = [], // Explicit Core grant; no legacy bootstrap.
+            ["procurement-vendor-import"] = [], // Create-only bulk drafts; explicit Core grant.
             ["procurement-vendor-create"] = ["employee", "manager", "procurement_requester", "procurement_buyer", "procurement_manager", "supplier_admin"],
             ["procurement-vendor-edit"] = ["employee", "manager", "procurement_requester", "procurement_buyer", "procurement_manager", "supplier_admin"],
             ["procurement-vendor-manage"] = ["procurement_buyer", "procurement_manager", "supplier_admin"],
@@ -23,6 +25,7 @@ public static class ProcurementActionCatalog
             ["procurement-item-read"] = ["employee", "manager", "procurement_requester", "procurement_buyer", "procurement_manager", "supplier_admin"],
             ["procurement-item-manage"] = ["procurement_buyer", "procurement_manager"],
             ["procurement-item-export"] = [], // Managed drafts only; not the employee catalog.
+            ["procurement-item-import"] = [], // Create-only inactive items; explicit Core grant.
             ["procurement-item-approve"] = ["procurement_manager"],
             ["procurement-catalog-approve"] = ["procurement_manager"],
             ["procurement-request-read"] = ["employee", "manager", "procurement_requester", "procurement_buyer", "procurement_manager"],
@@ -145,6 +148,8 @@ public static class ProcurementActionCatalog
     {
         if (key == "procurement-vendor-export") return "Export vendors";
         if (key == "procurement-item-export") return "Export items";
+        if (key == "procurement-vendor-import") return "Import vendors";
+        if (key == "procurement-item-import") return "Import items";
         var words = key["procurement-".Length..].Split('-').Select(word => word switch
         {
             "po" => "PO", "rfq" => "RFQ", "api" => "API", _ => char.ToUpperInvariant(word[0]) + word[1..]

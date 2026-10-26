@@ -27,6 +27,7 @@ public sealed partial class ProcurementDbContext(DbContextOptions<ProcurementDbC
     public DbSet<ProcurementAttachmentRef> AttachmentRefs => Set<ProcurementAttachmentRef>();
     public DbSet<PolicyVersion> PolicyVersions => Set<PolicyVersion>();
     public DbSet<ImportBatch> ImportBatches => Set<ImportBatch>();
+    public DbSet<ImportRowReceipt> ImportRowReceipts => Set<ImportRowReceipt>();
     public DbSet<AuditEvent> AuditEvents => Set<AuditEvent>();
     public DbSet<OutboxEvent> OutboxEvents => Set<OutboxEvent>();
     public DbSet<SourcingEvent> SourcingEvents => Set<SourcingEvent>();
@@ -126,6 +127,7 @@ public sealed partial class ProcurementDbContext(DbContextOptions<ProcurementDbC
         ConfigureBase<ProcurementAttachmentRef>(modelBuilder, "attachment_refs");
         ConfigureBase<PolicyVersion>(modelBuilder, "policy_versions");
         ConfigureBase<ImportBatch>(modelBuilder, "import_batches");
+        ConfigureBase<ImportRowReceipt>(modelBuilder, "import_row_receipts");
         ConfigureBase<AuditEvent>(modelBuilder, "audit_events");
         ConfigureBase<OutboxEvent>(modelBuilder, "outbox_events");
         ConfigureLifecycle<SourcingEvent>(modelBuilder, "sourcing_events");
@@ -508,9 +510,32 @@ public sealed partial class ProcurementDbContext(DbContextOptions<ProcurementDbC
         {
             b.Property(x => x.RecordType).HasMaxLength(60);
             b.Property(x => x.FileSha256).HasMaxLength(64);
+            b.Property(x => x.ActorSubjectId).HasMaxLength(200);
+            b.Property(x => x.DuplicatePolicy).HasMaxLength(16);
+            b.Property(x => x.PreviewSha256).HasMaxLength(64);
+            b.Property(x => x.CommitRequestSha256).HasMaxLength(64);
+            b.Property(x => x.ResultSha256).HasMaxLength(64);
+            b.Property(x => x.PreviewSnapshotText).HasColumnType("text");
+            b.Property(x => x.ResultText).HasColumnType("text");
             b.Property(x => x.State).HasMaxLength(30);
             b.Property(x => x.ResultJson).HasColumnType("jsonb");
             b.HasIndex(x => new { x.TenantId, x.LegalEntityId, x.State, x.ExpiresAt });
+            b.HasIndex(x => new { x.TenantId, x.LegalEntityId, x.CommitCommandKey })
+                .IsUnique().HasFilter("commit_command_key IS NOT NULL")
+                .HasDatabaseName("ix_import_batches_scope_command");
+        });
+        modelBuilder.Entity<ImportRowReceipt>(b =>
+        {
+            b.Property(x => x.Disposition).HasMaxLength(20);
+            b.Property(x => x.RowSha256).HasMaxLength(64);
+            b.HasIndex(x => new { x.TenantId, x.LegalEntityId, x.ImportBatchId, x.RowNumber })
+                .IsUnique().HasDatabaseName("ix_import_row_receipts_batch_row");
+            b.HasOne<ImportBatch>().WithMany()
+                .HasForeignKey(x => new { x.TenantId, x.LegalEntityId, x.ImportBatchId })
+                .HasPrincipalKey(x => new { x.TenantId, x.LegalEntityId, x.Id })
+                .OnDelete(DeleteBehavior.Restrict);
+            b.ToTable(t => t.HasCheckConstraint("ck_import_row_receipts_bounds",
+                "row_number >= 2 AND start_line >= 2 AND end_line >= start_line"));
         });
         modelBuilder.Entity<AuditEvent>(b =>
         {
@@ -731,6 +756,7 @@ public sealed partial class ProcurementDbContext(DbContextOptions<ProcurementDbC
         GuardSourcingPolicyIdentity();
         GuardOperationalPolicyIdentity();
         GuardInvoiceUnitReview();
+        GuardMasterImportChanges();
         var now = DateTimeOffset.UtcNow;
         var changes = ChangeTracker.Entries<ProcurementRecord>()
             .Where(entry => entry.State is EntityState.Added or EntityState.Modified or EntityState.Deleted).ToList();
@@ -741,6 +767,7 @@ public sealed partial class ProcurementDbContext(DbContextOptions<ProcurementDbC
             if (entry.State == EntityState.Modified && entry.Entity is AuditEvent or SupplierDecision or PolicyEvaluation or BudgetCheckSnapshot or PurchaseRequestApprovalSubmission
                 or BidEvaluation or InvoiceMatchResult or FinancePaymentStatusRef or SupplierOrderAcknowledgement
                 or ProcurementComment or ProcurementSetupAssessment or PurchaseRequestApprovalOutcome
+                or ImportRowReceipt
                 or PurchaseRequestFinanceReleaseRequest or PurchaseRequestFinanceReleaseConfirmation
                 or ManualPaymentDecision or ManualPaymentCommandReceipt
                 or ManualPaymentWorkflowCaseLink or ManualPaymentCoreDecisionLink or ManualPaymentBusinessDateObservation)
@@ -782,6 +809,30 @@ public sealed partial class ProcurementDbContext(DbContextOptions<ProcurementDbC
                 CreatedAt = now,
                 CreatedBy = scope.SubjectId,
             });
+        }
+    }
+
+    private void GuardMasterImportChanges()
+    {
+        foreach (var entry in ChangeTracker.Entries<ImportBatch>()
+            .Where(x => x.State == EntityState.Modified &&
+                (x.Entity.RecordType is "Vendor" or "Item"
+                    || x.OriginalValues.GetValue<string>(nameof(ImportBatch.RecordType)) is "Vendor" or "Item")))
+        {
+            var allowed = new HashSet<string>(StringComparer.Ordinal)
+            {
+                nameof(ImportBatch.State), nameof(ImportBatch.AppliedRows),
+                nameof(ImportBatch.CommitCommandKey), nameof(ImportBatch.CommitRequestSha256),
+                nameof(ImportBatch.ResultText), nameof(ImportBatch.ResultSha256),
+            };
+            if (entry.Properties.Any(x => x.IsModified && !allowed.Contains(x.Metadata.Name)))
+                throw new InvalidOperationException("An import preview cannot be changed after it is stored.");
+            if (entry.OriginalValues.GetValue<string>(nameof(ImportBatch.State)) != "Previewed"
+                || entry.Entity.State != "Committed" || entry.Entity.CommitCommandKey is null
+                || string.IsNullOrWhiteSpace(entry.Entity.CommitRequestSha256)
+                || string.IsNullOrWhiteSpace(entry.Entity.ResultText)
+                || string.IsNullOrWhiteSpace(entry.Entity.ResultSha256))
+                throw new InvalidOperationException("Only one complete import commit transition is permitted.");
         }
     }
 }

@@ -167,26 +167,7 @@ public static class ProcurementVendorRoutes
                 x.CountryCode == input.CountryCode!.Trim().ToUpperInvariant()
                 && x.NormalizedRegistration == registration, ct))
             return Conflict("A vendor with this company ID already exists. Open that vendor before adding another.");
-        var supplier = new Supplier
-        {
-            Number = ("VEN-" + Guid.CreateVersion7().ToString("N")[..16]).ToUpperInvariant(),
-            LegalName = input.LegalName!.Trim(),
-            DisplayName = input.DisplayName!.Trim(),
-            CountryCode = input.CountryCode!.Trim().ToUpperInvariant(),
-            RegistrationNumber = Clean(input.RegistrationNumber),
-            NormalizedRegistration = registration,
-            TradingName = Clean(input.TradingName), Website = Clean(input.Website),
-            CompanyIdType = Clean(input.CompanyIdType), TaxIdentifierRef = Clean(input.TaxIdentifierRef),
-            SupplierType = Clean(input.SupplierType), CategoryCode = Clean(input.CategoryCode),
-            DefaultCurrencyCode = Code(input.CurrencyCode), PaymentTermRef = Clean(input.PaymentTermRef),
-            TaxCategoryRef = Clean(input.TaxCategoryRef), LanguageCode = Clean(input.LanguageCode),
-            Remarks = Clean(input.Remarks), IsLocal = input.IsLocal,
-            PortalAccessState = input.PortalAccessRequested ? "Requested" : null,
-            // Creation-time known alias metadata, not proof of active HR status
-            // or a company/access grant. Never backfill historical proposals.
-            ProposedByWorkerId = scope.CoreLinkedWorkerId ?? scope.WorkerId,
-            Status = "Draft", IsOrderable = false,
-        };
+        var supplier = ProcurementMasterDraftRules.NewVendor(input, scope);
         if (input.PrimaryContact is not null)
         {
             var contactError = ValidateContact(input.PrimaryContact);
@@ -865,37 +846,13 @@ public static class ProcurementVendorRoutes
     private static bool CanEdit(Supplier supplier) => supplier.Status is "Draft" or "More Information Required";
     private static string? Clean(string? value) => string.IsNullOrWhiteSpace(value) ? null : value.Trim();
     private static string? Code(string? value) => Clean(value)?.ToUpperInvariant();
-    private static string? NormalizeRegistration(string? value)
-    {
-        if (Clean(value) is not { } text) return null;
-        var normalized = new string(text.Where(char.IsLetterOrDigit).Select(char.ToUpperInvariant).ToArray());
-        return normalized.Length == 0 ? null : normalized;
-    }
+    private static string? NormalizeRegistration(string? value) =>
+        ProcurementMasterDraftRules.NormalizeRegistration(value);
     private static IResult BadInput(string message) => Results.UnprocessableEntity(new ApiError("validation-failed", message, []));
     private static IResult Conflict(string message) => Results.Conflict(new ApiError("vendor-conflict", message, []));
     private static IResult Stale() => Results.Conflict(new ApiError("stale-vendor", "This vendor changed. Refresh it and try again.", []));
 
-    private static string? Validate(VendorDraftInput x)
-    {
-        if (string.IsNullOrWhiteSpace(x.LegalName) || x.LegalName.Length > 300) return "Enter a company name (up to 300 characters).";
-        if (string.IsNullOrWhiteSpace(x.DisplayName) || x.DisplayName.Length > 300) return "Enter a display name (up to 300 characters).";
-        if (string.IsNullOrWhiteSpace(x.CountryCode) || x.CountryCode.Trim().Length != 2) return "Choose a two-letter country code.";
-        if (x.CurrencyCode is { Length: > 0 } && x.CurrencyCode.Trim().Length != 3) return "Choose a three-letter currency code.";
-        if (x.RegistrationNumber is { Length: > 120 }) return "Company ID is too long.";
-        if (x.Remarks is { Length: > 4000 }) return "Remarks are too long.";
-        if (x.Contacts?.Count > 50 || x.Sites?.Count > 20 || x.Qualifications?.Count > 50
-            || x.Attributes?.Count > 100) return "Too many vendor details were supplied at once.";
-        var attributeKeys = new HashSet<(string Kind, string Key)>();
-        foreach (var attribute in x.Attributes ?? [])
-        {
-            if (attribute is null || attribute.Kind is not ("CustomField" or "ReportingTag")
-                || string.IsNullOrWhiteSpace(attribute.Key) || attribute.Key.Trim().Length > 120)
-                return "Each custom field or reporting tag needs a supported type and a name of up to 120 characters.";
-            if (!attributeKeys.Add((attribute.Kind, attribute.Key.Trim())))
-                return "A custom field or reporting tag was entered more than once.";
-        }
-        return null;
-    }
+    private static string? Validate(VendorDraftInput x) => ProcurementMasterDraftRules.ValidateVendor(x);
 
     private static string? ValidateContact(VendorContactInput x)
     {
