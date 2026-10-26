@@ -126,6 +126,92 @@ public sealed class ProcurementOrderCapabilityHttpTests
         Assert.Equal(expected || scenario == "schema-not-ready" ? 1 : 0, readiness.Calls);
     }
 
+    [Theory]
+    [InlineData("ready", true, 1)]
+    [InlineData("draft-disabled", false, 0)]
+    [InlineData("draft-unconfigured", false, 0)]
+    [InlineData("approval-disabled", false, 0)]
+    [InlineData("approval-principal-disabled", false, 0)]
+    [InlineData("approval-unconfigured", false, 0)]
+    [InlineData("readiness-false", false, 1)]
+    [InlineData("department-scope", false, 0)]
+    [InlineData("pending-schema", false, 0)]
+    public async Task Principal_direct_drafts_metadata_matches_route_admission(
+        string scenario, bool expected, int readinessCalls)
+    {
+        var scope = new ProcurementRequestScope();
+        scope.Set("capability-test", Guid.NewGuid(), Guid.NewGuid().ToString("D"), null,
+            scenario == "department-scope" ? Guid.NewGuid() : null, false, "test");
+        await using var connection = new SqliteConnection("Data Source=:memory:");
+        await connection.OpenAsync();
+        var builder = WebApplication.CreateBuilder();
+        builder.Logging.ClearProviders();
+        builder.WebHost.UseTestServer();
+        builder.Services.AddSingleton(scope);
+        builder.Services.AddSingleton<IProcurementScope>(scope);
+        builder.Services.AddDbContext<ProcurementDbContext>(o =>
+        {
+            o.UseSqlite(connection);
+            SyntheticProcurementMetadataModel.Configure(o, "principal-direct-capability");
+        });
+        builder.Services.AddSingleton(new ProcurementPrincipalOrderDraftOptions
+        {
+            Enabled = scenario != "draft-disabled",
+            ExecutionDatabaseConfigured = scenario != "draft-unconfigured",
+        });
+        builder.Services.AddSingleton(new ProcurementApprovalExecutionOptions
+        {
+            Enabled = scenario != "approval-disabled",
+            PrincipalExecutionEnabled = scenario != "approval-principal-disabled",
+            ExecutionDatabaseConfigured = scenario != "approval-unconfigured",
+        });
+        var readiness = new PrincipalDraftReadiness(scenario != "readiness-false");
+        builder.Services.AddSingleton<IProcurementPrincipalOrderDraftReadiness>(readiness);
+        builder.Services.AddSingleton(new ProcurementOrderExecutionOptions());
+        builder.Services.AddSingleton(new ProcurementReceivingExecutionOptions());
+        builder.Services.AddSingleton(new ProcurementSourcingDraftExecutionOptions());
+        builder.Services.AddSingleton<IProcurementFinanceCheckerSchemaReadiness>(new FinanceCheckerTestSchemaReadiness());
+        builder.Services.AddSingleton(new ProcurementInvoiceMatchingExecutionOptions());
+        builder.Services.AddSingleton(new ProcurementManualPaymentOptions());
+        builder.Services.AddSingleton(new CoreDocumentFeature(false));
+        builder.Services.AddAuthentication("capability-test")
+            .AddScheme<AuthenticationSchemeOptions, Authentication>("capability-test", _ => { });
+        builder.Services.AddAuthorization(ProcurementPermissions.AddPolicies);
+        await using var app = builder.Build();
+        app.UseAuthentication();
+        app.UseAuthorization();
+        ProcurementHostIntegration.MapMetadataRoute(app);
+        using (var services = app.Services.CreateScope())
+        {
+            var db = services.ServiceProvider.GetRequiredService<ProcurementDbContext>();
+            var history = db.GetService<IHistoryRepository>();
+            await SyntheticProcurementMetadataModel.CreateSqliteHistoryAsync(db);
+            var migrations = db.Database.GetMigrations().ToArray();
+            Assert.NotEmpty(migrations);
+            foreach (var migration in scenario == "pending-schema" ? migrations.Skip(1) : migrations)
+                await db.Database.ExecuteSqlRawAsync(history.GetInsertScript(new HistoryRow(migration, "10.0.11")));
+        }
+        await app.StartAsync();
+        using var client = app.GetTestClient();
+        using var response = await client.GetAsync("/api/procurement/v1/meta");
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var body = await response.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.Equal(expected, body.GetProperty("capabilities").GetProperty("principalDirectOrderDrafts").GetBoolean());
+        Assert.Equal(readinessCalls, readiness.Calls);
+    }
+
+    private sealed class PrincipalDraftReadiness(bool ready) : IProcurementPrincipalOrderDraftReadiness
+    {
+        public int Calls { get; private set; }
+        public Task<bool> IsReadyAsync(CancellationToken ct)
+        {
+            Calls++;
+            return Task.FromResult(ready);
+        }
+        public Task<bool> IsReadyAsync(ProcurementDbContext owner, bool write, CancellationToken ct) =>
+            Task.FromResult(ready);
+    }
+
     private sealed class Readiness(bool ready) : IProcurementOrderSchemaReadiness
     {
         public int Calls { get; private set; }

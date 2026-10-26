@@ -45,6 +45,13 @@ public static class ProcurementHostIntegration
             ?? new ProcurementOrderExecutionOptions();
         orderOptions.ExecutionDatabaseConfigured = !string.IsNullOrWhiteSpace(executionConnection);
         services.AddSingleton(orderOptions);
+        var principalOrderOptions = configuration.GetSection("Procurement:PrincipalDirectOrderDrafts")
+            .Get<ProcurementPrincipalOrderDraftOptions>() ?? new ProcurementPrincipalOrderDraftOptions();
+        principalOrderOptions.ExecutionDatabaseConfigured = !string.IsNullOrWhiteSpace(executionConnection);
+        services.AddSingleton(principalOrderOptions);
+        // P30 remains default-off. Its real inspector also stays unavailable
+        // until the three physical CHECK strings are captured from genuine Up.
+        services.AddScoped<IProcurementPrincipalOrderDraftReadiness, ProcurementPrincipalOrderDraftSchemaReadiness>();
         var sourcingOptions = configuration.GetSection("Procurement:SourcingDrafts").Get<ProcurementSourcingDraftExecutionOptions>() ?? new();
         sourcingOptions.ExecutionDatabaseConfigured = !string.IsNullOrWhiteSpace(executionConnection);
         services.AddSingleton(sourcingOptions);
@@ -118,6 +125,7 @@ public static class ProcurementHostIntegration
         ProcurementInvoiceUnitReviewRoutes.MapRoutes(app);
         if (app.Services.GetRequiredService<CoreDocumentFeature>().Enabled) ProcurementInvoiceDocumentRoutes.MapRoutes(app);
         ProcurementOrderDraftRoutes.MapRoutes(app);
+        ProcurementPrincipalOrderDraftRoutes.MapRoutes(app);
         ProcurementOrderExecutionRoutes.MapRoutes(app);
         ProcurementReceivingRoutes.MapRoutes(app);
         MapMetadataRoute(app);
@@ -213,6 +221,8 @@ public static class ProcurementHostIntegration
                             && services.GetRequiredService<ProcurementOrderExecutionOptions>().HasApprovedDeliveryPolicy
                             && await services.GetRequiredService<IProcurementOrderSchemaReadiness>().IsReadyAsync(ct),
                         orderDraft = !pending,
+                        principalDirectOrderDrafts = await ProcurementPrincipalOrderDraftCapability.ReadyAsync(
+                            services, scope, pending, ct),
                         receiving = false, // Existing UI is not yet a compatible live receiving adapter.
                         receivingDrafts,
                         receivingGoods = receivingPositive && receivingRules!.Rules.Any(x => x.Kind.ToString() == "Goods"),
@@ -545,12 +555,15 @@ public sealed class ProcurementScopeMiddleware(RequestDelegate next, IWebHostEnv
         var value = path.Value?.TrimEnd('/');
         return string.Equals(value, "/api/procurement/v1/requests", StringComparison.OrdinalIgnoreCase)
             || string.Equals(value, "/api/procurement/v1/plans", StringComparison.OrdinalIgnoreCase)
-            || string.Equals(value, "/api/procurement/v1/contracts", StringComparison.OrdinalIgnoreCase);
+            || string.Equals(value, "/api/procurement/v1/contracts", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(value, "/api/procurement/v1/orders/principal-direct-drafts", StringComparison.OrdinalIgnoreCase);
     }
 
     internal static bool RequestWriteRequiresBranch(PathString path, string method) =>
         path.StartsWithSegments("/api/procurement/v1/requests", StringComparison.OrdinalIgnoreCase)
-        && (HttpMethods.IsPost(method) || HttpMethods.IsPut(method) || HttpMethods.IsPatch(method) || HttpMethods.IsDelete(method));
+            && (HttpMethods.IsPost(method) || HttpMethods.IsPut(method) || HttpMethods.IsPatch(method) || HttpMethods.IsDelete(method))
+        || HttpMethods.IsPost(method) && string.Equals(path.Value?.TrimEnd('/'),
+            "/api/procurement/v1/orders/from-approved-principal-direct-sources", StringComparison.OrdinalIgnoreCase);
 
     // Only current company-master reads use explicit All in this P24 backport.
     // A future child or write route must receive its own scope review.

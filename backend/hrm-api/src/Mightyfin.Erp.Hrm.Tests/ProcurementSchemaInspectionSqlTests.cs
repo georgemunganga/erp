@@ -37,6 +37,21 @@ public sealed class ProcurementSchemaInspectionSqlTests
         Assert.Contains("i.indisunique AND i.indisvalid AND i.indimmediate AND i.indexprs IS NULL", partial);
     }
 
+    [Fact]
+    public void Named_index_inspection_distinguishes_unique_from_reader_index()
+    {
+        var unique = ProcurementSchemaInspectionSql.IndexSql(Child,
+            ["tenant_id", "legal_entity_id", "source_id"], "ux_source", true);
+        var reader = ProcurementSchemaInspectionSql.IndexSql(Child,
+            ["tenant_id", "legal_entity_id", "source_id"], "ix_source", false);
+        Assert.Contains("i.indisunique=true", unique);
+        Assert.Contains("i.indisunique=false", reader);
+        Assert.Contains("i.indisvalid AND i.indisready AND i.indislive", reader);
+        Assert.Contains("i.indpred IS NULL", reader);
+        Assert.Contains("i.indexrelid='\"procurement\".\"ix_source\"'::regclass", reader);
+        Assert.Contains("ARRAY['tenant_id','legal_entity_id','source_id']::text[]", reader);
+    }
+
     [Theory]
     [InlineData("procurement.purchase_request_approval_outcomes.ck_pr_approval_outcome_evidence")]
     [InlineData("procurement.purchase_request_finance_release_requests.ck_pr_finance_release_request")]
