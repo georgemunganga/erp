@@ -33,6 +33,9 @@ public sealed class ProcurementMasterImportHttpTests
             using var response = await fixture.Send(user, HttpMethod.Get, "/api/procurement/v1/vendors/import/schema");
             Assert.Equal(expected, response.StatusCode);
         }
+        using (var all = await fixture.Send(fixture.Both, HttpMethod.Get,
+                   "/api/procurement/v1/vendors/import/schema", allBranches: true))
+            Assert.Equal(HttpStatusCode.ServiceUnavailable, all.StatusCode);
         Assert.Equal((0, 0, 0), await fixture.MasterFootprint());
     }
 
@@ -43,6 +46,9 @@ public sealed class ProcurementMasterImportHttpTests
         using (var response = await fixture.Send(fixture.Both, HttpMethod.Get,
                    "/api/procurement/v1/items/import/" + Guid.NewGuid()))
             Assert.Equal(HttpStatusCode.ServiceUnavailable, response.StatusCode);
+        using (var foreign = await fixture.Send(fixture.Both, HttpMethod.Get,
+                   "/api/procurement/v1/vendors/import/schema", foreignCompany: true))
+            Assert.Equal(HttpStatusCode.Forbidden, foreign.StatusCode);
         await fixture.RevokeImport();
         foreach (var path in new[] { "/api/procurement/v1/vendors/import/schema",
                      "/api/procurement/v1/vendors/import/preview",
@@ -53,9 +59,6 @@ public sealed class ProcurementMasterImportHttpTests
                 path);
             Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
         }
-        using (var foreign = await fixture.Send(fixture.NativeOnly, HttpMethod.Get,
-                   "/api/procurement/v1/vendors/import/schema", foreignCompany: true))
-            Assert.Equal(HttpStatusCode.Forbidden, foreign.StatusCode);
         Assert.Equal((0, 0, 0), await fixture.MasterFootprint());
     }
 
@@ -133,6 +136,8 @@ public sealed class ProcurementMasterImportHttpTests
             {
                 var core = seed.ServiceProvider.GetRequiredService<HrmDbContext>();
                 core.LegalEntities.AddRange(company, other); core.WorkLocations.Add(branch);
+                core.UserBranchAssignments.Add(new HrUserBranchAssignment
+                    { UserId = fixture.Both, LocationId = branch.Id });
                 foreach (var (id, role, actions) in new[] {
                     (fixture.Both, "csv_both", "procurement-access,procurement-vendor-import,procurement-vendor-create,procurement-item-import,procurement-item-manage"),
                     (fixture.ImportOnly, "csv_import_only", "procurement-access,procurement-vendor-import"),
@@ -153,13 +158,14 @@ public sealed class ProcurementMasterImportHttpTests
         }
 
         public async Task<HttpResponseMessage> Send(Guid user, HttpMethod method, string path,
-            bool foreignCompany = false)
+            bool foreignCompany = false, bool allBranches = false)
         {
             using var request = new HttpRequestMessage(method, path);
             request.Headers.Add("X-Test-User", user.ToString());
             request.Headers.Add("X-Test-Role", "erp_admin"); // stored role remains authoritative
             request.Headers.Add("X-Shell-Entity", (foreignCompany ? otherCompany : company).ToString());
-            if (!foreignCompany) request.Headers.Add("X-Shell-Location", branch.ToString());
+            if (allBranches) request.Headers.Add("X-Shell-Branch-Scope", "all");
+            else if (!foreignCompany) request.Headers.Add("X-Shell-Location", branch.ToString());
             if (method == HttpMethod.Post) request.Content = JsonContent.Create(new { });
             return await client!.SendAsync(request);
         }

@@ -612,8 +612,11 @@ public static class ProcurementMasterImportRoutes
             return Results.Ok(new { state = "Committed", batchId, result =
                 JsonSerializer.Deserialize<JsonElement>(batch.ResultText!) });
         }
-        if (batch.State != "Previewed" || batch.ExpiresAt <= DateTimeOffset.UtcNow)
-            return Results.Ok(new { state = "Expired", batchId });
+        // An expired Previewed row is not a terminal write outcome: a commit
+        // may already hold its row lock and finish after this read. Retain the
+        // typed preview with its past expiresAt so clients keep uncertain work
+        // pending instead of clearing the command journal on a false Expired.
+        if (batch.State != "Previewed") return Unavailable(http);
         var snapshot = ProcurementMasterImportContracts.ReadSnapshot(batch.PreviewSnapshotText);
         if (snapshot is null || snapshot.TenantId != scope.TenantId || snapshot.CompanyId != scope.LegalEntityId
             || snapshot.ActorSubjectId != scope.SubjectId || snapshot.Kind != kind)
