@@ -52,6 +52,25 @@ public sealed class ProcurementImportPreviewMaintenanceTests
     }
 
     [Fact]
+    public void Maintenance_unix_socket_path_case_is_an_exact_database_boundary()
+    {
+        const string maintenance = "Host=/private-pg-socket;Port=5432;Database=erp;Username=maintenance";
+        const string record = "Host=/private-pg-socket;Port=5432;Database=erp;Username=record";
+        const string core = "Host=/private-pg-socket;Port=5432;Database=erp;Username=core";
+        Assert.True(ProcurementImportPreviewMaintenance.ConnectionBoundary(maintenance, record, core));
+        Assert.False(ProcurementImportPreviewMaintenance.ConnectionBoundary(
+            maintenance, "Host=/PRIVATE-PG-SOCKET;Port=5432;Database=erp;Username=record", core));
+        Assert.False(ProcurementImportPreviewMaintenance.ConnectionBoundary(
+            maintenance, record, "Host=/PRIVATE-PG-SOCKET;Port=5432;Database=erp;Username=core"));
+        Assert.False(ProcurementImportPreviewMaintenance.ConnectionBoundary(
+            maintenance, "Host=/private-pg-socket;Port=5433;Database=erp;Username=record", core));
+        Assert.True(ProcurementImportPreviewMaintenance.ConnectionBoundary(
+            "Host=PG.EXAMPLE;Port=5432;Database=erp;Username=maintenance",
+            "Host=pg.example;Port=5432;Database=erp;Username=record",
+            "Host=Pg.Example;Port=5432;Database=erp;Username=core"));
+    }
+
+    [Fact]
     public void New_work_health_expires_when_sweeps_stop_or_fail()
     {
         var health = new ProcurementImportMaintenanceHealth();

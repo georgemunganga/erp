@@ -173,7 +173,9 @@ public sealed class ProcurementImportPreviewMaintenance(
         new NpgsqlConnectionStringBuilder(Normalize(value))
         { Timeout = 5, CommandTimeout = 15 }.ConnectionString;
     private static bool SameDatabase(NpgsqlConnectionStringBuilder a, NpgsqlConnectionStringBuilder b) =>
-        string.Equals(a.Host,b.Host,StringComparison.OrdinalIgnoreCase)
+        string.Equals(a.Host,b.Host,
+            a.Host?.StartsWith('/') == true || b.Host?.StartsWith('/') == true
+                ? StringComparison.Ordinal : StringComparison.OrdinalIgnoreCase)
         && a.Port==b.Port && string.Equals(a.Database,b.Database,StringComparison.Ordinal);
 
     internal static async Task<bool> RoleReadyAsync(IConfiguration configuration, CancellationToken ct)
