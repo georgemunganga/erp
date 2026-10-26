@@ -59,7 +59,7 @@ public sealed class ProcurementSourcingPolicyIdentitySchemaReadinessTests
     [Fact]
     public void Manifest_preserves_actual_named_partial_predicates_and_null_guards()
     {
-        Assert.Equal("20261022052824_P21CanonicalGovernedProcurementFoundation", ProcurementSourcingPolicyIdentitySchemaReadiness.MigrationId);
+        Assert.Equal("20261026155612_M4PrincipalRfqPublicationReview", ProcurementSourcingPolicyIdentitySchemaReadiness.MigrationId);
         Assert.Equal("((stage)::text = 'Created'::text)", ProcurementSourcingPolicyIdentitySchemaReadiness.PartialPredicates["ux_source_policy_identity_created"]);
         Assert.Equal("((stage)::text = 'Published'::text)", ProcurementSourcingPolicyIdentitySchemaReadiness.PartialPredicates["ux_source_policy_identity_published"]);
         var definition = ProcurementSourcingPolicyIdentitySchemaReadiness.CheckDefinition;

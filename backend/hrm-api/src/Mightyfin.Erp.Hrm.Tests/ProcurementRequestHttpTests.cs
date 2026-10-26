@@ -1679,6 +1679,11 @@ public sealed partial class ProcurementRequestHttpTests
         response = await SendJson(fixture.Client, HttpMethod.Put, path + "/" + id, fixture.Other,
             new ProcurementPolicyDraftRoutes.VersionedPolicyDraft(saved.GetProperty("version").GetInt64(), complete), "procurement_manager");
         Assert.Equal(HttpStatusCode.OK, response.StatusCode); saved = await response.Content.ReadFromJsonAsync<JsonElement>();
+        var ungranted = await SendJson(fixture.Client, HttpMethod.Post, path + "/" + id + "/submit-review", fixture.Other,
+            new ProcurementPolicyDraftRoutes.ReviewSubmission(saved.GetProperty("version").GetInt64(), "Reviewer not granted"), "procurement_manager");
+        Assert.Equal(HttpStatusCode.UnprocessableEntity, ungranted.StatusCode);
+        Assert.Equal("sourcing-reviewer-unavailable", (await ungranted.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("code").GetString());
+        await fixture.GrantSourcingPublicationReviewer();
         response = await SendJson(fixture.Client, HttpMethod.Post, path + "/" + id + "/submit-review", fixture.Other,
             new ProcurementPolicyDraftRoutes.ReviewSubmission(saved.GetProperty("version").GetInt64(), "Explicit audience choices selected"), "procurement_manager");
         Assert.Equal(HttpStatusCode.OK, response.StatusCode); saved = await response.Content.ReadFromJsonAsync<JsonElement>();
@@ -3705,6 +3710,14 @@ public sealed partial class ProcurementRequestHttpTests
                 core.TenantRoleAssignments.Add(role);
             }
             role.PermissionsCsv = "procurement-access,procurement-configuration-read,procurement-configuration-edit,procurement-configuration-approve";
+            await core.SaveChangesAsync();
+        }
+        public async Task GrantSourcingPublicationReviewer()
+        {
+            using var services = app.Services.CreateScope();
+            var core = services.ServiceProvider.GetRequiredService<HrmDbContext>();
+            var role = await core.TenantRoleAssignments.SingleAsync(x => x.RoleKey == "procurement_manager");
+            role.PermissionsCsv += ",procurement-sourcing-publish";
             await core.SaveChangesAsync();
         }
         public async Task<Guid> SourcingBranch()

@@ -176,12 +176,13 @@ public static class ProcurementHostIntegration
                     && await services.GetRequiredService<IProcurementSourcingDraftSchemaReadiness>().IsReadyAsync(ct);
                 var principalSourcingSourceDrafts = await ProcurementPrincipalSourcingCapability.ReadyAsync(
                     services, scope, pending, sourcingSourceDrafts, ct);
-                var publicationOptions = services.GetRequiredService<ProcurementPrincipalSourcingPublicationOptions>();
-                var principalSourcingPublication = principalSourcingSourceDrafts && publicationOptions.Enabled
+                var publicationOptions = services.GetService<ProcurementPrincipalSourcingPublicationOptions>();
+                var publicationReadiness = services.GetService<IProcurementPrincipalSourcingPublicationReadiness>();
+                var principalSourcingPublication = principalSourcingSourceDrafts && publicationOptions is { Enabled: true }
                     && services.GetRequiredService<ProcurementApprovalExecutionOptions>() is
                         { Enabled: true, PrincipalExecutionEnabled: true, ExecutionDatabaseConfigured: true }
                     && await ProcurementPrincipalApprovalCapability.ConfiguredStoreReadyAsync(services, ct)
-                    && await services.GetRequiredService<IProcurementPrincipalSourcingPublicationReadiness>().IsReadyAsync(ct)
+                    && publicationReadiness is not null && await publicationReadiness.IsReadyAsync(ct)
                     && await ProcurementPrincipalPeople.Resolve(services.GetRequiredService<HrmDbContext>(),
                         scope.TenantId, scope.LegalEntityId, scope.SubjectId, ct) is { } publicationPerson
                     && (scope.WorkLocationId is { } selectedPublicationBranch

@@ -67,7 +67,8 @@ public static partial class ProcurementPolicyDraftRoutes
             var account = await ProcurementPrincipalPeople.Resolve(core, scope.TenantId, scope.LegalEntityId, id, ct);
             // Schema 1 is retained configuration approval, not an RFQ publication
             // grant. Operational publication independently checks current action.
-            if (account is null || identitySchema == 2 && !account.Permissions.Contains("procurement-sourcing-publish"))
+            if (account is null || identitySchema == 2 && !draftSyntaxOnly
+                && !account.Permissions.Contains("procurement-sourcing-publish"))
                 return Problem("sourcing-reviewer-unavailable", "Each named reviewer needs a current authorized Core account in this company.", 422);
             if (identitySchema == 1 && (account.WorkerId is not { } currentWorker
                 || (await ProcurementAuthorityIdentity.ResolveCanonicalAccountAsync(core, scope.TenantId,
