@@ -1688,7 +1688,8 @@ public sealed partial class ProcurementRequestHttpTests
         await fixture.GrantSourcingPublicationReviewer();
         response = await SendJson(fixture.Client, HttpMethod.Post, path + "/" + id + "/submit-review", fixture.Other,
             new ProcurementPolicyDraftRoutes.ReviewSubmission(saved.GetProperty("version").GetInt64(), "Explicit audience choices selected"), "procurement_manager");
-        Assert.Equal(HttpStatusCode.OK, response.StatusCode); saved = await response.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.True(response.StatusCode == HttpStatusCode.OK, await response.Content.ReadAsStringAsync());
+        saved = await response.Content.ReadFromJsonAsync<JsonElement>();
         var before = await fixture.SourcingConfigurationFootprint();
         var publication = new ProcurementPolicyDraftRoutes.PublicationInput(saved.GetProperty("version").GetInt64(), "Independent audience policy review");
         Assert.Equal(HttpStatusCode.Forbidden, (await SendJson(fixture.Client, HttpMethod.Post, path + "/" + id + "/publish", fixture.Other, publication, "procurement_manager")).StatusCode);
@@ -3715,14 +3716,8 @@ public sealed partial class ProcurementRequestHttpTests
             role.PermissionsCsv = "procurement-access,procurement-configuration-read,procurement-configuration-edit,procurement-configuration-approve";
             await core.SaveChangesAsync();
         }
-        public async Task GrantSourcingPublicationReviewer()
-        {
-            using var services = app.Services.CreateScope();
-            var core = services.ServiceProvider.GetRequiredService<HrmDbContext>();
-            var role = await core.TenantRoleAssignments.SingleAsync(x => x.RoleKey == "procurement_manager");
-            role.PermissionsCsv += ",procurement-sourcing-publish";
-            await core.SaveChangesAsync();
-        }
+        public Task GrantSourcingPublicationReviewer() => ConfigureCoreActions(Owner,
+            string.Join(",", ProcurementActionCatalog.ForRole("employee").Append("procurement-sourcing-publish")));
         public async Task<Guid> SourcingBranch()
         {
             using var services = app.Services.CreateScope();
