@@ -1,0 +1,48 @@
+{
+  "status": "PASS_PRODUCTION_MASTER_IMPORT_AND_FINITE_MAINTENANCE_ACTIVATED",
+  "date": "2026-10-26",
+  "backendProductSource": "d35ecc090b0de0abcab1e38be09fd25c52a1d0aa",
+  "imageId": "sha256:c9ea9f7bd48c112bf20cc5cbb6f20d48850075942dfa37f366af9c41f352464b",
+  "reviewedPlanSha256": "eaaf0ed1d2ad89db2aa5cb06bc1d2fa86455f6b81d293a5f7b4ef0665de05c38",
+  "uiProductSource": "9b6ab3442aa1583a339dcfed311adad393a29706",
+  "receiptSha256": {
+    "activation-result.private.json": "f2add6d6f07e2428a80ff6e166360b07b49e52041f9547409aba0b346841ac78",
+    "canary-result.private.json": "6526bb313f22ec3cf93fe2f786a9344b80b68ad395f1dd7049f1d43a4072246d",
+    "account-schema-readonly.private.json": "fa71988f2c965590c687a43ef8b24da0374821fc71a5ec47fc24e818bd75af0c",
+    "independent-private-acceptance-review.private.json": "214534d3d4a1f5f4aafdbc8836a7dfd87db32ba371e3603250c048e08e055cdf",
+    "production-readonly-preflight.private.json": "83ec90e33673266cff9d56d568283640b63fdb59f03b1bdc49360101c053d5d9"
+  },
+  "onlyChangedSettings": [
+    "connectionstrings:procurementimportmaintenance",
+    "procurement:masterimport:enabled",
+    "procurement:masterimport:maintenance:enabled"
+  ],
+  "checks": {
+    "apiAndMaintenanceHealthy": true,
+    "emptyFiniteMaintenanceSweepCommitted": true,
+    "histories": {
+      "hrm": 56,
+      "procurement": 28,
+      "coreApproval": 1
+    },
+    "importBatchesBeforeAndAfter": 0,
+    "importReceiptsBeforeAndAfter": 0,
+    "rolePermissionsUnchanged": true,
+    "schemaUnchanged": true,
+    "publisherUnchanged": true,
+    "protectedAnonymousRoutes": 401,
+    "anonymousMeAuthenticated": false,
+    "currentAccountContext": 200,
+    "currentAccountEmployeeLinked": false,
+    "currentAccountImportPermissions": [],
+    "currentAccountVendorAndItemSchema": 403,
+    "currentAccountNormalLogout": 200
+  },
+  "limits": [
+    "Private finite-Core HTTP and four real browser phases are recorded in the separate current-mainline acceptance; this activation made no production import transaction.",
+    "Import enablement does not grant action permissions. The tested account has no explicit import permission and is correctly denied; assignment belongs to Core access administration.",
+    "The production canary proved an empty maintenance sweep, not elapsed TTL or nonempty cleanup.",
+    "Operational approvals, principal direct orders, manual payments and M4 publication remain disabled.",
+    "No external Finance integration or whole-module UAT completion is claimed."
+  ]
+}

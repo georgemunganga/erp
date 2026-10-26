@@ -333,11 +333,13 @@ public interface ISmtpNotificationFallback
 public sealed class SmtpNotificationFallback : ISmtpNotificationFallback
 {
     private readonly IConfiguration configuration;
+    private readonly TimeProvider timeProvider;
     public bool Enabled { get; }
 
-    public SmtpNotificationFallback(IConfiguration configuration)
+    public SmtpNotificationFallback(IConfiguration configuration, TimeProvider? timeProvider = null)
     {
         this.configuration = configuration;
+        this.timeProvider = timeProvider ?? TimeProvider.System;
         Enabled = string.Equals(configuration["HRM:NotificationFallback"], "smtp", StringComparison.OrdinalIgnoreCase);
     }
 
@@ -372,6 +374,15 @@ public sealed class SmtpNotificationFallback : ISmtpNotificationFallback
             throw new InvalidOperationException($"No SMTP fallback template exists for {row.EventType}.");
         using var payload = JsonDocument.Parse(row.PayloadJson);
         var root = payload.RootElement;
+        // Check at delivery time, including retries. Keep this a visible failure:
+        // CanDeliver=false is acknowledged by the publisher as smtp-skipped.
+        // Never include the credential link or recipient in the error.
+        if (row.EventType == HrmEventTypes.AccountAccessLink &&
+            (!root.TryGetProperty("expires_at", out var expiry) ||
+             expiry.ValueKind != JsonValueKind.String ||
+             !expiry.TryGetDateTimeOffset(out var expiresAt) ||
+             expiresAt <= timeProvider.GetUtcNow()))
+            throw new InvalidOperationException("Account access link has expired or has no valid expiry.");
         var recipients = root.TryGetProperty("emails", out var emails) && emails.ValueKind == JsonValueKind.Array
             ? emails.EnumerateArray().Select(value => value.GetString()?.Trim()).Where(value => !string.IsNullOrWhiteSpace(value)).Cast<string>().Distinct(StringComparer.OrdinalIgnoreCase).ToList()
             : [Required(root, "email")];
