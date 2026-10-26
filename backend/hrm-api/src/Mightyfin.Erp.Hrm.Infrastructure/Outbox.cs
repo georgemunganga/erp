@@ -79,10 +79,14 @@ public interface IOutboxPublisherStore
     Task CompleteAsync(Guid id, bool success, string transport, string? error, CancellationToken ct);
 }
 
-public sealed class EfOutboxPublisherStore(HrmDbContext db) : IOutboxPublisherStore
+public sealed class EfOutboxPublisherStore(HrmDbContext db, ITenantAccessor tenant) : IOutboxPublisherStore
 {
+    private OutboxPublisherTenantAccessor PublisherTenant => tenant as OutboxPublisherTenantAccessor
+        ?? throw new InvalidOperationException("Outbox writes require the publisher-only tenant accessor.");
+
     public async Task<List<OutboxMessage>> ClaimAsync(int limit, CancellationToken ct)
     {
+        var publisherTenant = PublisherTenant;
         limit = Math.Clamp(limit, 1, 100);
         await using var transaction = await db.Database.BeginTransactionAsync(ct);
         var staleBefore = DateTimeOffset.UtcNow.AddMinutes(-5);
@@ -96,20 +100,35 @@ public sealed class EfOutboxPublisherStore(HrmDbContext db) : IOutboxPublisherSt
                 FOR UPDATE SKIP LOCKED
                 LIMIT {limit}")
             .IgnoreQueryFilters()
+            .AsNoTracking()
             .ToListAsync(ct);
         foreach (var row in rows)
         {
-            row.Status = "publishing";
-            row.UpdatedAt = DateTimeOffset.UtcNow;
+            // The SELECT above locks this authoritative row. Bind its persisted
+            // tenant for both FillTenantIds and AuditInterceptor, then save only
+            // this row. A mixed-tenant claim must never share one SaveChanges.
+            using var binding = publisherTenant.BindAuthoritativeRow(row);
+            db.OutboxMessages.Attach(row);
+            try
+            {
+                row.Status = "publishing";
+                row.UpdatedAt = DateTimeOffset.UtcNow;
+                await db.SaveChangesAsync(ct);
+            }
+            finally
+            {
+                db.Entry(row).State = EntityState.Detached;
+            }
         }
-        await db.SaveChangesAsync(ct);
         await transaction.CommitAsync(ct);
         return rows;
     }
 
     public async Task CompleteAsync(Guid id, bool success, string transport, string? error, CancellationToken ct)
     {
+        var publisherTenant = PublisherTenant;
         var row = await db.OutboxMessages.IgnoreQueryFilters().FirstAsync(x => x.Id == id, ct);
+        using var binding = publisherTenant.BindAuthoritativeRow(row);
         row.PublishAttempts++;
         row.LastTransport = transport;
         row.LastError = string.IsNullOrWhiteSpace(error) ? null : error[..Math.Min(error.Length, 2000)];

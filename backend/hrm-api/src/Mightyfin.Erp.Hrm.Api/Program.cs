@@ -104,7 +104,10 @@ builder.Services.AddHttpContextAccessor();
 // through the internal docker network. Best-effort by design.
 builder.Services.AddHttpClient("keycloak-admin");
 builder.Services.AddScoped<IIdentityProvisioningService, IdentityProvisioningService>();
-builder.Services.AddScoped<ITenantAccessor, PrincipalTenantAccessor>();
+if (startupMode == CoreHostMode.OutboxPublisher)
+    builder.Services.AddScoped<ITenantAccessor, OutboxPublisherTenantAccessor>();
+else
+    builder.Services.AddScoped<ITenantAccessor, PrincipalTenantAccessor>();
 // M44 branch scoping: per-request work scope (entity + branch) resolved from
 // X-Shell-Location / X-Shell-Entity headers before any handler runs.
 builder.Services.AddScoped<ShellContext>();
