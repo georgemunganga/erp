@@ -1,8 +1,10 @@
 # Latest UI and UAT checkpoint
 
-ERP prerequisite main is `063d8372fddd5fc37545aaeb1daeabf6e9ce0cef`; UI main `dfed2dd1954e8dc735a3bd8ff03449d4b00e6911` includes deployed anonymous-access recovery PR85. Current backend remains product D35/imageC9 below; current UI product is `9b6ab3442aa1583a339dcfed311adad393a29706`. Fresh M3b and finite-Core current-mainline M2a private browser/owner/preservation checks passed; [current status](docs/procurement/gap-closure/CURRENT-EXECUTION-STATUS-20261026.md) distinguishes that from production activation.
+ERP prerequisite main is `f98ff44748ef6d5a785f2f325d2f6ceae4a9371a`; UI main `dfed2dd1954e8dc735a3bd8ff03449d4b00e6911` includes deployed anonymous-access recovery PR85. Current backend remains product D35/imageC9 below; current UI product is `9b6ab3442aa1583a339dcfed311adad393a29706`. Fresh M3b and finite-Core current-mainline M2a private browser/owner/preservation checks passed; [current status](docs/procurement/gap-closure/CURRENT-EXECUTION-STATUS-20261026.md) distinguishes that from production activation.
 
-Coordinator owns draft M4 backend PR114, its remaining tests and original UI integration, and M2 import configuration activation. Do not duplicate those or merge held mixed migrations/UI ancestry. Manus retains the independent scanner task. No new overlapping collaborator assignment, Finance integration or whole-module UAT completion is claimed.
+Production imports and finite maintenance are now enabled; [activation evidence](docs/procurement/release/M2A-PRODUCTION-IMPORT-ACTIVATION-20261026.json) records healthy checks and unchanged role permissions/schema. No production import transaction was written. The tested account lacks explicit import permission and correctly receives 403; Core role assignment remains separate.
+
+Coordinator owns draft M4 backend PR114 and original-layout UI PR86, their remaining genuine tests and paired release. M4 remains disabled. Do not duplicate those or merge held mixed migrations/UI ancestry. Manus retains the independent scanner task. No new overlapping collaborator assignment, Finance integration or whole-module UAT completion is claimed.
 
 ---
 
@@ -10,7 +12,7 @@ Coordinator owns draft M4 backend PR114, its remaining tests and original UI int
 
 Published prerequisites are ERP main `c8eac4c54b009bbafe3cf916992abdbcf3562a61` and UI main `7f75d327a2bb8eb399f48b370da0cc53a0a831b9`. The paired technical release is live: product `d35ecc090b0de0abcab1e38be09fd25c52a1d0aa`, UI `e032805303e23e1658d5a66808d9b0d6f1ce991c`, image `c9ea9f7bd48c112bf20cc5cbb6f20d48850075942dfa37f366af9c41f352464b`, schema histories HRM56/Procurement28/CoreApproval1 and finite runtime accounts. [Current status and remaining gates](docs/procurement/gap-closure/CURRENT-EXECUTION-STATUS-20261026.md) supersede historical no-deployment paragraphs below.
 
-Coordinator owns remaining UAT, gated capability activation, SMTP/expiry investigation and anonymous Procurement sign-in recovery. Manus retains the independent Core scanner assignment; no overlapping implementation is assigned. Keep original layouts/shared ERP controls and Core-owned identity/settings. Imports, operational approvals, manual payments and principal direct-order execution remain off until their affected release acceptance. No business-UAT sign-off or Finance integration is claimed.
+Coordinator owns remaining UAT, gated capability activation, SMTP/expiry investigation and anonymous Procurement sign-in recovery. Manus retains the independent Core scanner assignment; no overlapping implementation is assigned. Keep original layouts/shared ERP controls and Core-owned identity/settings. At the initial technical cutover these capabilities were off; imports and finite maintenance are now enabled as recorded above. Operational approvals, manual payments and principal direct-order execution remain off until their affected release acceptance. No business-UAT sign-off or Finance integration is claimed.
 
 ---
 
