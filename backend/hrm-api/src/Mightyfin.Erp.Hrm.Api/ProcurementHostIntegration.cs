@@ -180,7 +180,10 @@ public static class ProcurementHostIntegration
                 var publicationReadiness = services.GetService<IProcurementPrincipalSourcingPublicationReadiness>();
                 var approvalOptions = services.GetRequiredService<ProcurementApprovalExecutionOptions>();
                 var principalSourcingPublicationRead = false;
-                if (!pending && sourcingOptions.PrincipalSourceEnabled
+                // The shared sourcing transaction wrapper still requires its
+                // P29 engine for GET. M4's own new-work switch is independent.
+                if (!pending && financeCheckerReads && sourcingOptions is
+                        { Enabled: true, PrincipalSourceEnabled: true, ExecutionDatabaseConfigured: true }
                     && approvalOptions is { Enabled: true, PrincipalExecutionEnabled: true, ExecutionDatabaseConfigured: true }
                     && scope.OrgUnitId is null && scope.PrincipalId?.ToString("D") == scope.SubjectId
                     && publicationReadiness is not null && await publicationReadiness.IsReadyAsync(ct))
