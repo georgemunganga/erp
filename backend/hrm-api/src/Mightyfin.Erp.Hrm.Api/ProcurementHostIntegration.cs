@@ -178,18 +178,26 @@ public static class ProcurementHostIntegration
                     services, scope, pending, sourcingSourceDrafts, ct);
                 var publicationOptions = services.GetService<ProcurementPrincipalSourcingPublicationOptions>();
                 var publicationReadiness = services.GetService<IProcurementPrincipalSourcingPublicationReadiness>();
-                var principalSourcingPublication = principalSourcingSourceDrafts && publicationOptions is { Enabled: true }
-                    && services.GetRequiredService<ProcurementApprovalExecutionOptions>() is
-                        { Enabled: true, PrincipalExecutionEnabled: true, ExecutionDatabaseConfigured: true }
-                    && await ProcurementPrincipalApprovalCapability.ConfiguredStoreReadyAsync(services, ct)
-                    && publicationReadiness is not null && await publicationReadiness.IsReadyAsync(ct)
-                    && await ProcurementPrincipalPeople.Resolve(services.GetRequiredService<HrmDbContext>(),
-                        scope.TenantId, scope.LegalEntityId, scope.SubjectId, ct) is { } publicationPerson
-                    && (scope.WorkLocationId is { } selectedPublicationBranch
-                        ? publicationPerson.OrganisationWide || publicationPerson.AllowedBranches.Contains(selectedPublicationBranch)
-                        : publicationPerson.OrganisationWide || publicationPerson.AllowedBranches.Count > 0)
-                    && (publicationPerson.Permissions.Contains("procurement-sourcing-submit")
-                        || publicationPerson.Permissions.Contains("procurement-sourcing-publish"));
+                var approvalOptions = services.GetRequiredService<ProcurementApprovalExecutionOptions>();
+                var principalSourcingPublicationRead = false;
+                if (!pending && sourcingOptions.PrincipalSourceEnabled
+                    && approvalOptions is { Enabled: true, PrincipalExecutionEnabled: true, ExecutionDatabaseConfigured: true }
+                    && scope.OrgUnitId is null && scope.PrincipalId?.ToString("D") == scope.SubjectId
+                    && publicationReadiness is not null && await publicationReadiness.IsReadyAsync(ct))
+                {
+                    var publicationPerson = await ProcurementPrincipalPeople.Resolve(
+                        services.GetRequiredService<HrmDbContext>(), scope.TenantId, scope.LegalEntityId,
+                        scope.SubjectId, ct);
+                    principalSourcingPublicationRead = publicationPerson is not null
+                        && (scope.WorkLocationId is { } selectedPublicationBranch
+                            ? publicationPerson.OrganisationWide || publicationPerson.AllowedBranches.Contains(selectedPublicationBranch)
+                            : publicationPerson.OrganisationWide || publicationPerson.AllowedBranches.Count > 0)
+                        && (publicationPerson.Permissions.Contains("procurement-sourcing-submit")
+                            || publicationPerson.Permissions.Contains("procurement-sourcing-publish"));
+                }
+                var principalSourcingPublication = principalSourcingPublicationRead
+                    && principalSourcingSourceDrafts && publicationOptions is { Enabled: true }
+                    && await ProcurementPrincipalApprovalCapability.ConfiguredStoreReadyAsync(services, ct);
                 return Results.Ok(new
                 {
                     module = "procurement",
@@ -217,6 +225,7 @@ public static class ProcurementHostIntegration
                         sourcingSourceDrafts,
                         principalSourcingSourceDrafts,
                         principalSourcingPublication,
+                        principalSourcingPublicationRead,
                         // Capability describes configured availability; each command still
                         // checks current identity, record scope, policy, authority and Finance.
                         budgetEvidence = financeCheckerReads,

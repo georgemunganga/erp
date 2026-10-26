@@ -114,8 +114,9 @@ public static partial class ProcurementSourcingExecutionRoutes
                     policyVersionId = verified.Opening.PolicyVersionId,
                     policyVersionNumber = verified.Opening.PolicyVersionNumber,
                     supplierDeliveryState = "PerInvitation", reviewer,
-                    assignments = verified.Case.Stages.SelectMany(x => x.Assignments)
-                        .Where(x => reviewer && x.AssigneeSubjectId == scope.SubjectId).Select(x => new
+                    assignments = (reviewer
+                        ? ActivePublicationAssignments(verified.Case, scope.SubjectId)
+                        : []).Select(x => new
                         { x.Id, x.Version, x.State, x.PermissionKey }).ToArray(),
                 },
                 lines = verified.Lines.Select(x => new

@@ -9,6 +9,7 @@ namespace Mightyfin.Erp.Hrm.Api;
 public static partial class ProcurementPolicyDraftRoutes
 {
     private static async Task<IResult> SourcingReviewers(string? search, int? offset, int? limit, string? principalIds,
+        int? schemaVersion,
         HttpContext http, HrmDbContext core, ProcurementDbContext db, ProcurementRequestScope scope, CancellationToken ct)
     {
         http.Response.Headers.CacheControl = "no-store";
@@ -19,6 +20,8 @@ public static partial class ProcurementPolicyDraftRoutes
             var text = (search ?? "").Trim().ToLowerInvariant();
             if (text.Length > 100)
                 return Problem("sourcing-reviewer-search-invalid", "Search by a name of up to 100 characters.", 422);
+            if (schemaVersion is not (null or 1 or 2))
+                return Problem("sourcing-reviewer-schema-invalid", "Choose sourcing rule schema 1 or 2.", 422);
             var skip = Math.Clamp(offset ?? 0, 0, 100000);
             var take = Math.Clamp(limit ?? 25, 1, 50);
             Guid[]? selected = null;
@@ -36,14 +39,50 @@ public static partial class ProcurementPolicyDraftRoutes
                     return Problem("sourcing-reviewer-selection-invalid", "Choose up to 25 distinct saved reviewers without a name search or another page.", 422);
                 selected = values.Select(Guid.Parse).ToArray();
             }
-            // Unlike spending-authority people lookup, there is no financial-action eligibility
-            // filter. Every identity/data boundary is in SQL before BOTH count and pagination.
-            var query = ProcurementAuthorityIdentity.CanonicalPeopleQuery(core, scope, DateTimeOffset.UtcNow)
-                .Where(x => text == "" || x.DisplayName.ToLower().Contains(text));
-            if (selected is not null) query = query.Where(x => selected.Contains(x.Id));
-            var total = await query.CountAsync(ct);
-            var page = await query.OrderBy(x => x.DisplayName).ThenBy(x => x.Id).Skip(skip).Take(take)
-                .Select(x => new { principalId = x.Id.ToString(), x.DisplayName, x.WorkerId }).ToArrayAsync(ct);
+            int total;
+            int pageLength;
+            object page;
+            if (schemaVersion == 2)
+            {
+                // Core company/branch scope is in SQL before materialization. Resolve
+                // each bounded candidate against current stored roles; an HR worker
+                // link is optional and never substitutes for the explicit grant.
+                var query = ProcurementPrincipalPeople.Candidates(core, scope, DateTimeOffset.UtcNow)
+                    .Where(x => text == "" || x.DisplayName.ToLower().Contains(text));
+                if (selected is not null) query = query.Where(x => selected.Contains(x.Id));
+                var candidates = await query.OrderBy(x => x.DisplayName).ThenBy(x => x.Id)
+                    .Select(x => new { x.Id, x.DisplayName }).Take(501).ToArrayAsync(ct);
+                if (candidates.Length > 500)
+                    return Problem("sourcing-reviewer-search-too-broad", "Narrow the reviewer search before selecting a person.", 422);
+                var eligible = new List<(Guid Id, string DisplayName, Guid? WorkerId)>();
+                foreach (var candidate in candidates)
+                {
+                    var person = await ProcurementPrincipalPeople.Resolve(core, scope.TenantId,
+                        scope.LegalEntityId, candidate.Id.ToString("D"), ct);
+                    if (person is not null && person.Permissions.Contains("procurement-sourcing-publish")
+                        && (scope.WorkLocationId is { } branch
+                            ? person.OrganisationWide || person.AllowedBranches.Contains(branch)
+                            : person.OrganisationWide || person.AllowedBranches.Count > 0))
+                        eligible.Add((candidate.Id, candidate.DisplayName, person.CoreLinkedWorkerId));
+                }
+                total = eligible.Count;
+                var result = eligible.Skip(skip).Take(take).Select(x => new
+                    { principalId = x.Id.ToString("D"), x.DisplayName, x.WorkerId }).ToArray();
+                page = result;
+                pageLength = result.Length;
+            }
+            else
+            {
+                // Schema 1 retains the worker-backed people contract exactly.
+                var query = ProcurementAuthorityIdentity.CanonicalPeopleQuery(core, scope, DateTimeOffset.UtcNow)
+                    .Where(x => text == "" || x.DisplayName.ToLower().Contains(text));
+                if (selected is not null) query = query.Where(x => selected.Contains(x.Id));
+                total = await query.CountAsync(ct);
+                var result = await query.OrderBy(x => x.DisplayName).ThenBy(x => x.Id).Skip(skip).Take(take)
+                    .Select(x => new { principalId = x.Id.ToString(), x.DisplayName, x.WorkerId }).ToArrayAsync(ct);
+                page = result;
+                pageLength = result.Length;
+            }
             var configurationVersion = 0;
             try
             {
@@ -58,7 +97,7 @@ public static partial class ProcurementPolicyDraftRoutes
             return Results.Ok(new { items = page, total, offset = skip, limit = take,
                 configurationVersion,
                 supportedSourcingRuleSchemas = SourcingPublicationPolicyRules.SupportedSchemaVersions,
-                nextOffset = page.Length > 0 && skip + page.Length < total && skip + page.Length <= 100000 ? (int?)(skip + page.Length) : null,
+                nextOffset = pageLength > 0 && skip + pageLength < total && skip + pageLength <= 100000 ? (int?)(skip + pageLength) : null,
                 isAuthority = false });
         }
         catch (Exception error) when (error is NpgsqlException or DbUpdateException or InvalidOperationException)

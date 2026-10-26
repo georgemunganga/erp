@@ -1,5 +1,6 @@
 using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
+using Mightyfin.Erp.Core.Approvals.Domain;
 using Mightyfin.Erp.Procurement.Application;
 using Mightyfin.Erp.Procurement.Infrastructure.Data;
 
@@ -7,6 +8,15 @@ namespace Mightyfin.Erp.Hrm.Api;
 
 public static partial class ProcurementSourcingExecutionRoutes
 {
+    internal static ApprovalAssignment[] ActivePublicationAssignments(ApprovalCase approval, string principal) =>
+        approval.Stages.Where(stage => stage.State == "Active")
+            .SelectMany(stage => stage.Assignments)
+            .Where(assignment => assignment.AssigneeSubjectId == principal
+                && assignment.State == "Pending"
+                && assignment.PermissionKey == PrincipalRfqPublicationCoreWorkflow.Permission
+                && assignment.DelegatedFromSubjectId is null)
+            .ToArray();
+
     /// <summary>Current actor's own active Core assignments, joined to RFQ scope
     /// in SQL BEFORE counting and paging. No company-wide case scan or worker lookup.</summary>
     private static Task<IResult> PrincipalPublicationAssigned(int? page, int? pageSize,
@@ -60,10 +70,7 @@ public static partial class ProcurementSourcingExecutionRoutes
                     var verified = await PrincipalPublicationEvidence(db, cases, ev, token);
                     if (verified.Case.Id != approval.Id)
                         throw new Problem("SourcingPublicationEvidenceNeedsReview", 409);
-                    var pending = verified.Case.Stages.SelectMany(x => x.Assignments)
-                        .Where(x => x.AssigneeSubjectId == actor.PrincipalId && x.State == "Pending"
-                            && x.PermissionKey == PrincipalRfqPublicationCoreWorkflow.Permission)
-                        .ToArray();
+                    var pending = ActivePublicationAssignments(verified.Case, actor.PrincipalId);
                     if (pending.Length == 0)
                         throw new Problem("SourcingPublicationEvidenceNeedsReview", 409);
                     items.Add(new { eventId = ev.Id, ev.Number, ev.Title, ev.CurrencyCode,
