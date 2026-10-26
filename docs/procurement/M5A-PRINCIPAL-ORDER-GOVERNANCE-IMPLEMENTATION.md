@@ -51,27 +51,50 @@ headcount assumptions.
 
 ## Required completion evidence
 
-The current checkpoint has only source review and whitespace validation.
-Focused tests are authored but have not yet run on this checkpoint. No new
-schema or production capability is enabled by this document.
+Pre-integration source `3fbc01674c09ab2544639a6921ba2e0c460c7c4b`
+compiled all affected projects and passed 12 Procurement and one Host focused
+test in the actual offline SDK. The earlier compile failure is preserved;
+the funding-evidence type qualification corrected it. This result is not a
+full-suite or database workflow acceptance.
+
+Accepted M4 main `63360f128911b0cd66eb4e44e0f79fabcd1a2345` was integrated in
+`418c352b28eea51f477bda204fd5f5f6234c25d1`, preserving the typed PR, sourcing
+and PO action/permission pairs and their separate gates. Genuine EF generation
+from that source produced `20261026201259_M5aPrincipalOrderGovernance`: eight
+new tables, 27 indexes, three CHECK replacements and receipt-operation width
+10 to 20. The Designer and snapshot are unmodified generated files. Official
+raw SQL and generation evidence are retained privately.
+
+The adopted migration prepends an authored, transactional retained-evidence
+veto before any Down operation. It covers the eight new tables plus new
+receipts, advanced principal PO states, schema-2 PO authority, linked Core PO
+cases and business audit/outbox markers. Existing M3b schema-2 Draft/Cancelled
+orders with only Create/Cancel receipts are not themselves M5 history. The
+DDL-order test and native marker/Up/Down rehearsal are not yet run for this
+adopted checkpoint. Down must run inside the EF migration transaction; do not
+use the unguarded raw scaffold or a no-transactions Down export.
+
+No M5 schema, new operational capability or UI integration is deployed by this
+checkpoint. Readiness registration and full native workflow acceptance remain
+open.
 
 Before merge and release:
 
-1. Integrate the accepted M4 source/model and resolve the typed PO/RFQ
-   authority whitelist as a union, preserving each feature flag.
+1. Keep the accepted M4 source/model integration and typed PR/RFQ/PO authority
+   union intact while implementing physical readiness; preserve each feature flag.
 2. Compile all affected projects with the real SDK and run domain, authority,
    receipt, permission and Core transaction tests. Independently review the
    final diff.
-3. Generate the genuine eight-table EF migration and snapshot, including the
-   typed schema-2 PO authority CHECK extension. The downgrade must veto retained
-   PO authority evidence as well as operational rows. Rehearse Up,
-   empty Down and nonempty Down vetoes against a restored database while
-   proving existing row preservation.
+3. Re-export and verify the adopted guarded migration with the official EF tool,
+   then rehearse Up, empty transactional Down and all retained-evidence Down
+   vetoes against a restored database. Preserve existing rows and old M3b
+   Draft/Cancelled compatibility. Generated migration/snapshot adoption alone
+   is not native acceptance.
 4. Implement and register physical readiness with the exact new schema,
    constraints, histories and finite role rights. Preserve old M3b readiness
    compatibility deliberately; do not turn off the parent safeguards.
-5. Make legacy worker-based operational routes refuse schema-2 principal POs.
-   Add module metadata and authoritative action availability for each current
+5. Verify that the inherited legacy worker-based route refusal for schema-2
+   principal POs remains enforced. Add module metadata and authoritative action availability for each current
    actor without requiring unrelated buyer permissions.
 6. Connect the existing imported PO screens without replacing their layout.
    Run normal-cookie Playwright workflows for funding, independent approval,
