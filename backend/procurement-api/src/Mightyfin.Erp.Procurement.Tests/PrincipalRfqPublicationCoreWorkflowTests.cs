@@ -116,4 +116,23 @@ public sealed class PrincipalRfqPublicationCoreWorkflowTests
         opening.PublishedPolicyEvidenceId = Guid.NewGuid();
         Assert.False(Current());
     }
+
+    [Fact]
+    public void Approval_uses_the_submitted_identity_linked_by_the_publication()
+    {
+        var f = Fixture();
+        var olderSubmission = new SourcingPolicyIdentityEvidence
+        {
+            PolicyVersionId = f.Policy.Id, Stage = "Submitted",
+            PolicyRecordVersionAtAction = 1,
+        };
+        var history = new[] { f.Created, olderSubmission, f.Submitted, f.Published };
+        Assert.Same(f.Submitted,
+            PrincipalRfqPublicationCoreWorkflow.SubmittedForPublished(history, f.Published));
+        var brokenLink = new SourcingPolicyIdentityEvidence
+        {
+            Stage = "Published", SubmittedEvidenceId = Guid.NewGuid(),
+        };
+        Assert.Null(PrincipalRfqPublicationCoreWorkflow.SubmittedForPublished(history, brokenLink));
+    }
 }

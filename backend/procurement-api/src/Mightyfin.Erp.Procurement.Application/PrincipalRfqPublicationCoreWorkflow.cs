@@ -16,6 +16,12 @@ public static class PrincipalRfqPublicationCoreWorkflow
     public const string SourceType = "sourcing_publication";
     public const string Permission = "procurement-sourcing-publish";
 
+    public static SourcingPolicyIdentityEvidence? SubmittedForPublished(
+        IReadOnlyCollection<SourcingPolicyIdentityEvidence> history,
+        SourcingPolicyIdentityEvidence published) =>
+        published.SubmittedEvidenceId is { } linked
+            ? history.SingleOrDefault(x => x.Id == linked && x.Stage == "Submitted") : null;
+
     /// <summary>An approval uses the same currently effective, independently published
     /// rules that opened its case. Return and Reject remain possible after expiry.</summary>
     public static bool CurrentPolicyPermitsApproval(SourcingPublicationOpening opening,

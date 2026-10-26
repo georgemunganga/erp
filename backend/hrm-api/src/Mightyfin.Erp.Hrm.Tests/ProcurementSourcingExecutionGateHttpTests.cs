@@ -27,6 +27,9 @@ public sealed class ProcurementSourcingExecutionGateHttpTests
         scope.Set("rfq-publication-gate", Guid.NewGuid(), Guid.NewGuid().ToString("D"), null, null, false, "gate");
         builder.Services.AddSingleton(scope);
         builder.Services.AddSingleton(new ProcurementPrincipalSourcingPublicationOptions());
+        builder.Services.AddSingleton(new ProcurementSourcingDraftExecutionOptions());
+        builder.Services.AddSingleton<IProcurementSourcingDraftSchemaReadiness,
+            UnavailableProcurementSourcingDraftSchemaReadiness>();
         builder.Services.AddAuthentication("rfq-gate").AddScheme<AuthenticationSchemeOptions, Authentication>("rfq-gate", _ => { });
         builder.Services.AddAuthorization(ProcurementPermissions.AddPolicies);
         await using var app = builder.Build(); app.UseAuthentication(); app.UseAuthorization();
@@ -37,7 +40,7 @@ public sealed class ProcurementSourcingExecutionGateHttpTests
         {
             using var response = await client.GetAsync("/api/procurement/v1/sourcing/" + path);
             Assert.Equal(HttpStatusCode.ServiceUnavailable, response.StatusCode);
-            Assert.Equal("PrincipalSourcingPublicationUnavailable",
+            Assert.Equal("SourcingDraftExecutionUnavailable",
                 (await response.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("code").GetString());
             Assert.True(response.Headers.CacheControl?.NoStore);
         }

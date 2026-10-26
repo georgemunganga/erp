@@ -380,8 +380,9 @@ public static partial class ProcurementSourcingExecutionRoutes
                 var policyIdentity = await db.SourcingPolicyIdentityEvidenceRecords.AsNoTracking()
                     .Where(x => x.PolicyVersionId == currentPolicy.Id).ToArrayAsync(token);
                 var createdIdentity = policyIdentity.SingleOrDefault(x => x.Stage == "Created");
-                var submittedIdentity = policyIdentity.SingleOrDefault(x => x.Stage == "Submitted");
                 var publishedIdentity = policyIdentity.SingleOrDefault(x => x.Stage == "Published");
+                var submittedIdentity = publishedIdentity is null ? null
+                    : PrincipalRfqPublicationCoreWorkflow.SubmittedForPublished(policyIdentity, publishedIdentity);
                 if (createdIdentity is null || submittedIdentity is null || publishedIdentity is null
                     || !PrincipalRfqPublicationCoreWorkflow.CurrentPolicyPermitsApproval(opening,
                         currentPolicy, createdIdentity, submittedIdentity, publishedIdentity, now))
