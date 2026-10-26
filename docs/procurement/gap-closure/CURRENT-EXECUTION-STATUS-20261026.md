@@ -4,7 +4,7 @@ This checkpoint supersedes earlier status paragraphs, not historical acceptance 
 
 ## Published baselines and ownership
 
-- ERP code baseline: `27be07e0a97d61ea8fe57d4a15c3de527cbcfd43` (main, PR106 merged; includes PR100). The default-off M2a source and prior CSV reader are verified; historical pending-build statements are superseded below.
+- ERP code baseline: `35045b7e51efca2e756dd678b9de6a62477b03bc` (main, PR108 merged; includes PR100 and PR106). The default-off M2a source and prior CSV reader are verified; historical pending-build statements are superseded below.
 - UI main: `704ac9c642d00e3672cd81e7c1df2d9cb50be160` (narrow PR83 merged). The 139-file held ancestry was excluded; the accepted native test product remains the earlier `bf182` build.
 - Live remains product `cb18353d94af016ca65cd939ced76f6f97222c27`, UI `092121409c3d032706b1ba0ca305a24c2d84ede7`, API/publisher image `sha256:89375b1514f5a9cd5d2b255b94f09f2bba0a43020025e43ad6e30531084dd998`.
 - Coordinator owns M2a vendor/item import and its backend/UI/database acceptance. Do not duplicate it. Manus retains the independent [Core scanner assignment](../../collaboration/manus/MANUS-CORE-DOCUMENT-SCANNER-04.md); no new overlapping task is assigned.
@@ -33,6 +33,14 @@ The finite-role private Store test completed two rows from different tenants and
 
 This is acknowledgement and tenant-isolation evidence using deliberately unsupported no-email test events (`smtp-skipped`), not external delivery. Private local trust does not prove password/TLS database authentication. The isolated database copies genuine schema/history; this test is not a migration replay. No production role, migration, setting or deployment changed. GitHub run 40274531522 did not start because of the account billing lock; local passes are not a hosted CI pass.
 
+## M3a request and approval source acceptance
+
+[PR108](https://github.com/georgemunganga/erp/pull/108) is merged through `35045b7e51efca2e756dd678b9de6a62477b03bc`. Exact source `18585c14` passed fresh API/Host builds, **14 focused and 1,295 Host tests**, and a genuine 150-file publication. Unchanged Procurement 1,414 and Core Approval 30 results are carried, not rerun. The repair accepts only two independently captured PostgreSQL restored CHECK spellings; all original constraint/model/history/key/column/privilege controls remain enforced.
+
+Three real-cookie Chromium phases passed against the existing UI main `704ac9c`: ordinary API approval of the same funded request; pre-case Return/correction/resubmission through the API; and actual UI lost-Open-response/reload recovery followed by API Return, independent manual release, correction and resubmission. Independent raw owner checks verified the approved graph, pre-case graph and the three legitimate Open/Decide/Release receipts, **198 unchanged original tables**, preserved existing role/ACL metadata, and **10/10 revoked sessions**. Three sessions left by the resource-aborted run were revoked by exact fixture-owner CAS; seven subsequent sessions logged out normally. The genuine resumed API exited zero without OOM. [Exact evidence, failures and limits](M3A-REQUEST-APPROVAL-ACCEPTANCE-20261026.json) remain explicit.
+
+This is bounded private source acceptance. Core remains owner-backed; finite Procurement roles use private trust sockets. No external Finance authority or ledger reconciliation, foreign-tenant row-isolation proof, full sign-in UI, production activation or whole-module UAT is claimed. The old two-receipt owner verifier failed and remains retained; a separate independent check reconciled the legitimate third release receipt. Production is unchanged. Next: coherent principal-based approved-line conversion, its genuine migration and existing UI port, plus remaining production/release gates.
+
 ## Remaining finish sequence
 
 The existing [full roadmap](https://github.com/georgemunganga/erp/blob/3fc26d93be9eaa144d0135a13c70116956c2137a/docs/procurement/gap-closure/PROCUREMENT-FINISH-MILESTONES-20261025.md) tracks 55 grouped findings, not 55 proven defects. That branch is a planning reference, not permission to merge all its code. Its earlier baseline paragraphs are superseded above.
@@ -42,7 +50,7 @@ The existing [full roadmap](https://github.com/georgemunganga/erp/blob/3fc26d93b
 | R0 / M0 | Production least privilege, coherent schema/release and current scope/role verification; publisher empty-cycle proof does not establish nonempty cross-tenant delivery. |
 | M1 | Real scanner and authorized attachment lifecycle, including failure/denied paths. |
 | M2 | Real imports and remaining master-data/batch/saved-view contracts; selected exports are already deployed. |
-| M3 | Real request approval, line routing, retained quantities and truthful Finance budget interface. |
+| M3 | Request/approval bounded private source accepted above; line routing/conversion, retained quantities and production activation remain open. |
 | M4 | RFQ publication, sealed/surrogate bids, evaluation and residual-safe awards. |
 | M5 | Governed PO revisions, goods/service receipts, inspection, returns and owned Inventory/Assets handoff. |
 | M6 | Bills, matching, credits and manual-payment reconciliation; future Finance/AP adapter remains explicit. |
