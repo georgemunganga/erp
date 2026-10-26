@@ -1674,7 +1674,9 @@ public sealed partial class ProcurementRequestHttpTests
         var response = await SendJson(fixture.Client, HttpMethod.Post, path, fixture.Other, draft, "procurement_manager");
         Assert.Equal(HttpStatusCode.Created, response.StatusCode);
         var saved = await response.Content.ReadFromJsonAsync<JsonElement>(); var id = saved.GetProperty("id").GetGuid();
-        var original = Assert.Single(await fixture.SourcingIdentityRows(id)); var originalHash = original.EvidenceSha256;
+        var original = Assert.Single(await fixture.SourcingIdentityRows(id));
+        Assert.Equal(2, original.SchemaVersion);
+        var originalHash = original.EvidenceSha256;
         var complete = SourcingAudiencePolicy(fixture.Owner, complete: true) with { EffectiveFrom = draft.EffectiveFrom, EffectiveTo = draft.EffectiveTo };
         response = await SendJson(fixture.Client, HttpMethod.Put, path + "/" + id, fixture.Other,
             new ProcurementPolicyDraftRoutes.VersionedPolicyDraft(saved.GetProperty("version").GetInt64(), complete), "procurement_manager");
@@ -1695,6 +1697,7 @@ public sealed partial class ProcurementRequestHttpTests
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         var rows = await fixture.SourcingIdentityRows(id);
         Assert.Equal(3, rows.Length); Assert.Equal(originalHash, rows.Single(x => x.Stage == "Created").EvidenceSha256);
+        Assert.All(rows, row => Assert.Equal(2, row.SchemaVersion));
         Assert.NotEqual(original.RulesSha256, rows.Single(x => x.Stage == "Submitted").RulesSha256);
         Assert.Equal(rows.Single(x => x.Stage == "Submitted").RulesSha256, rows.Single(x => x.Stage == "Published").RulesSha256);
         var instant = Uri.EscapeDataString(draft.EffectiveFrom.AddMinutes(1).ToString("O"));
