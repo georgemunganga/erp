@@ -183,12 +183,18 @@ public sealed class ProcurementImportPreviewMaintenance(
                 configuration.GetConnectionString("Hrm"))) return false;
         await using var connection = new NpgsqlConnection(TimedConnection(maintenance!));
         await connection.OpenAsync(ct);
+        return await AdmissionOnConnectionAsync(connection,
+            new NpgsqlConnectionStringBuilder(Normalize(maintenance!)).Username, ct);
+    }
+
+    private static async Task<bool> AdmissionOnConnectionAsync(
+        NpgsqlConnection connection, string expectedUsername, CancellationToken ct)
+    {
         await using var admission = new NpgsqlCommand(AdmissionSql, connection) { CommandTimeout = 15 };
         if (await admission.ExecuteScalarAsync(ct) is not true) return false;
         await using var identity = new NpgsqlCommand("SELECT current_user", connection) { CommandTimeout = 15 };
         return string.Equals(await identity.ExecuteScalarAsync(ct) as string,
-            new NpgsqlConnectionStringBuilder(Normalize(maintenance!)).Username,
-            StringComparison.Ordinal);
+            expectedUsername, StringComparison.Ordinal);
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -197,12 +203,16 @@ public sealed class ProcurementImportPreviewMaintenance(
         {
             try
             {
+                var maintenance = config.GetConnectionString("ProcurementImportMaintenance");
                 if (!config.GetValue<bool>("Procurement:MasterImport:Maintenance:Enabled")
-                    || !await RoleReadyAsync(config, stoppingToken))
+                    || !ConnectionBoundary(maintenance, config.GetConnectionString("Procurement"),
+                        config.GetConnectionString("Hrm")))
                     throw new InvalidOperationException("Import preview maintenance connection unavailable.");
-                var maintenance = config.GetConnectionString("ProcurementImportMaintenance")!;
                 await using var connection = new NpgsqlConnection(TimedConnection(maintenance!));
                 await connection.OpenAsync(stoppingToken);
+                if (!await AdmissionOnConnectionAsync(connection,
+                    new NpgsqlConnectionStringBuilder(Normalize(maintenance!)).Username, stoppingToken))
+                    throw new InvalidOperationException("Import preview maintenance role is not finite.");
                 await using var tx = await connection.BeginTransactionAsync(IsolationLevel.ReadCommitted, stoppingToken);
                 await using (var lockTimeout = new NpgsqlCommand(
                     "SET LOCAL lock_timeout='2s'", connection, tx))
