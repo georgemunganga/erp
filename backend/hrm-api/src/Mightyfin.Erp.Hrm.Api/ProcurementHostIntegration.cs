@@ -96,6 +96,7 @@ public static class ProcurementHostIntegration
         ProcurementContextRoutes.MapRoutes(app);
         ProcurementVendorRoutes.MapRoutes(app);
         ProcurementItemEndpoints.MapRoutes(app);
+        ProcurementMasterImportRoutes.MapRoutes(app);
         ProcurementRequestRoutes.Map(app);
         ProcurementBudgetRoutes.Map(app);
         ProcurementPolicyEvaluationRoutes.Map(app);
@@ -374,6 +375,7 @@ public sealed class ProcurementScopeMiddleware(RequestDelegate next, IWebHostEnv
         // All is admitted only by reviewed read contracts. Request lists fence
         // branch-owned rows before count/page; plans/contracts are company-owned.
         var explicitAllBranches = validAllHeader && (AllCompanyMasterReadPath(http.Request.Path, http.Request.Method)
+            || AllCompanyMasterImportPath(http.Request.Path, http.Request.Method)
             || AllOperationalListReadPath(http.Request.Path, http.Request.Method)
             // Existing P29 payment records are company-ledger scoped, including
             // their reviewed commands. Do not narrow them to a selected branch.
@@ -564,6 +566,21 @@ public sealed class ProcurementScopeMiddleware(RequestDelegate next, IWebHostEnv
             var part = rest.Value?.Trim('/');
             if (string.Equals(part, "export", StringComparison.OrdinalIgnoreCase)
                 || Guid.TryParse(part, out var id) && id != Guid.Empty) return true;
+        }
+        return false;
+    }
+
+    // These company-owned import paths still require current Core company and
+    // actor authorization. The list is finite so no future child route inherits All.
+    internal static bool AllCompanyMasterImportPath(PathString path, string method)
+    {
+        foreach (var root in new[] { "/api/procurement/v1/vendors/import", "/api/procurement/v1/items/import" })
+        {
+            if (!path.StartsWithSegments(root, out var rest)) continue;
+            var part = rest.Value?.Trim('/');
+            if (HttpMethods.IsGet(method) && (part is "schema" or "template"
+                || Guid.TryParse(part, out var id) && id != Guid.Empty)) return true;
+            if (HttpMethods.IsPost(method) && (part is "preview" or "commit")) return true;
         }
         return false;
     }
