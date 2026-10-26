@@ -839,6 +839,8 @@ public sealed partial class ProcurementDbContext(DbContextOptions<ProcurementDbC
             .ToArray();
         var receipts = ChangeTracker.Entries<ImportRowReceipt>()
             .Where(x => x.State == EntityState.Added).Select(x => x.Entity).ToArray();
+        if (transitions.Length > 1)
+            throw new InvalidOperationException("One scoped import batch may commit per save.");
         foreach (var entry in transitions)
         {
             var allowed = new HashSet<string>(StringComparer.Ordinal)
@@ -860,8 +862,7 @@ public sealed partial class ProcurementDbContext(DbContextOptions<ProcurementDbC
                 && x.TenantId == batch.TenantId && x.LegalEntityId == batch.LegalEntityId).ToArray();
             var createdMasters = ChangeTracker.Entries<ProcurementRecord>()
                 .Where(x => x.State == EntityState.Added
-                    && (batch.RecordType == "Vendor" && x.Entity is Supplier
-                        || batch.RecordType == "Item" && x.Entity is CatalogItem))
+                    && (x.Entity is Supplier or CatalogItem))
                 .Select(x => x.Entity).ToArray();
             if (batch.TotalRows < 1 || own.Length != batch.TotalRows
                 || batch.AppliedRows != own.Count(x => x.Disposition == "create")
@@ -877,7 +878,9 @@ public sealed partial class ProcurementDbContext(DbContextOptions<ProcurementDbC
                     || x.RowSha256 is not { Length: 64 }
                     || x.CreatedRecordId is { } createdId
                         && !createdMasters.Any(master => master.Id == createdId
-                            && master.TenantId == x.TenantId && master.LegalEntityId == x.LegalEntityId))
+                            && master.TenantId == x.TenantId && master.LegalEntityId == x.LegalEntityId
+                            && (batch.RecordType == "Vendor" && master is Supplier
+                                || batch.RecordType == "Item" && master is CatalogItem)))
                 || Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(batch.ResultText!)))
                     .ToLowerInvariant() != batch.ResultSha256
                 || !ValidMasterImportResult(batch, own))

@@ -27,6 +27,7 @@ public sealed class ProcurementMasterImportHttpTests
         foreach (var (user, expected) in new[] {
             (fixture.ImportOnly, HttpStatusCode.Forbidden),
             (fixture.NativeOnly, HttpStatusCode.Forbidden),
+            (fixture.LegacyAdmin, HttpStatusCode.Forbidden),
             (fixture.Both, HttpStatusCode.ServiceUnavailable) })
         {
             using var response = await fixture.Send(user, HttpMethod.Get, "/api/procurement/v1/vendors/import/schema");
@@ -58,6 +59,33 @@ public sealed class ProcurementMasterImportHttpTests
         Assert.Equal((0, 0, 0), await fixture.MasterFootprint());
     }
 
+    [Fact]
+    public async Task Current_company_and_selected_branch_are_rechecked_after_a_wait()
+    {
+        var options = new DbContextOptionsBuilder<HrmDbContext>()
+            .UseInMemoryDatabase("import-current-scope-" + Guid.NewGuid()).Options;
+        await using var core = new HrmDbContext(options, new FixedTenantAccessor("tenant-a"));
+        var company = new LegalEntity { Code = "A", RegisteredName = "Current A", Currency = "ZMW" };
+        var branch = new WorkLocation { Code = "A1", Name = "Selected", LegalEntityId = company.Id };
+        var remaining = new WorkLocation { Code = "A2", Name = "Remaining", LegalEntityId = company.Id };
+        var actor = Guid.NewGuid();
+        var selected = new HrUserBranchAssignment { UserId = actor, LocationId = branch.Id };
+        var other = new HrUserBranchAssignment { UserId = actor, LocationId = remaining.Id };
+        core.LegalEntities.Add(company); core.WorkLocations.AddRange(branch, remaining);
+        core.UserBranchAssignments.AddRange(selected, other);
+        await core.SaveChangesAsync();
+        var scope = new ProcurementRequestScope();
+        scope.Set("tenant-a", company.Id, actor.ToString("D"), branch.Id, null, true, "test");
+        scope.AssignPrincipal(actor);
+        Assert.True(await ProcurementMasterImportRoutes.CurrentScopeAllowed(core, scope, CancellationToken.None));
+        selected.IsArchived = true;
+        await core.SaveChangesAsync();
+        Assert.False(await ProcurementMasterImportRoutes.CurrentScopeAllowed(core, scope, CancellationToken.None));
+        company.IsArchived = true;
+        await core.SaveChangesAsync();
+        Assert.False(await ProcurementMasterImportRoutes.CurrentScopeAllowed(core, scope, CancellationToken.None));
+    }
+
     private sealed class Fixture : IAsyncDisposable
     {
         private readonly WebApplication app;
@@ -68,6 +96,7 @@ public sealed class ProcurementMasterImportHttpTests
         public Guid Both { get; } = Guid.NewGuid();
         public Guid ImportOnly { get; } = Guid.NewGuid();
         public Guid NativeOnly { get; } = Guid.NewGuid();
+        public Guid LegacyAdmin { get; } = Guid.NewGuid();
 
         private Fixture(WebApplication app, Guid company, Guid otherCompany, Guid branch)
         {
@@ -107,7 +136,8 @@ public sealed class ProcurementMasterImportHttpTests
                 foreach (var (id, role, actions) in new[] {
                     (fixture.Both, "csv_both", "procurement-access,procurement-vendor-import,procurement-vendor-create,procurement-item-import,procurement-item-manage"),
                     (fixture.ImportOnly, "csv_import_only", "procurement-access,procurement-vendor-import"),
-                    (fixture.NativeOnly, "csv_native_only", "procurement-access,procurement-vendor-create") })
+                    (fixture.NativeOnly, "csv_native_only", "procurement-access,procurement-vendor-create"),
+                    (fixture.LegacyAdmin, "erp_admin", "erp_admin") })
                 {
                     core.LocalUsers.Add(new LocalUser { Id = id, Email = id + "@example.test",
                         NormalizedEmail = id + "@EXAMPLE.TEST", DisplayName = role,

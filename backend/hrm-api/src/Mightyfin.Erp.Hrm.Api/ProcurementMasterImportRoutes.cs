@@ -62,7 +62,7 @@ public static class ProcurementMasterImportRoutes
     }
 
     private static async Task<bool> Ready(ProcurementDbContext db, HrmDbContext core,
-        IConfiguration config, string kind, CancellationToken ct)
+        IConfiguration config, CancellationToken ct)
     {
         // Default off. HasPendingModelChanges holds the route closed until the
         // genuine migration exists and is installed on the selected database.
@@ -130,9 +130,9 @@ public static class ProcurementMasterImportRoutes
                    AND has_table_privilege(current_user,'hrm.org_units','SELECT')
                    AS "Value"
                 """).SingleAsync(ct);
-            if (!coreIdentity || kind != "Vendor") return coreIdentity;
-            // Currency is Core-owned. Its connection holds the selected company
-            // row lock; the Procurement Record role receives no HRM grant.
+            if (!coreIdentity) return false;
+            // Both master kinds pin the selected Core company row. Vendor also
+            // compares its currency; the Record role receives no HRM grant.
             return await core.Database.SqlQueryRaw<bool>("""
                 SELECT has_column_privilege(current_user,'hrm.legal_entities','tenant_id','SELECT')
                    AND has_column_privilege(current_user,'hrm.legal_entities','id','SELECT')
@@ -159,7 +159,7 @@ public static class ProcurementMasterImportRoutes
     private static async Task<IResult> Schema(ProcurementDbContext db, HrmDbContext core, IConfiguration config,
         HttpContext http, string kind, CancellationToken ct)
     {
-        if (!await Ready(db, core, config, kind, ct)) return Unavailable(http);
+        if (!await Ready(db, core, config, ct)) return Unavailable(http);
         http.Response.Headers.CacheControl = "no-store";
         return Results.Ok(new { schemaVersion = ProcurementMasterImportContracts.SchemaVersion,
             kind = kind == "Vendor" ? "vendors" : "items",
@@ -170,7 +170,7 @@ public static class ProcurementMasterImportRoutes
     private static async Task<IResult> Template(ProcurementDbContext db, HrmDbContext core, IConfiguration config,
         HttpContext http, string kind, CancellationToken ct)
     {
-        if (!await Ready(db, core, config, kind, ct)) return Unavailable(http);
+        if (!await Ready(db, core, config, ct)) return Unavailable(http);
         http.Response.Headers.CacheControl = "no-store";
         var columns = ProcurementMasterImportContracts.Fields(kind);
         var content = new byte[] { 0xEF, 0xBB, 0xBF }
@@ -206,7 +206,7 @@ public static class ProcurementMasterImportRoutes
     private static async Task<IResult> Preview(ProcurementDbContext db, HrmDbContext core,
         IConfiguration config, ProcurementRequestScope scope, HttpContext http, string kind, CancellationToken ct)
     {
-        if (!await Ready(db, core, config, kind, ct)) return Unavailable(http);
+        if (!await Ready(db, core, config, ct)) return Unavailable(http);
         var (request, bodyError) = await ReadJson<MasterImportPreviewRequest>(http, ct);
         if (bodyError is not null) return bodyError;
         var (document, bytes, parseCode) = ProcurementMasterImportContracts.Parse(request, kind);
@@ -358,7 +358,7 @@ public static class ProcurementMasterImportRoutes
     private static async Task<IResult> Commit(ProcurementDbContext db, HrmDbContext core, IConfiguration config,
         ProcurementRequestScope scope, HttpContext http, string kind, CancellationToken ct)
     {
-        if (!await Ready(db, core, config, kind, ct)) return Unavailable(http);
+        if (!await Ready(db, core, config, ct)) return Unavailable(http);
         var (request, bodyError) = await ReadJson<MasterImportCommitRequest>(http, ct);
         if (bodyError is not null) return bodyError;
         if (request!.BatchId == Guid.Empty || request.CommandKey == Guid.Empty
@@ -371,7 +371,8 @@ public static class ProcurementMasterImportRoutes
             // Core owns currency and holds its company row until the Procurement
             // serializable write commits. Both connections must address one PG DB.
             await using var coreTx = await core.Database.BeginTransactionAsync(IsolationLevel.ReadCommitted, ct);
-            var currency = kind == "Vendor" ? await LockedCurrency(core, scope, ct) : null;
+            var selectedCurrency = await LockedCurrency(core, scope, ct);
+            var currency = kind == "Vendor" ? selectedCurrency : null;
             await using var tx = await db.Database.BeginTransactionAsync(IsolationLevel.Serializable, ct);
             if (!await LockBatch(db, scope, kind, request.BatchId, ct)) return Error(404, "import-not-found");
             if (!await LockedCurrentGrant(core, scope, kind, ct)
@@ -564,15 +565,16 @@ public static class ProcurementMasterImportRoutes
             && HasImportActions(current, kind);
     }
 
-    private static async Task<bool> CurrentScopeAllowed(HrmDbContext core,
+    internal static async Task<bool> CurrentScopeAllowed(HrmDbContext core,
         ProcurementRequestScope scope, CancellationToken ct)
     {
+        if (scope.PrincipalId is not Guid principalId) return false;
         // Re-read the actual Core company/branch assignment after any wait for
         // the batch lock. A previous shell selection is never a lasting grant.
         if (!await core.LegalEntities.AsNoTracking().AnyAsync(x => x.TenantId == scope.TenantId
             && x.Id == scope.LegalEntityId && !x.IsArchived, ct)) return false;
         var assigned = await core.UserBranchAssignments.AsNoTracking()
-            .Where(x => x.TenantId == scope.TenantId && x.UserId == scope.PrincipalId && !x.IsArchived)
+            .Where(x => x.TenantId == scope.TenantId && x.UserId == principalId && !x.IsArchived)
             .Select(x => x.LocationId).Distinct().ToArrayAsync(ct);
         var companyBranches = await core.WorkLocations.AsNoTracking()
             .Where(x => x.TenantId == scope.TenantId && x.LegalEntityId == scope.LegalEntityId
@@ -591,7 +593,7 @@ public static class ProcurementMasterImportRoutes
         HrmDbContext core, IConfiguration config,
         ProcurementRequestScope scope, HttpContext http, string kind, CancellationToken ct)
     {
-        if (!await Ready(db, core, config, kind, ct)) return Unavailable(http);
+        if (!await Ready(db, core, config, ct)) return Unavailable(http);
         var batch = await db.ImportBatches.AsNoTracking().SingleOrDefaultAsync(x => x.Id == batchId
             && x.ActorSubjectId == scope.SubjectId && x.RecordType == kind, ct);
         if (batch is null) return Error(404, "import-not-found");

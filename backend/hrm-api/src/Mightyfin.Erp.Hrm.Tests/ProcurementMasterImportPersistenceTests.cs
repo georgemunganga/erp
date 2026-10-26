@@ -121,17 +121,23 @@ public sealed class ProcurementMasterImportPersistenceTests
         }
     }
 
-    [Fact]
-    public async Task A_second_unreceipted_master_cannot_ride_the_same_import_commit()
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task An_unreceipted_same_or_cross_kind_master_cannot_ride_the_import_commit(bool crossKind)
     {
         await using var fixture = new Fixture();
         await using var db = fixture.Db();
         var batch = NewPreview(fixture.Actor); db.AddScoped(batch); await db.SaveChangesAsync();
         var first = new CatalogItem { Code = "SKU-1", Name = "One", Kind = "Goods",
             CategoryCode = "FAST", UnitCode = "EA", Status = "Inactive" };
-        var second = new CatalogItem { Code = "SKU-2", Name = "Two", Kind = "Goods",
-            CategoryCode = "FAST", UnitCode = "EA", Status = "Inactive" };
-        db.AddScoped(first); db.AddScoped(second);
+        db.AddScoped(first);
+        if (crossKind)
+            db.AddScoped(new Supplier { Number = "VEN-2", LegalName = "Other",
+                DisplayName = "Other", CountryCode = "ZM", Status = "Draft" });
+        else
+            db.AddScoped(new CatalogItem { Code = "SKU-2", Name = "Two", Kind = "Goods",
+                CategoryCode = "FAST", UnitCode = "EA", Status = "Inactive" });
         db.AddScoped(new ImportRowReceipt { ImportBatchId = batch.Id, RowNumber = 2,
             StartLine = 2, EndLine = 2, Disposition = "create", CreatedRecordId = first.Id,
             RowSha256 = new string('c', 64) });
