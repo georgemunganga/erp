@@ -525,12 +525,7 @@ static async Task RunOutboxPublisherAsync(IServiceProvider services, IConfigurat
         ? Math.Clamp(configuredPoll, 1, 60)
         : 1;
     using var stopping = new CancellationTokenSource();
-    Console.CancelKeyPress += (_, eventArgs) =>
-    {
-        eventArgs.Cancel = true;
-        stopping.Cancel();
-    };
-    System.Runtime.Loader.AssemblyLoadContext.Default.Unloading += _ => stopping.Cancel();
+    using var processSignals = new CorePublisherProcessSignals(stopping);
 
     var streamReady = false;
 
