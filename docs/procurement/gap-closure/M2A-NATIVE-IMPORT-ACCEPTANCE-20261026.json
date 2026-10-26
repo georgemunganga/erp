@@ -1,0 +1,278 @@
+{
+  "schemaVersion": 1,
+  "status": "ACCEPTED_BOUNDED_PRIVATE_M2A_SOURCE_NOT_PRODUCTION",
+  "date": "2026-10-26",
+  "scope": "Create-only Vendor/Item CSV imports; not whole Procurement completion or business UAT",
+  "source": {
+    "erpCommit": "88c561554b60f313881248e5cd581f6856e982d8",
+    "mergedErpMain": "ff255065ab3240d7949315aafd62395db3d03838",
+    "erpPullRequest": "https://github.com/georgemunganga/erp/pull/100",
+    "uiProductCommit": "bf1821935662bdbf5d9f395c32b5682659e813d4",
+    "uiSourcePullRequest": "https://github.com/georgemunganga/module-connect/pull/82",
+    "uiMainlinePortAccepted": false,
+    "browserPlan": {
+      "path": "/home/amizo/erp-backups/procurement-m2a-import-real-browser-prep-20261026_run05/plan.INCOMPLETE.json",
+      "sha256": "c822dd57e18f6cf76ebff58b00098a8ef844957b1ddd2767760fbaaf3d5c5b34"
+    }
+  },
+  "build": {
+    "apiAndHostFresh": true,
+    "focused": {
+      "total": 25,
+      "executed": 25,
+      "passed": 25,
+      "failed": 0,
+      "error": 0,
+      "timeout": 0,
+      "aborted": 0,
+      "inconclusive": 0,
+      "passedButRunAborted": 0,
+      "notRunnable": 0,
+      "notExecuted": 0,
+      "disconnected": 0,
+      "warning": 0,
+      "completed": 0,
+      "inProgress": 0,
+      "pending": 0
+    },
+    "host": {
+      "total": 1291,
+      "executed": 1291,
+      "passed": 1291,
+      "failed": 0,
+      "error": 0,
+      "timeout": 0,
+      "aborted": 0,
+      "inconclusive": 0,
+      "passedButRunAborted": 0,
+      "notRunnable": 0,
+      "notExecuted": 0,
+      "disconnected": 0,
+      "warning": 0,
+      "completed": 0,
+      "inProgress": 0,
+      "pending": 0
+    },
+    "unchangedCarriedOnly": {
+      "procurementTests": 1414,
+      "approvalTests": 30
+    },
+    "publicationFileCount": 150,
+    "publicationManifest": {
+      "path": "/home/amizo/erp-backups/procurement-m2a-import-final-sdk-prep-20261026_run01/publication-manifest.private.json",
+      "sha256": "2d1a15f626fa5b4b542f7773f677df016dc61278bd359270e227197de4fa5bd3"
+    },
+    "result": {
+      "path": "/home/amizo/erp-backups/procurement-m2a-import-final-sdk-prep-20261026_run01/result.private.json",
+      "sha256": "039fb5e53015b01e899e2de9cdb330621ca649ace6f0a0d08c8c2c2267877eec"
+    },
+    "independentReview": {
+      "path": "/home/amizo/erp-backups/procurement-m2a-import-final-sdk-prep-20261026_run01/independent-final-sdk-review.private.json",
+      "sha256": "829f583ce54db0ead888d9f56d725e69f46ec5578764005ebc47385397a8dd90"
+    },
+    "toolResult": {
+      "path": "/home/amizo/erp-backups/procurement-m2a-import-final-tool-sdk-prep-20261026_run01/result.private.json",
+      "sha256": "020dd93adf49eee0f67c040d8ff713359c1a61ad7ec26e808f62938269459b92"
+    },
+    "toolManifest": {
+      "path": "/home/amizo/erp-backups/procurement-m2a-import-final-tool-sdk-prep-20261026_run01/tool-manifest.private.json",
+      "sha256": "f11d02d5cab998705de9e34072b91a7d7035e1cfb499135f2448db8aac7b7a61"
+    }
+  },
+  "privateDatabase": {
+    "database": "proc_r0_p29_restore_20261025_01",
+    "postgresSystemIdentifier": "7698678713374847009",
+    "postgresMajor": 17,
+    "genuineMigration": "20261026005531_M2aMasterImportReceipts",
+    "migrationUpEmptyDownUpAnd15Vetoes": "See M2A-PRIVATE-MIGRATION-VERIFICATION-20261026.json; not rerun for API-only fixes",
+    "coreActiveIdentityWithoutEmployee": true,
+    "employeeCountInSyntheticTenant": 0,
+    "finiteConnectorRoles": 3,
+    "finiteRoleAdmission": {
+      "path": "/home/amizo/erp-backups/procurement-m2a-import-final-runtime-prep-20261026_run01/finite-role-admission.private.json",
+      "sha256": "fa94613ab16a8739ad3d759dcd2dd7f8a9a5dc5b432eaf8859502b4c859d3320"
+    },
+    "independentFiniteRoleReview": {
+      "path": "/home/amizo/erp-backups/procurement-m2a-import-final-runtime-prep-20261026_run01/independent-finite-role-review.private.json",
+      "sha256": "5590e70af556fd3b086c8ac825d995519fdc2d7d2b434e193c891bf275c621d1"
+    },
+    "postgresPasswordOrTlsAuthenticationProven": false,
+    "trustSocketAndCombinedOwnerFixtureProcessLimitation": true
+  },
+  "http": {
+    "result": {
+      "path": "/home/amizo/erp-backups/procurement-m2a-import-final-runtime-prep-20261026_run01/http-result.private.json",
+      "sha256": "bbaa14762414b8d474c8f0f08e5a2c49682064f4c6edc83bcfca829324e41c6a"
+    },
+    "caseCount": 12,
+    "cases": [
+      "create-replay-recover-items-carried-from-direct-resume",
+      "denied-reader",
+      "denied-legacyAdmin",
+      "create-replay-recover-vendors",
+      "duplicate-httpSkip",
+      "duplicate-httpReject",
+      "similarity-httpSimilar",
+      "similarity-httpSimilarAck",
+      "malformed-no-staging",
+      "postgres-quota-two-previews",
+      "current-core-role-cas-revoked",
+      "cross-company-denied"
+    ],
+    "itemDirect": {
+      "path": "/home/amizo/erp-backups/procurement-m2a-import-final-runtime-prep-20261026_run01/item-first.private.json",
+      "sha256": "9a7e8d0d6fffc483aa7d0c4d1ddef94eba478f8bc2a526ecd42fa89e82c79f47"
+    },
+    "itemCommitReplayRecovery": {
+      "path": "/home/amizo/erp-backups/procurement-m2a-import-final-runtime-prep-20261026_run01/item-resume.private.json",
+      "sha256": "5ac7062f22320af0aa6b554de29fd431f3a0cf1a3eed88d8a1ded5aa19867a6b"
+    }
+  },
+  "browser": {
+    "realCorePasswordLoginViaApiRequestContext": true,
+    "signInFormJourneyTested": false,
+    "businessResponsesMocked": false,
+    "retries": 0,
+    "phases": {
+      "vendor-create": {
+        "result": {
+          "path": "/home/amizo/erp-backups/procurement-m2a-import-final-runtime-prep-20261026_run01/browser-vendor.private.json",
+          "sha256": "292b0469c11e28e09bc523260eae931b6f836473bb74210e164fa02da11b0ea5"
+        },
+        "exit": {
+          "path": "/home/amizo/erp-backups/procurement-m2a-import-final-runtime-prep-20261026_run01/browser-vendor-create.exit.private.json",
+          "sha256": "54ae36c3d9969315322e2d5b229592357f30fda19513baeedbb9578fc066d98f"
+        },
+        "passed": 1,
+        "failed": 0,
+        "skipped": 0
+      },
+      "item-lost-commit": {
+        "result": {
+          "path": "/home/amizo/erp-backups/procurement-m2a-import-final-runtime-prep-20261026_run01/browser-item-lost.private.json",
+          "sha256": "5b19e4318fd3453c4b5e8f8dc0a073c15224d0dc6cdc92f27fe5dbd80c5e9399"
+        },
+        "exit": {
+          "path": "/home/amizo/erp-backups/procurement-m2a-import-final-runtime-prep-20261026_run01/browser-item-lost-commit.exit.private.json",
+          "sha256": "31079e6f97a25af051bffeed74f6c67b5aa380e9923b6f22d8e597b9e3da6344"
+        },
+        "passed": 1,
+        "failed": 0,
+        "skipped": 0
+      },
+      "item-expired": {
+        "result": {
+          "path": "/home/amizo/erp-backups/procurement-m2a-import-final-runtime-prep-20261026_run01/browser-item-expired.private.json",
+          "sha256": "3375a522518b5b931a06d2a84e0e435fddf70f5acebb2d81e96a00d4e528f5bb"
+        },
+        "exit": {
+          "path": "/home/amizo/erp-backups/procurement-m2a-import-final-runtime-prep-20261026_run01/browser-item-expired.exit.private.json",
+          "sha256": "c2dfad11563ab12475447966c0d8053a479e589641b741cb5d84d80a46d2712d"
+        },
+        "passed": 1,
+        "failed": 0,
+        "skipped": 0
+      },
+      "vendor-quota": {
+        "result": {
+          "path": "/home/amizo/erp-backups/procurement-m2a-import-final-runtime-prep-20261026_run01/browser-vendor-quota.private.json",
+          "sha256": "c0ea7bbab852b05913bb0eddc0adcafa38848cde1624cad133aea8bfe22366ec"
+        },
+        "exit": {
+          "path": "/home/amizo/erp-backups/procurement-m2a-import-final-runtime-prep-20261026_run01/browser-vendor-quota.exit.private.json",
+          "sha256": "5689bdf3fbd24f5a107fc87e54db977ed3e70b1b6e673671bc373fb2445d7fa1"
+        },
+        "passed": 1,
+        "failed": 0,
+        "skipped": 0
+      }
+    },
+    "scopeSwitchMethod": "Persisted ERP shell selection plus reload; not a claim that the branch picker was clicked",
+    "expiry": "Owner clock acceleration followed by genuine worker; elapsed fifteen-minute TTL not proven",
+    "quota": "Configured one preview per actor, sequential bounded proof; no concurrency/load claim",
+    "ignoresHttpsErrors": true,
+    "tlsScope": "Private loopback proxy certificate/key identity is pinned; this is not browser rejection-of-untrusted-certificates proof"
+  },
+  "owner": {
+    "before": {
+      "path": "/home/amizo/erp-backups/procurement-m2a-import-final-runtime-prep-20261026_run01/owner.before.private.json",
+      "sha256": "4940f335cf2db8a0037b9f2406fe26b5ee57a267be44093eb8d3dc314b2dcf19"
+    },
+    "after": {
+      "path": "/home/amizo/erp-backups/procurement-m2a-import-final-runtime-prep-20261026_run01/owner.after.private.json",
+      "sha256": "2467ae81d2356cb772d9c995755845bbd3caa8ca7a3d03fcedc4d9eddd9487d0"
+    },
+    "reconciled": {
+      "path": "/home/amizo/erp-backups/procurement-m2a-import-final-runtime-prep-20261026_run01/owner.reconciled.private.json",
+      "sha256": "559a18f132eb61ed46637c5f1f6f8f07868a902da8702f7f7d487d2158f138c4"
+    },
+    "independentNativeReview": {
+      "path": "/home/amizo/erp-backups/procurement-m2a-import-final-runtime-prep-20261026_run01/independent-final-native-review.private.json",
+      "sha256": "b988353121a68e4c5e5a22433ac4920866ababf48a484c37d49ef41ab9eb397d"
+    },
+    "originalTableProjectionsUnchanged": 198,
+    "syntheticOtherTableProjectionsUnchanged": 185,
+    "atAcceptance": {
+      "committedBatches": 5,
+      "previewedBatches": 6,
+      "expiredBatches": 1,
+      "rowReceipts": 5,
+      "createdMasters": 4,
+      "sessions": 18,
+      "revokedSessions": 18
+    },
+    "supplierDraftsUseCoreCompanyCurrency": "ZMW in this synthetic company; no hard-coded production currency",
+    "itemsRemainInactive": true
+  },
+  "lifecycle": {
+    "postCleanupOwner": {
+      "path": "/home/amizo/erp-backups/procurement-m2a-import-final-runtime-prep-20261026_run01/closed-owner-after-sweep.after.private.json",
+      "sha256": "94d004b3741aaae467f469a2be8826a9c9f4de90a91dfa4a1ec4691c8fe2147c"
+    },
+    "independentClosure": {
+      "path": "/home/amizo/erp-backups/procurement-m2a-import-final-runtime-prep-20261026_run01/independent-final-lifecycle-review.private.json",
+      "sha256": "f212741f04fb56321455580e0753171527771dbe0f88343c1cf0ea60cd346a48"
+    },
+    "initializerExit": {
+      "cliExit": 0,
+      "containerExit": 0,
+      "oomKilled": false,
+      "stopReason": null
+    },
+    "proxyExit": {
+      "cleanStopSha256": "e0175db5891dbfa928b3d60e749035467854c9eb4e57882e978f1de8baba4089",
+      "exitCode": 0,
+      "receiptSha256": "afd4fa3ed4186c9b48dcb4dda620a018f7b3bfd1352429fd9c83ff901a90a9b0"
+    },
+    "postCleanup": {
+      "committedBatches": 5,
+      "expiredBatches": 7,
+      "previewedBatches": 0,
+      "rowReceipts": 5,
+      "sessions": 18,
+      "revokedSessions": 18
+    },
+    "cleanupClockAccelerationOnlyThenGenuineWorker": true,
+    "acceptedOwnerCapturePreserved": true
+  },
+  "release": {
+    "defaultOff": true,
+    "productionDatabaseOrGrantsOrConfigurationChanged": false,
+    "productionDeployed": false,
+    "hostedCi": "Blocked by account billing lock; local results do not claim hosted success",
+    "holds": [
+      "Production least-privilege Core/HRM and publisher runtime verification",
+      "Nonempty cross-tenant publisher verification",
+      "Reviewed production schema/configuration/rollback rollout",
+      "Narrow UI mainline integration verification; do not merge held UI ancestry",
+      "Remaining M0-M10 milestones and business UAT"
+    ]
+  },
+  "failedAttemptsPreserved": [
+    "Initial SDK/harness build failures",
+    "Response-header case-sensitive verifier failure",
+    "Real Item database-boundary failure before fix",
+    "Lost-response browser wait race at predecessor a2; saved Item and successful Vendor preserved",
+    "Intermediate sixteen-second cleanup capture before worker sweep"
+  ]
+}
