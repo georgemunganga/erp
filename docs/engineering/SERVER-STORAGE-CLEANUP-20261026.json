@@ -1,0 +1,31 @@
+{
+  "status": "COMPLETED_TARGETED_DISK_CLEANUP",
+  "utc": "2026-10-26T15:05:44.179098+00:00",
+  "freeBeforeBytes": 286113792,
+  "freeAfterBytes": 2690527232,
+  "removedFrappeDependencyDirectories": 9,
+  "removedFrappeDependencySymlinks": 5,
+  "removedRotatedLogs": 25,
+  "removedObsoleteCompiledCacheArchives": 15,
+  "preserved": [
+    "production databases and Docker volumes",
+    "Frappe source and site documents",
+    "current production rollback image",
+    "fresh production backup and release preparation",
+    "test logs and source-containing archives"
+  ],
+  "health": {
+    "api": "healthy",
+    "erpHttp": 200,
+    "procurementHttp": 200
+  },
+  "reclaimedBytes": 2404413440,
+  "evidenceSha256": "3e5aee83e267b6f3f1008d7624e1c36ff5a33682fcf39400bdacd9e914854a1d",
+  "databaseInventory": {
+    "isolatedPostgresDatabaseCount": 313,
+    "isolatedPostgresTotalReported": "6911 MB",
+    "productionVolumeReported": "107 MB",
+    "testDatabasesDeleted": 0
+  },
+  "productionDeploymentPerformedByCleanup": false
+}

@@ -1,8 +1,20 @@
 # Procurement execution checkpoint — 26 October 2026
 
-This checkpoint supersedes earlier status paragraphs, not historical acceptance records. Procurement is not complete. The coordinator continues the ordered M0–M10 roadmap, preserving the imported UI and shared ERP components. No production migration, grant, activation or deployment is claimed here.
+This checkpoint supersedes earlier status paragraphs, not historical acceptance records. Procurement is not complete. The coordinator continues M0–M10, preserving the imported UI and shared ERP components. The technical release below is deployed; whole-module business UAT remains open. Earlier no-deployment statements are historical.
 
-## Published baselines and ownership
+## Deployed technical release — 26 October, 15:21 UTC
+
+ERP main `c8eac4c54b009bbafe3cf916992abdbcf3562a61` includes PR111; UI main `7f75d327a2bb8eb399f48b370da0cc53a0a831b9` includes PR84. Deployed product is `d35ecc090b0de0abcab1e38be09fd25c52a1d0aa`, UI `e032805303e23e1658d5a66808d9b0d6f1ce991c`, paired API/publisher image `c9ea9f7bd48c112bf20cc5cbb6f20d48850075942dfa37f366af9c41f352464b`, and Procurement static release `m3b-d35-e032-20261026`. Use these published mains or descendants for new assignments. Core/HRM SSR and Accounting were preserved.
+
+A fresh stopped-writer backup restored all **191 COPY table row multisets**. Genuine migration histories are now **HRM56 / Procurement28 / CoreApproval1**. Original 191 column projections were preserved and nine new tables were empty before cutover. Five finite LOGIN roles passed actual network SCRAM and wrong-password rejection. Application processes now use finite accounts; no superuser runtime session was observed. API is healthy and publisher is running, with zero restarts at verification. The previous release and backup remain retained.
+
+Public Chromium checks verified **five exact served assets and eight public route navigations**, with no page/console errors or mutations. Protected pages settle at sign-in. These are anonymous checks, not production-user CRUD acceptance. A fresh full private request/PO browser rerun is separate and in progress; prior source evidence and its failed locator case remain historical.
+
+Approvals, imports, manual payments and principal direct-order execution remain off; principal identity capture is configured on. This release does not manufacture policies or enable held workflows. SMTP delivery remains open: a ten-day-old access-link event was already failed in the backup and retried with the same server rejection and unchanged settings. Its missing expiry guard is a separate Core issue. The anonymous Procurement scope-error screen also needs a usable sign-in recovery action.
+
+[Sanitized deployment evidence](../release/M3B-TECHNICAL-DEPLOYMENT-20261026.json) records exact pins, failed attempts and limits. Storage cleanup reclaimed approximately **2.4 GB**, preserving production databases, source, current backup and rollback release. The cleanup inventory found 313 databases in the isolated cluster; older test copies need reviewed retention cleanup. **This technical deployment does not complete M1–M9 or business UAT.**
+
+## Historical source checkpoint and ownership
 
 - ERP code baseline: `35045b7e51efca2e756dd678b9de6a62477b03bc` (main, PR108 merged; includes PR100 and PR106). The default-off M2a source and prior CSV reader are verified; historical pending-build statements are superseded below.
 - UI main: `704ac9c642d00e3672cd81e7c1df2d9cb50be160` (narrow PR83 merged). The 139-file held ancestry was excluded; the accepted native test product remains the earlier `bf182` build.

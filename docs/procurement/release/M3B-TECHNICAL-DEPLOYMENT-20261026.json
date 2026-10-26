@@ -1,0 +1,87 @@
+{
+  "status": "DEPLOYED_TECHNICAL_RELEASE_WHOLE_MODULE_UAT_OPEN",
+  "capturedUtc": "2026-10-26T15:27:25.397458+00:00",
+  "erpMain": "c8eac4c54b009bbafe3cf916992abdbcf3562a61",
+  "uiMain": "7f75d327a2bb8eb399f48b370da0cc53a0a831b9",
+  "productSource": "d35ecc090b0de0abcab1e38be09fd25c52a1d0aa",
+  "uiProductSource": "e032805303e23e1658d5a66808d9b0d6f1ce991c",
+  "image": "sha256:c9ea9f7bd48c112bf20cc5cbb6f20d48850075942dfa37f366af9c41f352464b",
+  "publicationManifestSha256": "555c8c8c1c8cd76e2522cbd3fb27db8d89efa35f5e8c2881f64b967351ada638",
+  "procurementStaticRelease": "m3b-d35-e032-20261026",
+  "cutoverPlanSha256": "13b598cdc87e7b83c3fab1344fed55d2d31875fcca99bc804122887999e57c1c",
+  "evidence": {
+    "cutover": {
+      "sha256": "c9744a8a184c3585edec99fae794bdcd2cead11784b79474778fd002b95b509e",
+      "status": "CUTOVER_COMPLETE"
+    },
+    "backupRestore": {
+      "sha256": "18c3ac86558a746866e2edf6825629c061556e9f2aa6ef9ed5332b8be62d3f3a",
+      "status": "PASS_POST_STOP_PRODUCTION_BACKUP_RESTORE_191_COPY_TABLES_AND_SEQUENCES"
+    },
+    "backupIndependentReview": {
+      "sha256": "35f182b81d5ea2bce84659a2431a1759dd8818091411c53a218c7e3318bafe72",
+      "status": "PASS_INDEPENDENT_ACTUAL_POSTSTOP_BACKUP_AND_PRIVATE_RESTORE_FILE_RECONCILIATION"
+    },
+    "schemaFiniteRoles": {
+      "sha256": "0850233bf2c39238f1e0ab60bba3c2265da1afbb54ae4753c90ed866f14f07c7",
+      "status": "PASS_PRODUCTION_OWNER_SCHEMA_UPGRADE_FINITE_ROLE_FLAGS_EFFECTIVE_SQL_ONLY"
+    },
+    "networkScram": {
+      "sha256": "6843e5ce7e0a2e18a76986f10b511c16de3224028147879e4a5a525a37e2f9fa",
+      "status": "PASS_ACTUAL_NETWORK_SCRAM_AND_FINITE_SESSION_IDENTITIES"
+    },
+    "candidateReadonly": {
+      "sha256": "ee9f5d7ac4dc6a01b57c7c254f76ff26a5cc209113f235465f7aaa76430c86d3",
+      "status": "PASS_PRODUCTION_CANDIDATE_FINITE_READONLY_HEALTH_AND_MAPPED_READS_NOT_AUTH_UAT"
+    },
+    "publicBrowser": {
+      "sha256": "db554cff90fbd89bad746890c2af6289ae5aa88c88bb9e91ac505609b1a182fa",
+      "status": "PASS_ANONYMOUS_PUBLIC_ASSETS_AND_NAVIGATION"
+    },
+    "publicBrowserSettled": {
+      "sha256": "dd824f2750e9d4b4f90fed2435f7276b9591c3fe49153ca8ac1be8d1f8f19fb5",
+      "status": "READ_ONLY_SETTLED_NAVIGATION_OBSERVATIONS"
+    },
+    "postrelease": {
+      "sha256": "02dac345b34bb1b275cc1b4764324b9bf139191e535c051f11dbf5ec2bf72941",
+      "status": "PRODUCTION_POSTRELEASE_READONLY_OBSERVED_WITH_PUBLISHER_DELIVERY_FAILURE"
+    },
+    "smtpInvestigation": {
+      "sha256": "9f17e79fdcf2e4d5fb1bcbf048a0d2251b67507ed6c45ee3095b6ee19d6ba55d",
+      "status": "READ_ONLY_SMTP_FAILURE_INVESTIGATED_NO_DELIVERY_OR_RETRY"
+    }
+  },
+  "migrationHistoryCounts": {
+    "coreApproval": 1,
+    "hrm": 56,
+    "procurement": 28
+  },
+  "featureFlags": {
+    "Procurement__Approvals__Enabled": "false",
+    "Procurement__Approvals__PrincipalExecutionEnabled": "true",
+    "Procurement__ManualPayments__Enabled": "false",
+    "Procurement__MasterImport__Enabled": "false",
+    "Procurement__MasterImport__Maintenance__Enabled": "false",
+    "Procurement__PrincipalDirectOrderDrafts__Enabled": "false"
+  },
+  "superuserRuntimeSessionsObserved": 0,
+  "publicServedFilesExact": 5,
+  "publicRoutesChecked": 8,
+  "preservation": {
+    "original191TableProjectionsPreservedBeforeCutover": true,
+    "new9TablesEmptyBeforeCutover": true,
+    "runtimeBusinessRowsFrozenAfterCutover": false,
+    "priorImageAndContainersRetained": true,
+    "rootCoreHrmSsrPreserved": true,
+    "accountingAliasPreserved": true
+  },
+  "limitations": [
+    "Public browser checks use no production login or business writes.",
+    "Current private full browser rerun remains separate and pending.",
+    "Approvals, imports, manual payments and principal direct-order execution are not activated.",
+    "Internal PostgreSQL network TLS remains disabled; SCRAM authentication was verified.",
+    "Pre-existing failed access-link email retried unsuccessfully with unchanged SMTP settings.",
+    "Failed backup destination and two canary harness attempts remain retained.",
+    "M1-M8 affected workflows and business UAT/sign-off remain open."
+  ]
+}
