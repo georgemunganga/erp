@@ -61,7 +61,7 @@ public sealed class ProcurementMasterImportHttpTests
     private sealed class Fixture : IAsyncDisposable
     {
         private readonly WebApplication app;
-        private readonly HttpClient client;
+        private HttpClient? client;
         private readonly Guid company;
         private readonly Guid otherCompany;
         private readonly Guid branch;
@@ -71,7 +71,7 @@ public sealed class ProcurementMasterImportHttpTests
 
         private Fixture(WebApplication app, Guid company, Guid otherCompany, Guid branch)
         {
-            this.app = app; client = app.GetTestClient();
+            this.app = app;
             this.company = company; this.otherCompany = otherCompany;
             this.branch = branch;
         }
@@ -118,6 +118,7 @@ public sealed class ProcurementMasterImportHttpTests
                 await core.SaveChangesAsync();
             }
             await app.StartAsync();
+            fixture.client = app.GetTestClient();
             return fixture;
         }
 
@@ -130,7 +131,7 @@ public sealed class ProcurementMasterImportHttpTests
             request.Headers.Add("X-Shell-Entity", (foreignCompany ? otherCompany : company).ToString());
             if (!foreignCompany) request.Headers.Add("X-Shell-Location", branch.ToString());
             if (method == HttpMethod.Post) request.Content = JsonContent.Create(new { });
-            return await client.SendAsync(request);
+            return await client!.SendAsync(request);
         }
 
         public async Task RevokeImport()
@@ -152,6 +153,6 @@ public sealed class ProcurementMasterImportHttpTests
                 await db.CatalogItems.CountAsync());
         }
 
-        public async ValueTask DisposeAsync() { client.Dispose(); await app.DisposeAsync(); }
+        public async ValueTask DisposeAsync() { client?.Dispose(); await app.DisposeAsync(); }
     }
 }

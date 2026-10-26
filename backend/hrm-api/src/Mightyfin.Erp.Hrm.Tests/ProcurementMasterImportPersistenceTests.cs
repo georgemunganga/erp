@@ -18,18 +18,20 @@ public sealed class ProcurementMasterImportPersistenceTests
     {
         private readonly string database = "master-import-" + Guid.NewGuid().ToString("N");
         private readonly Guid company = Guid.NewGuid();
+        private readonly string actor = Guid.NewGuid().ToString("D");
         private readonly ProcurementRequestScope scope = new();
-        public Fixture() => scope.Set("tenant-a", company, Guid.NewGuid().ToString("D"),
+        public string Actor => actor;
+        public Fixture() => scope.Set("tenant-a", company, actor,
             null, null, false, "test");
         public ProcurementDbContext Db() => new(new DbContextOptionsBuilder<ProcurementDbContext>()
             .UseInMemoryDatabase(database).Options, scope);
         public async ValueTask DisposeAsync() { await using var db = Db(); await db.Database.EnsureDeletedAsync(); }
     }
 
-    private static ImportBatch NewPreview(string kind = "Item") => new()
+    private static ImportBatch NewPreview(string actor, string kind = "Item") => new()
     {
         RecordType = kind, FileName = "upload.csv", FileSha256 = new string('a', 64),
-        ActorSubjectId = Guid.NewGuid().ToString("D"), SchemaVersion = 1,
+        ActorSubjectId = actor, SchemaVersion = 1,
         DuplicatePolicy = "reject", PreviewSnapshotText = "{}", PreviewSha256 = Hash("{}"),
         State = "Previewed", TotalRows = 1, ExpiresAt = DateTimeOffset.UtcNow.AddMinutes(15),
     };
@@ -46,7 +48,7 @@ public sealed class ProcurementMasterImportPersistenceTests
     {
         await using var fixture = new Fixture();
         await using var db = fixture.Db();
-        var batch = NewPreview(); db.AddScoped(batch); await db.SaveChangesAsync();
+        var batch = NewPreview(fixture.Actor); db.AddScoped(batch); await db.SaveChangesAsync();
         batch.RecordType = "Other";
         await Assert.ThrowsAsync<InvalidOperationException>(() => db.SaveChangesAsync());
         db.ChangeTracker.Clear();
@@ -60,7 +62,7 @@ public sealed class ProcurementMasterImportPersistenceTests
     {
         await using var fixture = new Fixture();
         await using var db = fixture.Db();
-        var batch = NewPreview(); db.AddScoped(batch); await db.SaveChangesAsync();
+        var batch = NewPreview(fixture.Actor); db.AddScoped(batch); await db.SaveChangesAsync();
         Commit(batch);
         await Assert.ThrowsAsync<InvalidOperationException>(() => db.SaveChangesAsync());
         db.ChangeTracker.Clear();
@@ -76,7 +78,7 @@ public sealed class ProcurementMasterImportPersistenceTests
     {
         await using var fixture = new Fixture();
         await using var db = fixture.Db();
-        var batch = NewPreview(); db.AddScoped(batch); await db.SaveChangesAsync();
+        var batch = NewPreview(fixture.Actor); db.AddScoped(batch); await db.SaveChangesAsync();
         var item = new CatalogItem { Code = "SKU-1", Name = "Bolt", Kind = "Goods",
             CategoryCode = "FAST", UnitCode = "EA", Status = "Inactive", IsPurchasable = false };
         db.AddScoped(item);

@@ -821,7 +821,15 @@ public sealed partial class ProcurementDbContext(DbContextOptions<ProcurementDbC
         {
             if (added.Entity.State != "Previewed" || added.Entity.CommitCommandKey is not null
                 || added.Entity.CommitRequestSha256 is not null || added.Entity.ResultText is not null
-                || added.Entity.ResultSha256 is not null || added.Entity.AppliedRows != 0)
+                || added.Entity.ResultSha256 is not null || added.Entity.AppliedRows != 0
+                || added.Entity.ActorSubjectId != scope.SubjectId
+                || added.Entity.SchemaVersion != 1 || added.Entity.TotalRows is < 1 or > 1000
+                || added.Entity.DuplicatePolicy is not ("reject" or "skip")
+                || added.Entity.ExpiresAt <= DateTimeOffset.UtcNow
+                || added.Entity.ExpiresAt > DateTimeOffset.UtcNow.AddMinutes(16)
+                || added.Entity.PreviewSnapshotText is null
+                || added.Entity.PreviewSha256 != Convert.ToHexString(SHA256.HashData(
+                    Encoding.UTF8.GetBytes(added.Entity.PreviewSnapshotText))).ToLowerInvariant())
                 throw new InvalidOperationException("A master import starts as an immutable preview.");
         }
         var transitions = ChangeTracker.Entries<ImportBatch>()
