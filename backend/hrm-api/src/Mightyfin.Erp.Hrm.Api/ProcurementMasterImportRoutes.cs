@@ -238,6 +238,9 @@ public static class ProcurementMasterImportRoutes
             || string.IsNullOrWhiteSpace(coreConnectionString)) return false;
         try
         {
+            static bool SameHost(string? a, string? b) =>
+                string.Equals(a, b, a?.StartsWith('/') == true || b?.StartsWith('/') == true
+                    ? StringComparison.Ordinal : StringComparison.OrdinalIgnoreCase);
             static NpgsqlConnectionStringBuilder Settings(string value) =>
                 new(value.StartsWith("postgresql", StringComparison.OrdinalIgnoreCase) && value.Contains('?')
                     ? NpgsqlConnectionStringNormalizer.Normalize(value) : value);
@@ -249,13 +252,13 @@ public static class ProcurementMasterImportRoutes
                 && !string.IsNullOrWhiteSpace(core.Host)
                 && !string.IsNullOrWhiteSpace(core.Database)
                 && core.Port > 0
-                && string.Equals(procurement.Host, core.Host, StringComparison.OrdinalIgnoreCase)
+                && SameHost(procurement.Host, core.Host)
                 && procurement.Port == core.Port
                 && string.Equals(procurement.Database, core.Database, StringComparison.Ordinal)
-                && (!procurementOpen || (string.Equals(procurementObservedHost, procurement.Host,
-                    StringComparison.OrdinalIgnoreCase) && procurementObservedPort == procurement.Port))
-                && (!coreOpen || (string.Equals(coreObservedHost, core.Host,
-                    StringComparison.OrdinalIgnoreCase) && coreObservedPort == core.Port));
+                && (!procurementOpen || (SameHost(procurementObservedHost, procurement.Host)
+                    && procurementObservedPort == procurement.Port))
+                && (!coreOpen || (SameHost(coreObservedHost, core.Host)
+                    && coreObservedPort == core.Port));
         }
         catch (ArgumentException) { return false; }
         catch (FormatException) { return false; }

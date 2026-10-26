@@ -39,10 +39,17 @@ public sealed class ProcurementMasterImportDiagnosticTests
 
         Assert.False(Same("Host=/private-pg-socket;Port=5432;Database=other;Username=core"));
         Assert.False(Same("Host=/other-socket;Port=5432;Database=proc_m2a;Username=core"));
+        Assert.False(Same("Host=/PRIVATE-PG-SOCKET;Port=5432;Database=proc_m2a;Username=core"));
         Assert.False(Same("Host=/private-pg-socket;Port=5433;Database=proc_m2a;Username=core"));
         Assert.False(Same(UnixCore, "/other-socket"));
+        Assert.False(Same(UnixCore, "/PRIVATE-PG-SOCKET"));
         Assert.False(Same(UnixCore, observedPort: 5433));
         Assert.False(Same("not a connection string"));
+        Assert.True(ProcurementMasterImportRoutes.SameDatabaseEndpoints(
+            "Host=PG.EXAMPLE;Port=5432;Database=proc_m2a;Username=record",
+            true, "pg.example", 5432,
+            "Host=pg.example;Port=5432;Database=proc_m2a;Username=core",
+            false, null, 0));
     }
 
     [Fact]
