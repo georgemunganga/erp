@@ -1,6 +1,6 @@
 # PROC-M2a Vendor and Item Server Import
 
-**Status:** Draft implementation contract; no API, migration, grant, or live import is claimed. **Version:** 0.1. **Hierarchy:** Procurement → Supplier and Item Masters → Import. **Framework:** [ERP 28-section standard](../hrm/feature-specifications/ERP_Feature_Specification_Framework_Enterprise_Integration_Updated.docx). **Parents:** [PROC-01](PROC-01-SUPPLIER-ONBOARDING-AND-MANAGEMENT.md), [PROC-04](PROC-04-PROCUREMENT-ITEMS-AND-CATALOG.md). **Sibling:** [M2 selected CSV export](PROC-M2-SELECTED-MASTER-CSV-EXPORT.md).
+**Status:** Bounded private source accepted; default off and not deployed. See [exact native acceptance and limits](gap-closure/M2A-NATIVE-IMPORT-ACCEPTANCE-20261026.json). Historical baseline descriptions below explain the replaced local-only adapter, not current implementation status. **Version:** 0.2. **Hierarchy:** Procurement → Supplier and Item Masters → Import. **Framework:** [ERP 28-section standard](../hrm/feature-specifications/ERP_Feature_Specification_Framework_Enterprise_Integration_Updated.docx). **Parents:** [PROC-01](PROC-01-SUPPLIER-ONBOARDING-AND-MANAGEMENT.md), [PROC-04](PROC-04-PROCUREMENT-ITEMS-AND-CATALOG.md). **Sibling:** [M2 selected CSV export](PROC-M2-SELECTED-MASTER-CSV-EXPORT.md).
 
 ## 1. Feature Identification
 
