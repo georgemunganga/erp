@@ -38,11 +38,20 @@ public sealed class PrincipalOrderDraftPersistenceTests
             db.AddScoped(allocation);
             var binding=new PrincipalOrderSourceBinding{TenantId=scope.TenantId,LegalEntityId=scope.LegalEntityId,
                 PurchaseOrderId=order.Id,PurchaseOrderLineId=line.Id,AllocationId=allocation.Id,
-                PurchaseRequestId=requestId,PurchaseRequestLineId=sourceId,BuyerPrincipalId=actor,
-                BranchId=order.BranchRef!.Value,CurrencyCode="ZMW",Quantity=1m,
+                PurchaseRequestId=requestId,PurchaseRequestLineId=sourceId,RequestVersion=2,
+                SubmissionId=Guid.NewGuid(),SubmittedBusinessVersion=1,
+                ApprovalOutcomeId=Guid.NewGuid(),CoreApprovalCaseId=Guid.NewGuid(),
+                CoreDecisionId=Guid.NewGuid(),FinanceSnapshotId=Guid.NewGuid(),
+                MethodId=Guid.NewGuid(),MethodRevision=1,MethodCode="DIRECT",
+                RequestSnapshotSha256=new string('a',64),PolicyDecisionSha256=new string('b',64),
+                PolicyRulesSha256=new string('c',64),FinanceSnapshotSha256=new string('d',64),
+                PrincipalIdentitySha256=new string('e',64),BuyerPrincipalId=actor,
+                RequesterPrincipalId=Guid.NewGuid(),BranchId=order.BranchRef!.Value,
+                CurrencyCode="ZMW",Quantity=1m,UnitEstimate=1m,
                 ProposedUnitPrice=1m,EstimatedValue=1m};
             order.OriginalDirectSourceSha256=PrincipalOrderDraftPins.Digest(order,[line],[binding]);
             binding.OriginalDirectSourceSha256=order.OriginalDirectSourceSha256;
+            PrincipalOrderDraftPins.Verify(order,[line],[binding]);
             db.AddScoped(binding);
             db.AddScoped(new PrincipalOrderDraftReceipt{PurchaseOrderId=order.Id,Operation="Create",
                 CommandKey=Guid.NewGuid(),ActorPrincipalId=actor,CommandSha256=new string('a',64),
@@ -53,6 +62,8 @@ public sealed class PrincipalOrderDraftPersistenceTests
         await using(var db=new ProcurementDbContext(options,scope))
         {
             var order=await db.PurchaseOrders.SingleAsync();
+            PrincipalOrderDraftPins.Verify(order,[await db.PurchaseOrderLines.SingleAsync()],
+                [await db.PrincipalOrderSourceBindings.SingleAsync()]);
             order.Status="Cancelled";
             await Assert.ThrowsAsync<InvalidOperationException>(()=>db.SaveChangesAsync());
         }
