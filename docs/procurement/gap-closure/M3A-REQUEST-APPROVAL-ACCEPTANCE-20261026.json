@@ -1,0 +1,93 @@
+{
+  "status": "BOUNDED_PRIVATE_REQUEST_APPROVAL_SOURCE_ACCEPTED_NOT_PRODUCTION_OR_WHOLE_MODULE_UAT",
+  "source": "18585c14b00d21e6b29bdc1fbae0977a5ba9d4a3",
+  "publishedMerge": "35045b7e51efca2e756dd678b9de6a62477b03bc",
+  "pullRequest": "https://github.com/georgemunganga/erp/pull/108",
+  "uiMain": "704ac9c642d00e3672cd81e7c1df2d9cb50be160",
+  "uiTree": "4743b3f2715f0cb5feadedd9fb8e71e8a7e6a009",
+  "freshTests": {
+    "focused": 14,
+    "host": 1295,
+    "failed": 0,
+    "skipped": 0
+  },
+  "carriedUnchangedTests": {
+    "procurement": 1414,
+    "coreApproval": 30
+  },
+  "genuineApiPublicationFiles": 150,
+  "genuineToolFiles": 465,
+  "browser": {
+    "passingPhases": 3,
+    "workers": 1,
+    "retries": 0,
+    "approval": "Existing funded request opened and independently approved in the actual UI; exact original-key acknowledgements checked. Creation, submission and independent funding UI occurred before preserved disk abort.",
+    "precaseReturn": "Real Core-cookie API actions, correction and resubmission; raw owner passed.",
+    "activeReturn": "Actual UI committed Open response suppressed, reload recovered original key; Return, independent manual release, correction and resubmission via real-cookie API. Three actual Open/Decide/Release receipts independently reconciled."
+  },
+  "owner": {
+    "originalTablesPreserved": 198,
+    "existingRoleAndAclCatalogPreserved": true,
+    "newFiniteSqlRoles": 2,
+    "sessions": {
+      "total": 10,
+      "revoked": 10,
+      "unrevoked": 0,
+      "fixtureOwnerCasCleanup": 3,
+      "remainingNormalCookieLogout": 7
+    },
+    "approvedProcurementAuditRows": 9,
+    "approvedOutboxEvents": 3,
+    "activeReturnReceipts": [
+      "Open",
+      "Decide",
+      "Release"
+    ],
+    "financeInvoiceHandoffRows": 0,
+    "financePaymentStatusReferenceRows": 0,
+    "financeLedgerReconciliation": "N/A; Finance not implemented or externally verified"
+  },
+  "apiStopped": {
+    "exit": 0,
+    "oomKilled": false
+  },
+  "productionTouched": false,
+  "migrationsAddedByFix": false,
+  "limitations": [
+    "Core DB connector remains owner-backed; only Procurement Record/Execution roles are finite. Trust sockets do not prove password/TLS database authentication.",
+    "Source accepts only two exact captured restored CHECK renderings; original 17 checks and other readiness controls remain enforced.",
+    "Ordinary API startup retains existing default Core-role seeding code; the resume adds no explicit fixture seed, grant or migration.",
+    "Real Core password/cookie authentication exercised; sign-in form, SSO/MFA and header branch picker were not tested.",
+    "No seeded foreign-tenant record proof; per-denial no-effect assertions remain unaccepted where owner receipts say false.",
+    "Manual funding/release evidence does not establish external Finance reservations, posting, payment or ledger reconciliation.",
+    "Three-receipt active owner verification is a separate independent raw-snapshot check; the original two-receipt verifier failure is retained.",
+    "Hosted CI is blocked by account billing; local tests are not hosted CI acceptance.",
+    "Production roles/schema release, current UI import acceptance, further line conversions and remaining M1-M9 work stay open."
+  ],
+  "preservedFailures": [
+    "Initial private native check failed before HTTP because two PostgreSQL restored CHECK spellings differed.",
+    "R2 API stopped on disk guard during browser phase; resource interruption did not establish UI or logout defect.",
+    "First tmpfs browser attempt could not find installed browser; no business request ran. Successor explicitly pins installed browser cache.",
+    "Return specs retained an old tenant literal; unexecuted precursor preserved, corrected successor used R2."
+  ],
+  "evidence": {
+    "/home/amizo/erp-backups/procurement-p25-restored-check-sdk-prep-20261026_run01/result.private.json": "3e7de55a04ecc79c84fa09cf72234d0b03be8b44cb7a724a26e14e0a98e7c8d2",
+    "/home/amizo/erp-backups/procurement-p25-restored-check-sdk-prep-20261026_run01/publication-manifest.private.json": "f166798fe352b0eb188d3b09772cc27d165aafd671cb1e30a7850141729a1bad",
+    "/home/amizo/erp-backups/procurement-p25-restored-check-sdk-prep-20261026_run01/independent-sdk-review.private.json": "691abc4b77aa9b4f521eacc0f804abb3c354cc5f64de5bd94463f54d13112773",
+    "/home/amizo/erp-backups/procurement-m3a-principal-tool-sdk-prep-20261026_run02/result.private.json": "f9fd64a6cd135950ed45684e1453cf20f7553ecf441172f8ecc9aad91ed62bad",
+    "/home/amizo/erp-backups/procurement-m3a-principal-tool-sdk-prep-20261026_run02/tool-manifest.private.json": "13a889ac6128aec63e0675aaffd728abf0730b04b48509a38618384f6d826049",
+    "/home/amizo/erp-backups/procurement-m3a-principal-tool-sdk-prep-20261026_run02/independent-tool-review.private.json": "2951b0b2e12f4b5d683ffe8819c97a0444fd004d261936a595a89ff8ed97d942",
+    "/home/amizo/erp-backups/procurement-m3a-same-cohort-api-resume-runtime-20261026_run01/browser-resume-installed-path/resume.private.json": "839686721ca56a4560b689ea2d3416ad7e00b80fece1333ee9676b262319afab",
+    "/home/amizo/erp-backups/procurement-m3a-same-cohort-api-resume-runtime-20261026_run01/approved-resume-owner-typed.private.json": "338deb481da3e14f635c4bc0037580f83a48a9d627cade0b813552d8ec344f25",
+    "/home/amizo/erp-backups/procurement-m3a-resume-remaining-browser-runtime-20261026_run01/browser-precase/precase.private.json": "39f69a88ce4e1443357a43acc040ec2397a0b59c45efe3b76f7894cc1dec3a2e",
+    "/home/amizo/erp-backups/procurement-m3a-resume-remaining-browser-runtime-20261026_run01/browser-precase/owner.private.json": "d703b997beeeba78a8ec7a48dd8e7e217724c59531c4c3e406eed8de1bc5d172",
+    "/home/amizo/erp-backups/procurement-m3a-resume-remaining-browser-runtime-20261026_run01/browser-active-return/active-return.private.json": "54efedd3052ce3b4f373294b8f239b0d1a5244bf31353d374c12344d515a1fbc",
+    "/home/amizo/erp-backups/procurement-m3a-resume-remaining-browser-runtime-20261026_run01/browser-active-return/owner-three-receipts.private.json": "73c8e582dc6cebcef74c3c9be6d8b68e6f7901f205b31d99266c0a5460fff6e8",
+    "/home/amizo/erp-backups/procurement-m3a-same-cohort-api-resume-runtime-20261026_run01/final-consolidated-typed-successor.private.json": "29a5b29a4e203bb9656f2457d2e40d622dbfefb7cfe810a04bac12520207fbfd",
+    "/home/amizo/erp-backups/procurement-m3a-same-cohort-api-resume-runtime-20261026_run01/original-rows-final.private.json": "3ecc93b8e01347f3db07eb01cb515e3da8891c366d1326d164ceae5e2fcc25ac",
+    "/home/amizo/erp-backups/procurement-m3a-same-cohort-api-resume-runtime-20261026_run01/final-acl-comparison.private.json": "74929feb1d635154800892e9bf1bdcad39aa81f44426541678c55f7ca46d7662",
+    "/home/amizo/erp-backups/procurement-m3a-same-cohort-api-resume-runtime-20261026_run01/final-sessions-and-approved-audit.private.json": "9778b99556948af10675daba8171820704683e29bdda554170ae7db41d41b5c5",
+    "/home/amizo/erp-backups/procurement-m3a-same-cohort-api-resume-runtime-20261026_run01/final-inspect.private.json": "78fe5b3445e3bfa29b42e088ab83712efa89040c86043aad43394168f254f327",
+    "/home/amizo/erp-backups/procurement-m3a-r2-orphan-session-cleanup-prep-20261026_run01/root-execution-receipt.private.json": "39d3f7de56b5a14569ac13e269fcc5c30e8417b7f221f8a695d0b9477c6ff4df"
+  }
+}
