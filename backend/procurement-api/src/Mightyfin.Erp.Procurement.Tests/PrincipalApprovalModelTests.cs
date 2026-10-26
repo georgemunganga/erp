@@ -38,7 +38,8 @@ public sealed partial class FinanceCheckerIdentityPersistenceTests
         Assert.True(identity.FindProperty(nameof(SpendingAuthorityIdentityRecord.RecipientWorkerId))!.IsNullable);
         var authority=identity.GetCheckConstraints().Single(x=>x.Name=="ck_authority_identity_evidence").Sql;
         Assert.Contains("schema_version=2 OR (actor_worker_id IS NOT NULL AND recipient_worker_id IS NOT NULL)",authority);
-        Assert.Contains("schema_version=1 OR (action='PurchaseRequest.Approve' AND permission='procurement-approval-decide')",authority);
+        Assert.Contains("action='PurchaseRequest.Approve' AND permission='procurement-approval-decide'",authority);
+        Assert.Contains("action='SourcingEvent.Publish' AND permission='procurement-sourcing-publish'",authority);
         Assert.DoesNotContain(identity.GetKeys().SelectMany(x=>x.Properties),x=>x.Name is "ActorWorkerId" or "RecipientWorkerId");
         var assignment=model.FindEntityType(typeof(PurchaseRequestAssignmentAuthorityEvidence))!;
         Assert.Equal(1,assignment.FindProperty(nameof(PurchaseRequestAssignmentAuthorityEvidence.IdentitySchemaVersion))!.GetDefaultValue());
