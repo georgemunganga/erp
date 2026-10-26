@@ -157,7 +157,7 @@ public sealed partial class ProcurementDbContext
             if(entry.State is EntityState.Modified or EntityState.Deleted)
                 throw new InvalidOperationException("PrincipalOrderGovernanceAppendOnly");
         foreach(var entry in ChangeTracker.Entries<ProcurementRecord>().Where(x=>x.State==EntityState.Added
-            &&x.Entity is PrincipalOrderFundingEvidence or PrincipalOrderSubmission or PrincipalOrderDecisionEvidence
+            &&x.Entity is Mightyfin.Erp.Procurement.Domain.PrincipalOrderFundingEvidence or PrincipalOrderSubmission or PrincipalOrderDecisionEvidence
                 or PrincipalOrderIssuedVersion or PrincipalOrderAcknowledgment or PrincipalOrderReleaseRequest
                 or PrincipalOrderReleaseConfirmation))
         {
