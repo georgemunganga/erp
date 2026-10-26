@@ -13,7 +13,7 @@ public static partial class ProcurementSourcingExecutionRoutes
         HttpContext http, ProcurementRequestScope scope, CancellationToken ct)
     {
         if (!http.RequestServices.GetRequiredService<ProcurementPrincipalSourcingPublicationOptions>().Enabled)
-            return Task.FromResult(Error("PrincipalSourcingPublicationUnavailable", 503));
+            return PrincipalPublicationDisabled(http);
         return Run(http, scope, async (db, cases, core, auth, token) =>
         {
             await RequirePrincipalPublication(http, db, token);
@@ -90,7 +90,7 @@ public static partial class ProcurementSourcingExecutionRoutes
         HttpContext http, ProcurementRequestScope scope, CancellationToken ct)
     {
         if (!http.RequestServices.GetRequiredService<ProcurementPrincipalSourcingPublicationOptions>().Enabled)
-            return Task.FromResult(Error("PrincipalSourcingPublicationUnavailable", 503));
+            return PrincipalPublicationDisabled(http);
         return Run(http, scope, async (db, cases, core, auth, token) =>
         {
             await RequirePrincipalPublication(http, db, token);

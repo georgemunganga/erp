@@ -169,7 +169,6 @@ public sealed class JobsAdminTests
         var expectedLegacyAdmin = ProcurementActionCatalog.AdminReadCatalog().Select(action => action.Key)
             .Except(["procurement-vendor-export", "procurement-item-export",
                 "procurement-vendor-import", "procurement-item-import",
-                "procurement-sourcing-convert", "procurement-sourcing-cancel",
                 "procurement-sourcing-submit", "procurement-sourcing-publish"])
             .Order(StringComparer.Ordinal).ToArray();
         Assert.Equal(expectedLegacyAdmin, admin.EffectiveProcurementPermissions);

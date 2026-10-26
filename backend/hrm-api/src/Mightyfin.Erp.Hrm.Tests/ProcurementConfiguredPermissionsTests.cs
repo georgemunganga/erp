@@ -64,7 +64,7 @@ public sealed class ProcurementConfiguredPermissionsTests
     }
     [Theory]
     [InlineData("employee")][InlineData("manager")][InlineData("procurement_buyer")]
-    [InlineData("procurement_manager")][InlineData("hr_admin")][InlineData("erp_admin")]
+    [InlineData("procurement_manager")][InlineData("hr_admin")]
     public void Governed_sourcing_actions_have_no_ordinary_bootstrap_or_legacy_permission_alias(string role)
     {
         foreach (var action in new[] { "procurement-sourcing-convert", "procurement-sourcing-cancel",
@@ -79,6 +79,18 @@ public sealed class ProcurementConfiguredPermissionsTests
                 new Claim(ProcurementPermissions.ActionClaim, "procurement-access"),
                 new Claim(ProcurementPermissions.ActionClaim, "procurement-sourcing-create"),
                 new Claim(ProcurementPermissions.ActionClaim, "procurement-sourcing-edit")]));
+        }
+    }
+
+    [Fact]
+    public void Legacy_admin_does_not_inherit_new_publication_actions()
+    {
+        foreach (var action in new[] { "procurement-sourcing-submit", "procurement-sourcing-publish" })
+        {
+            Assert.True(Mightyfin.Erp.Hrm.Application.ProcurementActionCatalog.RequiresExplicitConfiguredGrant(action));
+            Assert.False(ProcurementPermissions.Allows(action, [new Claim(ClaimTypes.Role, "erp_admin")]));
+            Assert.DoesNotContain(action, Mightyfin.Erp.Hrm.Application.ProcurementActionCatalog
+                .ResolveConfiguredActionsForRole("erp_admin", "erp_admin"));
         }
     }
 

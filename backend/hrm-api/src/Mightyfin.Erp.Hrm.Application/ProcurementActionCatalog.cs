@@ -9,7 +9,6 @@ public static class ProcurementActionCatalog
     public static bool RequiresExplicitConfiguredGrant(string action) => action is
         "procurement-vendor-export" or "procurement-item-export"
         or "procurement-vendor-import" or "procurement-item-import"
-        or "procurement-sourcing-convert" or "procurement-sourcing-cancel"
         or "procurement-sourcing-submit" or "procurement-sourcing-publish";
 
     public static readonly IReadOnlyDictionary<string, string[]> BootstrapGrants =
