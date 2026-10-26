@@ -7,6 +7,31 @@ namespace Mightyfin.Erp.Hrm.Tests;
 public sealed class ProcurementMasterImportContractTests
 {
     [Fact]
+    public void Native_and_bulk_vendor_builder_uses_unique_16_hex_numbers_at_max_batch_size()
+    {
+        var actor = Guid.NewGuid();
+        var scope = new ProcurementRequestScope();
+        scope.Set("tenant-a", Guid.NewGuid(), actor.ToString("D"), null, null, false, "test");
+        scope.AssignPrincipal(actor);
+        var mapped = new SortedDictionary<string, string>(StringComparer.Ordinal)
+        { ["legalName"] = "Example supplier", ["displayName"] = "Example supplier",
+            ["countryCode"] = "ZM", ["registrationNumber"] = "" };
+        var input = ProcurementMasterDraftRules.ImportVendor(mapped, "ZMW");
+        Assert.Null(ProcurementMasterDraftRules.ValidateVendor(input));
+        var vendors = Enumerable.Range(0, 1000)
+            .Select(_ => ProcurementMasterDraftRules.NewVendor(input, scope)).ToArray();
+        Assert.Equal(1000, vendors.Select(x => x.Number).Distinct(StringComparer.Ordinal).Count());
+        Assert.Equal(1000, vendors.Select(x => x.Id).Distinct().Count());
+        Assert.All(vendors, vendor =>
+        {
+            Assert.Matches("^VEN-[0-9A-F]{16}$", vendor.Number);
+            Assert.Equal('7', vendor.Id.ToString("N")[12]);
+            Assert.Equal("Draft", vendor.Status);
+            Assert.False(vendor.IsOrderable);
+        });
+    }
+
+    [Fact]
     public void Preview_validates_trimmed_headers_explicit_mapping_and_native_draft_shape()
     {
         var csv = Encoding.UTF8.GetBytes(" code ,name,kind,categoryCode,unitCode\r\n"

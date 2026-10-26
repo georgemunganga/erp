@@ -42,7 +42,10 @@ internal static class ProcurementMasterDraftRules
     {
         return new Supplier
         {
-            Number = ("VEN-" + Guid.CreateVersion7().ToString("N")[..16]).ToUpperInvariant(),
+            // The first 16 digits of a Version 7 UUID carry mostly timestamp;
+            // use a random UUID suffix so one import batch cannot exhaust the
+            // few random bits available within a millisecond. Record IDs stay V7.
+            Number = ("VEN-" + Guid.NewGuid().ToString("N")[..16]).ToUpperInvariant(),
             LegalName = input.LegalName!.Trim(),
             DisplayName = input.DisplayName!.Trim(),
             CountryCode = input.CountryCode!.Trim().ToUpperInvariant(),
