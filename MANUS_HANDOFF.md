@@ -1,3 +1,26 @@
+# Current deployed and published baseline — M4 technical release
+
+Use ERP main `63360f128911b0cd66eb4e44e0f79fabcd1a2345` and UI main
+`46782ccdb502d8be34e5abb7e25ff659cd325582` or descendants for new assigned work.
+The matched release is deployed: tested API product `cca4772473b2a87411b3ca59a0a766fbd84187de`,
+UI `b51216eaf4af07c3985faef9e8b51145c4bbf92f`, image `b6dc4e822fd7383e13c186e2bac4d0974dde4fb6922b53e20bf1e5be525f6fff`,
+schema203/histories56/29/1. [Deployment evidence](docs/procurement/release/M4-PRODUCTION-DEPLOYMENT-20261026.json)
+records actual fresh backup/restore, atomic migration/finite grants, readonly
+canary, live review and anonymous public Playwright. Core/HRM3300 and Accounting
+are preserved. Current flags remain unchanged; no operational M4 activation or
+whole Procurement UAT completion is claimed.
+
+Coordinator owns M5a PR119, receiving, sourcing follow-ons and remaining UAT;
+its eight-table migration and Down safety are under review, not deployed.
+Do not duplicate these or merge held mixed migrations/UI ancestry. Manus retains
+the independent Core document-scanner assignment; no overlapping new assignment.
+The imported UI and shared ERP identity, settings, controls and ownership stay
+in place. Nine merged remote branches were retired across the cleanup passes; their
+commits/local worktrees and all unique/advanced work remain. Historical baseline
+paragraphs below are superseded by this section.
+
+---
+
 # Latest UI and UAT checkpoint
 
 ERP prerequisite main is `de449645a5cf4b46da1024c821252ac46b625103`; UI main `dfed2dd1954e8dc735a3bd8ff03449d4b00e6911` includes deployed anonymous-access recovery PR85. Current backend is product `237a936b25690f780cd09ca6ab3f90b1a05cc009` / image `c233ffd9e76f7579f52bfb03259985a7abc6691c94d05b9633773b2389f3aa0a` after the [verified expiry-guard image-only release](docs/procurement/release/CORE-ACCOUNT-LINK-EXPIRY-DEPLOYMENT-20261026.json); current UI product is `9b6ab3442aa1583a339dcfed311adad393a29706`. Fresh M3b and finite-Core current-mainline M2a private browser/owner/preservation checks passed; [current status](docs/procurement/gap-closure/CURRENT-EXECUTION-STATUS-20261026.md) distinguishes that from production activation.
