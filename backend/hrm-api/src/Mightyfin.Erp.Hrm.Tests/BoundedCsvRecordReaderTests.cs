@@ -44,6 +44,17 @@ public sealed class BoundedCsvRecordReaderTests
     }
 
     [Fact]
+    public async Task PreCancelledReadDoesNotConsumeInput()
+    {
+        using var stream = new MemoryStream(Bytes("Name\nA"));
+        using var stop = new CancellationTokenSource();
+        stop.Cancel();
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(async () =>
+            await BoundedCsvRecordReader.ReadAsync(stream, Small, stop.Token));
+        Assert.Equal(0, stream.Position);
+    }
+
+    [Fact]
     public void InvalidUtf8AndIncompleteBomAreDenied()
     {
         var bad = Assert.Throws<BoundedCsvException>(() => BoundedCsvRecordReader.Parse(
@@ -93,7 +104,13 @@ public sealed class BoundedCsvRecordReaderTests
         Error(new() { ["Name"] = "name", ["Code"] = "name" }, "mapping-duplicate-target");
         Error(new() { ["Name"] = "name" }, "mapping-required-target");
         var valid = new Dictionary<string, string> { ["Name"] = "name", ["Code"] = "code", ["Notes"] = "" };
-        Assert.Same(valid, BoundedCsvRecordReader.ValidateMapping(document, valid, allowed, required));
+        var accepted = BoundedCsvRecordReader.ValidateMapping(document, valid, allowed, required);
+        valid["Name"] = "code";
+        valid["Code"] = "name";
+        Assert.Equal("name", accepted["Name"]);
+        Assert.Equal("code", accepted["Code"]);
+        Assert.Throws<NotSupportedException>(() =>
+            ((IDictionary<string, string>)accepted)["Name"] = "code");
     }
 
     [Fact]

@@ -42,6 +42,7 @@ public static class BoundedCsvRecordReader
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(source);
+        cancellationToken.ThrowIfCancellationRequested();
         var bound = limits ?? BoundedCsvLimits.Default;
         bound.Validate();
         using var bytes = new MemoryStream();
@@ -186,6 +187,8 @@ public static class BoundedCsvRecordReader
         }
         if (requiredTargets.Any(x => !assigned.Contains(x)))
             throw new BoundedCsvException("mapping-required-target", 1);
-        return mapping;
+        // Do not hand an import adapter a validated view over caller-owned mutable state.
+        var snapshot = mapping.ToDictionary(x => x.Key, x => x.Value, StringComparer.Ordinal);
+        return new System.Collections.ObjectModel.ReadOnlyDictionary<string, string>(snapshot);
     }
 }
