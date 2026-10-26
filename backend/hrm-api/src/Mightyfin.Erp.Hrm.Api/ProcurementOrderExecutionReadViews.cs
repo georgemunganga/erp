@@ -47,6 +47,8 @@ public static partial class ProcurementOrderExecutionRoutes
                 if (!PurchaseOrderExecutionReadContract.Has(actor, required)) Deny();
                 var branches = actor.BranchIds.ToArray();
                 var query = db.PurchaseOrders.AsNoTracking().Where(x =>
+                    x.PrincipalDraftSchemaVersion != 2
+                    &&
                     (scope.WorkLocationId == null || x.BranchRef == scope.WorkLocationId)
                     && (branches.Length == 0 || x.BranchRef != null && branches.Contains(x.BranchRef.Value))
                     && db.PurchaseOrderLines.Any(l => l.PurchaseOrderId == x.Id && l.IsActive)
@@ -94,6 +96,7 @@ public static partial class ProcurementOrderExecutionRoutes
                 var actor = await ReadActor(core, scope, http, auth, token);
                 var order = await db.PurchaseOrders.AsNoTracking().SingleOrDefaultAsync(x => x.Id == id, token)
                     ?? throw new OrderProblem("OrderNotFound", 404);
+                if (order.PrincipalDraftSchemaVersion == 2) Missing();
                 await CurrentRecordScope(core, scope, order.BranchRef, true, token);
                 var facts = await ReadFacts(db, cases, core, scope, options, actor, order, token);
                 if (!PurchaseOrderExecutionReadContract.CanRead(actor, facts)) Missing();
@@ -201,6 +204,7 @@ public static partial class ProcurementOrderExecutionRoutes
                     ?? throw new OrderProblem("OrderCommandReceiptNotFound", 404);
                 var order = await db.PurchaseOrders.AsNoTracking().SingleOrDefaultAsync(x => x.Id == receipt.PurchaseOrderId, token)
                     ?? throw new OrderProblem("OrderNotFound", 404);
+                if (order.PrincipalDraftSchemaVersion == 2) Missing();
                 await CurrentRecordScope(core, scope, order.BranchRef, true, token);
                 using var result = JsonDocument.Parse(receipt.ResponseJson);
                 return new { state = "RecordedHistoricalOutcome", receipt.PurchaseOrderId, receipt.Operation,
