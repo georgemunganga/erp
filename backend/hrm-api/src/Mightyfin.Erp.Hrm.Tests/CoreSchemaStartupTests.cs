@@ -24,4 +24,70 @@ public sealed class CoreSchemaStartupTests
             { ["ERP:Database:MigrateOnStartup"] = configured }).Build();
         Assert.Equal(expected, CoreSchemaStartup.MayApplyMigrations(config, development, []));
     }
+
+    [Theory]
+    [InlineData(true, "true")]
+    [InlineData(true, "false")]
+    [InlineData(false, "true")]
+    public void Outbox_publisher_never_applies_migrations_or_bootstraps_identity(
+        bool development, string configured)
+    {
+        var args = new[] { "--run-outbox-publisher" };
+        var config = new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string?>
+            { ["ERP:Database:MigrateOnStartup"] = configured }).Build();
+        var mode = CoreHostStartupPolicy.Parse(args);
+        Assert.Equal(CoreHostMode.OutboxPublisher, mode);
+        Assert.False(CoreHostStartupPolicy.MayApplyCoreMigrations(mode, config, development, args));
+        Assert.False(CoreHostStartupPolicy.MayBootstrapLocalIdentity(mode));
+    }
+
+    [Theory]
+    [InlineData(true, true)]
+    [InlineData(false, false)]
+    public void Ordinary_api_retains_existing_development_migration_setting_and_identity_bootstrap(
+        bool development, bool expected)
+    {
+        var config = new ConfigurationBuilder().Build();
+        var mode = CoreHostStartupPolicy.Parse([]);
+        Assert.Equal(CoreHostMode.Api, mode);
+        Assert.Equal(expected, CoreHostStartupPolicy.MayApplyCoreMigrations(mode, config, development, []));
+        Assert.True(CoreHostStartupPolicy.MayBootstrapLocalIdentity(mode));
+    }
+
+    [Fact]
+    public void Migration_owner_still_applies_and_exits_before_identity_bootstrap()
+    {
+        var args = new[] { "--apply-migrations-only" };
+        var mode = CoreHostStartupPolicy.Parse(args);
+        Assert.Equal(CoreHostMode.MigrationOwner, mode);
+        Assert.True(CoreHostStartupPolicy.MayApplyCoreMigrations(mode, new ConfigurationBuilder().Build(), false, args));
+        Assert.False(CoreHostStartupPolicy.MayBootstrapLocalIdentity(mode));
+    }
+
+    [Theory]
+    [InlineData("--apply-migrations-only", "--run-outbox-publisher")]
+    [InlineData("--run-outbox-publisher", "--apply-migrations-only")]
+    public void Mixed_owner_and_publisher_flags_fail_before_any_startup_mode_is_selected(string first, string second)
+        => Assert.Throws<InvalidOperationException>(() => CoreHostStartupPolicy.Parse([first, second]));
+
+    [Theory]
+    [InlineData("--run-outbux-publisher")]
+    [InlineData("--run-unknown-worker")]
+    [InlineData("--apply-migratons-only")]
+    [InlineData("--apply-unknown-operation")]
+    [InlineData("--run-outbox-publisher=true")]
+    [InlineData("--run-outbox-publisher-extra")]
+    [InlineData("--run-outboxpublisher")]
+    [InlineData("--Run-Outbox-Publisher")]
+    [InlineData("--apply-migrations-only=true")]
+    [InlineData("--apply-migrations-only-extra")]
+    [InlineData("--apply-migration-only")]
+    [InlineData("--Apply-Migrations-Only")]
+    public void Reserved_near_mode_flags_fail_closed_before_api_startup(string option)
+        => Assert.Throws<InvalidOperationException>(() => CoreHostStartupPolicy.Parse([option]));
+
+    [Fact]
+    public void Unrelated_host_options_do_not_change_api_mode()
+        => Assert.Equal(CoreHostMode.Api,
+            CoreHostStartupPolicy.Parse(["--urls=http://127.0.0.1:8080", "--environment=Development"]));
 }

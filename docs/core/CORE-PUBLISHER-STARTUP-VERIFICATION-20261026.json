@@ -1,0 +1,55 @@
+{
+  "status": "SOURCE_AND_PRIVATE_EMPTY_OUTBOX_PROOF_NOT_PRODUCTION_RELEASE",
+  "source": "43bf09b97ab65ad985fb6996489a0d8dbfd7802d",
+  "priorFullSuiteSource": "ea59a3a5093eb91f8c63a9219f6e85c33cdc3ff4",
+  "priorFullSuitesNotRerun": {
+    "Host": 1251,
+    "Procurement": 1414,
+    "Approval": 30
+  },
+  "fullSuiteResultSha256": "a8155812ef45bce79c93c54b51d2403aec76f83c1f89ef4de3da19d61e13fde2",
+  "focusedCurrentStartupTests": 26,
+  "focusedCurrentFailures": 0,
+  "focusedCurrentSkipped": 0,
+  "currentPublicationResultSha256": "0a5bb06d386193dc977eb88f124f91f6e2bfa202f241cfc7bd1b4cdf927c33e9",
+  "current150FileManifestSha256": "2f6a1f9c66bc40eae133ceab6748e297c53058903ceccf7b075ed6b5ecad6d61",
+  "all13OwningDllPdbMatched": true,
+  "nativeResultSha256": "a510691b6bb27c325628953cdfe29474ae72b01cecd58857747a460c13adc02d",
+  "native": {
+    "database": "fresh private Core-only cohort; no restored business rows",
+    "ownerCoreMigrations": 56,
+    "ownerExit": 0,
+    "publisher": "separate nonowner, nonsuper login; history SELECT/outbox SELECT and named publisher column UPDATE only; no schema CREATE or identity writes",
+    "emptyOutbox": true,
+    "canonicalFullSchemaBeforeAfter": "5d1ae90b165548188a5c9e9d29d46180f1938081ce73fa7d39b9338310c41fef",
+    "canonicalFullDataBeforeAfter": "a64afe42fd6a4d3e38c38749cd23f0019f0b888535a7a1668a2c151746928aab",
+    "rawDumpsRetained": true,
+    "normalization": "Only matching anchored pg_dump restrict/unrestrict token lines removed",
+    "positiveDockerSigtermExit": 0,
+    "positiveStoppedMarker": true,
+    "negativeCommands": "Malformed/mixed mode flags rejected without a socket; pending schema rejected without changes",
+    "negativeObservedExit": 139,
+    "negativeExitNote": "Observed abnormal termination retained; these are error/refusal proofs, not clean shutdown acceptance"
+  },
+  "priorNativeFailure": {
+    "source": "ea59a3a5093eb91f8c63a9219f6e85c33cdc3ff4",
+    "publisherStopExit": 143,
+    "status": "FAILED_PUBLISHER_CLEAN_STOP_ASSERTION_REQUIRES_SOURCE_REVIEW",
+    "failureSha256": "e247518680f48c8628ae4732ee083e0e1790f90f6a26e564544ee118b67819f7",
+    "rawEvidenceRetained": true
+  },
+  "hostedCi": "Not started: GitHub account billing lock; local evidence is separate",
+  "productionChanged": false,
+  "productionCoreSuperuserRemediated": false,
+  "realTransportDeliveryProven": false,
+  "finiteRoleQueuedEventProcessingProven": false,
+  "businessUatAccepted": false,
+  "independentReview": {
+    "status": "CLEAR_FOR_BOUNDED_PRIVATE_EMPTY_OUTBOX_STARTUP_AND_CLEAN_STOP",
+    "successfulEmptyClaimCommands": 6,
+    "rawCanonicalDumpsReconciled": true,
+    "actualFiniteRolePrivilegesReadBack": true,
+    "priorFailedRunHashesUnchanged": true,
+    "rawResultRemainsUnmodified": true
+  }
+}
