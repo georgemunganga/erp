@@ -1,3 +1,5 @@
+using System.Security.Cryptography;
+using System.Text;
 using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
@@ -814,10 +816,22 @@ public sealed partial class ProcurementDbContext(DbContextOptions<ProcurementDbC
 
     private void GuardMasterImportChanges()
     {
-        foreach (var entry in ChangeTracker.Entries<ImportBatch>()
+        foreach (var added in ChangeTracker.Entries<ImportBatch>()
+            .Where(x => x.State == EntityState.Added && (x.Entity.RecordType is "Vendor" or "Item")))
+        {
+            if (added.Entity.State != "Previewed" || added.Entity.CommitCommandKey is not null
+                || added.Entity.CommitRequestSha256 is not null || added.Entity.ResultText is not null
+                || added.Entity.ResultSha256 is not null || added.Entity.AppliedRows != 0)
+                throw new InvalidOperationException("A master import starts as an immutable preview.");
+        }
+        var transitions = ChangeTracker.Entries<ImportBatch>()
             .Where(x => x.State == EntityState.Modified &&
                 (x.Entity.RecordType is "Vendor" or "Item"
-                    || x.OriginalValues.GetValue<string>(nameof(ImportBatch.RecordType)) is "Vendor" or "Item")))
+                    || x.OriginalValues.GetValue<string>(nameof(ImportBatch.RecordType)) is "Vendor" or "Item"))
+            .ToArray();
+        var receipts = ChangeTracker.Entries<ImportRowReceipt>()
+            .Where(x => x.State == EntityState.Added).Select(x => x.Entity).ToArray();
+        foreach (var entry in transitions)
         {
             var allowed = new HashSet<string>(StringComparer.Ordinal)
             {
@@ -833,6 +847,34 @@ public sealed partial class ProcurementDbContext(DbContextOptions<ProcurementDbC
                 || string.IsNullOrWhiteSpace(entry.Entity.ResultText)
                 || string.IsNullOrWhiteSpace(entry.Entity.ResultSha256))
                 throw new InvalidOperationException("Only one complete import commit transition is permitted.");
+            var batch = entry.Entity;
+            var own = receipts.Where(x => x.ImportBatchId == batch.Id
+                && x.TenantId == batch.TenantId && x.LegalEntityId == batch.LegalEntityId).ToArray();
+            var createdMasters = ChangeTracker.Entries<ProcurementRecord>()
+                .Where(x => x.State == EntityState.Added
+                    && (batch.RecordType == "Vendor" && x.Entity is Supplier
+                        || batch.RecordType == "Item" && x.Entity is CatalogItem))
+                .Select(x => x.Entity).ToArray();
+            if (batch.TotalRows < 1 || own.Length != batch.TotalRows
+                || batch.AppliedRows != own.Count(x => x.Disposition == "create")
+                || own.Select(x => x.RowNumber).Distinct().Count() != own.Length
+                || own.Where(x => x.CreatedRecordId is not null).Select(x => x.CreatedRecordId).Distinct().Count()
+                    != batch.AppliedRows
+                || own.Min(x => x.RowNumber) != 2
+                || (long)own.Max(x => x.RowNumber) != (long)batch.TotalRows + 1
+                || own.Any(x => x.RowNumber < 2 || x.EndLine < x.StartLine || x.StartLine < 2
+                    || x.Disposition is not ("create" or "skip")
+                    || (x.CreatedRecordId is not null) != (x.Disposition == "create")
+                    || x.RowSha256 is not { Length: 64 }
+                    || x.CreatedRecordId is { } createdId
+                        && !createdMasters.Any(master => master.Id == createdId
+                            && master.TenantId == x.TenantId && master.LegalEntityId == x.LegalEntityId))
+                || Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(batch.ResultText!)))
+                    .ToLowerInvariant() != batch.ResultSha256)
+                throw new InvalidOperationException("Import commit receipts must exactly accompany the scoped batch.");
         }
+        if (receipts.Any(x => !transitions.Any(b => b.Entity.Id == x.ImportBatchId
+            && b.Entity.TenantId == x.TenantId && b.Entity.LegalEntityId == x.LegalEntityId)))
+            throw new InvalidOperationException("An import row receipt needs its owning batch commit.");
     }
 }

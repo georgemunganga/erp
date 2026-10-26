@@ -71,6 +71,26 @@ public sealed class ProcurementMasterImportContractTests
     }
 
     [Fact]
+    public void Same_file_vendor_similarity_checks_legal_and_display_names_independently()
+    {
+        static ProcurementMasterImportRoutes.MappedRow Row(int number, string legal, string display) =>
+            new(number, number, number, new SortedDictionary<string, string>(StringComparer.Ordinal)
+            { ["legalName"] = legal, ["displayName"] = display,
+                ["countryCode"] = "ZM", ["registrationNumber"] = "" });
+        var source = new[] { Row(2, "Legal A", "Display A"), Row(3, "Legal A", "Display B"),
+            Row(4, "Legal C", "Display A") };
+        var candidates = new ProcurementMasterImportRoutes.CandidateSet([], []);
+        var unacknowledged = ProcurementMasterImportRoutes.EvaluateRowsAgainstCandidates(
+            "Vendor", source, "reject", [], "ZMW", candidates);
+        Assert.Equal(new[] { "create", "error", "error" }, unacknowledged.Select(x => x.Disposition));
+        Assert.Equal("similar-vendor", unacknowledged[1].Code);
+        Assert.Equal("similar-vendor", unacknowledged[2].Code);
+        var acknowledged = ProcurementMasterImportRoutes.EvaluateRowsAgainstCandidates(
+            "Vendor", source, "reject", [3, 4], "ZMW", candidates);
+        Assert.All(acknowledged, row => Assert.Equal("create", row.Disposition));
+    }
+
+    [Fact]
     public async Task Known_length_and_chunked_oversized_json_are_rejected_before_deserialization()
     {
         var known = new DefaultHttpContext();
@@ -96,6 +116,7 @@ public sealed class ProcurementMasterImportContractTests
         {
             var root = $"/api/procurement/v1/{kind}/import";
             Assert.True(ProcurementHostIntegration.AllCompanyMasterImportPath(root + "/schema", "GET"));
+            Assert.True(ProcurementHostIntegration.AllCompanyMasterImportPath(root + "/SCHEMA", "GET"));
             Assert.True(ProcurementHostIntegration.AllCompanyMasterImportPath(root + "/template", "GET"));
             Assert.True(ProcurementHostIntegration.AllCompanyMasterImportPath(root + "/" + Guid.NewGuid(), "GET"));
             Assert.True(ProcurementHostIntegration.AllCompanyMasterImportPath(root + "/preview", "POST"));

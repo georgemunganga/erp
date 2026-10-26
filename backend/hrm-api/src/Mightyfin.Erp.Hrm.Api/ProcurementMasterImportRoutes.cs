@@ -31,23 +31,26 @@ public static class ProcurementMasterImportRoutes
     {
         var group = app.MapGroup($"/api/procurement/v1/{path}/import");
         if (kind == "Item") group.AddEndpointFilter(ProcurementCatalogFencing.Write);
-        group.MapGet("/schema", async (ProcurementDbContext db, IConfiguration config, HttpContext http,
-            CancellationToken ct) => await Schema(db, config, http, kind, ct))
+        group.MapGet("/schema", async (ProcurementDbContext db, HrmDbContext core,
+            IConfiguration config, HttpContext http, CancellationToken ct) =>
+            await Schema(db, core, config, http, kind, ct))
             .RequireAuthorization(importAction).RequireAuthorization(nativeAction);
-        group.MapGet("/template", async (ProcurementDbContext db, IConfiguration config, HttpContext http,
-            CancellationToken ct) => await Template(db, config, http, kind, ct))
+        group.MapGet("/template", async (ProcurementDbContext db, HrmDbContext core,
+            IConfiguration config, HttpContext http, CancellationToken ct) =>
+            await Template(db, core, config, http, kind, ct))
             .RequireAuthorization(importAction).RequireAuthorization(nativeAction);
         group.MapPost("/preview", async (ProcurementDbContext db, HrmDbContext core, IConfiguration config,
             ProcurementRequestScope scope, HttpContext http, CancellationToken ct) =>
             await Preview(db, core, config, scope, http, kind, ct))
             .RequireAuthorization(importAction).RequireAuthorization(nativeAction);
-        group.MapPost("/commit", async (ProcurementDbContext db, IConfiguration config,
+        group.MapPost("/commit", async (ProcurementDbContext db, HrmDbContext core, IConfiguration config,
             ProcurementRequestScope scope, HttpContext http, CancellationToken ct) =>
-            await Commit(db, config, scope, http, kind, ct))
+            await Commit(db, core, config, scope, http, kind, ct))
             .RequireAuthorization(importAction).RequireAuthorization(nativeAction);
-        group.MapGet("/{batchId:guid}", async (Guid batchId, ProcurementDbContext db, IConfiguration config,
+        group.MapGet("/{batchId:guid}", async (Guid batchId, ProcurementDbContext db,
+            HrmDbContext core, IConfiguration config,
             ProcurementRequestScope scope, HttpContext http, CancellationToken ct) =>
-            await Recover(batchId, db, config, scope, http, kind, ct))
+            await Recover(batchId, db, core, config, scope, http, kind, ct))
             .RequireAuthorization(importAction).RequireAuthorization(nativeAction);
     }
 
@@ -58,7 +61,8 @@ public static class ProcurementMasterImportRoutes
         return Error(StatusCodes.Status503ServiceUnavailable, "import-unavailable");
     }
 
-    private static async Task<bool> Ready(ProcurementDbContext db, IConfiguration config, CancellationToken ct)
+    private static async Task<bool> Ready(ProcurementDbContext db, HrmDbContext core,
+        IConfiguration config, string kind, CancellationToken ct)
     {
         // Default off. HasPendingModelChanges holds the route closed until the
         // genuine migration exists and is installed on the selected database.
@@ -66,23 +70,66 @@ public static class ProcurementMasterImportRoutes
         try
         {
             if (!await ProcurementHumanCsvExport.NativeReaderReadyAsync(db, ct)) return false;
-            return await db.Database.SqlQueryRaw<bool>("""
-                SELECT has_table_privilege(current_user,'procurement.import_batches','SELECT,INSERT,UPDATE')
-                   AND has_table_privilege(current_user,'procurement.import_row_receipts','SELECT,INSERT')
+            var procurement = await db.Database.SqlQueryRaw<bool>("""
+                SELECT has_schema_privilege(current_user,'procurement','USAGE')
+                   AND has_table_privilege(current_user,'procurement.import_batches','SELECT')
+                   AND has_table_privilege(current_user,'procurement.import_batches','INSERT')
+                   AND NOT has_table_privilege(current_user,'procurement.import_batches','DELETE')
+                   AND NOT has_table_privilege(current_user,'procurement.import_batches','TRUNCATE')
+                   AND COALESCE((SELECT bool_and(
+                       (a.attname = ANY(ARRAY['state','applied_rows','commit_command_key',
+                           'commit_request_sha256','result_text','result_sha256',
+                           'version','updated_at','updated_by']::text[]))
+                       = has_column_privilege(current_user,'procurement.import_batches',a.attname,'UPDATE'))
+                       FROM pg_attribute a WHERE a.attrelid='procurement.import_batches'::regclass
+                           AND a.attnum > 0 AND NOT a.attisdropped),false)
+                   AND has_table_privilege(current_user,'procurement.import_row_receipts','SELECT')
+                   AND has_table_privilege(current_user,'procurement.import_row_receipts','INSERT')
+                   AND NOT has_table_privilege(current_user,'procurement.import_row_receipts','UPDATE')
+                   AND NOT has_table_privilege(current_user,'procurement.import_row_receipts','DELETE')
+                   AND NOT has_table_privilege(current_user,'procurement.import_row_receipts','TRUNCATE')
+                   AND NOT EXISTS (SELECT 1 FROM pg_attribute a
+                       WHERE a.attrelid='procurement.import_row_receipts'::regclass
+                           AND a.attnum > 0 AND NOT a.attisdropped
+                           AND has_column_privilege(current_user,'procurement.import_row_receipts',a.attname,'UPDATE'))
                    AND has_table_privilege(current_user,'procurement.audit_events','INSERT')
-                   AND has_table_privilege(current_user,'procurement.suppliers','SELECT,INSERT')
-                   AND has_table_privilege(current_user,'procurement.catalog_items','SELECT,INSERT')
-                   AND has_table_privilege(current_user,'hrm.legal_entities','SELECT') AS "Value"
+                   AND has_table_privilege(current_user,'procurement.suppliers','SELECT')
+                   AND has_table_privilege(current_user,'procurement.suppliers','INSERT')
+                   AND has_table_privilege(current_user,'procurement.catalog_items','SELECT')
+                   AND has_table_privilege(current_user,'procurement.catalog_items','INSERT') AS "Value"
+                """).SingleAsync(ct);
+            if (!procurement) return false;
+            if (!SameDatabase(db, core)) return false;
+            var coreIdentity = await core.Database.SqlQueryRaw<bool>("""
+                SELECT has_schema_privilege(current_user,'hrm','USAGE')
+                   AND has_table_privilege(current_user,'hrm.local_users','SELECT')
+                   AND has_table_privilege(current_user,'hrm.local_users','UPDATE')
+                   AND has_table_privilege(current_user,'hrm.tenant_role_assignments','SELECT')
+                   AND has_table_privilege(current_user,'hrm.tenant_role_assignments','UPDATE') AS "Value"
+                """).SingleAsync(ct);
+            if (!coreIdentity || kind != "Vendor") return coreIdentity;
+            // Currency is Core-owned. Its connection holds the selected company
+            // row lock; the Procurement Record role receives no HRM grant.
+            return await core.Database.SqlQueryRaw<bool>("""
+                SELECT has_table_privilege(current_user,'hrm.legal_entities','SELECT')
+                   AND has_table_privilege(current_user,'hrm.legal_entities','UPDATE') AS "Value"
                 """).SingleAsync(ct);
         }
         catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
         catch (Exception) { return false; }
     }
 
-    private static async Task<IResult> Schema(ProcurementDbContext db, IConfiguration config,
+    private static bool SameDatabase(ProcurementDbContext db, HrmDbContext core) =>
+        db.Database.GetDbConnection() is NpgsqlConnection procurementConnection
+        && core.Database.GetDbConnection() is NpgsqlConnection identity
+        && string.Equals(procurementConnection.Host, identity.Host, StringComparison.OrdinalIgnoreCase)
+        && procurementConnection.Port == identity.Port
+        && string.Equals(procurementConnection.Database, identity.Database, StringComparison.Ordinal);
+
+    private static async Task<IResult> Schema(ProcurementDbContext db, HrmDbContext core, IConfiguration config,
         HttpContext http, string kind, CancellationToken ct)
     {
-        if (!await Ready(db, config, ct)) return Unavailable(http);
+        if (!await Ready(db, core, config, kind, ct)) return Unavailable(http);
         http.Response.Headers.CacheControl = "no-store";
         return Results.Ok(new { schemaVersion = ProcurementMasterImportContracts.SchemaVersion,
             kind = kind == "Vendor" ? "vendors" : "items",
@@ -90,10 +137,10 @@ public static class ProcurementMasterImportRoutes
             { key, label = key, required = ProcurementMasterImportContracts.Required(kind).Contains(key) }).ToArray() });
     }
 
-    private static async Task<IResult> Template(ProcurementDbContext db, IConfiguration config,
+    private static async Task<IResult> Template(ProcurementDbContext db, HrmDbContext core, IConfiguration config,
         HttpContext http, string kind, CancellationToken ct)
     {
-        if (!await Ready(db, config, ct)) return Unavailable(http);
+        if (!await Ready(db, core, config, kind, ct)) return Unavailable(http);
         http.Response.Headers.CacheControl = "no-store";
         var columns = ProcurementMasterImportContracts.Fields(kind);
         var content = new byte[] { 0xEF, 0xBB, 0xBF }
@@ -129,7 +176,7 @@ public static class ProcurementMasterImportRoutes
     private static async Task<IResult> Preview(ProcurementDbContext db, HrmDbContext core,
         IConfiguration config, ProcurementRequestScope scope, HttpContext http, string kind, CancellationToken ct)
     {
-        if (!await Ready(db, config, ct)) return Unavailable(http);
+        if (!await Ready(db, core, config, kind, ct)) return Unavailable(http);
         var (request, bodyError) = await ReadJson<MasterImportPreviewRequest>(http, ct);
         if (bodyError is not null) return bodyError;
         var (document, bytes, parseCode) = ProcurementMasterImportContracts.Parse(request, kind);
@@ -179,7 +226,8 @@ public static class ProcurementMasterImportRoutes
         var acceptedAcks = new HashSet<int>(acknowledgements);
         var usedAcks = new HashSet<int>();
         var seenKeys = new HashSet<string>(StringComparer.Ordinal);
-        var seenNames = new HashSet<string>(StringComparer.Ordinal);
+        var seenLegalNames = new HashSet<string>(StringComparer.Ordinal);
+        var seenDisplayNames = new HashSet<string>(StringComparer.Ordinal);
         var rows = new List<MasterImportRow>(source.Count);
         foreach (var row in source)
         {
@@ -208,7 +256,9 @@ public static class ProcurementMasterImportRoutes
                 var display = fields.GetValueOrDefault("displayName")?.ToLowerInvariant() ?? "";
                 similarMatches = candidates.Vendors.Where(x => x.LegalName.ToLowerInvariant() == legal
                     || x.DisplayName.ToLowerInvariant() == display).Select(x => x.Id).ToArray();
-                similarWithinFile = !seenNames.Add(legal + "|" + display);
+                var repeatedLegal = !seenLegalNames.Add(legal);
+                var repeatedDisplay = !seenDisplayNames.Add(display);
+                similarWithinFile = repeatedLegal || repeatedDisplay;
             }
             else
             {
@@ -275,10 +325,10 @@ public static class ProcurementMasterImportRoutes
         return new CandidateSet(vendors, []);
     }
 
-    private static async Task<IResult> Commit(ProcurementDbContext db, IConfiguration config,
+    private static async Task<IResult> Commit(ProcurementDbContext db, HrmDbContext core, IConfiguration config,
         ProcurementRequestScope scope, HttpContext http, string kind, CancellationToken ct)
     {
-        if (!await Ready(db, config, ct)) return Unavailable(http);
+        if (!await Ready(db, core, config, kind, ct)) return Unavailable(http);
         var (request, bodyError) = await ReadJson<MasterImportCommitRequest>(http, ct);
         if (bodyError is not null) return bodyError;
         if (request!.BatchId == Guid.Empty || request.CommandKey == Guid.Empty
@@ -288,8 +338,14 @@ public static class ProcurementMasterImportRoutes
             $"{request.BatchId:D}|{request.PreviewSha256}|{request.CommandKey:D}");
         try
         {
+            // Core owns currency and holds its company row until the Procurement
+            // serializable write commits. Both connections must address one PG DB.
+            await using var coreTx = await core.Database.BeginTransactionAsync(IsolationLevel.ReadCommitted, ct);
+            var currency = kind == "Vendor" ? await LockedCurrency(core, scope, ct) : null;
             await using var tx = await db.Database.BeginTransactionAsync(IsolationLevel.Serializable, ct);
             if (!await LockBatch(db, scope, kind, request.BatchId, ct)) return Error(404, "import-not-found");
+            if (!await LockedCurrentGrant(core, scope, kind, ct))
+                return Error(403, "forbidden");
             var batch = await db.ImportBatches.SingleOrDefaultAsync(x => x.Id == request.BatchId, ct);
             if (batch is null || batch.RecordType != kind || batch.ActorSubjectId != scope.SubjectId)
                 return Error(404, "import-not-found");
@@ -319,7 +375,6 @@ public static class ProcurementMasterImportRoutes
                 || snapshot.Rows.Any(x => x.Disposition == "error"))
                 return Error(409, "import-conflict");
 
-            var currency = kind == "Vendor" ? await LockedCurrency(db, scope, ct) : null;
             if (currency != snapshot.CompanyCurrencyCode) return Error(409, "import-preview-stale");
             var mapped = snapshot.Rows.Select(x => new MappedRow(x.RowNumber, x.StartLine, x.EndLine,
                 x.Fields)).ToArray();
@@ -376,6 +431,7 @@ public static class ProcurementMasterImportRoutes
                 CorrelationId = scope.CorrelationId });
             await db.SaveChangesAsync(ct);
             await tx.CommitAsync(ct);
+            await coreTx.CommitAsync(ct);
             http.Response.Headers.CacheControl = "no-store";
             return Results.Bytes(Encoding.UTF8.GetBytes(resultText), "application/json");
         }
@@ -409,11 +465,11 @@ public static class ProcurementMasterImportRoutes
         return await command.ExecuteScalarAsync(ct) is not null;
     }
 
-    private static async Task<string?> LockedCurrency(ProcurementDbContext db,
+    private static async Task<string?> LockedCurrency(HrmDbContext core,
         ProcurementRequestScope scope, CancellationToken ct)
     {
-        await using var command = db.Database.GetDbConnection().CreateCommand();
-        command.Transaction = db.Database.CurrentTransaction!.GetDbTransaction();
+        await using var command = core.Database.GetDbConnection().CreateCommand();
+        command.Transaction = core.Database.CurrentTransaction!.GetDbTransaction();
         command.CommandText = """
             SELECT currency FROM hrm.legal_entities
             WHERE tenant_id=@tenant AND id=@company AND is_archived=false FOR SHARE
@@ -427,10 +483,55 @@ public static class ProcurementMasterImportRoutes
         return string.IsNullOrWhiteSpace((string)value) ? null : ((string)value).Trim().ToUpperInvariant();
     }
 
-    private static async Task<IResult> Recover(Guid batchId, ProcurementDbContext db, IConfiguration config,
+    private static bool HasImportActions(ProcurementCorePrincipal principal, string kind) =>
+        principal.Actions.Contains("procurement-access", StringComparer.Ordinal)
+        && principal.Actions.Contains(kind == "Vendor" ? "procurement-vendor-import" : "procurement-item-import",
+            StringComparer.Ordinal)
+        && principal.Actions.Contains(kind == "Vendor" ? "procurement-vendor-create" : "procurement-item-manage",
+            StringComparer.Ordinal);
+
+    private static async Task<bool> LockedCurrentGrant(HrmDbContext core,
+        ProcurementRequestScope scope, string kind, CancellationToken ct)
+    {
+        // Hold Core actor and assigned role rows until the Procurement commit.
+        // A revoked user or permission while waiting for the batch lock is denied.
+        await using var user = core.Database.GetDbConnection().CreateCommand();
+        user.Transaction = core.Database.CurrentTransaction!.GetDbTransaction();
+        user.CommandText = """
+            SELECT roles_csv FROM hrm.local_users
+            WHERE tenant_id=@tenant AND id=@actor AND is_active=true AND is_archived=false FOR SHARE
+            """;
+        var tenant = user.CreateParameter(); tenant.ParameterName = "tenant";
+        tenant.Value = scope.TenantId; user.Parameters.Add(tenant);
+        var actor = user.CreateParameter(); actor.ParameterName = "actor";
+        actor.Value = Guid.Parse(scope.SubjectId); user.Parameters.Add(actor);
+        var rolesCsv = await user.ExecuteScalarAsync(ct) as string;
+        if (rolesCsv is null) return false;
+        var assigned = LocalIdentityRoutes.ParseRoles(rolesCsv);
+        if (assigned.Length == 0) return false;
+        await using var roles = core.Database.GetDbConnection().CreateCommand();
+        roles.Transaction = core.Database.CurrentTransaction!.GetDbTransaction();
+        roles.CommandText = """
+            SELECT role_key FROM hrm.tenant_role_assignments
+            WHERE tenant_id=@tenant AND role_key = ANY(@roles) FOR SHARE
+            """;
+        var roleTenant = roles.CreateParameter(); roleTenant.ParameterName = "tenant";
+        roleTenant.Value = scope.TenantId; roles.Parameters.Add(roleTenant);
+        var keys = roles.CreateParameter(); keys.ParameterName = "roles";
+        keys.Value = assigned; roles.Parameters.Add(keys);
+        var locked = new HashSet<string>(StringComparer.Ordinal);
+        await using (var reader = await roles.ExecuteReaderAsync(ct))
+            while (await reader.ReadAsync(ct)) locked.Add(reader.GetString(0));
+        var current = await ProcurementCorePrincipals.CurrentAsync(core, scope.TenantId, scope.SubjectId, ct);
+        return current is not null && current.Roles.All(locked.Contains)
+            && HasImportActions(current, kind);
+    }
+
+    private static async Task<IResult> Recover(Guid batchId, ProcurementDbContext db,
+        HrmDbContext core, IConfiguration config,
         ProcurementRequestScope scope, HttpContext http, string kind, CancellationToken ct)
     {
-        if (!await Ready(db, config, ct)) return Unavailable(http);
+        if (!await Ready(db, core, config, kind, ct)) return Unavailable(http);
         var batch = await db.ImportBatches.AsNoTracking().SingleOrDefaultAsync(x => x.Id == batchId
             && x.ActorSubjectId == scope.SubjectId && x.RecordType == kind, ct);
         if (batch is null) return Error(404, "import-not-found");

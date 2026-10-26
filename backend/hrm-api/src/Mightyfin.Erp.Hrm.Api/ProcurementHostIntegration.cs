@@ -578,9 +578,11 @@ public sealed class ProcurementScopeMiddleware(RequestDelegate next, IWebHostEnv
         {
             if (!path.StartsWithSegments(root, out var rest)) continue;
             var part = rest.Value?.Trim('/');
-            if (HttpMethods.IsGet(method) && (part is "schema" or "template"
+            if (HttpMethods.IsGet(method) && (string.Equals(part, "schema", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(part, "template", StringComparison.OrdinalIgnoreCase)
                 || Guid.TryParse(part, out var id) && id != Guid.Empty)) return true;
-            if (HttpMethods.IsPost(method) && (part is "preview" or "commit")) return true;
+            if (HttpMethods.IsPost(method) && (string.Equals(part, "preview", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(part, "commit", StringComparison.OrdinalIgnoreCase))) return true;
         }
         return false;
     }
