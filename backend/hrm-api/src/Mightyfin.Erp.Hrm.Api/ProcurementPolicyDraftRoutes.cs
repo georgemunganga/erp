@@ -291,7 +291,8 @@ public static partial class ProcurementPolicyDraftRoutes
             await RequireSourcingIdentitySchema(http, db, ct);
             _ = await SourcingOriginalAuthor(db, organizationDb, scope, policy, ct);
             // Validate the proposed JSON before mutating the tracked draft.
-            var sourcingIssue = await CheckSourcingCompanyRules(new PolicyVersion { PolicyKey = policy.PolicyKey, RulesJson = input.Draft.RulesJson! },
+            var sourcingIssue = await CheckSourcingCompanyRules(new PolicyVersion { Id = policy.Id,
+                PolicyKey = policy.PolicyKey, RulesJson = input.Draft.RulesJson! },
                 db, organizationDb, scope, "procurement-configuration-edit", ct, draftSyntaxOnly: true);
             if (sourcingIssue is not null) return sourcingIssue;
         }
