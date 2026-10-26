@@ -42,8 +42,7 @@ public static partial class ProcurementPrincipalOrderDraftRoutes
             var options=http.RequestServices.GetRequiredService<ProcurementPrincipalOrderDraftOptions>();
             var approvals=http.RequestServices.GetRequiredService<ProcurementApprovalExecutionOptions>();
             var readiness=http.RequestServices.GetRequiredService<IProcurementPrincipalOrderDraftReadiness>();
-            if(!options.Enabled || !options.ExecutionDatabaseConfigured || !approvals.Enabled
-                || !approvals.PrincipalExecutionEnabled || !approvals.ExecutionDatabaseConfigured
+            if(!ProcurementPrincipalOrderDraftCapability.Configured(options,approvals)
                 || !await readiness.IsReadyAsync(ct))throw new Problem("PrincipalOrderDraftUnavailable",503);
             if(scope.OrgUnitId is not null)throw new Problem("OrderDepartmentScopeUnsupported",503);
             var result=await http.RequestServices.GetRequiredService<ProcurementApprovalTransaction>().ExecuteAsync(async(db,cases,token)=>
@@ -166,6 +165,25 @@ public sealed class ProcurementPrincipalOrderDraftOptions
 {
     public bool Enabled {get;set;}
     public bool ExecutionDatabaseConfigured {get;set;}
+}
+internal static class ProcurementPrincipalOrderDraftCapability
+{
+    internal static bool Configured(ProcurementPrincipalOrderDraftOptions options,
+        ProcurementApprovalExecutionOptions approvals) =>
+        options.Enabled && options.ExecutionDatabaseConfigured && approvals.Enabled
+        && approvals.PrincipalExecutionEnabled && approvals.ExecutionDatabaseConfigured;
+
+    internal static async Task<bool> ReadyAsync(IServiceProvider services, ProcurementRequestScope scope,
+        bool pending, CancellationToken ct)
+    {
+        if (pending || scope.OrgUnitId is not null
+            || services.GetService<ProcurementPrincipalOrderDraftOptions>() is not { } options
+            || services.GetService<ProcurementApprovalExecutionOptions>() is not { } approvals
+            || !Configured(options, approvals)
+            || services.GetService<IProcurementPrincipalOrderDraftReadiness>() is not { } readiness)
+            return false;
+        return await readiness.IsReadyAsync(ct);
+    }
 }
 public interface IProcurementPrincipalOrderDraftReadiness
 {

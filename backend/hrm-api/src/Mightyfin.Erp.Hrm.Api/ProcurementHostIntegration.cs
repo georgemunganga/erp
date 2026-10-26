@@ -221,7 +221,8 @@ public static class ProcurementHostIntegration
                             && services.GetRequiredService<ProcurementOrderExecutionOptions>().HasApprovedDeliveryPolicy
                             && await services.GetRequiredService<IProcurementOrderSchemaReadiness>().IsReadyAsync(ct),
                         orderDraft = !pending,
-                        principalDirectOrderDrafts = false, // P30 schema/finite-role readiness is not yet published.
+                        principalDirectOrderDrafts = await ProcurementPrincipalOrderDraftCapability.ReadyAsync(
+                            services, scope, pending, ct),
                         receiving = false, // Existing UI is not yet a compatible live receiving adapter.
                         receivingDrafts,
                         receivingGoods = receivingPositive && receivingRules!.Rules.Any(x => x.Kind.ToString() == "Goods"),
