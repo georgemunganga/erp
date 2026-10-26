@@ -1,0 +1,53 @@
+{
+  "status": "PASS_BOUNDED_PRIVATE_INTERNAL_RFQ_PUBLICATION_AND_EXPIRED_RETURN",
+  "dateUtc": "2026-10-26",
+  "backendProductSource": "cca4772473b2a87411b3ca59a0a766fbd84187de",
+  "uiProductSource": "b51216e",
+  "scope": "Private internal principal RFQ publication review; manual supplier delivery remains unverified",
+  "build": {
+    "genuineSdkResultSha256": "1036cb15ea44cb6e4a4d4fa0beac612aaf75ba940a8df2a77021cccd81b8ecf9",
+    "apiPublicationManifestSha256": "962b76ef3be251e9d5b9b7348e5c10dc5c0ec892c3ca54d8ca781c9dd34934b2",
+    "focusedProcurementPassed": 1,
+    "focusedHostPassed": 14,
+    "fullProcurementPassed": 1435,
+    "fullHostPassed": 1355,
+    "efPendingModel": false,
+    "publishedFiles": 150,
+    "officialNoTransactionMigrationExportResultSha256": "3225541896798580208ea44bb56cb09afd9f29e0f124798a8e00a3f5960a9fc2"
+  },
+  "private": {
+    "evidenceReceiptSha256": "8f6a993e71a0d937e7ccbea452235fc2335507441d5d570d31f9deeced2ac270",
+    "finiteRoleAndSyntheticActionResultSha256": "e8067aa0cd0aef12e022b061bee78888144777b0f2c56a834d116ea8675a56b2",
+    "authorityOwnerSha256": "175784e2c659cb44d625ee2911a8fa17abc41a0c4a9beec4b448febb0a2b006d",
+    "normalCookieDraftUiSha256": "d85679488ed63f934c8153744120046a414dc654ce8cc5d9dfda7b71e24a97be",
+    "draftOwnerSha256": "edecdc38abf0032286d60caa48ff1623750d1b8fd84b472d0633357fbb22506b",
+    "normalCookiePublicationUiSha256": "1d4a1f018f7e0b89fa3978e673e3fdeb276a6a1fdb89ebe5f9967c8a74df099a",
+    "publicationOwnerSha256": "6f765580975921f925a4c46a6cd996e99e232173fde480f1ce66ca58b9c6e6ed",
+    "oldCaseNormalCookieReturnUiSha256": "816f0ff95c47c03cdb2795b3feddf396bbf35f4ea6a53edac445f8a6f1a561e7",
+    "oldCaseReturnOwnerSha256": "b704c9fc4a572743b2092c0bf239a4fce57e5d4b4f3ea3cdeec0fe240fd99b1e",
+    "positiveGraphUnchangedAfterOldReturnSha256": "b7b4d1ce02af4f1c327e7736f19deb046656be4410f48722d0f6b6b9a9d3d7e9",
+    "finalOutsideFixture197AndHistoriesSha256": "415d57dd481de46f2b8318af6baac18e8f8baf67a70ddb0000db9184418dbbbd",
+    "postQuiescenceStrictOriginalComparisonSha256": "dad3f31df680fa4c0049fb57ca8c4b68af9665688ec626467088b2075a82261c",
+    "postFinalSinglePolicyExplanationSha256": "ebd7c12fd96273c9fe979db8a4a167c9a0d598d7a879b5cdbdc6534f83f3728b",
+    "activeSyntheticSessionsAtClosure": 0,
+    "privateApiAndProxyStopped": true
+  },
+  "observed": [
+    "A fresh request used normal password and session cookies, manual Finance evidence, and shared Core approval before one principal RFQ Draft was created.",
+    "One real UI Open returned 201; the browser lost that response and recovered the original committed result by command key, without a second Open.",
+    "An independent named reviewer used the real UI for one Approve decision. The event became internally Published, with one ReadyForManualDelivery invitation and no supplier send.",
+    "The earlier Finance-expired Pending case was returned through the real UI with one key. Its original Open receipt and Finance snapshot stayed unchanged; the prior failed Decide key still had no receipt.",
+    "The positive Published graph stayed byte-equivalent after the old case was returned. All 197 tables outside the fixture tenant and all migration histories matched the retained source after the final operation."
+  ],
+  "retainedFailuresAndLimits": {
+    "historicalDecide409": "The earlier real Decide and one same-key diagnostic returned 409 without a committed decision. A repeated SaveChanges shortlist guard was corrected; the fresh cohort then passed.",
+    "strictOriginalRows": "The post-quiescence strict comparison retained all 359 old business IDs; 358 original rows, including five purchase orders, were byte-equivalent. One old policy-version row changed only through the authorized normal-cookie supersession. The strict failure and typed field-diff supplement remain retained; a raw policy publish HTTP response was not retained. No all-original-rows-unchanged claim is made.",
+    "privateBoundary": "Private PostgreSQL uses local Unix-socket trust and finite application roles. This does not prove production network authentication or business-user production UAT.",
+    "notProven": [
+      "Supplier delivery or receipt",
+      "External Finance verification or ledger reconciliation",
+      "Sealed bidding, evaluation, award, PO issue, or receiving",
+      "Production M4 activation or complete Procurement UAT"
+    ]
+  }
+}
