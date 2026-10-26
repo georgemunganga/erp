@@ -21,7 +21,7 @@ public sealed class ProcurementPrincipalOrderDraftReadinessTests
 
     [Theory]
     [InlineData(false)][InlineData(true)]
-    public async Task Uncaptured_physical_checks_never_accept_an_owning_context(bool write)
+    public async Task Captured_physical_checks_do_not_accept_a_non_postgres_owning_context(bool write)
     {
         var scope = new ProcurementRequestScope();
         scope.Set("m3b-readiness", Guid.NewGuid(), Guid.NewGuid().ToString("D"), null, null, false, "test");
@@ -29,6 +29,7 @@ public sealed class ProcurementPrincipalOrderDraftReadinessTests
             .UseInMemoryDatabase(Guid.NewGuid().ToString("N")).Options, scope);
         var reader = new ProcurementPrincipalOrderDraftSchemaReadiness(
             new ConfigurationBuilder().Build(), scope, null!, null!);
+        Assert.True(ProcurementPrincipalOrderDraftSchemaReadiness.ManifestCaptured);
         Assert.False(await reader.IsReadyAsync(owner, write, default));
         Assert.False(owner.ChangeTracker.HasChanges());
     }

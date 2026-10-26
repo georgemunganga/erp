@@ -128,11 +128,13 @@ The source now includes genuine EF migration
 Its Up adds two PO markers, source bindings and command receipts. Legacy POs
 retain schema version 0 with no direct-source digest. An authored Down-first
 guard refuses to discard any principal draft, binding, receipt, reservation
-reference, audit or outbox marker. The migration has not been applied to a
-database; physical downgrade and finite-role acceptance are still pending.
-The configured schema inspector also remains unavailable until the three
-new CHECK strings are captured from genuine PostgreSQL Up and the separate
-Record/Execution logins pass current-schema privilege admission.
+reference, audit or outbox marker. The official Up/empty Down/Up rehearsal
+passed on a private PostgreSQL 17 database: original rows and migration history
+were preserved, and a transactionally inserted audit marker made the full Down
+fail with SQLSTATE 55000. The inspector now pins the three physical CHECK
+definitions captured there. Populated PO/binding/receipt downgrade tests,
+finite Record/Execution role admission, HTTP/browser acceptance, and production
+deployment remain pending. The principal draft capability stays default off.
 
 1. **Identification:** `PROC-08/O1/P30`, direct-purchase approved-demand conversion.
 2. **Outcome:** a workerless Core buyer can reserve an approved direct-purchase

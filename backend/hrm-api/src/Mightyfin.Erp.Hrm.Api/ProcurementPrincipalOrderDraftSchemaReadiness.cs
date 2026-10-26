@@ -24,11 +24,21 @@ public sealed class ProcurementPrincipalOrderDraftSchemaReadiness(
     internal static readonly string[] NewCheckNames =
         ["ck_po_principal_draft_version", "ck_po_principal_binding", "ck_po_principal_receipt"];
 
-    // Genuine EF generated these constraints, but PostgreSQL can render casts
-    // differently after restore. Populate only from the reviewed actual PG17
-    // Up catalog capture. Until then this inspector fails closed.
+    // Captured from the genuine private PostgreSQL 17 Up/empty Down/Up rehearsal.
+    // Compare full physical definitions; do not infer them from the EF source SQL.
     internal static readonly IReadOnlyDictionary<string, string> CapturedCheckDefinitions =
-        new Dictionary<string, string>(StringComparer.Ordinal);
+        new Dictionary<string, string>(StringComparer.Ordinal)
+        {
+            ["ck_po_principal_draft_version"] = """
+CHECK ((((principal_draft_schema_version = 0) AND (original_direct_source_sha256 IS NULL)) OR ((principal_draft_schema_version = 2) AND (branch_ref IS NOT NULL) AND (buyer_subject_id IS NOT NULL) AND (buyer_subject_id ~ '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'::text) AND (buyer_subject_id <> '00000000-0000-0000-0000-000000000000'::text) AND (original_direct_source_sha256 IS NOT NULL) AND ((original_direct_source_sha256)::text ~ '^[0-9a-f]{64}$'::text) AND ((status)::text = ANY ((ARRAY['Draft'::character varying, 'Cancelled'::character varying])::text[])) AND (finance_commitment_ref IS NULL) AND (approval_instance_ref IS NULL) AND (submitted_at IS NULL) AND (issued_at IS NULL))))
+""",
+            ["ck_po_principal_binding"] = """
+CHECK (((schema_version = 2) AND (quantity > (0)::numeric) AND (unit_estimate >= (0)::numeric) AND (proposed_unit_price >= (0)::numeric) AND (estimated_value = (quantity * proposed_unit_price)) AND (request_version >= submitted_business_version) AND (submitted_business_version > 0) AND (method_revision > 0) AND (buyer_principal_id IS NOT NULL) AND ((buyer_principal_id)::text ~ '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'::text) AND ((buyer_principal_id)::text <> '00000000-0000-0000-0000-000000000000'::text) AND (requester_principal_id <> '00000000-0000-0000-0000-000000000000'::uuid) AND ((buyer_worker_alias_id IS NULL) OR (buyer_worker_alias_id <> '00000000-0000-0000-0000-000000000000'::uuid)) AND ((requester_worker_alias_id IS NULL) OR (requester_worker_alias_id <> '00000000-0000-0000-0000-000000000000'::uuid)) AND ((original_direct_source_sha256)::text ~ '^[0-9a-f]{64}$'::text)))
+""",
+            ["ck_po_principal_receipt"] = """
+CHECK (((schema_version = 2) AND ((operation)::text = ANY ((ARRAY['Create'::character varying, 'Cancel'::character varying])::text[])) AND (command_key <> '00000000-0000-0000-0000-000000000000'::uuid) AND (actor_principal_id IS NOT NULL) AND ((actor_principal_id)::text ~ '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'::text) AND ((actor_principal_id)::text <> '00000000-0000-0000-0000-000000000000'::text) AND ((command_sha256)::text ~ '^[0-9a-f]{64}$'::text) AND ((response_sha256)::text ~ '^[0-9a-f]{64}$'::text) AND (result_version > 0) AND ((((operation)::text = 'Create'::text) AND (response_status = 201)) OR (((operation)::text = 'Cancel'::text) AND (response_status = 200)))))
+""",
+        };
     internal static bool ManifestCaptured => CapturedCheckDefinitions.Count == NewCheckNames.Length
         && NewCheckNames.All(CapturedCheckDefinitions.ContainsKey);
 
