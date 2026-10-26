@@ -276,6 +276,7 @@ public static partial class ProcurementSourcingExecutionRoutes
             return PrincipalPublicationDisabled(http);
         return Run(http, scope, async (db, cases, core, auth, token) =>
         {
+            http.Items["M4DecideStage"] = "admission";
             await RequirePrincipalPublication(http, db, token);
             var key = Key(http);
             await LockPrincipalSourcingCommandKey(db, key, token);
@@ -310,6 +311,7 @@ public static partial class ProcurementSourcingExecutionRoutes
                 return new Reply(previous.ResponseJson, 200);
             }
             await RequirePrincipalSourcingKeyUnused(db, key, token);
+            http.Items["M4DecideStage"] = "opening-and-core";
             await db.Database.ExecuteSqlInterpolatedAsync($"SELECT id FROM procurement.sourcing_events WHERE tenant_id={scope.TenantId} AND legal_entity_id={scope.LegalEntityId} AND id={id} FOR UPDATE", token);
             await cases.Database.ExecuteSqlInterpolatedAsync($"SELECT \"Id\" FROM core_approval.cases WHERE \"TenantId\"={scope.TenantId} AND \"LegalEntityId\"={scope.LegalEntityId} AND \"Id\"={caseId} FOR UPDATE", token);
             var ev = await db.SourcingEvents.SingleOrDefaultAsync(x => x.Id == id && x.ExecutionVersion == 2, token)
@@ -356,6 +358,7 @@ public static partial class ProcurementSourcingExecutionRoutes
                 throw new Problem("SourcingReviewerNotIndependent", 403);
             var decisions = await cases.Decisions.Where(x => x.CaseId == caseId).ToListAsync(token);
             var now = DateTimeOffset.UtcNow;
+            http.Items["M4DecideStage"] = "core-decision";
             var result = ApprovalEngine.Decide(approval, assignment,
                 new(actor.PrincipalId, scope.TenantId, scope.LegalEntityId,
                     new HashSet<string> { PrincipalRfqPublicationCoreWorkflow.Permission }),
@@ -366,6 +369,7 @@ public static partial class ProcurementSourcingExecutionRoutes
             var final = approval.State is "Approved" or "Returned" or "Rejected";
             if (approval.State == "Approved")
             {
+                http.Items["M4DecideStage"] = "policy-revalidation";
                 // Both this decision and policy publication run in serializable transactions.
                 // Re-read the current policy within that transaction; a concurrent
                 // supersession must serialize before or after this decision, or abort
@@ -390,6 +394,7 @@ public static partial class ProcurementSourcingExecutionRoutes
                     throw new Problem("SourcingPolicyChanged", 409);
                 foreach (var pin in draft.Lines)
                 {
+                    http.Items["M4DecideStage"] = "approved-source";
                     var source = await ApprovedDemandSourceLoader.LoadAsync(db, cases, scope,
                         pin.RequestId, pin.LineId, token);
                     var available = CompetitiveSourcingSource.Check(source, scope.TenantId, scope.LegalEntityId, now);
@@ -400,6 +405,7 @@ public static partial class ProcurementSourcingExecutionRoutes
                         || source.Line.CategoryCode != pin.CategoryCode || source.Line.EstimatedUnitPrice != pin.UnitEstimate
                         || available.MethodId != pin.MethodId || available.MethodRevision != pin.MethodRevision)
                         throw new Problem("SourcingSourceChanged", 409);
+                    http.Items["M4DecideStage"] = "finance";
                     var finance = await ProcurementApprovalFinanceEligibility.CheckPrincipalAsync(source.Request,
                         source.Finance, http.RequestServices.GetRequiredService<ProcurementApprovalExecutionOptions>(),
                         core, db, scope, now, token);
@@ -412,6 +418,7 @@ public static partial class ProcurementSourcingExecutionRoutes
                     if (currentRule.Status != "Match" || currentRule.Controls is null || currentRule.Stages.Count == 0)
                         throw new Problem("SourcingPolicyChanged", 409);
                 }
+                http.Items["M4DecideStage"] = "supplier";
                 using var snapshot = JsonDocument.Parse(opening.SnapshotJson);
                 var ids = snapshot.RootElement.GetProperty("supplierIds").EnumerateArray()
                     .Select(x => x.GetGuid()).ToArray();
@@ -431,6 +438,7 @@ public static partial class ProcurementSourcingExecutionRoutes
             {
                 ev.Status = "Draft"; ev.OpensAt = null;
             }
+            http.Items["M4DecideStage"] = "core-save";
             await cases.SaveChangesAsync(token);
             var at = ProcurementEvidenceEncoding.DatabaseTimestamp(now)!.Value;
             var link = new SourcingPublicationDecision
@@ -471,6 +479,7 @@ public static partial class ProcurementSourcingExecutionRoutes
                     coreCaseId = caseId, coreDecisionId = coreDecision.Id,
                     caseState = approval.State, internallyPublished = approval.State == "Approved",
                     supplierDeliveryConfirmed = false, financeReservationChanged = false }, Json) });
+            http.Items["M4DecideStage"] = "record-save";
             await db.SaveChangesAsync(token);
             return new Reply(body);
         }, ct);

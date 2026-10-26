@@ -68,6 +68,17 @@ public static partial class ProcurementSourcingExecutionRoutes
             or KeyNotFoundException or JsonException or DbUpdateException or NpgsqlException or OverflowException or FormatException
             || ProcurementPostgresFailures.IsStoreFailure(error))
         {
+            if (error is InvalidOperationException
+                && http.Request.Path.Value is { } path
+                && path.Contains("/principal-publication-reviews/", StringComparison.Ordinal)
+                && path.EndsWith("/decisions", StringComparison.Ordinal))
+            {
+                var stage = http.Items["M4DecideStage"] as string;
+                http.RequestServices.GetRequiredService<ILoggerFactory>()
+                    .CreateLogger("Procurement.M4Publication.Decide")
+                    .LogWarning("M4 Decide refused stage {Stage} code {Code} trace {TraceId}",
+                        M4DecideSafeStage(stage), M4DecideSafeCode(error), http.TraceIdentifier);
+            }
             var pg = ProcurementPostgresFailures.Postgres(error);
             var status = error is Problem problem ? problem.Status
                 : ProcurementPostgresFailures.IsConcurrency(error) || pg?.SqlState == "23505" ? 409
@@ -77,6 +88,29 @@ public static partial class ProcurementSourcingExecutionRoutes
             return Error(error is Problem ? error.Message : status == 503 ? "SourcingSaveUnconfirmed" : "SourcingEvidenceNeedsReview", status);
         }
     }
+    internal static string M4DecideSafeStage(string? value) => value switch
+    {
+        "admission" or "opening-and-core" or "core-decision" or "policy-revalidation"
+            or "approved-source" or "finance" or "supplier" or "core-save" or "record-save" => value,
+        _ => "unknown",
+    };
+    internal static string M4DecideSafeCode(Exception error) => error.Message switch
+    {
+        "RfqPrincipalEnvelopeInvalid" or "RfqPrincipalFingerprintChanged" or "RfqPrincipalBindingChanged"
+            or "RfqOriginalEvidenceRequired" or "RfqOwnedDraftInvalid" or "RfqMaterialEvidenceLocked"
+            or "SourcingPublicationDecisionInvalid" or "SourcingPublicationReceiptInvalid"
+            or "SourcingInvitationRequiresInternalPublication" or "SourcingShortlistInvitationMismatch"
+            or "FinanceEvidenceExpired" or "FinanceEvidenceAuthorityNotConfigured"
+            or "FinanceEvidenceCheckerIdentityChanged" or "FinanceEvidenceVerifierUnavailable"
+            or "FinanceEvidenceVerifierPermissionRevoked" or "RfqPrincipalHistoryChanged"
+            or "This task is no longer pending."
+            or "The assignment is not in the active stage."
+            or "An earlier stage must finish first."
+            or "Load the persisted approval case with all stages and assignments before recording a decision."
+            or "The decision must belong to the tracked approval case and assigned actor."
+            => error.Message,
+        _ => "OtherInvalidOperation",
+    };
     // The coordinator's exact owning Procurement context is authoritative. Never substitute
     // the ordinary host connection when execution uses its dedicated finite connection.
     internal static async Task RequireFinanceSchema(ProcurementDbContext owner,
