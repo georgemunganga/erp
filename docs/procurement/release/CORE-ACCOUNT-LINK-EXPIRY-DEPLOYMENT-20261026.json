@@ -1,0 +1,45 @@
+{
+  "status": "PASS_CORE_ACCOUNT_LINK_EXPIRY_IMAGE_ONLY_PAIR_RELEASE",
+  "date": "2026-10-26",
+  "publishedErpMain": "f1eb57e09a7ce081720e610633afab8a3dc8e22c",
+  "backendProductSource": "237a936b25690f780cd09ca6ab3f90b1a05cc009",
+  "imageId": "sha256:c233ffd9e76f7579f52bfb03259985a7abc6691c94d05b9633773b2389f3aa0a",
+  "uiProductUnchanged": "9b6ab3442aa1583a339dcfed311adad393a29706",
+  "checks": {
+    "focusedTests": 8,
+    "fullHostTests": 1327,
+    "skippedTests": 0,
+    "actualImageFiles": 150,
+    "readOnlyCanaryPassed": true,
+    "apiHealthy": true,
+    "publisherRunning": true,
+    "allEnvironmentValuesUnchanged": true,
+    "allHostConfigsUnchanged": true,
+    "importsAndMaintenanceRemainEnabled": true,
+    "schemaTables": 200,
+    "histories": {
+      "hrm": 56,
+      "procurement": 28,
+      "coreApproval": 1
+    },
+    "databaseRoleGrantsUnchanged": true,
+    "oldPairRetainedStopped": true,
+    "liveAccountLinkExpiryGuardFailuresObserved": 1
+  },
+  "receiptSha256": {
+    "sdk": "a72082f44762b122b535d2dca372afd46a36d606ec13d6b2835a2d3b5e67efb4",
+    "image": "dff67cece935b60cca718bd523ac8616cacd544e21379c49742a48b83c009069",
+    "canary": "336537f4eaa10e064b200a4599bcc4e10e57645d14498d7133ac73ebf9be806a",
+    "release": "b87db07039cd0ea6ea96fac9c2366def9b9b3cb74bfe866fc6077bd5f4f2a198",
+    "independentReleaseReview": "ddae060b195591fb240bf0c4d4fd4b9756a2664686aeb40567b429b2b499e467",
+    "expiryGuardReadOnlyObservation": "7b60946d787aa781cc021b4ef9c743795634eacfeeb0f3de8f938f7c60656b06"
+  },
+  "reviewedPlanSha256": "ae19c439f1fa76bdd628952159b54a49f9916650c1a50455d53642de783d7938",
+  "retainedFailure": "First canary refused a full Config hash mismatch because Docker inherited image Healthcheck timings with disabled Test. Root stopped that exact canary; production was untouched. Run02 explicitly submitted the pinned image timings and passed strict full configuration parity. Original evidence retained.",
+  "limits": [
+    "Only SMTP account-link expiry guard changed versus D35; no Procurement workflow, schema, policy, role, flag, UI or nginx change.",
+    "Expired or invalid account-link expiry values remain visible failed retries and cannot reach SMTP fallback transport. No terminal expired queue lifecycle or provider repair is claimed.",
+    "Actual SMTP delivery and whole-module business UAT remain unproved.",
+    "Unchanged UI browser acceptance is carried from the separate deployed M0 product; this backend canary checks anonymous auth and protected-route denial, not production business CRUD."
+  ]
+}
