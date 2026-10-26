@@ -42,6 +42,8 @@ internal static class ProcurementPrincipalOrderGovernanceCapability
         ProcurementRequestScope scope, bool pending, CancellationToken ct)
     {
         if (pending || scope.OrgUnitId is not null || scope.PrincipalId?.ToString("D") != scope.SubjectId
+            || !ProcurementPrincipalOrderDraftRoutes.GovernedContextAllowed(true,
+                scope.WorkLocationId, scope.IsExplicitAllBranches)
             || services.GetService<ProcurementPrincipalOrderDraftOptions>() is not { } drafts
             || services.GetService<ProcurementApprovalExecutionOptions>() is not { } approvals
             || !ProcurementPrincipalOrderDraftCapability.Configured(drafts, approvals)

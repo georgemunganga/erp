@@ -265,6 +265,8 @@ public static class ProcurementHostIntegration
                             services, scope, pending, ct),
                         principalOrderGovernanceRead,
                         principalOrderGovernance = principalOrderGovernanceRead
+                            && ProcurementPrincipalOrderDraftRoutes.GovernedContextAllowed(false,
+                                scope.WorkLocationId, scope.IsExplicitAllBranches)
                             && services.GetRequiredService<ProcurementOrderExecutionOptions>().PrincipalExecutionEnabled,
                         receiving = false, // Existing UI is not yet a compatible live receiving adapter.
                         receivingDrafts,

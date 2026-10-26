@@ -305,6 +305,7 @@ public static partial class ProcurementPrincipalOrderDraftRoutes
         var labels=await Labels(db,core,order,scope,token);
         return new Reply(JsonSerializer.Serialize(new{order.Id,order.Number,order.Status,order.Version,
             order.CurrencyCode,order.SupplierId,order.BranchRef,labels.SupplierDisplayName,labels.BranchDisplayName,
+            order.OriginalDirectSourceSha256,
             submissionId=submission.Id,
             submission.CommercialRevision,submission.CommercialSnapshotJson,
             lineBaseAmountExact=ProcurementEvidenceEncoding.Decimal(submission.LineBaseAmount),

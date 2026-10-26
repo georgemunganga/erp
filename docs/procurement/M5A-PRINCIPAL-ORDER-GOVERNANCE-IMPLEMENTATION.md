@@ -28,6 +28,22 @@ are retained; funded drafts expose a release request instead of ordinary cancell
 This subsequent source requires its own build and actual finite-role/API/browser
 verification. No new operational flag has been enabled in production.
 
+The follow-up source `108d442d4ca7c385a09ed6c76d4b0610919a46af` then built,
+passed 35 focused Host checks, reported no pending EF model changes, and produced
+a genuine 150-file API publication. Receipt SHA-256:
+`31a681c403ac15e3286c3fe00490c1426fdeef54f8fa7f9a7ea8b12763138747`.
+The first readiness build failed on a missing namespace import; that failed
+receipt remains retained and is not relabeled as a pass.
+
+The eight new private tables now have verified SELECT/INSERT-only execution
+grants, with all original table/column ACLs and business rows preserved at that
+checkpoint. Five separate workerless private actors have only their required
+buyer, Finance, reviewer, issuer or dispatch actions and one permitted branch.
+These are private identity/ACL fixtures, not production grants or business UAT.
+The newest source additionally exposes the immutable source digest directly on
+the assigned review and aligns read/write metadata with explicit branch scope;
+that small follow-up still needs verification against its own source revision.
+
 This increment implements the governed lifecycle following the existing M3b
 internal PO draft. The feature specification remains
 [PROC-08](PROC-08-PURCHASE-ORDERS-AND-AMENDMENTS.md). It reuses the existing
