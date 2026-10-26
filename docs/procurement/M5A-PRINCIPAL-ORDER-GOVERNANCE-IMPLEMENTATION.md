@@ -44,6 +44,22 @@ The newest source additionally exposes the immutable source digest directly on
 the assigned review and aligns read/write metadata with explicit branch scope;
 that small follow-up still needs verification against its own source revision.
 
+Revision `caa14f87cdbe6410eb4a859710fb2f5e5a1fc9b8` subsequently passed the
+same 35 focused checks, no-pending-model check and genuine API publication
+(receipt `35ae1b98f00668ad0dfb25cccad01e8637219ef381151327508226ede7517e0a`).
+An actual private normal-cookie configuration run then activated the PR authority
+but correctly refused PO authority creation: the PO schema gate was mistakenly
+given the configuration Record connection while requiring the Execution account.
+The failed run is retained; the PO grant and policy records were not created,
+and both configuration sessions were logged out.
+
+The current fix asks the configured finite Execution connection for read-only
+physical proof and retains the existing Record-role authority-write guards.
+It neither widens Record permissions nor relaxes expected execution identity.
+Three regression cases cover the connection dispatch and fail-closed behaviour.
+The fix needs its own SDK and real-cookie continuation; this is not a passed
+business workflow or release acceptance.
+
 This increment implements the governed lifecycle following the existing M3b
 internal PO draft. The feature specification remains
 [PROC-08](PROC-08-PURCHASE-ORDERS-AND-AMENDMENTS.md). It reuses the existing

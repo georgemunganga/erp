@@ -27,16 +27,20 @@ public static partial class ProcurementSpendingAuthorityRoutes
     private static async Task<bool> NewPrincipalIdentity(HttpContext http,ProcurementDbContext db,string action,CancellationToken ct)
     {
         if(!PrincipalActionOption(http,action))return false;
-        await RequirePrincipalOrderAuthoritySchema(http,db,action,ct);
+        await RequirePrincipalOrderAuthoritySchema(http,action,ct);
         return await ProcurementPrincipalApprovalSchemaGuard.ReadyAsync(db,http.RequestServices,true,ct);
     }
 
-    private static async Task RequirePrincipalOrderAuthoritySchema(HttpContext http,ProcurementDbContext db,
+    internal static async Task RequirePrincipalOrderAuthoritySchema(HttpContext http,
         string action,CancellationToken ct)
     {
         if(action!=ProcurementSpendingActions.PurchaseOrder.Action)return;
         var readiness=http.RequestServices.GetService<IProcurementPrincipalOrderGovernanceReadiness>();
-        if(readiness is null||!await readiness.IsReadyAsync(db,true,ct))
+        // Configuration writes retain the existing Record-role authority guards.
+        // M5's physical proof opens its separately configured finite Execution
+        // connection; passing the Record context would always fail role equality.
+        // This check inserts no governance evidence and confers no write grant.
+        if(readiness is null||!await readiness.IsReadyAsync(ct))
             throw new InvalidOperationException("OrderAuthoritySchemaUnavailable");
     }
 
@@ -48,7 +52,7 @@ public static partial class ProcurementSpendingAuthorityRoutes
         if(origin.SchemaVersion!=2 || !PrincipalActionOption(http,grant.Action)
             || !await ProcurementPrincipalApprovalSchemaGuard.ReadyAsync(db,http.RequestServices,true,ct))
             throw new InvalidOperationException("AuthorityPrincipalIdentityUnavailable");
-        await RequirePrincipalOrderAuthoritySchema(http,db,grant.Action,ct);
+        await RequirePrincipalOrderAuthoritySchema(http,grant.Action,ct);
         return true;
     }
 
