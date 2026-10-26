@@ -61,12 +61,27 @@ public sealed partial class SpendingAuthorityIdentityTests
     }
     [Theory]
     [InlineData("PurchaseOrder.Approve","procurement-order-approve")]
-    [InlineData("SourcingEvent.Publish","procurement-sourcing-publish")]
+    [InlineData("SourcingEvent.Publish","procurement-approval-decide")]
     public void Principal_authority_successor_is_not_silently_reused_by_other_operational_families(string action,string permission)
     {
         var(_,created,_)=PrincipalPending();var changed=created with {Action=action,Permission=permission};
         changed=changed with {EvidenceSha256=SpendingAuthorityIdentity.Digest(changed)};
         Assert.Throws<InvalidOperationException>(()=>SpendingAuthorityIdentity.Verify(changed));
+    }
+
+    [Fact]
+    public void Rfq_publication_authority_requires_its_exact_sourcing_action_and_permission_pair()
+    {
+        var (_, created, _) = PrincipalPending();
+        var sourcing = created with
+        {
+            Action = "SourcingEvent.Publish", Permission = "procurement-sourcing-publish",
+        };
+        sourcing = sourcing with { EvidenceSha256 = SpendingAuthorityIdentity.Digest(sourcing) };
+        SpendingAuthorityIdentity.Verify(sourcing);
+        var wrongPermission = sourcing with { Permission = "procurement-approval-decide" };
+        wrongPermission = wrongPermission with { EvidenceSha256 = SpendingAuthorityIdentity.Digest(wrongPermission) };
+        Assert.Throws<InvalidOperationException>(() => SpendingAuthorityIdentity.Verify(wrongPermission));
     }
 
     [Fact]

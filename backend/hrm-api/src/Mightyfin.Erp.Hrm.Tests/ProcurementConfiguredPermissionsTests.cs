@@ -67,7 +67,8 @@ public sealed class ProcurementConfiguredPermissionsTests
     [InlineData("procurement_manager")][InlineData("hr_admin")]
     public void Governed_sourcing_actions_have_no_ordinary_bootstrap_or_legacy_permission_alias(string role)
     {
-        foreach (var action in new[] { "procurement-sourcing-convert", "procurement-sourcing-cancel", "procurement-sourcing-publish" })
+        foreach (var action in new[] { "procurement-sourcing-convert", "procurement-sourcing-cancel",
+            "procurement-sourcing-submit", "procurement-sourcing-publish" })
         {
             Assert.Empty(Mightyfin.Erp.Hrm.Application.ProcurementActionCatalog.BootstrapGrants[action]);
             Assert.DoesNotContain(action, Mightyfin.Erp.Hrm.Application.ProcurementActionCatalog.ForRole(role));
@@ -78,6 +79,18 @@ public sealed class ProcurementConfiguredPermissionsTests
                 new Claim(ProcurementPermissions.ActionClaim, "procurement-access"),
                 new Claim(ProcurementPermissions.ActionClaim, "procurement-sourcing-create"),
                 new Claim(ProcurementPermissions.ActionClaim, "procurement-sourcing-edit")]));
+        }
+    }
+
+    [Fact]
+    public void Legacy_admin_does_not_inherit_new_publication_actions()
+    {
+        foreach (var action in new[] { "procurement-sourcing-submit", "procurement-sourcing-publish" })
+        {
+            Assert.True(Mightyfin.Erp.Hrm.Application.ProcurementActionCatalog.RequiresExplicitConfiguredGrant(action));
+            Assert.False(ProcurementPermissions.Allows(action, [new Claim(ClaimTypes.Role, "erp_admin")]));
+            Assert.DoesNotContain(action, Mightyfin.Erp.Hrm.Application.ProcurementActionCatalog
+                .ResolveConfiguredActionsForRole("erp_admin", "erp_admin"));
         }
     }
 
@@ -94,6 +107,7 @@ public sealed class ProcurementConfiguredPermissionsTests
         Assert.DoesNotContain("procurement-sourcing-convert", actions);
         Assert.DoesNotContain("procurement-sourcing-cancel", actions);
         Assert.DoesNotContain("procurement-sourcing-publish", actions);
+        Assert.DoesNotContain("procurement-sourcing-submit", actions);
         if (csv == "procurement-access,procurement-sourcing-create,procurement-sourcing-edit")
             Assert.Equal(new[] { "procurement-access", "procurement-sourcing-create", "procurement-sourcing-edit" }, actions);
         else
@@ -104,6 +118,7 @@ public sealed class ProcurementConfiguredPermissionsTests
     [InlineData("procurement-sourcing-convert", "procurement-sourcing-cancel")]
     [InlineData("procurement-sourcing-cancel", "procurement-sourcing-convert")]
     [InlineData("procurement-sourcing-publish", "procurement-sourcing-convert")]
+    [InlineData("procurement-sourcing-submit", "procurement-sourcing-publish")]
     public async Task Explicit_source_action_is_independent_and_current_Core_revocation_removes_it(string granted, string denied)
     {
         await using var db = TestDbContextFactory.Create("tenant-a");

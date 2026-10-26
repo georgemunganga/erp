@@ -6,22 +6,24 @@ This checkpoint supersedes earlier status paragraphs, not historical acceptance 
 
 ERP main `de449645a5cf4b46da1024c821252ac46b625103` includes PR117 and its deployment record PR118. Backend product `237a936b25690f780cd09ca6ab3f90b1a05cc009` / image `c233ffd9e76f7579f52bfb03259985a7abc6691c94d05b9633773b2389f3aa0a` is deployed to API and publisher. The SMTP fallback now rejects expired or invalid account-link expiry before transport, retaining visible failed-retry semantics. Eight focused and all 1,327 Host tests passed, and 150 actual image files matched the genuine publication. Read-only canary and independent live release verification passed; all Env/Host settings, import+maintenance flags, schema200/histories56/28/1 and database role grants were preserved. Old containers remain stopped for rollback. [Deployment evidence](../release/CORE-ACCOUNT-LINK-EXPIRY-DEPLOYMENT-20261026.json) retains the failed healthcheck-metadata verifier attempt. This supersedes D35/C9 as the current backend, while the UI remains 9b6. A read-only production aggregate also observed one failed account-link retry with the fixed expiry-guard reason, without exposing payload or recipient. SMTP provider delivery remains open; whole-module UAT is not complete.
 
-M4 source `e49b0631` passed 1,327 Host and 30 genuinely discovered Core Approval tests; Procurement1,434 and no-pending-model evidence are carried only by exact unchanged source/model parity. A populated 200-table clone passed Up/empty Down/Up; ten independent transactional marker tests proved each physical Down veto, with FK-bypass limits explicit. Real-cookie acceptance is in progress, including an actual branch-scope denial and normal-cookie independently activated PR authority. None of this activates M4 in production.
+M4 internal RFQ publication source `cca4772473b2a87411b3ca59a0a766fbd84187de` passed genuine focused Procurement 1, focused Host 14, full Procurement **1,435**, full Host **1,355**, EF no-pending-model, and a 150-file API publication. The populated 200-table clone passed Up/empty Down/Up; ten independent transactional marker tests proved each physical Down veto, with FK-bypass limits explicit. Real-cookie private acceptance now passed for a fresh approved request, RFQ Draft, lost-response Open recovery and independent internal Approve. A separate expired Pending case was returned through the real UI. [Exact private evidence and limits](M4-INTERNAL-RFQ-PUBLICATION-ACCEPTANCE-20261026.json) are retained. None of this activates M4 in production.
 
 ## Latest in-progress workflow test and cleanup
 
-The original RFQ UI opened publication review and recovered its committed Open
-result after a deliberately lost response. A reviewer-only metadata availability
-bug was fixed in private source `9009562134f86f1c74ce5200034a330ea00d49df`,
-which passed 1,341 Host tests and a genuine 150-file publication. The subsequent
-real reviewer Decide still returned 409. Independent read-only reconciliation
-confirmed no decision, Decide receipt or invitation was committed; the case
-remains pending. A single original-key diagnostic retry also returned 409.
-Its original Finance evidence expired naturally and the private proxy/API were
-closed. Safe stage/code logging successor `d295e08850d24b317d76aa434aabe5da0c224ca0`
-is being built before a fresh normal-cookie authority/funding/source cohort.
-The underlying refusal is not yet isolated. This is a real unresolved UAT
-blocker, not a passed publication workflow or a production release.
+The earlier RFQ UI Open and original-key recovery passed, while its reviewer
+Decide and one same-key diagnostic returned 409 without a committed decision
+or receipt. Review isolated a repeated `SaveChanges` shortlist check that
+treated an unchanged Approved decision as if its invitations were newly added.
+Source `cca4772473b2a87411b3ca59a0a766fbd84187de` restricts that invariant
+to added decisions and rejects new invitations against historical approvals.
+The fresh real-cookie cohort then committed exactly one Open and one independent
+Approve; owner checks matched the Core case, decision, receipts, supplier
+invitation, audit and outbox. The invitation is ready for **manual** delivery;
+no supplier send is claimed. The expired earlier Pending case was returned
+separately through the real UI, with its original Open receipt and Finance
+snapshot unchanged. API and TLS proxy stopped, and no synthetic session remains
+active. The historical 409 evidence is preserved; this is bounded private
+acceptance, not a production release or complete RFQ UAT.
 
 [Draft M5a PR119](https://github.com/georgemunganga/erp/pull/119) preserves source
 `e57de3c786e65e60da28285483ed9de9a8a942dd` for same-row PO governance,
@@ -48,7 +50,7 @@ UI PR85 is merged through main `dfed2dd1954e8dc735a3bd8ff03449d4b00e6911`; deplo
 
 The live administrator account separately signed in and read Core company choices, Procurement context/schema metadata, Vendors, Items and Requests in company-All scope, then logged out. `workerLinked=false`; no employee link was required and no purchasing record was written.
 
-M4 internal RFQ publication review is draft ERP PR114; independent source review closed policy-currentness, typed-receipt binding and policy-resubmission findings. The source suites, representative nonempty migration and physical veto evidence are now recorded above; final runtime/finite-role/browser owner acceptance remains pending. It remains disabled; no held mixed PO/receiving migration was merged.
+M4 internal RFQ publication review is ERP PR114 with bounded private real-cookie and owner acceptance. The post-quiescence original-business comparison retained all **359 old IDs**; 358 rows, including **five old purchase orders**, were byte-equivalent. One old policy-version row changed through an authorized normal-cookie policy supersession; the strict comparison failure and typed explanation remain visible. The 197 tables outside the fixture tenant and all migration histories matched after the final Return. M4 remains disabled in production, and no held mixed PO/receiving migration was merged.
 
 ## Deployed technical release — 26 October, 15:21 UTC (configuration and UI superseded above)
 
@@ -111,7 +113,7 @@ The existing [full roadmap](https://github.com/georgemunganga/erp/blob/3fc26d93b
 | M1 | Real scanner and authorized attachment lifecycle, including failure/denied paths. |
 | M2 | Real imports and remaining master-data/batch/saved-view contracts; selected exports are already deployed. |
 | M3 | Request/approval bounded private source accepted above; line routing/conversion, retained quantities and production activation remain open. |
-| M4 | RFQ publication, sealed/surrogate bids, evaluation and residual-safe awards. |
+| M4 | Internal RFQ publication review passed bounded private acceptance; supplier delivery, sealed/surrogate bids, evaluation and residual-safe awards remain. |
 | M5 | Governed PO revisions, goods/service receipts, inspection, returns and owned Inventory/Assets handoff. |
 | M6 | Bills, matching, credits and manual-payment reconciliation; future Finance/AP adapter remains explicit. |
 | M7 | Contracts, recurrence, delivery/communications and reconciled reports. |

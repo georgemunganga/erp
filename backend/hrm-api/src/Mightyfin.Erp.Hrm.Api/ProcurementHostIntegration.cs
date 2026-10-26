@@ -56,6 +56,10 @@ public static class ProcurementHostIntegration
         sourcingOptions.ExecutionDatabaseConfigured = !string.IsNullOrWhiteSpace(executionConnection);
         services.AddSingleton(sourcingOptions);
         services.AddScoped<IProcurementSourcingDraftSchemaReadiness, ProcurementSourcingDraftSchemaReadiness>();
+        services.AddSingleton(configuration.GetSection("Procurement:SourcingPublication")
+            .Get<ProcurementPrincipalSourcingPublicationOptions>() ?? new());
+        services.AddScoped<IProcurementPrincipalSourcingPublicationReadiness,
+            ProcurementPrincipalSourcingPublicationSchemaReadiness>();
         services.AddScoped<IProcurementOrderSchemaReadiness, ProcurementOrderSchemaReadiness>();
         services.AddScoped<IProcurementApprovalSchemaReadiness, ProcurementApprovalSchemaReadiness>();
         services.AddSingleton<IProcurementFinanceCheckerSchemaReadiness, ProcurementFinanceCheckerSchemaReadiness>();
@@ -172,6 +176,37 @@ public static class ProcurementHostIntegration
                     && await services.GetRequiredService<IProcurementSourcingDraftSchemaReadiness>().IsReadyAsync(ct);
                 var principalSourcingSourceDrafts = await ProcurementPrincipalSourcingCapability.ReadyAsync(
                     services, scope, pending, sourcingSourceDrafts, ct);
+                var publicationOptions = services.GetService<ProcurementPrincipalSourcingPublicationOptions>();
+                var publicationReadiness = services.GetService<IProcurementPrincipalSourcingPublicationReadiness>();
+                var approvalOptions = services.GetRequiredService<ProcurementApprovalExecutionOptions>();
+                var principalSourcingPublicationRead = false;
+                // The shared sourcing transaction wrapper still requires its
+                // P29 engine for GET. M4's own new-work switch is independent.
+                if (!pending && financeCheckerReads && sourcingOptions is
+                        { Enabled: true, PrincipalSourceEnabled: true, ExecutionDatabaseConfigured: true }
+                    && approvalOptions is { Enabled: true, PrincipalExecutionEnabled: true, ExecutionDatabaseConfigured: true }
+                    && scope.OrgUnitId is null && scope.PrincipalId?.ToString("D") == scope.SubjectId
+                    && publicationReadiness is not null && await publicationReadiness.IsReadyAsync(ct))
+                {
+                    var publicationPerson = await ProcurementPrincipalPeople.Resolve(
+                        services.GetRequiredService<HrmDbContext>(), scope.TenantId, scope.LegalEntityId,
+                        scope.SubjectId, ct);
+                    principalSourcingPublicationRead = publicationPerson is not null
+                        && (scope.WorkLocationId is { } selectedPublicationBranch
+                            ? publicationPerson.OrganisationWide || publicationPerson.AllowedBranches.Contains(selectedPublicationBranch)
+                            : publicationPerson.OrganisationWide || publicationPerson.AllowedBranches.Count > 0)
+                        && (publicationPerson.Permissions.Contains("procurement-sourcing-submit")
+                            || publicationPerson.Permissions.Contains("procurement-sourcing-publish"));
+                }
+                // A publish-only reviewer has a current M4 read/action grant but no
+                // RFQ convert/cancel grant. New publication work needs the physical
+                // P29 store, not that separate buyer capability.
+                var publicationApprovalStoreReady = principalSourcingPublicationRead && sourcingSourceDrafts
+                    && publicationOptions is { Enabled: true }
+                    && await ProcurementPrincipalApprovalCapability.ConfiguredStoreReadyAsync(services, ct);
+                var principalSourcingPublication = ProcurementPrincipalSourcingPublicationCapability.NewWork(
+                    principalSourcingPublicationRead, sourcingSourceDrafts,
+                    publicationOptions is { Enabled: true }, publicationApprovalStoreReady);
                 return Results.Ok(new
                 {
                     module = "procurement",
@@ -198,6 +233,8 @@ public static class ProcurementHostIntegration
                         // Separate future governed holds/releases from existing unlinked draft CRUD.
                         sourcingSourceDrafts,
                         principalSourcingSourceDrafts,
+                        principalSourcingPublication,
+                        principalSourcingPublicationRead,
                         // Capability describes configured availability; each command still
                         // checks current identity, record scope, policy, authority and Finance.
                         budgetEvidence = financeCheckerReads,
@@ -255,6 +292,16 @@ public static class ProcurementHostIntegration
             }
         }).RequireAuthorization("procurement-access");
     }
+}
+
+internal static class ProcurementPrincipalSourcingPublicationCapability
+{
+    // The actor-specific read bit already requires a current submit or publish
+    // action. The buyer's separate convert/cancel capability is not a prerequisite
+    // for an assigned publish-only reviewer.
+    internal static bool NewWork(bool actorCanRead, bool physicalSourceReady,
+        bool enabled, bool approvalStoreReady)
+        => actorCanRead && physicalSourceReady && enabled && approvalStoreReady;
 }
 
 public sealed class ProcurementRequestScope : IProcurementScope, IApprovalScope, Mightyfin.Erp.Core.Documents.Domain.IDocumentScope

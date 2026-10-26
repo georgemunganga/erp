@@ -30,6 +30,7 @@ public sealed class CoreRolePermissionCatalogHttpTests
         Assert.Equal(ProcurementActionCatalog.BootstrapGrants.Count, names.Length);
         Assert.Contains("procurement-payment-confirm", names); // Retain the newer P29 action registry.
         Assert.Contains("procurement-sourcing-publish", names);
+        Assert.Contains("procurement-sourcing-submit", names);
         Assert.Contains("procurement-vendor-export", names);
         Assert.Contains("procurement-item-export", names);
         Assert.Equal("Payments", actions.Single(x => x.GetProperty("key").GetString() == "procurement-payment-confirm")
