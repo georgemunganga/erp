@@ -63,13 +63,21 @@ public static class ProcurementMasterImportRoutes
     }
 
     private static async Task<bool> Ready(ProcurementDbContext db, HrmDbContext core,
-        IConfiguration config, CancellationToken ct)
+        IConfiguration config, HttpContext http, CancellationToken ct)
     {
         // Default off. HasPendingModelChanges holds the route closed until the
         // genuine migration exists and is installed on the selected database.
-        if (!config.GetValue<bool>("Procurement:MasterImport:Enabled")) return false;
         try
         {
+            if (!config.GetValue<bool>("Procurement:MasterImport:Enabled")
+                || ProcurementImportPreviewLimits.Read(config) is null
+                || !config.GetValue<bool>("Procurement:MasterImport:Maintenance:Enabled")
+                || !ProcurementImportPreviewMaintenance.ConnectionBoundary(
+                    config.GetConnectionString("ProcurementImportMaintenance"),
+                    config.GetConnectionString("Procurement"), config.GetConnectionString("Hrm"))
+                || http.RequestServices.GetService<ProcurementImportMaintenanceHealth>()
+                    ?.IsHealthy(DateTimeOffset.UtcNow) != true) return false;
+            if (!await ProcurementImportPreviewMaintenance.RoleReadyAsync(config, ct)) return false;
             if (!await ProcurementHumanCsvExport.NativeReaderReadyAsync(db, ct)) return false;
             var procurement = await db.Database.SqlQueryRaw<bool>("""
                 SELECT has_schema_privilege(current_user,'procurement','USAGE')
@@ -157,10 +165,31 @@ public static class ProcurementMasterImportRoutes
         && procurementConnection.Port == identity.Port
         && string.Equals(procurementConnection.Database, identity.Database, StringComparison.Ordinal);
 
+    // Read-only result recovery survives a paused/new-work-disabled import service.
+    // Current import and native create/manage policies and Core scope middleware
+    // still run before this method; no stored result is an authorization token.
+    private static async Task<bool> RecoveryReady(ProcurementDbContext db, HrmDbContext core,
+        CancellationToken ct)
+    {
+        try
+        {
+            if (!SameDatabase(db, core)
+                || !await ProcurementHumanCsvExport.NativeReaderReadyAsync(db, ct)) return false;
+            return await db.Database.SqlQueryRaw<bool>("""
+                SELECT has_schema_privilege(current_user,'procurement','USAGE')
+                   AND has_table_privilege(current_user,'procurement.import_batches','SELECT')
+                   AND has_table_privilege(current_user,'procurement.import_row_receipts','SELECT')
+                   AS "Value"
+                """).SingleAsync(ct);
+        }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
+        catch (Exception) { return false; }
+    }
+
     private static async Task<IResult> Schema(ProcurementDbContext db, HrmDbContext core, IConfiguration config,
         HttpContext http, string kind, CancellationToken ct)
     {
-        if (!await Ready(db, core, config, ct)) return Unavailable(http);
+        if (!await Ready(db, core, config, http, ct)) return Unavailable(http);
         http.Response.Headers.CacheControl = "no-store";
         return Results.Ok(new { schemaVersion = ProcurementMasterImportContracts.SchemaVersion,
             kind = kind == "Vendor" ? "vendors" : "items",
@@ -171,7 +200,7 @@ public static class ProcurementMasterImportRoutes
     private static async Task<IResult> Template(ProcurementDbContext db, HrmDbContext core, IConfiguration config,
         HttpContext http, string kind, CancellationToken ct)
     {
-        if (!await Ready(db, core, config, ct)) return Unavailable(http);
+        if (!await Ready(db, core, config, http, ct)) return Unavailable(http);
         http.Response.Headers.CacheControl = "no-store";
         var columns = ProcurementMasterImportContracts.Fields(kind);
         var content = new byte[] { 0xEF, 0xBB, 0xBF }
@@ -207,7 +236,7 @@ public static class ProcurementMasterImportRoutes
     private static async Task<IResult> Preview(ProcurementDbContext db, HrmDbContext core,
         IConfiguration config, ProcurementRequestScope scope, HttpContext http, string kind, CancellationToken ct)
     {
-        if (!await Ready(db, core, config, ct)) return Unavailable(http);
+        if (!await Ready(db, core, config, http, ct)) return Unavailable(http);
         var (request, bodyError) = await ReadJson<MasterImportPreviewRequest>(http, ct);
         if (bodyError is not null) return bodyError;
         var (document, bytes, parseCode) = ProcurementMasterImportContracts.Parse(request, kind);
@@ -235,9 +264,52 @@ public static class ProcurementMasterImportRoutes
             PreviewSnapshotText = snapshotText, PreviewSha256 = digest,
             TotalRows = rows.Length, AppliedRows = 0, ExpiresAt = DateTimeOffset.UtcNow.AddMinutes(15),
             State = "Previewed" };
-        db.AddScoped(batch);
-        try { await db.SaveChangesAsync(ct); }
-        catch (DbUpdateException) { return Unavailable(http); }
+        // One tenant/company advisory transaction lock serializes quota admission
+        // across actors and API instances. Count expired-but-unswept mapped input;
+        // the quota cannot be evaded by a stalled maintenance worker.
+        var limits = ProcurementImportPreviewLimits.Read(config)!;
+        var snapshotBytes = Encoding.UTF8.GetByteCount(snapshotText);
+        try
+        {
+            await using var quotaTx = await db.Database.BeginTransactionAsync(IsolationLevel.ReadCommitted, ct);
+            var connection = (NpgsqlConnection)db.Database.GetDbConnection();
+            await using (var gate = new NpgsqlCommand(
+                "SELECT pg_advisory_xact_lock(1734702991,hashtext(@scope))", connection,
+                (NpgsqlTransaction)quotaTx.GetDbTransaction()))
+            {
+                gate.Parameters.AddWithValue("scope", scope.TenantId + "|" + scope.LegalEntityId.ToString("D"));
+                await gate.ExecuteNonQueryAsync(ct);
+            }
+            long actorCount;
+            long companyBytes;
+            await using (var count = new NpgsqlCommand("""
+                SELECT count(*) FILTER (WHERE actor_subject_id=@actor),
+                       COALESCE(sum(octet_length(preview_snapshot_text)),0)
+                  FROM procurement.import_batches
+                 WHERE tenant_id=@tenant AND legal_entity_id=@company
+                   AND preview_snapshot_text IS NOT NULL AND state<>'Committed'
+                """, connection, (NpgsqlTransaction)quotaTx.GetDbTransaction()))
+            {
+                count.Parameters.AddWithValue("actor", scope.SubjectId);
+                count.Parameters.AddWithValue("tenant", scope.TenantId);
+                count.Parameters.AddWithValue("company", scope.LegalEntityId);
+                await using var result = await count.ExecuteReaderAsync(ct);
+                await result.ReadAsync(ct);
+                actorCount = result.GetInt64(0);
+                companyBytes = result.GetInt64(1);
+            }
+            if (!ProcurementImportPreviewLimits.Admits(actorCount,
+                    companyBytes, snapshotBytes, limits))
+            {
+                http.Response.Headers.CacheControl = "no-store";
+                return Error(StatusCodes.Status429TooManyRequests, "import-staging-full");
+            }
+            db.AddScoped(batch);
+            await db.SaveChangesAsync(ct);
+            await quotaTx.CommitAsync(ct);
+        }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
+        catch (Exception) { return Unavailable(http); }
         http.Response.Headers.CacheControl = "no-store";
         return Results.Ok(ProcurementMasterImportContracts.PreviewView(batch.Id, digest, batch.ExpiresAt, rows));
     }
@@ -359,7 +431,7 @@ public static class ProcurementMasterImportRoutes
     private static async Task<IResult> Commit(ProcurementDbContext db, HrmDbContext core, IConfiguration config,
         ProcurementRequestScope scope, HttpContext http, string kind, CancellationToken ct)
     {
-        if (!await Ready(db, core, config, ct)) return Unavailable(http);
+        if (!await Ready(db, core, config, http, ct)) return Unavailable(http);
         var (request, bodyError) = await ReadJson<MasterImportCommitRequest>(http, ct);
         if (bodyError is not null) return bodyError;
         if (request!.BatchId == Guid.Empty || request.CommandKey == Guid.Empty
@@ -598,10 +670,17 @@ public static class ProcurementMasterImportRoutes
         HrmDbContext core, IConfiguration config,
         ProcurementRequestScope scope, HttpContext http, string kind, CancellationToken ct)
     {
-        if (!await Ready(db, core, config, ct)) return Unavailable(http);
+        if (!await RecoveryReady(db, core, ct)) return Unavailable(http);
         var batch = await db.ImportBatches.AsNoTracking().SingleOrDefaultAsync(x => x.Id == batchId
             && x.ActorSubjectId == scope.SubjectId && x.RecordType == kind, ct);
         if (batch is null) return Error(404, "import-not-found");
+        // Only the database's serialized sweep outcome, never the client clock,
+        // permits the pending command journal to resolve as terminal Expired.
+        if (IsTerminalExpired(batch))
+        {
+            http.Response.Headers.CacheControl = "no-store";
+            return Results.Ok(new { state = "Expired", batchId });
+        }
         if (batch.PreviewSnapshotText is null || batch.PreviewSha256 is null
             || ProcurementMasterImportContracts.Hash(batch.PreviewSnapshotText) != batch.PreviewSha256)
             return Unavailable(http);
@@ -624,4 +703,12 @@ public static class ProcurementMasterImportRoutes
         return Results.Ok(ProcurementMasterImportContracts.PreviewView(batch.Id,
             batch.PreviewSha256, batch.ExpiresAt, snapshot.Rows));
     }
+
+    internal static bool IsTerminalExpired(ImportBatch batch) =>
+        batch.State == "Expired" && batch.SchemaVersion == ProcurementMasterImportContracts.SchemaVersion
+        && batch.PreviewSnapshotText is null && batch.PreviewSha256 is not null
+        && ProcurementMasterImportContracts.IsHash(batch.PreviewSha256)
+        && batch.CommitCommandKey is null && batch.CommitRequestSha256 is null
+        && batch.ResultText is null && batch.ResultSha256 is null && batch.ResultJson is null
+        && batch.AppliedRows == 0 && batch.TotalRows > 0;
 }
