@@ -69,7 +69,7 @@ public sealed class ProcurementPrincipalSourcingPublicationSchemaReadiness(
                     .Contains(M4PrincipalRfqPhysicalChecks.MigrationId, StringComparer.Ordinal)
                 || !await p25.CanExecuteAsync(owner, ct)
                 || !await p29.IsReadyAsync(owner, false, ct)
-                || !await policy.IsReadyAsync(owner, ct)) return false;
+                || !await policy.IsReadReadyAsync(owner, ct)) return false;
 
             var connection = owner.Database.GetDbConnection();
             if (connection.State != ConnectionState.Open) { await owner.Database.OpenConnectionAsync(ct); opened = true; }

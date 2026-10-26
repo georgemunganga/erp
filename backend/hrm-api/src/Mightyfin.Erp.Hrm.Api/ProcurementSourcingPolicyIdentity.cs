@@ -9,6 +9,8 @@ namespace Mightyfin.Erp.Hrm.Api;
 public interface IProcurementSourcingPolicyIdentitySchemaReadiness
 {
     Task<bool> IsReadyAsync(ProcurementDbContext owner, CancellationToken ct);
+    // Publication reads retained policy identity but cannot acquire configuration writes.
+    Task<bool> IsReadReadyAsync(ProcurementDbContext owner, CancellationToken ct) => IsReadyAsync(owner, ct);
 }
 // Source gate only. Replaced by actual owning-store P29 schema/privilege/transaction proof after review.
 public sealed class UnavailableSourcingPolicyIdentitySchema : IProcurementSourcingPolicyIdentitySchemaReadiness

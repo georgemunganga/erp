@@ -15,7 +15,9 @@ public sealed class ProcurementSourcingPolicyIdentitySchemaReadinessTests
         var scope = new ProcurementRequestScope(); scope.Set("p29-schema", Guid.NewGuid(), "maker", null, null, false, "test");
         await using var owner = new ProcurementDbContext(new DbContextOptionsBuilder<ProcurementDbContext>()
             .UseInMemoryDatabase(Guid.NewGuid().ToString()).Options, scope);
-        Assert.False(await new ProcurementSourcingPolicyIdentitySchemaReadiness().IsReadyAsync(owner, default));
+        var readiness = new ProcurementSourcingPolicyIdentitySchemaReadiness();
+        Assert.False(await readiness.IsReadyAsync(owner, default));
+        Assert.False(await readiness.IsReadReadyAsync(owner, default));
         Assert.False(owner.ChangeTracker.HasChanges());
     }
 
@@ -54,6 +56,24 @@ public sealed class ProcurementSourcingPolicyIdentitySchemaReadinessTests
         Assert.Contains("NOT has_table_privilege(current_user,'procurement.policy_versions','DELETE')", sql);
         Assert.Contains("NOT has_table_privilege(current_user,'procurement.policy_versions','TRUNCATE')", sql);
         Assert.DoesNotContain("NOT has_any_column_privilege(current_user,'procurement.policy_versions','UPDATE')", sql);
+    }
+
+    [Fact]
+    public void Publication_policy_read_requires_current_identity_without_authoring_rights()
+    {
+        var write = ProcurementSourcingPolicyIdentitySchemaReadiness.PrivilegeSql;
+        var read = ProcurementSourcingPolicyIdentitySchemaReadiness.ReadPrivilegeSql;
+        Assert.Contains("has_table_privilege(current_user,'procurement.sourcing_policy_identity_evidence','INSERT')", write);
+        Assert.Contains("has_table_privilege(current_user,'procurement.policy_versions','UPDATE')", write);
+        foreach (var table in new[] { "sourcing_policy_identity_evidence", "policy_versions" })
+        {
+            Assert.Contains($"has_table_privilege(current_user,'procurement.{table}','SELECT')", read);
+            Assert.Contains($"NOT has_any_column_privilege(current_user,'procurement.{table}','INSERT')", read);
+            Assert.Contains($"NOT has_any_column_privilege(current_user,'procurement.{table}','UPDATE')", read);
+            Assert.Contains($"NOT has_table_privilege(current_user,'procurement.{table}','DELETE')", read);
+        }
+        Assert.Contains("has_table_privilege(current_user,'procurement.__procurement_migrations','SELECT')", read);
+        Assert.Contains("NOT has_schema_privilege(current_user,'procurement','CREATE')", read);
     }
 
     [Fact]

@@ -25,7 +25,13 @@ public sealed class ProcurementSourcingPolicyIdentitySchemaReadiness : IProcurem
     private static readonly HashSet<string> ForeignNames = ["fk_source_policy_identity_owner",
         "fk_source_policy_identity_created", "fk_source_policy_identity_submitted"];
 
-    public async Task<bool> IsReadyAsync(ProcurementDbContext owner, CancellationToken ct)
+    public Task<bool> IsReadyAsync(ProcurementDbContext owner, CancellationToken ct) =>
+        CheckAsync(owner, true, ct);
+
+    public Task<bool> IsReadReadyAsync(ProcurementDbContext owner, CancellationToken ct) =>
+        CheckAsync(owner, false, ct);
+
+    private async Task<bool> CheckAsync(ProcurementDbContext owner, bool write, CancellationToken ct)
     {
         if (!owner.Database.IsNpgsql()) return false;
         var opened = false;
@@ -40,7 +46,7 @@ public sealed class ProcurementSourcingPolicyIdentitySchemaReadiness : IProcurem
             command.Transaction = owner.Database.CurrentTransaction?.GetDbTransaction(); command.CommandTimeout = 10;
             async Task<bool> True(string sql)
             { command.CommandText = sql; return await command.ExecuteScalarAsync(ct) is true; }
-            if (!await True(PrivilegeSql)) return false;
+            if (!await True(write ? PrivilegeSql : ReadPrivilegeSql)) return false;
             var model = owner.GetService<IDesignTimeModel>().Model;
             var identity = model.FindEntityType(typeof(SourcingPolicyIdentityEvidence));
             var policy = model.FindEntityType(typeof(PolicyVersion));
@@ -97,6 +103,37 @@ public sealed class ProcurementSourcingPolicyIdentitySchemaReadiness : IProcurem
             string[] append = ["sourcing_policy_identity_evidence", "audit_events", "outbox_events"];
             var clauses = append.Select(table => "has_table_privilege(current_user," + Literal("procurement." + table) + ",'SELECT') AND has_table_privilege(current_user," + Literal("procurement." + table) + ",'INSERT') AND NOT has_table_privilege(current_user," + Literal("procurement." + table) + ",'UPDATE') AND NOT has_table_privilege(current_user," + Literal("procurement." + table) + ",'DELETE') AND NOT has_any_column_privilege(current_user," + Literal("procurement." + table) + ",'UPDATE') AND NOT has_table_privilege(current_user," + Literal("procurement." + table) + ",'TRUNCATE')").ToList();
             clauses.Add("has_table_privilege(current_user,'procurement.policy_versions','SELECT') AND has_table_privilege(current_user,'procurement.policy_versions','INSERT') AND has_table_privilege(current_user,'procurement.policy_versions','UPDATE') AND NOT has_table_privilege(current_user,'procurement.policy_versions','DELETE') AND NOT has_table_privilege(current_user,'procurement.policy_versions','TRUNCATE')");
+            clauses.Add("has_table_privilege(current_user,'procurement.__procurement_migrations','SELECT')");
+            clauses.Add("NOT EXISTS(SELECT 1 FROM pg_roles WHERE rolname=current_user AND (rolsuper OR rolcreatedb OR rolcreaterole OR rolreplication OR rolbypassrls))");
+            clauses.Add("NOT has_schema_privilege(current_user,'procurement','CREATE')");
+            return "SELECT " + string.Join(" AND ", clauses);
+        }
+    }
+
+    // The Execution role reads policy identity while opening/deciding an RFQ. Its
+    // own append-only audit/outbox rights remain required; policy authoring stays
+    // on the Record connection and is explicitly absent here.
+    internal static string ReadPrivilegeSql
+    {
+        get
+        {
+            string[] append = ["audit_events", "outbox_events"];
+            var clauses = append.Select(table => "has_table_privilege(current_user," + Literal("procurement." + table)
+                + ",'SELECT') AND has_table_privilege(current_user," + Literal("procurement." + table)
+                + ",'INSERT') AND NOT has_any_column_privilege(current_user," + Literal("procurement." + table)
+                + ",'UPDATE') AND NOT has_table_privilege(current_user," + Literal("procurement." + table)
+                + ",'DELETE') AND NOT has_table_privilege(current_user," + Literal("procurement." + table)
+                + ",'TRUNCATE')").ToList();
+            clauses.Add("has_table_privilege(current_user,'procurement.sourcing_policy_identity_evidence','SELECT')"
+                + " AND NOT has_any_column_privilege(current_user,'procurement.sourcing_policy_identity_evidence','INSERT')"
+                + " AND NOT has_any_column_privilege(current_user,'procurement.sourcing_policy_identity_evidence','UPDATE')"
+                + " AND NOT has_table_privilege(current_user,'procurement.sourcing_policy_identity_evidence','DELETE')"
+                + " AND NOT has_table_privilege(current_user,'procurement.sourcing_policy_identity_evidence','TRUNCATE')");
+            clauses.Add("has_table_privilege(current_user,'procurement.policy_versions','SELECT')"
+                + " AND NOT has_any_column_privilege(current_user,'procurement.policy_versions','INSERT')"
+                + " AND NOT has_any_column_privilege(current_user,'procurement.policy_versions','UPDATE')"
+                + " AND NOT has_table_privilege(current_user,'procurement.policy_versions','DELETE')"
+                + " AND NOT has_table_privilege(current_user,'procurement.policy_versions','TRUNCATE')");
             clauses.Add("has_table_privilege(current_user,'procurement.__procurement_migrations','SELECT')");
             clauses.Add("NOT EXISTS(SELECT 1 FROM pg_roles WHERE rolname=current_user AND (rolsuper OR rolcreatedb OR rolcreaterole OR rolreplication OR rolbypassrls))");
             clauses.Add("NOT has_schema_privilege(current_user,'procurement','CREATE')");
