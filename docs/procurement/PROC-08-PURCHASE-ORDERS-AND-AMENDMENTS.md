@@ -134,8 +134,9 @@ belongs here in `PROC-08`.
    the existing PR allocation ledger and PO/line masters.
 5. **Actors:** current Core buyer, separate original PR maker/checker/approver,
    auditor. An HRMS worker link is optional alias metadata, not eligibility.
-6. **Entry:** buyer opens scoped approved direct sources or a source-backed PO
-   draft. No generic unlinked draft is converted implicitly.
+6. **Entry:** buyer opens scoped approved direct sources, a company-owned
+   currently orderable supplier lookup, or a source-backed PO draft. No
+   generic unlinked draft is converted implicitly.
 7. **Preconditions:** explicit company/current branch/action, approved source,
    current manual checker authority, direct method with zero required quotes,
    eligible supplier, exact currency/UOM and source quantity. Capability is off
@@ -155,8 +156,11 @@ belongs here in `PROC-08`.
 12. **Data/owner:** Procurement owns a versioned original direct-source binding
     per PO line, its current PO draft, allocation, audit, outbox and immutable
     command receipt. Core owns user/branch/action; Finance owns commitments.
-13. **Views:** exact eligible source picker, owned draft/history and cancel
-    impact. No Finance or supplier-facing badge from an internal draft.
+13. **Views:** exact eligible source picker, bounded supplier lookup using the
+    same native order eligibility rule, owned draft/history and cancel impact.
+    Detail resolves a human supplier and Core branch label when retained
+    references remain available. No Finance or supplier-facing badge from an
+    internal draft.
 14. **UX:** show approved versus proposed quantities and why a candidate needs
     review; unknown write prompts read-only receipt recovery before retry.
 15. **Notifications:** none required for this bounded internal draft slice.
@@ -164,8 +168,12 @@ belongs here in `PROC-08`.
 17. **Exceptions:** stale PR/PO CAS, concurrent RFQ/PO reservation, expired
     checker policy, suspended supplier, changed branch/grant, mismatched receipt
     key, missing retained source and failed database write all fail closed.
-18. **API/events:** versioned `/orders/principal-direct-*` endpoints and
-    internal draft/release events only; no Finance, AP or delivery event.
+18. **API/events:** versioned `/orders/principal-direct-*` endpoints include
+    source/supplier discovery, Create, own draft list/detail, Cancel and exact
+    command receipt recovery. Supplier discovery uses `po-convert`, emits only
+    identifier, number and display name, and refuses a search over 5,000
+    candidate masters. Internal draft/release events only; no Finance, AP or
+    delivery event.
 19. **Audit/security:** original source IDs, policy/finance digests, actor,
     reason, command key and old/new quantity remain reconstructable. Generic
     draft edit/cancel cannot modify P30 source-controlled records.

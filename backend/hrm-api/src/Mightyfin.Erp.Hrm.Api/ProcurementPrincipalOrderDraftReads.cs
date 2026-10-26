@@ -11,6 +11,32 @@ namespace Mightyfin.Erp.Hrm.Api;
 
 public static partial class ProcurementPrincipalOrderDraftRoutes
 {
+    private static Task<IResult> Suppliers(int? page,int? pageSize,string? q,HttpContext http,
+        ProcurementRequestScope scope,CancellationToken ct)=>Run(http,scope,async(db,cases,core,auth,token)=>
+    {
+        var paging=ProcurementSourcingDiscoveryQueries.Paging(page,pageSize,q);
+        _=await Actor(core,scope,http,auth,"procurement-po-convert",null,false,token);
+        // Supplier masters belong to the selected company. The current Core branch
+        // context still has to be valid; suppliers themselves have no branch owner.
+        _=await ProcurementExecutionRecordScope.Branches(core,scope,null,false,token);
+        var query=db.Suppliers.AsNoTracking().Where(x=>x.Status=="Active"&&x.IsOrderable);
+        if(paging.Search.Length>0)query=query.Where(x=>EF.Functions.ILike(x.Number,paging.Pattern,"\\")
+            || EF.Functions.ILike(x.DisplayName,paging.Pattern,"\\"));
+        // Keep the exact native qualification and payment eligibility rule. A
+        // too-broad lookup asks for a narrower search instead of silently hiding
+        // eligible suppliers beyond a page of database candidates.
+        var candidateCount=await query.CountAsync(token);
+        if(candidateCount>5000)throw new Problem("OrderSupplierSearchTooBroad",422);
+        var candidates=await query.Include(x=>x.Qualifications).OrderBy(x=>x.DisplayName).ThenBy(x=>x.Id)
+            .ToArrayAsync(token);
+        var now=DateTimeOffset.UtcNow;
+        var eligible=candidates.Where(x=>SupplierEligibility.CanReceiveNewOrders(x,now)).ToArray();
+        var rows=eligible.Skip(paging.Offset).Take(paging.Size)
+            .Select(x=>new{x.Id,x.Number,x.DisplayName}).ToArray();
+        return new Reply(JsonSerializer.Serialize(new{items=rows,total=eligible.Length,
+            page=paging.Number,pageSize=paging.Size},Json));
+    },ct);
+
     private static Task<IResult> Sources(int? page,int? pageSize,string? q,HttpContext http,
         ProcurementRequestScope scope,CancellationToken ct)=>Run(http,scope,async(db,cases,core,auth,token)=>
     {
@@ -103,7 +129,13 @@ public static partial class ProcurementPrincipalOrderDraftRoutes
                     &&a.Quantity==x.Quantity&&a.EstimatedValue==x.EstimatedValue
                     &&a.Status==(order.Status=="Draft"?"Reserved":"Released"))!=1))
                 throw new Problem("OrderOriginalSourceUnavailable",409);
+            var supplierDisplayName=await db.Suppliers.AsNoTracking().Where(x=>x.Id==order.SupplierId)
+                .Select(x=>x.DisplayName).SingleOrDefaultAsync(token);
+            var branchDisplayName=await core.WorkLocations.AsNoTracking()
+                .Where(x=>x.Id==order.BranchRef&&x.LegalEntityId==scope.LegalEntityId)
+                .Select(x=>x.Name).SingleOrDefaultAsync(token);
             return new Reply(JsonSerializer.Serialize(new{order.Id,order.Number,order.SupplierId,
+                supplierDisplayName,branchDisplayName,
                 order.CurrencyCode,order.BranchRef,order.Status,order.Version,order.CreatedAt,
                 order.ShipToRef,order.BillToRef,order.PaymentTermRef,order.ExpectedDeliveryOn,
                 order.ClosureReason,order.OriginalDirectSourceSha256,

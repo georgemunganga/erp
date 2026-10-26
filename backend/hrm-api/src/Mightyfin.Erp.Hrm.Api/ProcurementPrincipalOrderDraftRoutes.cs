@@ -25,6 +25,7 @@ public static partial class ProcurementPrincipalOrderDraftRoutes
     {
         var group=app.MapGroup("/api/procurement/v1/orders");
         group.MapGet("/approved-principal-direct-sources",Sources).RequireAuthorization("procurement-po-convert");
+        group.MapGet("/principal-direct-suppliers",Suppliers).RequireAuthorization("procurement-po-convert");
         group.MapPost("/from-approved-principal-direct-sources",Create).RequireAuthorization("procurement-po-convert");
         group.MapGet("/principal-direct-drafts",List).RequireAuthorization("procurement-po-read");
         group.MapGet("/{id:guid}/principal-direct-draft",Detail).RequireAuthorization("procurement-po-read");
