@@ -10,17 +10,24 @@ namespace Mightyfin.Erp.Hrm.Api;
 
 public static partial class ProcurementPrincipalOrderDraftRoutes
 {
+    internal static bool HasValidCreateSelectionShape(CreateInput? input)
+    {
+        if (input?.Draft?.Lines is null || input.Sources is null
+            || input.Sources.Count != input.Draft.Lines.Count || input.Sources.Count is < 1 or > 100
+            || input.Sources.Any(x => x is null) || input.Draft.Lines.Any(x => x is null)) return false;
+        return input.Sources.Select(x => x.DraftLineIndex).Distinct().Count() == input.Sources.Count
+            && !input.Sources.Any(x => x.DraftLineIndex < 0 || x.DraftLineIndex >= input.Draft.Lines.Count
+                || x.PurchaseRequestId == Guid.Empty || x.PurchaseRequestLineId == Guid.Empty
+                || x.ExpectedRequestVersion < 1)
+            && input.Sources.Select(x => x.PurchaseRequestLineId).Distinct().Count() == input.Sources.Count
+            && !input.Draft.Lines.Any(x => x.Id is not null);
+    }
+
     private static Task<IResult> Create(CreateInput input,HttpContext http,ProcurementRequestScope scope,CancellationToken ct)
         =>Run(http,scope,async(db,cases,core,auth,token)=>
         {
             var key=Key(http);
-            if(input is null || input.Draft is null || input.Sources is null || input.Draft.Lines is null
-                || input.Sources.Count!=input.Draft.Lines.Count || input.Sources.Count is <1 or >100
-                || input.Sources.Select(x=>x.DraftLineIndex).Distinct().Count()!=input.Sources.Count
-                || input.Sources.Any(x=>x.DraftLineIndex<0||x.DraftLineIndex>=input.Draft.Lines.Count
-                    || x.PurchaseRequestId==Guid.Empty || x.PurchaseRequestLineId==Guid.Empty || x.ExpectedRequestVersion<1)
-                || input.Sources.Select(x=>x.PurchaseRequestLineId).Distinct().Count()!=input.Sources.Count
-                || input.Draft.Lines.Any(x=>x.Id is not null))throw new Problem("OrderSourceSelectionInvalid",422);
+            if (!HasValidCreateSelectionShape(input)) throw new Problem("OrderSourceSelectionInvalid",422);
             var actor=await Actor(core,scope,http,auth,"procurement-po-convert",null,false,token);
             // Bind the submitted command, before a mutable company currency default is resolved.
             var fingerprint=Fingerprint(new{schemaVersion=2,operation="Create",actor=actor.PrincipalId,draft=input.Draft,
