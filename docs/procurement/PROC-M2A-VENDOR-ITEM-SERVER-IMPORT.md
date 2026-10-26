@@ -38,6 +38,8 @@ Current Core principal, selected authorized tenant/company, applicable Core scop
 
 Import batch: `Previewed` → `Committed`, `Expired`, or `Rejected`; failed commit leaves no partially created master rows. A committed batch is immutable apart from bounded retention metadata. Imported Vendor is `Draft` and not orderable; imported Item is `Inactive` and not purchasable/published. Supplier submit/approve and Item activate/publish remain separate authorized actions.
 
+`Expired` is terminal only after the database sweep has locked and changed an uncommitted row. An expired wall clock on a still-`Previewed` row cannot resolve an uncertain commit. Committed history, row receipts, and masters remain under existing company retention and legal-hold governance; this feature adds no approved-record deletion.
+
 ## 10. Permissions and Data Scope
 
 Register explicit named actions `procurement-vendor-import` and `procurement-item-import` and their closed policies. Require vendor-import **and** vendor-create for Vendor; item-import **and** item-manage for Item. Exclude both actions from legacy ERP-admin implicit expansion, as with existing explicit-only export/return actions. A template request, preview, commit, and recovery all enforce current Core principal, selected company, and applicable scope context; recovery is restricted to the owning actor or an explicitly authorized scoped steward with a separately defined support contract. Query duplicate candidates inside tenant/company and the existing master visibility/authority boundary before returning any candidate detail; do not reveal foreign-company or hidden supplier data. Company-wide masters are not made branch-owned by this feature. An omitted or All-branches selection follows the existing company-master/Core admission rules; it is not an unconditional branch requirement or a way to widen company access.
@@ -78,6 +80,8 @@ Proposed native endpoints under each existing `/api/procurement/v1/vendors` or `
 
 Audit template/preview as bounded metadata where policy requires; commit records actor, scope, batch/command ID, file and mapping digests, row counts, outcome and correlation. The protected `ImportBatch`-owned preview snapshot contains only allowlisted normalized mapped rows, row numbers, dispositions and acknowledgements; keep original CSV bytes outside the database. Do not put raw CSV, canonical row values, banking/tax/contact values, or full error payload in audit/application logs. Duplicate detection and row errors must not expose a hidden supplier or foreign company. Enforce file parser resource limits, explicit field allowlist, current authorization at every phase, no cache of sensitive preview rows in a global static dictionary, and `Cache-Control: no-store` on sensitive responses.
 
+An uncommitted mapped snapshot is transient technical input. After its 15-minute preview TTL, a separate finite maintenance role locks and clears only the snapshot text, persists `Expired`, and appends a tenant/company-scoped `PreviewExpired` audit event in the same transaction. It retains the actor, company, file/snapshot digests, row count and audit metadata. It never sweeps a committed batch, receipt or master. The TTL is not a new business-record retention period.
+
 ## 20. Reports, Dashboards and Metrics
 
 Scoped batch status/history can report created, skipped, rejected and expired counts, validation-error categories, and recovery attempts. It is not a supplier approval or item publication report. Avoid per-row sensitive values in broad dashboards.
@@ -85,6 +89,8 @@ Scoped batch status/history can report created, skipped, rejected and expired co
 ## 21. Configuration and Localization
 
 Use conservative engineering defaults of 5 MiB per file, 1,000 data rows, 64 columns, 16 KiB per cell, and 15 minutes preview lifetime, each with a bounded hard ceiling and measured adjustment before activation. These resource limits are engineering configuration, not a new business-policy approval or the demo's 25 MB limit. Use server-owned template version and company reference codes. CSV encoding and dates use documented invariant forms, while display labels may be localized. Duplicate policy defaults to `reject` until a user explicitly selects `skip`; overwrite is unavailable.
+
+Before storing a preview, a tenant/company transaction advisory lock serializes a default quota of three uncleared previews per actor/company and 64 MiB of uncleared mapped snapshot text per company. Expired but unswept input still counts. Configured limits have hard ceilings; invalid settings fail closed. Full quota returns HTTP 429 `import-staging-full`. A second preview never silently replaces an earlier one. The worker uses an explicit separate maintenance DSN; new work stays unavailable until its finite-role check and recent sweep succeed. It has no owner, Core, ordinary Record, master or receipt write fallback.
 
 ## 22. Non-Functional Requirements
 
@@ -97,6 +103,8 @@ Successful commit leaves only server-created Draft Vendors or Inactive Items, im
 ## 24. Failure and Recovery
 
 On 4xx validation/duplicate errors, return row-specific causes without applying any row. On unknown 5xx/network outcome, the UI performs scoped GET recovery using the original batch/command key and refuses a new key until reconciled. Same-key replay returns exact original result; conflict never reuses a stored result for different data. Expired preview requires a fresh preview. Restore/retry must recheck current scope and grants; revocation cannot be bypassed by a stored preview.
+
+Reader-only scoped recovery remains available during new-work flag or maintenance outage when the physical schema and current Core permissions remain valid. Only persisted `Expired` can clear an uncertain preview journal; the local timer cannot. An unswept expired preview may still be committing, so the UI holds it pending.
 
 ## 25. Acceptance Criteria
 
@@ -113,3 +121,5 @@ Procurement owns native routes, `Supplier`/`CatalogItem` validation, batch/row f
 ## 28. Open Decisions and Assumptions
 
 Owners must settle: (1) exact safe optional Vendor/Item field allowlists; required native draft fields remain as coded, and any category/UOM reference authority must be proven before adding a stricter draft gate; (2) normalized-name similarity threshold, warning text, and who may acknowledge a potential supplier duplicate—registration itself remains optional; (3) hard resource ceilings and retention/privacy for the protected preview and child receipts; (4) permitted support-user recovery, if any; (5) CSV original retention/scanning policy; (6) transaction timeout and batch size that meet measured resources; (7) final route names. None is a claim of approved business policy, current runtime support, or production deployment.
+
+The bounded uncommitted snapshot TTL and staging quota above are engineering controls. Company retention and legal hold for committed batches, receipts, audit and masters remain with their existing owners; this slice neither chooses a new period nor automates deletion. Persisted batch/audit metadata still grows over time and needs an owner-approved lifecycle plan before broad activation.

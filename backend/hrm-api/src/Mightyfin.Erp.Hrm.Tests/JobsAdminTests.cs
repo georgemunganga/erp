@@ -167,11 +167,14 @@ public sealed class JobsAdminTests
         var admin = Assert.Single(roles, x => x.RoleKey == "erp_admin");
         Assert.Equal(["erp_admin"], admin.Permissions); // HRM/system edit projection is unchanged.
         var expectedLegacyAdmin = ProcurementActionCatalog.AdminReadCatalog().Select(action => action.Key)
-            .Except(["procurement-vendor-export", "procurement-item-export"])
+            .Except(["procurement-vendor-export", "procurement-item-export",
+                "procurement-vendor-import", "procurement-item-import"])
             .Order(StringComparer.Ordinal).ToArray();
         Assert.Equal(expectedLegacyAdmin, admin.EffectiveProcurementPermissions);
         Assert.DoesNotContain("procurement-vendor-export", admin.EffectiveProcurementPermissions);
         Assert.DoesNotContain("procurement-item-export", admin.EffectiveProcurementPermissions);
+        Assert.DoesNotContain("procurement-vendor-import", admin.EffectiveProcurementPermissions);
+        Assert.DoesNotContain("procurement-item-import", admin.EffectiveProcurementPermissions);
         Assert.Contains("procurement-payment-confirm", admin.EffectiveProcurementPermissions);
         Assert.Contains("procurement-sourcing-publish", admin.EffectiveProcurementPermissions);
         var disabled = Assert.Single(roles, x => x.RoleKey == "disabled_buyer");

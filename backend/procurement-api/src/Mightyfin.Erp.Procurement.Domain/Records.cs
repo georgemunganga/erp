@@ -346,11 +346,34 @@ public sealed class ImportBatch : ProcurementRecord
     public string RecordType { get; set; } = null!;
     public string FileName { get; set; } = null!;
     public string FileSha256 { get; set; } = null!;
+    public string? ActorSubjectId { get; set; }
+    public int SchemaVersion { get; set; }
+    public string? DuplicatePolicy { get; set; }
+    /// <summary>Protected, versioned mapped rows and row dispositions; never original CSV bytes.</summary>
+    public string? PreviewSnapshotText { get; set; }
+    public string? PreviewSha256 { get; set; }
+    public Guid? CommitCommandKey { get; set; }
+    public string? CommitRequestSha256 { get; set; }
+    /// <summary>Authoritative response bytes. Existing ResultJson is jsonb and cannot serve replay.</summary>
+    public string? ResultText { get; set; }
+    public string? ResultSha256 { get; set; }
     public string State { get; set; } = "Previewed";
     public int TotalRows { get; set; }
     public int AppliedRows { get; set; }
     public DateTimeOffset ExpiresAt { get; set; }
     public string? ResultJson { get; set; }
+}
+
+/// <summary>Immutable per-row import outcome, scoped to one committed batch.</summary>
+public sealed class ImportRowReceipt : ProcurementRecord
+{
+    public Guid ImportBatchId { get; set; }
+    public int RowNumber { get; set; }
+    public int StartLine { get; set; }
+    public int EndLine { get; set; }
+    public string Disposition { get; set; } = null!;
+    public Guid? CreatedRecordId { get; set; }
+    public string RowSha256 { get; set; } = null!;
 }
 
 /// <summary>Append-only business audit metadata. Sensitive field values are not stored here.</summary>

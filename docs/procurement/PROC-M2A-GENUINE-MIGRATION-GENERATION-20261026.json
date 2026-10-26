@@ -1,0 +1,26 @@
+{
+  "status": "GENUINE_GENERATION_WITH_NEW_MIGRATION_DOWN_GUARD_NOT_BUILD_OR_DATABASE_ACCEPTANCE",
+  "modelSource": "3f89b86d8b1bc9d2147f95e961c498536c1335eb",
+  "runtimeSourceBeforeMigration": "3f457517b2dafaad99c688481e9124e88b3950ed",
+  "generationResultSha256": "b5ce5e55ce69a33602735a1d0c7f8bceee23bbd82629a5d636293e7f32bb7aca",
+  "rawGeneratedManifestSha256": "7c4d5856afe1dc23e25bfaecd81d46db7a9531fc68764f1b3b560fdcc207e549",
+  "migrationId": "20261026005531_M2aMasterImportReceipts",
+  "scope": {
+    "batchColumnsAdded": 9,
+    "rowReceiptTableColumns": 15,
+    "newScopeCommandUniqueIndex": true,
+    "newScopedBatchRowUniqueIndex": true,
+    "receiptScopeFk": "Restrict; tenant + company + batch ID",
+    "oldEntityPropertiesOrMappingChanged": false
+  },
+  "rawGeneratedFiles": {
+    "20261026005531_M2aMasterImportReceipts.cs": "88a08e4f007ff4709604dc8cd8feed100cdf1e6cde7c9ae42a4b2d486c28be52",
+    "20261026005531_M2aMasterImportReceipts.Designer.cs": "a9b0212664d9a4cc9319446d7605652914ec7c5fe57adfcb789514f59a03256f",
+    "ProcurementDbContextModelSnapshot.cs": "2f08eb0b9b2fbff35a30ee8f6d8285553397dda62d9c86abb0dcd9497fcfcdc7"
+  },
+  "newDownGuard": "55000 before any drop when receipt, new batch metadata, retained import audit or outbox evidence exists; raw generated files preserved separately",
+  "historicalMigrationsEdited": false,
+  "snapshotAndDesignerEqualRawGenerated": true,
+  "otherCoreOrHrmSchemaChanged": false,
+  "databaseOrRolesOrDeploymentChanged": false
+}

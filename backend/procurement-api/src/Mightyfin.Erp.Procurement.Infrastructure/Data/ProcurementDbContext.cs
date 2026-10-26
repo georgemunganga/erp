@@ -1,3 +1,5 @@
+using System.Security.Cryptography;
+using System.Text;
 using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
@@ -27,6 +29,7 @@ public sealed partial class ProcurementDbContext(DbContextOptions<ProcurementDbC
     public DbSet<ProcurementAttachmentRef> AttachmentRefs => Set<ProcurementAttachmentRef>();
     public DbSet<PolicyVersion> PolicyVersions => Set<PolicyVersion>();
     public DbSet<ImportBatch> ImportBatches => Set<ImportBatch>();
+    public DbSet<ImportRowReceipt> ImportRowReceipts => Set<ImportRowReceipt>();
     public DbSet<AuditEvent> AuditEvents => Set<AuditEvent>();
     public DbSet<OutboxEvent> OutboxEvents => Set<OutboxEvent>();
     public DbSet<SourcingEvent> SourcingEvents => Set<SourcingEvent>();
@@ -126,6 +129,7 @@ public sealed partial class ProcurementDbContext(DbContextOptions<ProcurementDbC
         ConfigureBase<ProcurementAttachmentRef>(modelBuilder, "attachment_refs");
         ConfigureBase<PolicyVersion>(modelBuilder, "policy_versions");
         ConfigureBase<ImportBatch>(modelBuilder, "import_batches");
+        ConfigureBase<ImportRowReceipt>(modelBuilder, "import_row_receipts");
         ConfigureBase<AuditEvent>(modelBuilder, "audit_events");
         ConfigureBase<OutboxEvent>(modelBuilder, "outbox_events");
         ConfigureLifecycle<SourcingEvent>(modelBuilder, "sourcing_events");
@@ -508,9 +512,32 @@ public sealed partial class ProcurementDbContext(DbContextOptions<ProcurementDbC
         {
             b.Property(x => x.RecordType).HasMaxLength(60);
             b.Property(x => x.FileSha256).HasMaxLength(64);
+            b.Property(x => x.ActorSubjectId).HasMaxLength(200);
+            b.Property(x => x.DuplicatePolicy).HasMaxLength(16);
+            b.Property(x => x.PreviewSha256).HasMaxLength(64);
+            b.Property(x => x.CommitRequestSha256).HasMaxLength(64);
+            b.Property(x => x.ResultSha256).HasMaxLength(64);
+            b.Property(x => x.PreviewSnapshotText).HasColumnType("text");
+            b.Property(x => x.ResultText).HasColumnType("text");
             b.Property(x => x.State).HasMaxLength(30);
             b.Property(x => x.ResultJson).HasColumnType("jsonb");
             b.HasIndex(x => new { x.TenantId, x.LegalEntityId, x.State, x.ExpiresAt });
+            b.HasIndex(x => new { x.TenantId, x.LegalEntityId, x.CommitCommandKey })
+                .IsUnique().HasFilter("commit_command_key IS NOT NULL")
+                .HasDatabaseName("ix_import_batches_scope_command");
+        });
+        modelBuilder.Entity<ImportRowReceipt>(b =>
+        {
+            b.Property(x => x.Disposition).HasMaxLength(20);
+            b.Property(x => x.RowSha256).HasMaxLength(64);
+            b.HasIndex(x => new { x.TenantId, x.LegalEntityId, x.ImportBatchId, x.RowNumber })
+                .IsUnique().HasDatabaseName("ix_import_row_receipts_batch_row");
+            b.HasOne<ImportBatch>().WithMany()
+                .HasForeignKey(x => new { x.TenantId, x.LegalEntityId, x.ImportBatchId })
+                .HasPrincipalKey(x => new { x.TenantId, x.LegalEntityId, x.Id })
+                .OnDelete(DeleteBehavior.Restrict);
+            b.ToTable(t => t.HasCheckConstraint("ck_import_row_receipts_bounds",
+                "row_number >= 2 AND start_line >= 2 AND end_line >= start_line"));
         });
         modelBuilder.Entity<AuditEvent>(b =>
         {
@@ -731,6 +758,7 @@ public sealed partial class ProcurementDbContext(DbContextOptions<ProcurementDbC
         GuardSourcingPolicyIdentity();
         GuardOperationalPolicyIdentity();
         GuardInvoiceUnitReview();
+        GuardMasterImportChanges();
         var now = DateTimeOffset.UtcNow;
         var changes = ChangeTracker.Entries<ProcurementRecord>()
             .Where(entry => entry.State is EntityState.Added or EntityState.Modified or EntityState.Deleted).ToList();
@@ -741,6 +769,7 @@ public sealed partial class ProcurementDbContext(DbContextOptions<ProcurementDbC
             if (entry.State == EntityState.Modified && entry.Entity is AuditEvent or SupplierDecision or PolicyEvaluation or BudgetCheckSnapshot or PurchaseRequestApprovalSubmission
                 or BidEvaluation or InvoiceMatchResult or FinancePaymentStatusRef or SupplierOrderAcknowledgement
                 or ProcurementComment or ProcurementSetupAssessment or PurchaseRequestApprovalOutcome
+                or ImportRowReceipt
                 or PurchaseRequestFinanceReleaseRequest or PurchaseRequestFinanceReleaseConfirmation
                 or ManualPaymentDecision or ManualPaymentCommandReceipt
                 or ManualPaymentWorkflowCaseLink or ManualPaymentCoreDecisionLink or ManualPaymentBusinessDateObservation)
@@ -783,5 +812,126 @@ public sealed partial class ProcurementDbContext(DbContextOptions<ProcurementDbC
                 CreatedBy = scope.SubjectId,
             });
         }
+    }
+
+    private void GuardMasterImportChanges()
+    {
+        foreach (var added in ChangeTracker.Entries<ImportBatch>()
+            .Where(x => x.State == EntityState.Added && (x.Entity.RecordType is "Vendor" or "Item")))
+        {
+            if (added.Entity.State != "Previewed" || added.Entity.CommitCommandKey is not null
+                || added.Entity.CommitRequestSha256 is not null || added.Entity.ResultText is not null
+                || added.Entity.ResultSha256 is not null || added.Entity.AppliedRows != 0
+                || added.Entity.ActorSubjectId != scope.SubjectId
+                || added.Entity.SchemaVersion != 1 || added.Entity.TotalRows is < 1 or > 1000
+                || added.Entity.DuplicatePolicy is not ("reject" or "skip")
+                || added.Entity.ExpiresAt <= DateTimeOffset.UtcNow
+                || added.Entity.ExpiresAt > DateTimeOffset.UtcNow.AddMinutes(16)
+                || added.Entity.PreviewSnapshotText is null
+                || added.Entity.PreviewSha256 != Convert.ToHexString(SHA256.HashData(
+                    Encoding.UTF8.GetBytes(added.Entity.PreviewSnapshotText))).ToLowerInvariant())
+                throw new InvalidOperationException("A master import starts as an immutable preview.");
+        }
+        var transitions = ChangeTracker.Entries<ImportBatch>()
+            .Where(x => x.State == EntityState.Modified &&
+                (x.Entity.RecordType is "Vendor" or "Item"
+                    || x.OriginalValues.GetValue<string>(nameof(ImportBatch.RecordType)) is "Vendor" or "Item"))
+            .ToArray();
+        var receipts = ChangeTracker.Entries<ImportRowReceipt>()
+            .Where(x => x.State == EntityState.Added).Select(x => x.Entity).ToArray();
+        if (transitions.Length > 1)
+            throw new InvalidOperationException("One scoped import batch may commit per save.");
+        foreach (var entry in transitions)
+        {
+            var allowed = new HashSet<string>(StringComparer.Ordinal)
+            {
+                nameof(ImportBatch.State), nameof(ImportBatch.AppliedRows),
+                nameof(ImportBatch.CommitCommandKey), nameof(ImportBatch.CommitRequestSha256),
+                nameof(ImportBatch.ResultText), nameof(ImportBatch.ResultSha256),
+            };
+            if (entry.Properties.Any(x => x.IsModified && !allowed.Contains(x.Metadata.Name)))
+                throw new InvalidOperationException("An import preview cannot be changed after it is stored.");
+            if (entry.OriginalValues.GetValue<string>(nameof(ImportBatch.State)) != "Previewed"
+                || entry.Entity.State != "Committed" || entry.Entity.CommitCommandKey is null
+                || string.IsNullOrWhiteSpace(entry.Entity.CommitRequestSha256)
+                || string.IsNullOrWhiteSpace(entry.Entity.ResultText)
+                || string.IsNullOrWhiteSpace(entry.Entity.ResultSha256))
+                throw new InvalidOperationException("Only one complete import commit transition is permitted.");
+            var batch = entry.Entity;
+            var own = receipts.Where(x => x.ImportBatchId == batch.Id
+                && x.TenantId == batch.TenantId && x.LegalEntityId == batch.LegalEntityId).ToArray();
+            var createdMasters = ChangeTracker.Entries<ProcurementRecord>()
+                .Where(x => x.State == EntityState.Added
+                    && (x.Entity is Supplier or CatalogItem))
+                .Select(x => x.Entity).ToArray();
+            if (batch.TotalRows < 1 || own.Length != batch.TotalRows
+                || batch.AppliedRows != own.Count(x => x.Disposition == "create")
+                || createdMasters.Length != batch.AppliedRows
+                || own.Select(x => x.RowNumber).Distinct().Count() != own.Length
+                || own.Where(x => x.CreatedRecordId is not null).Select(x => x.CreatedRecordId).Distinct().Count()
+                    != batch.AppliedRows
+                || own.Min(x => x.RowNumber) != 2
+                || (long)own.Max(x => x.RowNumber) != (long)batch.TotalRows + 1
+                || own.Any(x => x.RowNumber < 2 || x.EndLine < x.StartLine || x.StartLine < 2
+                    || x.Disposition is not ("create" or "skip")
+                    || (x.CreatedRecordId is not null) != (x.Disposition == "create")
+                    || x.RowSha256 is not { Length: 64 }
+                    || x.CreatedRecordId is { } createdId
+                        && !createdMasters.Any(master => master.Id == createdId
+                            && master.TenantId == x.TenantId && master.LegalEntityId == x.LegalEntityId
+                            && (batch.RecordType == "Vendor" && master is Supplier
+                                || batch.RecordType == "Item" && master is CatalogItem)))
+                || Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(batch.ResultText!)))
+                    .ToLowerInvariant() != batch.ResultSha256
+                || !ValidMasterImportResult(batch, own))
+                throw new InvalidOperationException("Import commit receipts must exactly accompany the scoped batch.");
+        }
+        if (receipts.Any(x => !transitions.Any(b => b.Entity.Id == x.ImportBatchId
+            && b.Entity.TenantId == x.TenantId && b.Entity.LegalEntityId == x.LegalEntityId)))
+            throw new InvalidOperationException("An import row receipt needs its owning batch commit.");
+    }
+
+    public static bool ValidMasterImportResult(ImportBatch batch, IReadOnlyList<ImportRowReceipt> receipts)
+    {
+        if (batch.ResultText is null || batch.ResultSha256 is null
+            || Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(batch.ResultText)))
+                .ToLowerInvariant() != batch.ResultSha256
+            || receipts.Count != batch.TotalRows) return false;
+        try
+        {
+            using var document = JsonDocument.Parse(batch.ResultText);
+            var root = document.RootElement;
+            if (root.ValueKind != JsonValueKind.Object
+                || root.EnumerateObject().Select(x => x.Name).OrderBy(x => x, StringComparer.Ordinal)
+                    .SequenceEqual(new[] { "batchId", "created", "rows", "skipped" }) is false
+                || root.GetProperty("batchId").GetGuid() != batch.Id
+                || root.GetProperty("created").GetInt32() != batch.AppliedRows
+                || root.GetProperty("skipped").GetInt32() != batch.TotalRows - batch.AppliedRows)
+                return false;
+            var rows = root.GetProperty("rows");
+            if (rows.ValueKind != JsonValueKind.Array || rows.GetArrayLength() != receipts.Count) return false;
+            var saved = receipts.OrderBy(x => x.RowNumber).ToArray();
+            for (var i = 0; i < saved.Length; i++)
+            {
+                var result = rows[i];
+                if (result.ValueKind != JsonValueKind.Object
+                    || result.EnumerateObject().Select(x => x.Name).OrderBy(x => x, StringComparer.Ordinal)
+                        .SequenceEqual(new[] { "disposition", "recordId", "rowNumber" }) is false
+                    || result.GetProperty("rowNumber").GetInt32() != saved[i].RowNumber
+                    || result.GetProperty("disposition").GetString() != saved[i].Disposition)
+                    return false;
+                var recordId = result.GetProperty("recordId");
+                if (saved[i].CreatedRecordId is Guid createdId)
+                {
+                    if (recordId.ValueKind != JsonValueKind.String || recordId.GetGuid() != createdId)
+                        return false;
+                }
+                else if (recordId.ValueKind != JsonValueKind.Null) return false;
+            }
+            return true;
+        }
+        catch (JsonException) { return false; }
+        catch (InvalidOperationException) { return false; }
+        catch (FormatException) { return false; }
     }
 }

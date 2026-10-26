@@ -157,8 +157,7 @@ public static class ProcurementItemEndpoints
         if (error is not null) return Results.UnprocessableEntity(new { code="validation-failed",message=error });
         var code = input.Code.Trim().ToUpperInvariant();
         if (await db.CatalogItems.AnyAsync(x => x.Code == code, ct)) return Conflict("An item with this code already exists.");
-        var item = new CatalogItem { Code = code, Status = "Inactive" };
-        Apply(input, item);
+        var item = ProcurementMasterDraftRules.NewItem(input);
         db.AddScoped(item);
         try { await db.SaveChangesAsync(ct); }
         catch (DbUpdateException) { return Conflict("The item could not be saved. Check its code and references."); }
@@ -369,20 +368,7 @@ public static class ProcurementItemEndpoints
         return Results.Ok(ToView(entry));
     }
 
-    private static string? ValidateItem(ItemInput? x)
-    {
-        if(x is null) return "Enter the item details before saving.";
-        if (string.IsNullOrWhiteSpace(x.Code) || x.Code.Trim().Length > 50) return "Enter an item code of up to 50 characters.";
-        if (string.IsNullOrWhiteSpace(x.Name) || x.Name.Trim().Length > 300) return "Enter an item name of up to 300 characters.";
-        if (string.IsNullOrWhiteSpace(x.Kind) || x.Kind.Trim().Length > 40) return "Choose an item type.";
-        if (string.IsNullOrWhiteSpace(x.CategoryCode)) return "Choose a category.";
-        if (string.IsNullOrWhiteSpace(x.UnitCode) || x.UnitCode.Trim().Length > 30) return "Choose a unit.";
-        if(x.PurchaseUnitConversion.HasValue && !ExactDecimalJsonCodec.IsRepresentable(x.PurchaseUnitConversion.Value,18,6)) return "Unit conversion must fit 18 digits with up to six decimal places.";
-        if(x.MinimumOrderQuantity.HasValue && !ExactDecimalJsonCodec.IsRepresentable(x.MinimumOrderQuantity.Value,18,4)) return "Minimum order quantity must fit 18 digits with up to four decimal places.";
-        if (x.PurchaseUnitConversion is <= 0) return "Unit conversion must be greater than zero.";
-        if (x.MinimumOrderQuantity is < 0 || x.LeadTimeDays is < 0) return "Quantity and lead time cannot be negative.";
-        return null;
-    }
+    private static string? ValidateItem(ItemInput? x) => ProcurementMasterDraftRules.ValidateItem(x);
 
     private static string? ValidateEntry(EntryInput x)
     {
@@ -402,18 +388,7 @@ public static class ProcurementItemEndpoints
         return null;
     }
 
-    private static void Apply(ItemInput x, CatalogItem item)
-    {
-        item.Name = x.Name.Trim(); item.Kind = x.Kind.Trim(); item.CategoryCode = x.CategoryCode.Trim();
-        item.UnitCode = x.UnitCode.Trim(); item.Description = x.Description?.Trim(); item.TaxCodeRef = x.TaxCodeRef?.Trim();
-        item.PurchaseUnitCode = x.PurchaseUnitCode?.Trim(); item.PurchaseUnitConversion = x.PurchaseUnitConversion;
-        item.Brand = x.Brand?.Trim(); item.Manufacturer = x.Manufacturer?.Trim();
-        item.ManufacturerPartNumber = x.ManufacturerPartNumber?.Trim(); item.LeadTimeDays = x.LeadTimeDays;
-        item.MinimumOrderQuantity = x.MinimumOrderQuantity; item.ExpenseAccountRef = x.ExpenseAccountRef?.Trim();
-        item.IsStockItem = x.IsStockItem; item.IsAsset = x.IsAsset; item.InspectionRequired = x.InspectionRequired;
-        // Steward CRUD never makes an item orderable. Activation requires a separate reviewer and active category.
-        item.IsPurchasable = false;
-    }
+    private static void Apply(ItemInput x, CatalogItem item) => ProcurementMasterDraftRules.ApplyItem(x, item);
 
     private static void Apply(EntryInput x, CatalogEntry entry)
     {

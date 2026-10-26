@@ -86,6 +86,15 @@ if (!string.IsNullOrWhiteSpace(procurementConnStr))
     if (procurementConnStr.StartsWith("postgresql", StringComparison.OrdinalIgnoreCase) && procurementConnStr.Contains('?'))
         procurementConnStr = NpgsqlConnectionStringNormalizer.Normalize(procurementConnStr);
     Mightyfin.Erp.Hrm.Api.ProcurementHostIntegration.AddServices(builder.Services, procurementConnStr, builder.Configuration);
+    builder.Services.AddSingleton<ProcurementImportMaintenanceHealth>();
+    if (builder.Configuration.GetValue<bool>("Procurement:MasterImport:Enabled")
+        && builder.Configuration.GetValue<bool>("Procurement:MasterImport:Maintenance:Enabled"))
+    {
+        builder.Services.AddHealthChecks().AddCheck<ProcurementImportMaintenanceHealth>(
+            "procurement-import-preview-maintenance");
+        if (startupMode == CoreHostMode.Api)
+            builder.Services.AddHostedService<ProcurementImportPreviewMaintenance>();
+    }
 }
 
 // ---------- Tenant / auth principal ----------
