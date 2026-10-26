@@ -62,7 +62,9 @@ Before merge and release:
 2. Compile all affected projects with the real SDK and run domain, authority,
    receipt, permission and Core transaction tests. Independently review the
    final diff.
-3. Generate the genuine eight-table EF migration and snapshot. Rehearse Up,
+3. Generate the genuine eight-table EF migration and snapshot, including the
+   typed schema-2 PO authority CHECK extension. The downgrade must veto retained
+   PO authority evidence as well as operational rows. Rehearse Up,
    empty Down and nonempty Down vetoes against a restored database while
    proving existing row preservation.
 4. Implement and register physical readiness with the exact new schema,
