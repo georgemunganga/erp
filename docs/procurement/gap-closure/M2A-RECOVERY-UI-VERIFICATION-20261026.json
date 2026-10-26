@@ -1,0 +1,54 @@
+{
+  "status": "PASS_LOCAL_UI_MOCKED_API_ONLY_NOT_REAL_IMPORT_ACCEPTANCE",
+  "source": "bf1821935662bdbf5d9f395c32b5682659e813d4",
+  "generator": {
+    "phase": "generate",
+    "exit": 0,
+    "elapsedSeconds": 0.72,
+    "source": "bf1821935662bdbf5d9f395c32b5682659e813d4"
+  },
+  "types": {
+    "phase": "types",
+    "exit": 0,
+    "elapsedSeconds": 24.418,
+    "source": "bf1821935662bdbf5d9f395c32b5682659e813d4"
+  },
+  "units": {
+    "passed": 15,
+    "failed": 0,
+    "resultSha256": "601af69b93c0491c9fe5ba36988a859b46b49d98a10b4c2e5af87c30e9fbe3a1",
+    "logSha256": "6e69caeaf674942a5038057dd396890aa727c35906a26999f23ad213271c553c"
+  },
+  "productionBuild": {
+    "phase": "build",
+    "exit": 0,
+    "elapsedSeconds": 11.342,
+    "source": "bf1821935662bdbf5d9f395c32b5682659e813d4"
+  },
+  "distManifestSha256": "de6e59fa4d98bd0fe23ed5bb6e96961be470b99635d299e21586f42dc22b678e",
+  "playwright": {
+    "passed": 8,
+    "failed": 0,
+    "workers": 1,
+    "retries": 0,
+    "result": {
+      "source": "bf1821935662bdbf5d9f395c32b5682659e813d4",
+      "exit": 0,
+      "elapsedSeconds": 35.38,
+      "apiMocked": true,
+      "productionOrDatabaseChanged": false
+    },
+    "rawReportSha256": "bac9f7189cd288731a07f1913e2b47c1ed156b00236df2245ccc095a8a996cce"
+  },
+  "cases": [
+    "Vendor mapping and similar-name acknowledgement",
+    "Missing permission or unavailable schema",
+    "Controlled503 without local import",
+    "Mobile lost commit response, reload, HQ-to-All GET recovery with new work unavailable",
+    "PersistedExpired clears locator without new command",
+    "429 staging quota message",
+    "Company change rejects late response",
+    "Company change rejects late file read"
+  ],
+  "productionOrDatabaseChanged": false
+}

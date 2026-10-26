@@ -1,8 +1,10 @@
+**Private schema update — 26 October 2026:** [M2a migration rehearsal](docs/procurement/gap-closure/M2A-PRIVATE-MIGRATION-VERIFICATION-20261026.json) passed genuine Up/empty Down/Up and 15 rollback vetoes with independently verified original-data/history/access preservation. This was on the isolated restore only. Runtime roles, real imports and production activation remain pending; coordinator ownership is unchanged.
+
 # Current execution checkpoint — 26 October 2026
 
 **This section supersedes historical status and baseline instructions below.** See [current baselines, exact test evidence, owners and remaining milestones](docs/procurement/gap-closure/CURRENT-EXECUTION-STATUS-20261026.md). ERP code baseline is published main `8eb2e305e66dba2f38763a2b029957ddec108b69`; UI main remains `403bfdac505d593921a5bab1ba3388896205325f`. Main PR99 CSV compilation is verified (14 focused passes), not pending.
 
-Coordinator owns default-off M2a imports in ERP draft PR100 and UI draft PR82. Local verification passed 1,282 Host / 1,414 Procurement / 30 Approval tests, 68 focused tests, and six mocked UI browser cases. Actual import migration, finite-role runtime and real-cookie browser acceptance are pending; production is unchanged. Manus retains Core scanner task04 and should not duplicate M2a or activate held workflows. Start new assigned work from published main and record exact baselines; do not merge held branch ancestry wholesale.
+Coordinator owns default-off M2a imports in ERP draft PR100 and UI draft PR82. Local verification passed 1,282 Host / 1,414 Procurement / 30 Approval tests, 68 focused tests, and six mocked UI browser cases. Private migration acceptance is recorded above; finite-role runtime and real-cookie browser acceptance remain pending. Production is unchanged. Manus retains Core scanner task04 and should not duplicate M2a or activate held workflows. Start new assigned work from published main and record exact baselines; do not merge held branch ancestry wholesale.
 
 ---
 
