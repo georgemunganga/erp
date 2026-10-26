@@ -27,22 +27,10 @@ public static partial class ProcurementPrincipalOrderDraftRoutes
             if(order.BuyerSubjectId!=scope.SubjectId || order.Status!="Draft" || order.CurrentRevision!=0
                 || order.Version!=input.ExpectedOrderVersion || order.ApprovalInstanceRef is not null)
                 throw new Problem("OrderSubmitSourceChanged",409);
-            await CurrentPositiveSources(db,core,scope,http,load,now,token);
-            var funding=await CurrentFunding(db,core,scope,http,load,1,now,token);
-            var policies=await db.PolicyVersions.Where(x=>x.PolicyKey=="PURCHASE_ORDER"&&x.State=="Published"
-                &&x.EffectiveFrom<=now&&(x.EffectiveTo==null||now<x.EffectiveTo)).ToArrayAsync(token);
-            if(policies.Length!=1)throw new Problem("OrderPublishedPolicyRequired",409);
-            var policy=policies[0];
-            var route=PurchaseOrderCommercialWorkflow.PolicyRoute(order,load.Sources,policy,now);
-            var plan=await ProcurementPrincipalOrderAuthorityResolver.ResolveAsync(order,load.Sources,route.Stages,
-                funding,core,db,scope,now,token);
-            var buyer=await Actor(core,scope,http,auth,"procurement-po-submit",order.BranchRef,true,token);
-            if(buyer.PrincipalId!=order.BuyerSubjectId || buyer.CoreLinkedWorkerId!=load.Bindings[0].BuyerWorkerAliasId)
-                throw new Problem("OrderBuyerIdentityChanged",409);
+            var prepared=await PrepareSubmission(db,core,scope,http,auth,load,now,token);
+            var funding=prepared.Funding;var policy=prepared.Policy;var route=prepared.Route;
+            var plan=prepared.Plan;var buyer=prepared.Buyer;var snapshot=prepared.Snapshot;
             var totals=PurchaseOrderCommercialWorkflow.Totals(load.Lines);
-            var snapshot=PrincipalOrderCommercialSnapshot.Capture(order,load.Lines,load.Supplier,1);
-            if(snapshot!=funding.CommercialSnapshotJson || ProcurementEvidenceEncoding.Digest(snapshot)!=funding.CommercialSnapshotSha256)
-                throw new Problem("OrderFundingCommercialChanged",409);
             var workflow=new ApprovalCase{TenantId=scope.TenantId,LegalEntityId=scope.LegalEntityId,
                 SourceModule="procurement",SourceType="purchase_order",SourceId=id,SourceVersion=1,
                 PolicyVersionId=policy.Id,PolicyVersionNumber=policy.PolicyVersionNumber,
@@ -161,6 +149,35 @@ public static partial class ProcurementPrincipalOrderDraftRoutes
             await cases.SaveChangesAsync(token);
             return await SaveGoverned(db,scope,order,"Decide",key,fingerprint,token);
         },ct);
+    }
+
+    private sealed record SubmissionPreparation(PrincipalOrderFundingEvidence Funding,PolicyVersion Policy,
+        PurchaseOrderPolicyRoute Route,IReadOnlyList<PrincipalOrderStage> Plan,
+        ProcurementPrincipalPeople.Person Buyer,string Snapshot);
+
+    // Both the buyer preview and Submit use these guards. The preview remains
+    // non-authoritative: Submit rechecks them while holding the source/PO locks.
+    private static async Task<SubmissionPreparation> PrepareSubmission(ProcurementDbContext db,
+        HrmDbContext core,ProcurementRequestScope scope,HttpContext http,IAuthorizationService auth,
+        GovernedOrder load,DateTimeOffset now,CancellationToken token)
+    {
+        var order=load.Order;
+        await CurrentPositiveSources(db,core,scope,http,load,now,token);
+        var funding=await CurrentFunding(db,core,scope,http,load,1,now,token);
+        var policies=await db.PolicyVersions.Where(x=>x.PolicyKey=="PURCHASE_ORDER"&&x.State=="Published"
+            &&x.EffectiveFrom<=now&&(x.EffectiveTo==null||now<x.EffectiveTo)).ToArrayAsync(token);
+        if(policies.Length!=1)throw new Problem("OrderPublishedPolicyRequired",409);
+        var policy=policies[0];
+        var route=PurchaseOrderCommercialWorkflow.PolicyRoute(order,load.Sources,policy,now);
+        var plan=await ProcurementPrincipalOrderAuthorityResolver.ResolveAsync(order,load.Sources,route.Stages,
+            funding,core,db,scope,now,token);
+        var buyer=await Actor(core,scope,http,auth,"procurement-po-submit",order.BranchRef,true,token);
+        if(buyer.PrincipalId!=order.BuyerSubjectId || buyer.CoreLinkedWorkerId!=load.Bindings[0].BuyerWorkerAliasId)
+            throw new Problem("OrderBuyerIdentityChanged",409);
+        var snapshot=PrincipalOrderCommercialSnapshot.Capture(order,load.Lines,load.Supplier,1);
+        if(snapshot!=funding.CommercialSnapshotJson || ProcurementEvidenceEncoding.Digest(snapshot)!=funding.CommercialSnapshotSha256)
+            throw new Problem("OrderFundingCommercialChanged",409);
+        return new(funding,policy,route,plan,buyer,snapshot);
     }
 
     private static async Task VerifySubmission(ProcurementDbContext db,HrmDbContext core,

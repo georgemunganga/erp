@@ -1,6 +1,32 @@
 # M5a — Core-identity purchase order governance
 
-Status: source checkpoint; not migration-ready, release-ready or UAT-complete.
+Status: migration rehearsal passed; runtime integration in progress. Not release-ready or UAT-complete.
+
+## Latest verification — 26 October 2026
+
+Source `1c53a0721a1187488f8925372a3e2c9370e912a8` passed the actual offline SDK
+build, 1,448 Procurement tests and 1,356 Host tests, with no failures or skips.
+The focused counts were 13 and one. EF reported no pending model changes and
+exported the genuine guarded transactional migration scripts.
+SDK receipt SHA-256: `fc2c628d220ae3f5b9da6a3f7b831dbc43f5cede6a5f109059c9ada81999a1e2`.
+
+The private nonempty PostgreSQL rehearsal cloned the retained 203-table source,
+applied the migration to 211 tables, rolled back the empty increment in a
+transaction and reapplied it. Retained rows and captured schema were preserved;
+14 separate rollback-only marker families each produced SQLSTATE `55000` and
+left the target unchanged. These deliberately constraint-relaxed markers prove
+the rollback guards, not valid business workflows. Production was untouched.
+Native receipt SHA-256: `35cc665fdfd0e4f45ef6b86a11e68722b0193575699b82c0256a03418659d0d0`.
+The 22 physical CHECK definitions were captured with `pg_get_constraintdef(oid,false)`;
+capture SHA-256: `a48bdc7bff64636bd4b416540d9fa53fa73ec5df3ffdb3f73b82f9cf86527bc0`.
+
+The following source increment adds a dependency-free physical inspector,
+same-connection readiness composition, narrow parent compatibility, and governed
+buyer list/detail reads. Submit/Issue previews share the command guards and
+remain subject to revalidation on save. The original M3b Create/Cancel contracts
+are retained; funded drafts expose a release request instead of ordinary cancellation.
+This subsequent source requires its own build and actual finite-role/API/browser
+verification. No new operational flag has been enabled in production.
 
 This increment implements the governed lifecycle following the existing M3b
 internal PO draft. The feature specification remains

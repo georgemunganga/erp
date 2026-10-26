@@ -29,6 +29,8 @@ public static partial class ProcurementPrincipalOrderDraftRoutes
 
     private static void MapGovernanceRoutes(RouteGroupBuilder group)
     {
+        group.MapGet("/principal-governed-orders",GovernedBuyerList).RequireAuthorization("procurement-po-read");
+        group.MapGet("/{id:guid}/principal-governed-detail",GovernedBuyerDetail).RequireAuthorization("procurement-po-read");
         group.MapGet("/{id:guid}/principal-review/{assignmentId:guid}",Review).RequireAuthorization("procurement-po-approve");
         group.MapGet("/principal-finance-work",FinanceWork).RequireAuthorization("procurement-po-finance-confirm");
         group.MapGet("/{id:guid}/principal-finance-detail",FinanceDetail).RequireAuthorization("procurement-po-finance-confirm");

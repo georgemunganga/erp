@@ -25,37 +25,8 @@ public static partial class ProcurementPrincipalOrderDraftRoutes
             if(order.Status!="Approved" || order.Version!=input.ExpectedOrderVersion || order.CurrentRevision!=1
                 || await db.PrincipalOrderIssuedVersions.AnyAsync(x=>x.PurchaseOrderId==id,token))
                 throw new Problem("OrderIssueSourceChanged",409);
-            var submission=await db.PrincipalOrderSubmissions.SingleOrDefaultAsync(x=>x.PurchaseOrderId==id
-                &&x.CommercialRevision==1,token)??throw new Problem("OrderSubmissionMissing",409);
-            var funding=await db.PrincipalOrderFundingEvidence.SingleOrDefaultAsync(x=>x.Id==submission.FundingEvidenceId
-                &&x.PurchaseOrderId==id,token)??throw new Problem("OrderFundingMissing",409);
-            var policy=await db.PolicyVersions.SingleOrDefaultAsync(x=>x.Id==submission.PolicyVersionId,token)
-                ??throw new Problem("OrderPolicyMissing",409);
-            await cases.Database.ExecuteSqlInterpolatedAsync($"""SELECT "Id" FROM core_approval.cases WHERE "TenantId"={scope.TenantId} AND "LegalEntityId"={scope.LegalEntityId} AND "Id"={submission.CoreApprovalCaseId} FOR UPDATE""",token);
-            var workflow=await cases.Cases.Include(x=>x.Stages).ThenInclude(x=>x.Assignments)
-                .SingleOrDefaultAsync(x=>x.Id==submission.CoreApprovalCaseId,token)
-                ??throw new Problem("OrderCaseMissing",409);
-            if(workflow.State!="Approved" || workflow.SourceType!="purchase_order"
-                || workflow.SourceModule!="procurement" || workflow.SourceId!=id || workflow.SourceVersion!=1
-                || workflow.PolicyVersionId!=submission.PolicyVersionId
-                || workflow.PolicyVersionNumber!=submission.PolicyVersionNumber)
-                throw new Problem("OrderCoreApprovalMissing",409);
-            await VerifySubmission(db,core,scope,http,load,submission,funding,policy,true,now,token);
-            var pins=await db.PrincipalOrderAssignments.Where(x=>x.SubmissionId==submission.Id).ToArrayAsync(token);
-            var tasks=workflow.Stages.SelectMany(x=>x.Assignments).ToArray();
-            if(pins.Length!=tasks.Length || tasks.Any(x=>pins.Count(p=>p.CoreAssignmentId==x.Id
-                &&p.PrincipalId==x.AssigneeSubjectId&&p.CoreStageId==x.StageId)!=1))
-                throw new Problem("OrderAssignmentSetChanged",409);
-            foreach(var pin in pins)
-                _=await ProcurementPrincipalOrderAuthorityResolver.ValidateAsync(order,load.Sources,funding,
-                    submission,pin,core,db,scope,now,token);
-            var approvals=await cases.Decisions.Where(x=>x.CaseId==workflow.Id&&x.Action=="Approve").ToArrayAsync(token);
-            if(approvals.Length==0 || !approvals.Any(x=>x.IdempotencyKey==workflow.CompletionKey))
-                throw new Problem("OrderCoreDecisionMissing",409);
-            var mirrored=await db.PrincipalOrderDecisions.Where(x=>x.SubmissionId==submission.Id).ToArrayAsync(token);
-            if(approvals.Any(x=>mirrored.Count(y=>y.CoreDecisionId==x.Id&&y.CoreAssignmentId==x.AssignmentId
-                &&y.ActorPrincipalId==x.ActorSubjectId&&y.Action=="Approve")!=1))
-                throw new Problem("OrderDecisionEvidenceChanged",409);
+            var prepared=await PrepareIssue(db,cases,core,scope,http,load,now,true,token);
+            var submission=prepared.Submission;var funding=prepared.Funding;var workflow=prepared.Workflow;
             var issuer=await Actor(core,scope,http,auth,"procurement-po-issue",order.BranchRef,true,token);
             foreach(var source in load.Sources)
                 PurchaseOrderSourceAllocation.ConfirmOrdered(source.Source,order,source.OrderLine,source.Allocation,now);
@@ -140,4 +111,50 @@ public static partial class ProcurementPrincipalOrderDraftRoutes
             return await SaveGoverned(db,scope,order,"Ack",key,fingerprint,token);
         },ct);
     }
+    private sealed record IssuePreparation(PrincipalOrderSubmission Submission,
+        PrincipalOrderFundingEvidence Funding,Mightyfin.Erp.Core.Approvals.Domain.ApprovalCase Workflow);
+
+    // Read previews and the Issue command share retained/current approval guards.
+    // Only the command locks the Core case; neither path creates a new approval.
+    private static async Task<IssuePreparation> PrepareIssue(ProcurementDbContext db,
+        ApprovalDbContext cases,HrmDbContext core,ProcurementRequestScope scope,HttpContext http,
+        GovernedOrder load,DateTimeOffset now,bool lockCase,CancellationToken token)
+    {
+        var order=load.Order;
+        var submission=await db.PrincipalOrderSubmissions.SingleOrDefaultAsync(x=>x.PurchaseOrderId==order.Id
+            &&x.CommercialRevision==1,token)??throw new Problem("OrderSubmissionMissing",409);
+        var funding=await db.PrincipalOrderFundingEvidence.SingleOrDefaultAsync(x=>x.Id==submission.FundingEvidenceId
+            &&x.PurchaseOrderId==order.Id,token)??throw new Problem("OrderFundingMissing",409);
+        var policy=await db.PolicyVersions.SingleOrDefaultAsync(x=>x.Id==submission.PolicyVersionId,token)
+            ??throw new Problem("OrderPolicyMissing",409);
+        if(lockCase)
+            await cases.Database.ExecuteSqlInterpolatedAsync($"""SELECT "Id" FROM core_approval.cases WHERE "TenantId"={scope.TenantId} AND "LegalEntityId"={scope.LegalEntityId} AND "Id"={submission.CoreApprovalCaseId} FOR UPDATE""",token);
+        var workflow=await cases.Cases.Include(x=>x.Stages).ThenInclude(x=>x.Assignments)
+            .SingleOrDefaultAsync(x=>x.Id==submission.CoreApprovalCaseId,token)
+            ??throw new Problem("OrderCaseMissing",409);
+        if(workflow.State!="Approved" || workflow.SourceType!="purchase_order"
+            || workflow.SourceModule!="procurement" || workflow.SourceId!=order.Id || workflow.SourceVersion!=1
+            || workflow.PolicyVersionId!=submission.PolicyVersionId
+            || workflow.PolicyVersionNumber!=submission.PolicyVersionNumber)
+            throw new Problem("OrderCoreApprovalMissing",409);
+        await VerifySubmission(db,core,scope,http,load,submission,funding,policy,true,now,token);
+        var pins=await db.PrincipalOrderAssignments.Where(x=>x.SubmissionId==submission.Id).ToArrayAsync(token);
+        var tasks=workflow.Stages.SelectMany(x=>x.Assignments).ToArray();
+        if(pins.Length!=tasks.Length || tasks.Any(x=>pins.Count(p=>p.CoreAssignmentId==x.Id
+            &&p.PrincipalId==x.AssigneeSubjectId&&p.CoreStageId==x.StageId)!=1))
+            throw new Problem("OrderAssignmentSetChanged",409);
+        foreach(var pin in pins)
+            _=await ProcurementPrincipalOrderAuthorityResolver.ValidateAsync(order,load.Sources,funding,
+                submission,pin,core,db,scope,now,token);
+        var approvals=await cases.Decisions.Where(x=>x.CaseId==workflow.Id&&x.Action=="Approve").ToArrayAsync(token);
+        if(approvals.Length==0 || !approvals.Any(x=>x.IdempotencyKey==workflow.CompletionKey))
+            throw new Problem("OrderCoreDecisionMissing",409);
+        var mirrored=await db.PrincipalOrderDecisions.Where(x=>x.SubmissionId==submission.Id).ToArrayAsync(token);
+        if(approvals.Any(x=>mirrored.Count(y=>y.CoreDecisionId==x.Id&&y.CoreAssignmentId==x.AssignmentId
+            &&y.ActorPrincipalId==x.ActorSubjectId&&y.Action=="Approve")!=1))
+            throw new Problem("OrderDecisionEvidenceChanged",409);
+        return new(submission,funding,workflow);
+    }
+
+
 }
