@@ -4,7 +4,7 @@ This checkpoint supersedes earlier status paragraphs, not historical acceptance 
 
 ## Published baselines and ownership
 
-- ERP code baseline: `ff255065ab3240d7949315aafd62395db3d03838` (main, PR100 merged). The default-off M2a source and prior CSV reader are verified; historical pending-build statements are superseded below.
+- ERP code baseline: `27be07e0a97d61ea8fe57d4a15c3de527cbcfd43` (main, PR106 merged; includes PR100). The default-off M2a source and prior CSV reader are verified; historical pending-build statements are superseded below.
 - UI main: `704ac9c642d00e3672cd81e7c1df2d9cb50be160` (narrow PR83 merged). The 139-file held ancestry was excluded; the accepted native test product remains the earlier `bf182` build.
 - Live remains product `cb18353d94af016ca65cd939ced76f6f97222c27`, UI `092121409c3d032706b1ba0ca305a24c2d84ede7`, API/publisher image `sha256:89375b1514f5a9cd5d2b255b94f09f2bba0a43020025e43ad6e30531084dd998`.
 - Coordinator owns M2a vendor/item import and its backend/UI/database acceptance. Do not duplicate it. Manus retains the independent [Core scanner assignment](../../collaboration/manus/MANUS-CORE-DOCUMENT-SCANNER-04.md); no new overlapping task is assigned.
@@ -24,6 +24,14 @@ All failed attempts remain retained, including the original Item connection-stat
 UI [PR83](https://github.com/georgemunganga/module-connect/pull/83) is merged through main `704ac9c642d00e3672cd81e7c1df2d9cb50be160`. The narrow 35-file port excludes the 139-file held ancestry and preserves the original wizard/shared ERP controls. Clean committed source `cd4f51996d5c0bd5628675d327373fde49ec9b33` passed TypeScript, 99 unit tests, a fresh live build and 23 mocked browser tests. Its [mainline evidence](M2A-UI-MAINLINE-VERIFICATION-20261026.json) is separate from the earlier real-API `bf182` acceptance; real API/cookie acceptance for this port remains a release gate.
 
 Next: close the production least-privilege and nonempty publisher gates, verify the mainline UI against the real API, then continue M1–M9. M2a acceptance does not complete the rest of M2 or authorize changes to Finance, Inventory or supplier eligibility.
+
+## M0 cross-tenant publisher follow-up
+
+Source `508f26bdfb0bfd90248a5b896c571bb7d61e6711` in [PR106](https://github.com/georgemunganga/erp/pull/106) binds publisher writes and audits to each locked database row’s database-row tenant. Ordinary API principal scope remains unchanged. Fresh Infrastructure/API/Host builds, **28 focused and 1,293 Host tests**, and a genuine 150-file API publication passed.
+
+The finite-role private Store test completed two rows from different tenants and produced four correctly tenant-attributed audits. A genuine, network-isolated publisher then completed a second distinct pair: four total rows, eight correctly tenant-attributed audits, 198 original table fingerprints unchanged, and clean exit. The original retained database and its queued failed event were separately recaptured unchanged. Independent final review passed and PR106 is merged through main `27be07e0a97d61ea8fe57d4a15c3de527cbcfd43`; the [evidence record](M0-CROSS-TENANT-PUBLISHER-VERIFICATION-20261026.json) states that boundary.
+
+This is acknowledgement and tenant-isolation evidence using deliberately unsupported no-email test events (`smtp-skipped`), not external delivery. Private local trust does not prove password/TLS database authentication. The isolated database copies genuine schema/history; this test is not a migration replay. No production role, migration, setting or deployment changed. GitHub run 40274531522 did not start because of the account billing lock; local passes are not a hosted CI pass.
 
 ## Remaining finish sequence
 
