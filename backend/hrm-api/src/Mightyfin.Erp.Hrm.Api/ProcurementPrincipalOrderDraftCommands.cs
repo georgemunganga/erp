@@ -133,6 +133,11 @@ public static partial class ProcurementPrincipalOrderDraftRoutes
             if(order.Status!="Draft" || order.Version!=input.ExpectedOrderVersion
                 || order.OriginalDirectSourceSha256!=input.OriginalDirectSourceSha256
                 || order.FinanceCommitmentRef is not null)throw new Problem("OrderDraftChanged",409);
+            // A recorded external commitment survives a new-work shutdown.
+            // Cancellation must use the independently attested release route;
+            // the original draft shortcut cannot free its reserved demand.
+            if(await db.PrincipalOrderFundingEvidence.AnyAsync(x=>x.PurchaseOrderId==id,token))
+                throw new Problem("OrderExternalReleaseRequired",409);
             var lines=await db.PurchaseOrderLines.Where(x=>x.PurchaseOrderId==id&&x.IsActive).ToArrayAsync(token);
             var bindings=await db.PrincipalOrderSourceBindings.Where(x=>x.PurchaseOrderId==id).ToArrayAsync(token);
             if(lines.Length!=bindings.Length || bindings.Length is <1 or >100

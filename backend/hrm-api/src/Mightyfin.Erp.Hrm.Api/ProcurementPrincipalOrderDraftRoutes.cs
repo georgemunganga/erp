@@ -31,6 +31,7 @@ public static partial class ProcurementPrincipalOrderDraftRoutes
         group.MapGet("/{id:guid}/principal-direct-draft",Detail).RequireAuthorization("procurement-po-read");
         group.MapPost("/{id:guid}/principal-direct-cancel",Cancel).RequireAuthorization("procurement-po-edit");
         group.MapGet("/principal-direct-command-receipts/{operation}/{key:guid}",Recover).RequireAuthorization("procurement-po-read");
+        MapGovernanceRoutes(group);
     }
     private static async Task<IResult> Run(HttpContext http,ProcurementRequestScope scope,
         Func<ProcurementDbContext,ApprovalDbContext,HrmDbContext,IAuthorizationService,CancellationToken,Task<Reply>> operation,
