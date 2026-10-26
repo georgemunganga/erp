@@ -1,0 +1,59 @@
+{
+  "status": "BOUNDED_PRIVATE_STORE_AND_PUBLISHER_SOURCE_ACCEPTED",
+  "source": "508f26bdfb0bfd90248a5b896c571bb7d61e6711",
+  "pullRequest": "https://github.com/georgemunganga/erp/pull/106",
+  "freshTests": {
+    "focusedPassed": 28,
+    "hostPassed": 1293,
+    "failed": 0,
+    "skipped": 0
+  },
+  "privateStore": {
+    "companies": 2,
+    "rows": 2,
+    "tenantCorrectAuditRows": 4,
+    "originalTablesUnchanged": 198,
+    "finiteRoleVerified": true
+  },
+  "publisherProcessAccepted": true,
+  "productionTouched": false,
+  "externalDeliveryProven": false,
+  "evidence": {
+    "/home/amizo/erp-backups/core-outbox-cross-tenant-sdk-prep-20261026_run01/result.private.json": "f369a423a387b29564e4422a79079b77694e92b15446516d8b9009965d693ac6",
+    "/home/amizo/erp-backups/core-outbox-cross-tenant-sdk-prep-20261026_run01/publication-manifest.private.json": "a16014ece8169c36110bb5dbc05f3d72eac61f3bf07757e520358764c5a923f9",
+    "/home/amizo/erp-backups/core-outbox-two-tenant-isolated-fixture-prep-20261026_run01/plan.EXECUTED.94baf837.private.json": "94baf837009c3f5c6ea825af3b8e741e1f1804c29b69964a846e768e71f01c59",
+    "/home/amizo/erp-backups/core-outbox-two-tenant-isolated-fixture-prep-20261026_run01/store-result.private.json": "dd9c9b6b3ae62f2b49c34b246cfda3ed0dde46eaca7fd47a18993e42a31d8a65",
+    "/home/amizo/erp-backups/core-outbox-two-tenant-isolated-fixture-prep-20261026_run01/independent-store-owner-review.private.json": "d1f1eb561ed1c8dff00e0de73e185315b8395258dfc48cf177c5e1f88d6ce231",
+    "/home/amizo/erp-backups/core-outbox-two-tenant-isolated-publisher-runtime-prep-20261026_run01/plan.INCOMPLETE.json": "7078c9e01a19b0cd30adf66f69dad1935c273cdc3c2cf23961f0264788d4f8a6",
+    "/home/amizo/erp-backups/core-outbox-two-tenant-isolated-publisher-runtime-prep-20261026_run01/result.private.json": "d09e42ffee9dd9320764029e05864900bc2f95889ceac1a47428be9db1bacc3c",
+    "/home/amizo/erp-backups/core-outbox-two-tenant-isolated-publisher-runtime-prep-20261026_run01/publisher-process-inspect.private.json": "93bef52f788caf4987a59009f16cab35285354cdd4baed74027f0af627024623",
+    "/home/amizo/erp-backups/core-outbox-two-tenant-isolated-fixture-prep-20261026_run01/original-after-all.private.jsonl": "f2ef1a97069ff2620b381933d5f0a4ef8bf939b94ae675eaad2d4056601e4cbd",
+    "/home/amizo/erp-backups/core-outbox-two-tenant-isolated-fixture-prep-20261026_run01/synthetic-after-process.private.jsonl": "0055431471463a0515ff305d27e45328a24d27ba693f14d6bb233797c394fb18",
+    "/home/amizo/erp-backups/core-outbox-two-tenant-isolated-fixture-prep-20261026_run01/source-originals.after-publisher.private.jsonl": "d30d319d9bd1134d7be93b1dc1cd88d267eb1ac0d074405beeb19aa59e2ab513",
+    "/home/amizo/erp-backups/core-outbox-two-tenant-isolated-fixture-prep-20261026_run01/source-eligible.after-publisher.private.jsonl": "d39a3545da439514a62c9da0fde310ad310386303d1e981f6b923cb3ad7e28eb",
+    "/home/amizo/erp-backups/core-outbox-two-tenant-isolated-publisher-runtime-prep-20261026_run01/independent-publisher-review.private.json": "113e00abc527df6b67d732dc8b0219a42361a2623a3d80f0f643be1ea6ab392c"
+  },
+  "limitations": [
+    "Private PostgreSQL trust sockets establish SQL privileges, not password/TLS authentication.",
+    "Schema/history copied to an isolated empty business database; this is not a migration replay.",
+    "Executed Store plan is recovered exact 94baf837; unexecuted successor 4fff is not execution evidence.",
+    "Whole-module UAT, production role deployment and external notification delivery remain open."
+  ],
+  "publisherProcess": {
+    "companies": 2,
+    "secondPairRows": 2,
+    "totalRows": 4,
+    "tenantCorrectAuditRows": 8,
+    "originalTablesUnchanged": 198,
+    "cleanExit": 0,
+    "network": "none",
+    "transport": "smtp-skipped",
+    "externalDelivery": false
+  },
+  "hostedCi": {
+    "run": "https://github.com/georgemunganga/erp/actions/runs/40274531522",
+    "status": "NOT_STARTED_ACCOUNT_BILLING_LOCK",
+    "localChecksAreHostedCi": false
+  },
+  "publishedMerge": "27be07e0a97d61ea8fe57d4a15c3de527cbcfd43"
+}

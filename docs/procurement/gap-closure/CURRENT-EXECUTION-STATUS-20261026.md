@@ -25,6 +25,14 @@ UI [PR83](https://github.com/georgemunganga/module-connect/pull/83) is merged th
 
 Next: close the production least-privilege and nonempty publisher gates, verify the mainline UI against the real API, then continue M1–M9. M2a acceptance does not complete the rest of M2 or authorize changes to Finance, Inventory or supplier eligibility.
 
+## M0 cross-company publisher follow-up
+
+Source `508f26bdfb0bfd90248a5b896c571bb7d61e6711` in [PR106](https://github.com/georgemunganga/erp/pull/106) binds publisher writes and audits to each locked database row’s company/tenant. Ordinary API principal scope remains unchanged. Fresh Infrastructure/API/Host builds, **28 focused and 1,293 Host tests**, and a genuine 150-file API publication passed.
+
+The finite-role private Store test completed two rows from different companies and produced four correctly attributed audits. A genuine, network-isolated publisher then completed a second distinct pair: four total rows, eight correctly attributed audits, 198 original table fingerprints unchanged, and clean exit. The original retained database and its queued failed event were separately recaptured unchanged. Independent final review passed and PR106 is merged through main `27be07e0a97d61ea8fe57d4a15c3de527cbcfd43`; the [evidence record](M0-CROSS-TENANT-PUBLISHER-VERIFICATION-20261026.json) states that boundary.
+
+This is acknowledgement and tenant-isolation evidence using deliberately unsupported no-email test events (`smtp-skipped`), not external delivery. Private local trust does not prove password/TLS database authentication. The isolated database copies genuine schema/history; this test is not a migration replay. No production role, migration, setting or deployment changed. GitHub run 40274531522 did not start because of the account billing lock; local passes are not a hosted CI pass.
+
 ## Remaining finish sequence
 
 The existing [full roadmap](https://github.com/georgemunganga/erp/blob/3fc26d93be9eaa144d0135a13c70116956c2137a/docs/procurement/gap-closure/PROCUREMENT-FINISH-MILESTONES-20261025.md) tracks 55 grouped findings, not 55 proven defects. That branch is a planning reference, not permission to merge all its code. Its earlier baseline paragraphs are superseded above.
