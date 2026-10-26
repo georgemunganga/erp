@@ -87,6 +87,7 @@
     "/home/amizo/erp-backups/procurement-m3a-same-cohort-api-resume-runtime-20261026_run01/original-rows-final.private.json": "3ecc93b8e01347f3db07eb01cb515e3da8891c366d1326d164ceae5e2fcc25ac",
     "/home/amizo/erp-backups/procurement-m3a-same-cohort-api-resume-runtime-20261026_run01/final-acl-comparison.private.json": "74929feb1d635154800892e9bf1bdcad39aa81f44426541678c55f7ca46d7662",
     "/home/amizo/erp-backups/procurement-m3a-same-cohort-api-resume-runtime-20261026_run01/final-sessions-and-approved-audit.private.json": "9778b99556948af10675daba8171820704683e29bdda554170ae7db41d41b5c5",
-    "/home/amizo/erp-backups/procurement-m3a-same-cohort-api-resume-runtime-20261026_run01/final-inspect.private.json": "78fe5b3445e3bfa29b42e088ab83712efa89040c86043aad43394168f254f327"
+    "/home/amizo/erp-backups/procurement-m3a-same-cohort-api-resume-runtime-20261026_run01/final-inspect.private.json": "78fe5b3445e3bfa29b42e088ab83712efa89040c86043aad43394168f254f327",
+    "/home/amizo/erp-backups/procurement-m3a-r2-orphan-session-cleanup-prep-20261026_run01/root-execution-receipt.private.json": "39d3f7de56b5a14569ac13e269fcc5c30e8417b7f221f8a695d0b9477c6ff4df"
   }
 }
