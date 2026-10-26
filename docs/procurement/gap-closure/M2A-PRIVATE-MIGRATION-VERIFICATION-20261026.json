@@ -1,0 +1,59 @@
+{
+  "status": "PASS_PRIVATE_MIGRATION_ONLY_NOT_IMPORT_RUNTIME_DEPLOYMENT_OR_BUSINESS_UAT",
+  "dateUtc": "2026-10-26",
+  "productSource": "9d445f90ceb940bcbb53265c63741dab6484cd58",
+  "actualProbe": {
+    "status": "PASS_PRIVATE_M2A_GENUINE_UP_EMPTY_DOWN_UP_AND_15_RETAINED_FACT_VETOES",
+    "migrationId": "20261026005531_M2aMasterImportReceipts",
+    "previousMigration": "20261023213118_P29CanonicalPrincipalSourceGuids",
+    "upEmptyDownUp": true,
+    "legacySchema0Backfill": true,
+    "allOriginalColumnsRowsAndOldHistoryUnchanged": true,
+    "originalRelationAclsAndGlobalRolesUnchanged": true,
+    "actualVetoCount": 15,
+    "genuineDownScriptSha256": "c688a5f82a50b25a5e59e46216e020637fd52a91d11155e068a5af3709f2748a",
+    "noRuntimeRoleCookieOrProductionAcceptance": true
+  },
+  "evidence": {
+    "producerResultSha256": "bfacbb97c94d1b133112cf5b7eb18b6a100eec967d0f2abc8d089675414fbaa9",
+    "runtimeAggregateSha256": "75fb7be326ff6bf9827c9a07d8b1ff0fa27f0a6b84266078aaa9d2335088c56e",
+    "independentReviewSha256": "5e2cae068df0ec8069ea16522ae6ff23bcd3e1a58c97eb556b4241ac340b72d3",
+    "baselineSha256": "07e2f8f274f9255fb0121a5f2985a94f3109b660ebc3c1e247e8cd189d1992f6",
+    "finalOriginalProjectionsSha256": "3baf8d6f58574be785a20d07424adc7eb25253c3cdd56a0572b24df4cc31c009",
+    "genuineDownScriptSha256": "c688a5f82a50b25a5e59e46216e020637fd52a91d11155e068a5af3709f2748a"
+  },
+  "independentlyVerified": {
+    "originalTables": 197,
+    "procurementModelColumns": 2003,
+    "runtimePayloadFiles": 154,
+    "vetoCases": 15,
+    "coreHistoryBeforeAfter": [
+      56,
+      56
+    ],
+    "procurementHistoryBeforeAfter": [
+      26,
+      27
+    ],
+    "approvalHistoryBeforeAfter": [
+      1,
+      1
+    ],
+    "documentHistory": "ABSENT before and after; not applied",
+    "originalRowsColumnsAclsRolesMembershipsDefaultAclsUnchanged": true,
+    "fixtureBatchesReceiptsImportAuditOutboxFinalCount": 0
+  },
+  "expectedPhysicalDifference": "After empty Down/Up, PostgreSQL retains dropped-column ordinal holes. The nine new ImportBatch columns move exactly +9 ordinals; their names/types/nullability/defaults and constraints/indexes remain equal. The original 16 columns remain unchanged.",
+  "evidenceLimits": [
+    "Intermediate legacy backfill and per-case full row/catalog comparisons are compiled probe assertions plus actual case receipts, not separately saved intermediate dumps.",
+    "Raw final 197-table projections and independent final physical/ACL/history capture are retained.",
+    "Initial console-only tool build compiled but dependency-parity failed before SQL; it remains preserved. Successor added ASP.NET shared framework reference; compiled product and migration sources were unchanged."
+  ],
+  "pending": [
+    "Maintenance API/Host SDK acceptance",
+    "Finite runtime and maintenance permissions, actual lock/quota/audit/sweep tests",
+    "Real-cookie HTTP and browser import cohort",
+    "Release and business UAT"
+  ],
+  "productionChanged": false
+}

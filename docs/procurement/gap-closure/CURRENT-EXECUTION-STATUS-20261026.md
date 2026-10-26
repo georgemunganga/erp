@@ -11,13 +11,17 @@ This checkpoint supersedes earlier status paragraphs, not historical acceptance 
 
 ## Active M2a work
 
-[ERP draft PR100](https://github.com/georgemunganga/erp/pull/100) contains default-off native vendor/item imports and a genuine generated migration. Exact verified source: `9d445f90ceb940bcbb53265c63741dab6484cd58`. Fresh builds passed; 68 focused tests and full suites of 1,282 host, 1,414 Procurement and 30 approval tests passed without failures/skips. EF model parity and the genuine 150-file API publication passed. The migration has been generated, not applied by this checkpoint.
+[ERP draft PR100](https://github.com/georgemunganga/erp/pull/100) contains default-off native vendor/item imports and a genuine generated migration. Exact verified source: `9d445f90ceb940bcbb53265c63741dab6484cd58`. Fresh builds passed; 68 focused tests and full suites of 1,282 host, 1,414 Procurement and 30 approval tests passed without failures/skips. EF model parity and the genuine 150-file API publication passed. The migration subsequently passed the separate private rehearsal below; it has not been applied to production.
 
 [UI draft PR82](https://github.com/georgemunganga/module-connect/pull/82) preserves the original wizard presentation. Product source `da8f4ddf308779a4e0369d035aa2320cf832e38e`; test head `f1716182b88d1181bf22d8367de45ed9e591a74d`. TypeScript, 13 focused units, live production build and all six mocked browser cases passed. Tests cover mapping/preview, denied/unavailable paths, mobile lost-response recovery across branch context, and stale company/file responses. Mocked API tests are not real backend or production acceptance.
 
+The recovery successor `bf1821935662bdbf5d9f395c32b5682659e813d4` subsequently passed TypeScript, 15 focused units, a new live build and all eight mocked browser cases. It adds persisted expiry, staging-quota feedback, and mobile GET recovery when new previews are unavailable. [Current UI evidence](M2A-RECOVERY-UI-VERIFICATION-20261026.json) remains separate from real API acceptance. The expiry worker source is reviewed but its actual build and finite-role PostgreSQL behavior are still pending.
+
 [Machine-readable local verification](M2A-LOCAL-VERIFICATION-20261026.json) records actual result hashes. Original failed build/browser attempts remain retained separately. Hosted CI currently cannot start because GitHub reports an account billing lock; local results do not represent hosted CI success.
 
-Independent review verified the raw build/TRX logs, all 150 publication bytes, owning/copy parity and source/profile pins. Next: review bounded transient-preview quota/expiry handling; rehearse the genuine migration against the retained private P29 restore with original-data preservation and downgrade veto tests; verify least-privilege roles; run real normal-session HTTP/Playwright/import/recovery tests. Keep new writes default off until accepted. None of these pending checks is a reason to replace the supplied UI.
+Independent review verified the raw build/TRX logs, all 150 publication bytes, owning/copy parity and source/profile pins. The [private migration verification](M2A-PRIVATE-MIGRATION-VERIFICATION-20261026.json) subsequently passed genuine Up → empty Down → Up, all 15 retained-evidence downgrade vetoes, and independent reconciliation of 197 original-table projections, history and ACL/role metadata. It establishes private schema compatibility, not import runtime acceptance.
+
+Next: compile/test the reviewed transient-preview maintenance successor, verify finite runtime and maintenance roles, then run real normal-session HTTP/Playwright/import/recovery tests. Keep new writes default off until accepted. None of these pending checks is a reason to replace the supplied UI.
 
 ## Remaining finish sequence
 
