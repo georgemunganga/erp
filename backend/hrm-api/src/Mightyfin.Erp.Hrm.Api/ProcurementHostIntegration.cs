@@ -554,12 +554,15 @@ public sealed class ProcurementScopeMiddleware(RequestDelegate next, IWebHostEnv
         var value = path.Value?.TrimEnd('/');
         return string.Equals(value, "/api/procurement/v1/requests", StringComparison.OrdinalIgnoreCase)
             || string.Equals(value, "/api/procurement/v1/plans", StringComparison.OrdinalIgnoreCase)
-            || string.Equals(value, "/api/procurement/v1/contracts", StringComparison.OrdinalIgnoreCase);
+            || string.Equals(value, "/api/procurement/v1/contracts", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(value, "/api/procurement/v1/orders/principal-direct-drafts", StringComparison.OrdinalIgnoreCase);
     }
 
     internal static bool RequestWriteRequiresBranch(PathString path, string method) =>
         path.StartsWithSegments("/api/procurement/v1/requests", StringComparison.OrdinalIgnoreCase)
-        && (HttpMethods.IsPost(method) || HttpMethods.IsPut(method) || HttpMethods.IsPatch(method) || HttpMethods.IsDelete(method));
+            && (HttpMethods.IsPost(method) || HttpMethods.IsPut(method) || HttpMethods.IsPatch(method) || HttpMethods.IsDelete(method))
+        || HttpMethods.IsPost(method) && string.Equals(path.Value?.TrimEnd('/'),
+            "/api/procurement/v1/orders/from-approved-principal-direct-sources", StringComparison.OrdinalIgnoreCase);
 
     // Only current company-master reads use explicit All in this P24 backport.
     // A future child or write route must receive its own scope review.

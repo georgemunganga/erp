@@ -149,7 +149,11 @@ public sealed class ProcurementScopeMiddlewareTests
     [InlineData("/api/procurement/v1/requests/", true)]
     [InlineData("/api/procurement/v1/plans", true)]
     [InlineData("/api/procurement/v1/contracts", true)]
+    [InlineData("/api/procurement/v1/orders/principal-direct-drafts", true)]
+    [InlineData("/api/procurement/v1/orders/principal-direct-drafts/", true)]
     [InlineData("/api/procurement/v1/orders", false)]
+    [InlineData("/api/procurement/v1/orders/approved-principal-direct-sources", false)]
+    [InlineData("/api/procurement/v1/orders/00000000-0000-0000-0000-000000000001/principal-direct-draft", false)]
     [InlineData("/api/procurement/v1/requests/random-child", false)]
     [InlineData("/api/procurement/v1/requestss", false)]
     public void All_operational_reads_are_exact_collections_not_commands_or_children(string path, bool allowed)
@@ -162,6 +166,7 @@ public sealed class ProcurementScopeMiddlewareTests
     [InlineData("/api/procurement/v1/requests")]
     [InlineData("/api/procurement/v1/plans")]
     [InlineData("/api/procurement/v1/contracts")]
+    [InlineData("/api/procurement/v1/orders/principal-direct-drafts")]
     public async Task Reviewed_All_collections_do_not_default_to_an_assigned_branch(string path)
     {
         await using var db=TestDbContextFactory.Create("tenant-a");var (user,company,_,branch)=await Seed(db);
@@ -171,6 +176,31 @@ public sealed class ProcurementScopeMiddlewareTests
         var reached=false;await Middleware(_=>{reached=true;return Task.CompletedTask;}).InvokeAsync(http,scope,db);
         Assert.True(reached);Assert.True(scope.IsExplicitAllBranches);Assert.Null(scope.WorkLocationId);
         Assert.Equal(new[]{branch.Id},scope.PermittedWorkLocationIds);
+    }
+
+    [Fact]
+    public async Task Principal_direct_Create_rejects_All_before_route_but_selected_branch_reaches_route()
+    {
+        await using var db=TestDbContextFactory.Create("tenant-a");
+        var (user,company,_,branch)=await Seed(db);
+        db.UserBranchAssignments.Add(new HrUserBranchAssignment { UserId=user.Id, LocationId=branch.Id });
+        await db.SaveChangesAsync();
+        const string path="/api/procurement/v1/orders/from-approved-principal-direct-sources";
+        Assert.True(ProcurementScopeMiddleware.RequestWriteRequiresBranch(path,"POST"));
+        Assert.False(ProcurementScopeMiddleware.RequestWriteRequiresBranch(path,"GET"));
+        Assert.False(ProcurementScopeMiddleware.RequestWriteRequiresBranch("/api/procurement/v1/orders/from-approved-principal-direct-sourcess","POST"));
+        var (all,allScope)=Request(user.Id);all.Request.Path=path;all.Request.Method="POST";
+        all.Request.Headers["X-Shell-Entity"]=company.Id.ToString();all.Request.Headers["X-Shell-Branch-Scope"]="all";
+        await Middleware(_=>throw new Exception("All Create reached route")).InvokeAsync(all,allScope,db);
+        Assert.Equal(400,all.Response.StatusCode);
+
+        var (selected,selectedScope)=Request(user.Id);selected.Request.Path=path;selected.Request.Method="POST";
+        selected.Request.Headers["X-Shell-Entity"]=company.Id.ToString();
+        selected.Request.Headers["X-Shell-Location"]=branch.Id.ToString();
+        var reached=false;
+        await Middleware(_=>{reached=true;return Task.CompletedTask;}).InvokeAsync(selected,selectedScope,db);
+        Assert.True(reached);Assert.False(selectedScope.IsExplicitAllBranches);
+        Assert.Equal(branch.Id,selectedScope.WorkLocationId);
     }
 
     private static async Task<(LocalUser, LegalEntity, LegalEntity, WorkLocation)> Seed(HrmDbContext db)
