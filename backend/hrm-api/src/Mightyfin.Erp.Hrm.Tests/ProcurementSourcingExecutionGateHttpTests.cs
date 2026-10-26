@@ -19,6 +19,36 @@ namespace Mightyfin.Erp.Hrm.Tests;
 /// and never supplies ready schema or fake successful business responses.</summary>
 public sealed class ProcurementSourcingExecutionGateHttpTests
 {
+    [Fact]
+    public async Task Principal_publication_paths_fail_closed_before_database_resolution()
+    {
+        var builder = WebApplication.CreateBuilder(); builder.Logging.ClearProviders(); builder.WebHost.UseTestServer();
+        var scope = new ProcurementRequestScope();
+        scope.Set("rfq-publication-gate", Guid.NewGuid(), Guid.NewGuid().ToString("D"), null, null, false, "gate");
+        builder.Services.AddSingleton(scope);
+        builder.Services.AddSingleton(new ProcurementPrincipalSourcingPublicationOptions());
+        builder.Services.AddAuthentication("rfq-gate").AddScheme<AuthenticationSchemeOptions, Authentication>("rfq-gate", _ => { });
+        builder.Services.AddAuthorization(ProcurementPermissions.AddPolicies);
+        await using var app = builder.Build(); app.UseAuthentication(); app.UseAuthorization();
+        ProcurementSourcingExecutionRoutes.MapRoutes(app); await app.StartAsync();
+        using var client = app.GetTestClient(); var id = Guid.NewGuid();
+        foreach (var path in new[] { "principal-publications", $"{id}/principal-publication",
+            $"principal-publication-commands/{Guid.NewGuid()}" })
+        {
+            using var response = await client.GetAsync("/api/procurement/v1/sourcing/" + path);
+            Assert.Equal(HttpStatusCode.ServiceUnavailable, response.StatusCode);
+            Assert.Equal("PrincipalSourcingPublicationUnavailable",
+                (await response.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("code").GetString());
+            Assert.True(response.Headers.CacheControl?.NoStore);
+        }
+        using var open = await client.PostAsJsonAsync($"/api/procurement/v1/sourcing/{id}/principal-publication-reviews",
+            new { expectedEventVersion = 1, originalDraftFingerprint = new string('a', 64), supplierIds = new[] { Guid.NewGuid() } });
+        using var assigned = await client.GetAsync("/api/procurement/v1/sourcing/principal-publication-reviews/assigned");
+        Assert.Equal(HttpStatusCode.Forbidden, open.StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, assigned.StatusCode);
+        // No Core, Record, or Approval store is registered in this host.
+    }
+
     [Theory]
     [InlineData(false, true)][InlineData(true, false)][InlineData(true, true)]
     public async Task Every_governed_path_remains_unavailable_without_real_schema_before_any_store_resolution(bool enabled, bool configured)

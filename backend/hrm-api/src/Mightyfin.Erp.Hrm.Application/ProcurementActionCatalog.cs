@@ -8,7 +8,9 @@ public static class ProcurementActionCatalog
 
     public static bool RequiresExplicitConfiguredGrant(string action) => action is
         "procurement-vendor-export" or "procurement-item-export"
-        or "procurement-vendor-import" or "procurement-item-import";
+        or "procurement-vendor-import" or "procurement-item-import"
+        or "procurement-sourcing-convert" or "procurement-sourcing-cancel"
+        or "procurement-sourcing-submit" or "procurement-sourcing-publish";
 
     public static readonly IReadOnlyDictionary<string, string[]> BootstrapGrants =
         new Dictionary<string, string[]>(StringComparer.Ordinal)
@@ -69,6 +71,7 @@ public static class ProcurementActionCatalog
             // Source reservations/releases require explicit Core grants; legacy draft rights do not imply them.
             ["procurement-sourcing-convert"] = [],
             ["procurement-sourcing-cancel"] = [],
+            ["procurement-sourcing-submit"] = [],
             // Explicit configured grant only; catalog registration adds no publication endpoint or limit.
             ["procurement-sourcing-publish"] = [],
             ["procurement-invoice-read"] = ["ap_processor", "procurement_buyer", "procurement_manager"],
@@ -150,6 +153,8 @@ public static class ProcurementActionCatalog
         if (key == "procurement-item-export") return "Export items";
         if (key == "procurement-vendor-import") return "Import vendors";
         if (key == "procurement-item-import") return "Import items";
+        if (key == "procurement-sourcing-submit") return "Submit RFQ publication review";
+        if (key == "procurement-sourcing-publish") return "Decide RFQ publication review";
         var words = key["procurement-".Length..].Split('-').Select(word => word switch
         {
             "po" => "PO", "rfq" => "RFQ", "api" => "API", _ => char.ToUpperInvariant(word[0]) + word[1..]

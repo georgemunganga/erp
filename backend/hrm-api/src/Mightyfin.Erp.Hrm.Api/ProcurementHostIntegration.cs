@@ -56,6 +56,10 @@ public static class ProcurementHostIntegration
         sourcingOptions.ExecutionDatabaseConfigured = !string.IsNullOrWhiteSpace(executionConnection);
         services.AddSingleton(sourcingOptions);
         services.AddScoped<IProcurementSourcingDraftSchemaReadiness, ProcurementSourcingDraftSchemaReadiness>();
+        services.AddSingleton(configuration.GetSection("Procurement:SourcingPublication")
+            .Get<ProcurementPrincipalSourcingPublicationOptions>() ?? new());
+        services.AddScoped<IProcurementPrincipalSourcingPublicationReadiness,
+            UnavailablePrincipalSourcingPublicationReadiness>();
         services.AddScoped<IProcurementOrderSchemaReadiness, ProcurementOrderSchemaReadiness>();
         services.AddScoped<IProcurementApprovalSchemaReadiness, ProcurementApprovalSchemaReadiness>();
         services.AddSingleton<IProcurementFinanceCheckerSchemaReadiness, ProcurementFinanceCheckerSchemaReadiness>();
@@ -172,6 +176,19 @@ public static class ProcurementHostIntegration
                     && await services.GetRequiredService<IProcurementSourcingDraftSchemaReadiness>().IsReadyAsync(ct);
                 var principalSourcingSourceDrafts = await ProcurementPrincipalSourcingCapability.ReadyAsync(
                     services, scope, pending, sourcingSourceDrafts, ct);
+                var publicationOptions = services.GetRequiredService<ProcurementPrincipalSourcingPublicationOptions>();
+                var principalSourcingPublication = principalSourcingSourceDrafts && publicationOptions.Enabled
+                    && services.GetRequiredService<ProcurementApprovalExecutionOptions>() is
+                        { Enabled: true, PrincipalExecutionEnabled: true, ExecutionDatabaseConfigured: true }
+                    && await ProcurementPrincipalApprovalCapability.ConfiguredStoreReadyAsync(services, ct)
+                    && await services.GetRequiredService<IProcurementPrincipalSourcingPublicationReadiness>().IsReadyAsync(ct)
+                    && await ProcurementPrincipalPeople.Resolve(services.GetRequiredService<HrmDbContext>(),
+                        scope.TenantId, scope.LegalEntityId, scope.SubjectId, ct) is { } publicationPerson
+                    && (scope.WorkLocationId is { } selectedPublicationBranch
+                        ? publicationPerson.OrganisationWide || publicationPerson.AllowedBranches.Contains(selectedPublicationBranch)
+                        : publicationPerson.OrganisationWide || publicationPerson.AllowedBranches.Count > 0)
+                    && (publicationPerson.Permissions.Contains("procurement-sourcing-submit")
+                        || publicationPerson.Permissions.Contains("procurement-sourcing-publish"));
                 return Results.Ok(new
                 {
                     module = "procurement",
@@ -198,6 +215,7 @@ public static class ProcurementHostIntegration
                         // Separate future governed holds/releases from existing unlinked draft CRUD.
                         sourcingSourceDrafts,
                         principalSourcingSourceDrafts,
+                        principalSourcingPublication,
                         // Capability describes configured availability; each command still
                         // checks current identity, record scope, policy, authority and Finance.
                         budgetEvidence = financeCheckerReads,

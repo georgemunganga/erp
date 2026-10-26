@@ -9,7 +9,8 @@ public sealed class SourcingPolicyIdentityEvidence : ProcurementRecord
     public int PolicyVersionNumber { get; init; }
     public string Stage { get; init; } = null!;
     public string ActorPrincipalId { get; init; } = null!;
-    public Guid ActorWorkerId { get; init; }
+    // Schema 1 retains the required worker; schema 2 permits a Core account without HR linkage.
+    public Guid? ActorWorkerId { get; init; }
     public long PolicyRecordVersionAtAction { get; init; }
     public string RulesSha256 { get; init; } = null!;
     public DateTimeOffset ActionAt { get; init; }

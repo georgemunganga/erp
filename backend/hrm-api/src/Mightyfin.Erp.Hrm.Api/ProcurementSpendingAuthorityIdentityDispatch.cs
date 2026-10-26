@@ -15,8 +15,13 @@ public static partial class ProcurementSpendingAuthorityRoutes
     private static bool PrincipalOption(HttpContext http)=>http.RequestServices.GetService<ProcurementApprovalExecutionOptions>()
         is {PrincipalExecutionEnabled:true};
 
+    private static bool PrincipalActionOption(HttpContext http,string action)=>PrincipalOption(http)
+        && (action==SpendingAuthorityConfiguration.ApprovalAction
+            || action==ProcurementSpendingActions.SourcingPublication.Action
+                && http.RequestServices.GetService<ProcurementPrincipalSourcingPublicationOptions>() is {Enabled:true});
+
     private static async Task<bool> NewPrincipalIdentity(HttpContext http,ProcurementDbContext db,string action,CancellationToken ct)
-        => action==SpendingAuthorityConfiguration.ApprovalAction && PrincipalOption(http)
+        => PrincipalActionOption(http,action)
             && await ProcurementPrincipalApprovalSchemaGuard.ReadyAsync(db,http.RequestServices,true,ct);
 
     private static async Task<bool> RetainedPrincipalIdentity(HttpContext http,ProcurementDbContext db,
@@ -24,7 +29,7 @@ public static partial class ProcurementSpendingAuthorityRoutes
     {
         var origin=await ProcurementSpendingAuthorityWorkerIdentity.LoadCreatedAsync(db,scope,grant,ct);
         if(origin.SchemaVersion==1)return false;
-        if(origin.SchemaVersion!=2 || grant.Action!=SpendingAuthorityConfiguration.ApprovalAction || !PrincipalOption(http)
+        if(origin.SchemaVersion!=2 || !PrincipalActionOption(http,grant.Action)
             || !await ProcurementPrincipalApprovalSchemaGuard.ReadyAsync(db,http.RequestServices,true,ct))
             throw new InvalidOperationException("AuthorityPrincipalIdentityUnavailable");
         return true;
