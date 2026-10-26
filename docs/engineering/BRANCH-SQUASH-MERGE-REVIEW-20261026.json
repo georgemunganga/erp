@@ -1,0 +1,26 @@
+{
+  "candidate": {
+    "branchHeadAncestorMain": false,
+    "branchUniqueCommitCountRelativeToMain": 1090,
+    "head": "e50cfc6a000423203a496cbab8ffda94e4d597a5",
+    "mergeCommit": "bec1e6451b743c20ce099b976fde4e7910b8b208",
+    "mergeCommitAncestorMain": true,
+    "mergedAt": "2026-10-24T18:38:51Z",
+    "mergedPr": 65,
+    "name": "codex/manus-p35-ui-verification-07",
+    "prBase": "main",
+    "remoteHeadUnchangedAtReview": true
+  },
+  "deleted": false,
+  "interpretation": "A merged PR on main has a reachable merge commit while this unchanged head is outside main ancestry; squash or rebase style merge is plausible. This does not prove the retained branch graph is fully represented by main.",
+  "recoveryBundlePrepared": false,
+  "remoteMainAtReview": "e50fa95904a1629d0785ee2d5e2b927371f06dc3",
+  "repository": "georgemunganga/erp",
+  "requiredBeforeDeletion": [
+    "Root review of branch graph and source correspondence",
+    "recoverability plan or verified bundle for unique commits",
+    "fresh exact remote head/main/PR/worktree checks"
+  ],
+  "schemaVersion": 1,
+  "status": "REVIEW_ONLY_NOT_DELETED"
+}
