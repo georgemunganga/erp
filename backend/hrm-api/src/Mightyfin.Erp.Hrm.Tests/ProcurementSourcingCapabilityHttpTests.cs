@@ -84,6 +84,8 @@ public sealed class ProcurementSourcingCapabilityHttpTests
         // An explicit principal flag and an available RFQ fake cannot replace the
         // absent actual P25 owning-store inspector. No Core account is inferred.
         Assert.False(capabilities.GetProperty("principalSourcingSourceDrafts").GetBoolean());
+        Assert.False(capabilities.GetProperty("principalSourcingPublicationRead").GetBoolean());
+        Assert.False(capabilities.GetProperty("principalSourcingPublication").GetBoolean());
         Assert.Equal(!pending, capabilities.GetProperty("sourcingDraft").GetBoolean());
         Assert.False(capabilities.GetProperty("sourcing").GetBoolean());
         Assert.False(capabilities.GetProperty("orders").GetBoolean());

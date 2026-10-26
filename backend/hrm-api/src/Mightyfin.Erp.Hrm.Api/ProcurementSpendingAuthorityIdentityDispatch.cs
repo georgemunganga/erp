@@ -19,6 +19,8 @@ public static partial class ProcurementSpendingAuthorityRoutes
     // No employee link is invented for current Core principals.
     private static bool PrincipalActionOption(HttpContext http,string action)=>PrincipalOption(http)
         && (action==SpendingAuthorityConfiguration.ApprovalAction
+            || action==ProcurementSpendingActions.SourcingPublication.Action
+                && http.RequestServices.GetService<ProcurementPrincipalSourcingPublicationOptions>() is {Enabled:true}
             || action==ProcurementSpendingActions.PurchaseOrder.Action
                 && http.RequestServices.GetService<ProcurementOrderExecutionOptions>() is {PrincipalExecutionEnabled:true});
 

@@ -76,7 +76,9 @@ public sealed class ProcurementSourcingDraftSchemaReadiness(IConfiguration confi
                 {
                     if (!CheckDefinitions.TryGetValue(check.Name, out var expected)) return false;
                     command.CommandText = CheckSql(table, check.Name);
-                    if (await command.ExecuteScalarAsync(ct) is not string actual || actual != expected) return false;
+                    if (await command.ExecuteScalarAsync(ct) is not string actual
+                        || actual != expected && !(check.Name == "ck_sourcing_owned_draft"
+                            && M4PrincipalRfqPhysicalChecks.Matches(check.Name, actual))) return false;
                 }
                 foreach (var foreign in entity.GetForeignKeys())
                 {

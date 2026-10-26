@@ -9,14 +9,14 @@ using static Mightyfin.Erp.Hrm.Api.ProcurementSchemaInspectionSql;
 
 namespace Mightyfin.Erp.Hrm.Api;
 
-/// <summary>Normal-host P29 readiness: read-only discovery on the policy command's actual
+/// <summary>Normal-host M4 readiness: read-only discovery on the policy command's actual
 /// owning connection/transaction. It supplies no identity, publication or configuration-version authority.</summary>
 public sealed class ProcurementSourcingPolicyIdentitySchemaReadiness : IProcurementSourcingPolicyIdentitySchemaReadiness
 {
-    internal const string MigrationId = "20261022052824_P21CanonicalGovernedProcurementFoundation";
-    // Exact actual PostgreSQL17 outputs, procurement-p29-postgres-20261021_0847/
-    // p29-checks.json and p29-partial-indexes.json. Never relax grouping/casts/literal case.
-    internal const string CheckDefinition = "CHECK (((schema_version = 1) AND (id <> '00000000-0000-0000-0000-000000000000'::uuid) AND (policy_version_id <> '00000000-0000-0000-0000-000000000000'::uuid) AND (policy_version_number > 0) AND (policy_record_version_at_action > 0) AND (actor_worker_id <> '00000000-0000-0000-0000-000000000000'::uuid) AND (length(btrim((actor_principal_id)::text)) > 0) AND (rules_sha256 IS NOT NULL) AND ((rules_sha256)::text ~ '^[0-9a-f]{64}$'::text) AND (evidence_sha256 IS NOT NULL) AND ((evidence_sha256)::text ~ '^[0-9a-f]{64}$'::text) AND isfinite(action_at) AND ((((stage)::text = 'Created'::text) AND (policy_record_version_at_action = 1) AND (created_evidence_id IS NULL) AND (created_evidence_stage IS NULL) AND (submitted_evidence_id IS NULL) AND (submitted_evidence_stage IS NULL)) OR (((stage)::text = 'Submitted'::text) AND (created_evidence_id IS NOT NULL) AND (created_evidence_stage IS NOT NULL) AND ((created_evidence_stage)::text = 'Created'::text) AND (submitted_evidence_id IS NULL) AND (submitted_evidence_stage IS NULL)) OR (((stage)::text = 'Published'::text) AND (created_evidence_id IS NOT NULL) AND (created_evidence_stage IS NOT NULL) AND ((created_evidence_stage)::text = 'Created'::text) AND (submitted_evidence_id IS NOT NULL) AND (submitted_evidence_stage IS NOT NULL) AND ((submitted_evidence_stage)::text = 'Submitted'::text)))))";
+    // The mixed held P30 migration is deliberately absent. This exact M4 ID
+    // and its physical CHECK are captured from genuine private PostgreSQL.
+    internal const string MigrationId = M4PrincipalRfqPhysicalChecks.MigrationId;
+    internal static string CheckDefinition => M4PrincipalRfqPhysicalChecks.Native["ck_source_policy_identity"];
     internal static readonly IReadOnlyDictionary<string, string> PartialPredicates = new Dictionary<string, string>
     {
         ["ux_source_policy_identity_created"] = "((stage)::text = 'Created'::text)",
@@ -25,7 +25,13 @@ public sealed class ProcurementSourcingPolicyIdentitySchemaReadiness : IProcurem
     private static readonly HashSet<string> ForeignNames = ["fk_source_policy_identity_owner",
         "fk_source_policy_identity_created", "fk_source_policy_identity_submitted"];
 
-    public async Task<bool> IsReadyAsync(ProcurementDbContext owner, CancellationToken ct)
+    public Task<bool> IsReadyAsync(ProcurementDbContext owner, CancellationToken ct) =>
+        CheckAsync(owner, true, ct);
+
+    public Task<bool> IsReadReadyAsync(ProcurementDbContext owner, CancellationToken ct) =>
+        CheckAsync(owner, false, ct);
+
+    private async Task<bool> CheckAsync(ProcurementDbContext owner, bool write, CancellationToken ct)
     {
         if (!owner.Database.IsNpgsql()) return false;
         var opened = false;
@@ -40,7 +46,7 @@ public sealed class ProcurementSourcingPolicyIdentitySchemaReadiness : IProcurem
             command.Transaction = owner.Database.CurrentTransaction?.GetDbTransaction(); command.CommandTimeout = 10;
             async Task<bool> True(string sql)
             { command.CommandText = sql; return await command.ExecuteScalarAsync(ct) is true; }
-            if (!await True(PrivilegeSql)) return false;
+            if (!await True(write ? PrivilegeSql : ReadPrivilegeSql)) return false;
             var model = owner.GetService<IDesignTimeModel>().Model;
             var identity = model.FindEntityType(typeof(SourcingPolicyIdentityEvidence));
             var policy = model.FindEntityType(typeof(PolicyVersion));
@@ -59,7 +65,7 @@ public sealed class ProcurementSourcingPolicyIdentitySchemaReadiness : IProcurem
             var checks = identity.GetCheckConstraints().ToArray();
             if (checks.Length != 1 || checks[0].Name != "ck_source_policy_identity") return false;
             command.CommandText = CheckSql(table, checks[0].Name);
-            if (await command.ExecuteScalarAsync(ct) is not string actual || actual != CheckDefinition) return false;
+            if (await command.ExecuteScalarAsync(ct) is not string actual || !M4PrincipalRfqPhysicalChecks.Matches("ck_source_policy_identity", actual)) return false;
             var foreigns = identity.GetForeignKeys().ToArray();
             if (foreigns.Length != ForeignNames.Count || !foreigns.Select(x => x.GetConstraintName()!).ToHashSet(StringComparer.Ordinal).SetEquals(ForeignNames)) return false;
             foreach (var foreign in foreigns)
@@ -97,6 +103,37 @@ public sealed class ProcurementSourcingPolicyIdentitySchemaReadiness : IProcurem
             string[] append = ["sourcing_policy_identity_evidence", "audit_events", "outbox_events"];
             var clauses = append.Select(table => "has_table_privilege(current_user," + Literal("procurement." + table) + ",'SELECT') AND has_table_privilege(current_user," + Literal("procurement." + table) + ",'INSERT') AND NOT has_table_privilege(current_user," + Literal("procurement." + table) + ",'UPDATE') AND NOT has_table_privilege(current_user," + Literal("procurement." + table) + ",'DELETE') AND NOT has_any_column_privilege(current_user," + Literal("procurement." + table) + ",'UPDATE') AND NOT has_table_privilege(current_user," + Literal("procurement." + table) + ",'TRUNCATE')").ToList();
             clauses.Add("has_table_privilege(current_user,'procurement.policy_versions','SELECT') AND has_table_privilege(current_user,'procurement.policy_versions','INSERT') AND has_table_privilege(current_user,'procurement.policy_versions','UPDATE') AND NOT has_table_privilege(current_user,'procurement.policy_versions','DELETE') AND NOT has_table_privilege(current_user,'procurement.policy_versions','TRUNCATE')");
+            clauses.Add("has_table_privilege(current_user,'procurement.__procurement_migrations','SELECT')");
+            clauses.Add("NOT EXISTS(SELECT 1 FROM pg_roles WHERE rolname=current_user AND (rolsuper OR rolcreatedb OR rolcreaterole OR rolreplication OR rolbypassrls))");
+            clauses.Add("NOT has_schema_privilege(current_user,'procurement','CREATE')");
+            return "SELECT " + string.Join(" AND ", clauses);
+        }
+    }
+
+    // The Execution role reads policy identity while opening/deciding an RFQ. Its
+    // own append-only audit/outbox rights remain required; policy authoring stays
+    // on the Record connection and is explicitly absent here.
+    internal static string ReadPrivilegeSql
+    {
+        get
+        {
+            string[] append = ["audit_events", "outbox_events"];
+            var clauses = append.Select(table => "has_table_privilege(current_user," + Literal("procurement." + table)
+                + ",'SELECT') AND has_table_privilege(current_user," + Literal("procurement." + table)
+                + ",'INSERT') AND NOT has_any_column_privilege(current_user," + Literal("procurement." + table)
+                + ",'UPDATE') AND NOT has_table_privilege(current_user," + Literal("procurement." + table)
+                + ",'DELETE') AND NOT has_table_privilege(current_user," + Literal("procurement." + table)
+                + ",'TRUNCATE')").ToList();
+            clauses.Add("has_table_privilege(current_user,'procurement.sourcing_policy_identity_evidence','SELECT')"
+                + " AND NOT has_any_column_privilege(current_user,'procurement.sourcing_policy_identity_evidence','INSERT')"
+                + " AND NOT has_any_column_privilege(current_user,'procurement.sourcing_policy_identity_evidence','UPDATE')"
+                + " AND NOT has_table_privilege(current_user,'procurement.sourcing_policy_identity_evidence','DELETE')"
+                + " AND NOT has_table_privilege(current_user,'procurement.sourcing_policy_identity_evidence','TRUNCATE')");
+            clauses.Add("has_table_privilege(current_user,'procurement.policy_versions','SELECT')"
+                + " AND NOT has_any_column_privilege(current_user,'procurement.policy_versions','INSERT')"
+                + " AND NOT has_any_column_privilege(current_user,'procurement.policy_versions','UPDATE')"
+                + " AND NOT has_table_privilege(current_user,'procurement.policy_versions','DELETE')"
+                + " AND NOT has_table_privilege(current_user,'procurement.policy_versions','TRUNCATE')");
             clauses.Add("has_table_privilege(current_user,'procurement.__procurement_migrations','SELECT')");
             clauses.Add("NOT EXISTS(SELECT 1 FROM pg_roles WHERE rolname=current_user AND (rolsuper OR rolcreatedb OR rolcreaterole OR rolreplication OR rolbypassrls))");
             clauses.Add("NOT has_schema_privilege(current_user,'procurement','CREATE')");

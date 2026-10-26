@@ -256,8 +256,10 @@ public static partial class ProcurementPolicyDraftRoutes
         if (key == SourcingPublicationPolicyRules.PolicyKey)
         {
             var actor = await SourcingCurrentActor(organizationDb, scope, "procurement-configuration-edit", ct);
+            using var rules = JsonDocument.Parse(policy.RulesJson);
+            var schemaVersion = rules.RootElement.GetProperty("schemaVersion").GetInt32();
             db.AddScoped(SourcingPolicyIdentity.Capture(policy, scope.TenantId, scope.LegalEntityId, "Created", actor.PrincipalId,
-                actor.WorkerId, 1, DateTimeOffset.UtcNow));
+                actor.EvidenceWorker(schemaVersion), 1, DateTimeOffset.UtcNow, schemaVersion: schemaVersion));
         }
         if (operationalCreator is not null)
             db.AddScoped(OperationalPolicyIdentityStorage.ToRecord(OperationalPolicyWorkerIdentity.Capture(policy, "Created",
@@ -289,7 +291,8 @@ public static partial class ProcurementPolicyDraftRoutes
             await RequireSourcingIdentitySchema(http, db, ct);
             _ = await SourcingOriginalAuthor(db, organizationDb, scope, policy, ct);
             // Validate the proposed JSON before mutating the tracked draft.
-            var sourcingIssue = await CheckSourcingCompanyRules(new PolicyVersion { PolicyKey = policy.PolicyKey, RulesJson = input.Draft.RulesJson! },
+            var sourcingIssue = await CheckSourcingCompanyRules(new PolicyVersion { Id = policy.Id,
+                PolicyKey = policy.PolicyKey, RulesJson = input.Draft.RulesJson! },
                 db, organizationDb, scope, "procurement-configuration-edit", ct, draftSyntaxOnly: true);
             if (sourcingIssue is not null) return sourcingIssue;
         }
@@ -395,7 +398,7 @@ public static partial class ProcurementPolicyDraftRoutes
             return Problem("not-author", "Only the draft author can send it for review.", 403);
         if (string.IsNullOrWhiteSpace(input.Reason) || input.Reason.Trim().Length > 1000)
             return Problem("validation-failed", "Enter a review note of up to 1,000 characters.", 422);
-        (SourcingPolicyIdentityEvidence Origin, ProcurementAuthorityIdentity.CanonicalAccount Actor)? sourcingAuthor = null;
+        (SourcingPolicyIdentityEvidence Origin, ProcurementPrincipalPeople.Person Actor)? sourcingAuthor = null;
         if (policy.PolicyKey == SourcingPublicationPolicyRules.PolicyKey)
         {
             await RequireSourcingIdentitySchema(http, db, ct);
@@ -413,7 +416,8 @@ public static partial class ProcurementPolicyDraftRoutes
         policy.ReviewReason = input.Reason.Trim();
         if (sourcingAuthor is { } author)
             db.AddScoped(SourcingPolicyIdentity.Capture(policy, scope.TenantId, scope.LegalEntityId, "Submitted", author.Actor.PrincipalId,
-                author.Actor.WorkerId, checked(policy.Version + 1), policy.ReviewRequestedAt.Value, author.Origin));
+                author.Actor.EvidenceWorker(author.Origin.SchemaVersion), checked(policy.Version + 1), policy.ReviewRequestedAt.Value,
+                author.Origin, schemaVersion: author.Origin.SchemaVersion));
         if (operationalAuthor is not null)
             db.AddScoped(OperationalPolicyIdentityStorage.ToRecord(OperationalPolicyWorkerIdentity.Capture(policy, "Submitted",
                 operationalAuthor.Actor.PrincipalId, operationalAuthor.Actor.EvidenceWorker(operationalAuthor.Created.SchemaVersion), checked(policy.Version + 1),
@@ -450,7 +454,7 @@ public static partial class ProcurementPolicyDraftRoutes
                 return Problem("effective-date", "Choose a future start date in a new draft before publication.", 422);
             var referenceIssue = await CheckCompanyRules(policy, db, organizationDb, scope, ct, "procurement-configuration-approve");
             if (referenceIssue is not null) return referenceIssue;
-            (SourcingPolicyIdentityEvidence Origin, SourcingPolicyIdentityEvidence Submitted, ProcurementAuthorityIdentity.CanonicalAccount Actor)? sourcingReviewer = null;
+            (SourcingPolicyIdentityEvidence Origin, SourcingPolicyIdentityEvidence Submitted, ProcurementPrincipalPeople.Person Actor)? sourcingReviewer = null;
             if (policy.PolicyKey == SourcingPublicationPolicyRules.PolicyKey)
             {
                 await RequireSourcingIdentitySchema(http, db, ct);
@@ -495,7 +499,8 @@ public static partial class ProcurementPolicyDraftRoutes
             policy.PublicationReason = input.Reason.Trim();
             if (sourcingReviewer is { } reviewer)
                 db.AddScoped(SourcingPolicyIdentity.Capture(policy, scope.TenantId, scope.LegalEntityId, "Published", reviewer.Actor.PrincipalId,
-                    reviewer.Actor.WorkerId, checked(policy.Version + 1), policy.PublishedAt.Value, reviewer.Origin, reviewer.Submitted));
+                    reviewer.Actor.EvidenceWorker(reviewer.Origin.SchemaVersion), checked(policy.Version + 1), policy.PublishedAt.Value,
+                    reviewer.Origin, reviewer.Submitted, reviewer.Origin.SchemaVersion));
             if (operationalReviewer is not null)
                 db.AddScoped(OperationalPolicyIdentityStorage.ToRecord(OperationalPolicyWorkerIdentity.Capture(policy, "Published",
                     operationalReviewer.Actor.PrincipalId, operationalReviewer.Actor.EvidenceWorker(operationalReviewer.Created.SchemaVersion), checked(policy.Version + 1),
