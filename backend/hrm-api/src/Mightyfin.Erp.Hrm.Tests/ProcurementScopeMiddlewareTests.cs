@@ -151,11 +151,18 @@ public sealed class ProcurementScopeMiddlewareTests
     [InlineData("/api/procurement/v1/contracts", true)]
     [InlineData("/api/procurement/v1/orders/principal-direct-drafts", true)]
     [InlineData("/api/procurement/v1/orders/principal-direct-drafts/", true)]
+    [InlineData("/api/procurement/v1/orders/principal-governed-orders", true)]
+    [InlineData("/api/procurement/v1/orders/principal-finance-work", true)]
+    [InlineData("/api/procurement/v1/orders/principal-assigned-reviews", true)]
+    [InlineData("/api/procurement/v1/orders/principal-operation-work", true)]
     [InlineData("/api/procurement/v1/orders", false)]
     [InlineData("/api/procurement/v1/orders/approved-principal-direct-sources", false)]
     [InlineData("/api/procurement/v1/orders/00000000-0000-0000-0000-000000000001/principal-direct-draft", false)]
     [InlineData("/api/procurement/v1/requests/random-child", false)]
     [InlineData("/api/procurement/v1/requestss", false)]
+    [InlineData("/api/procurement/v1/orders/principal-governed-orders/random-child", false)]
+    [InlineData("/api/procurement/v1/orders/11111111-1111-4111-8111-111111111111/principal-governed-detail", false)]
+    [InlineData("/api/procurement/v1/orders/principal-governance-command-receipts/Funding/11111111-1111-4111-8111-111111111111", false)]
     public void All_operational_reads_are_exact_collections_not_commands_or_children(string path, bool allowed)
     {
         Assert.Equal(allowed, ProcurementScopeMiddleware.AllOperationalListReadPath(path,"GET"));
@@ -167,6 +174,10 @@ public sealed class ProcurementScopeMiddlewareTests
     [InlineData("/api/procurement/v1/plans")]
     [InlineData("/api/procurement/v1/contracts")]
     [InlineData("/api/procurement/v1/orders/principal-direct-drafts")]
+    [InlineData("/api/procurement/v1/orders/principal-governed-orders")]
+    [InlineData("/api/procurement/v1/orders/principal-finance-work")]
+    [InlineData("/api/procurement/v1/orders/principal-assigned-reviews")]
+    [InlineData("/api/procurement/v1/orders/principal-operation-work")]
     public async Task Reviewed_All_collections_do_not_default_to_an_assigned_branch(string path)
     {
         await using var db=TestDbContextFactory.Create("tenant-a");var (user,company,_,branch)=await Seed(db);

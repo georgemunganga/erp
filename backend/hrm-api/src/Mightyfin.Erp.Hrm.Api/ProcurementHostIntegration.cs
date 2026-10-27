@@ -611,7 +611,11 @@ public sealed class ProcurementScopeMiddleware(RequestDelegate next, IWebHostEnv
         return string.Equals(value, "/api/procurement/v1/requests", StringComparison.OrdinalIgnoreCase)
             || string.Equals(value, "/api/procurement/v1/plans", StringComparison.OrdinalIgnoreCase)
             || string.Equals(value, "/api/procurement/v1/contracts", StringComparison.OrdinalIgnoreCase)
-            || string.Equals(value, "/api/procurement/v1/orders/principal-direct-drafts", StringComparison.OrdinalIgnoreCase);
+            || string.Equals(value, "/api/procurement/v1/orders/principal-direct-drafts", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(value, "/api/procurement/v1/orders/principal-governed-orders", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(value, "/api/procurement/v1/orders/principal-finance-work", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(value, "/api/procurement/v1/orders/principal-assigned-reviews", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(value, "/api/procurement/v1/orders/principal-operation-work", StringComparison.OrdinalIgnoreCase);
     }
 
     internal static bool RequestWriteRequiresBranch(PathString path, string method) =>
