@@ -1,20 +1,34 @@
-# Procurement UAT audit checkpoint — 27 October 2026
+# Published Procurement UAT checkpoint — 27 October 2026
 
-ERP audited baseline: `fcdafac34351b3e0d312b4e49ff949dc2d1c0ede`.
-UI UAT correction branch: `codex/procurement-uat-fixtures-20261027`, product
-`77f582e` in `georgemunganga/module-connect`; test-only workspace fixture
-corrections and one permission-oriented view-only message, not a UI redesign.
-It is not a published main prerequisite until reviewed and merged.
+Audited ERP backend baseline: `fcdafac34351b3e0d312b4e49ff949dc2d1c0ede`
+(product `20985344252b0b394939cfceb87152d49f39e2e2`).
+UI PR89 is merged: accepted UI main
+`f1e237713d5f803212ec2ae72773be842ab0e3b6`, product `720b108`, final tests
+`ba25a24` and documentation-only successor `f03a532`. Start from current
+published main descendants; no UI rebuild or duplicate import is assigned.
 
-The [current UAT and gap register](docs/procurement/gap-closure/PROCUREMENT-UAT-AND-GAPS-20261027.md)
-separates current source, private native acceptance, mocked browser coverage and
-deployed M4. Whole Procurement UAT is NOT complete. Do not resume old branches
-on the assumption that schemas or screens establish operational completion.
-M5b receiving remains the assigned complete milestone below; root owns release
-preflight and invoice/payment auditing. Manual payments already have a workflow
-and can run without Finance; fresh native acceptance and activation remain open.
-Core owns identity, permissions and branch scope; employee links are optional.
-No production activation or deployment occurred during this audit.
+The [UAT report](docs/procurement/gap-closure/PROCUREMENT-UAT-AND-GAPS-20261027.md)
+and [exact checkpoint](docs/procurement/gap-closure/PROCUREMENT-UAT-CHECKPOINT-20261027.json)
+record587 UI units/build,444 mocked browser scenarios (full443/444 then20/20
+affected-file rerun), two fixed navigation races, and real-cookie manual-payment
+API/native-owner acceptance. Four Core users without employees completed the
+payment flow; independent confirmation is not bank/Finance execution. Whole
+Procurement UAT is NOT signed off; authenticated production CRUD was not tested
+in this audit. Hosted CI is not represented as a pass.
+
+Root owns M5a release readiness and invoice/payment follow-up. Manus may claim
+[M5b receiving/inspection/returns](docs/collaboration/manus/MANUS-M5B-PRINCIPAL-RECEIVING-08.md)
+from these merged prerequisites/current main. Connect Core users and M5 PO
+issued evidence through the original receiving UI. Preserve permission/scope,
+independent approvals, quantity conservation, reversal history and module
+ownership. C04 scanner work remains independent. Do not resume old held branches
+or infer supplier delivery, Finance posting or inventory ledger acceptance.
+
+Production remains M4 with existing flags; this audit changed no production
+role, policy, schema, flag, container or UI alias. Current-row migration preflight,
+fresh recoverable backup/restore, finite Record+Execution grants and paired
+rollout/smoke checks remain required for M5a. Test-profile grants and the synthetic
+ZMW100 review policy are not production configuration.
 
 ---
 
