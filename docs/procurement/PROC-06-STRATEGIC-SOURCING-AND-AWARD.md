@@ -1,5 +1,7 @@
 # PROC-06 Strategic Sourcing and Award
 
+> **27 October 2026 superseding checkpoint:** M5a is merged and privately verified, but production remains M4 and whole-module UAT is open. Earlier dated implementation limits below are historical. Use the [current UAT and gap register](gap-closure/PROCUREMENT-UAT-AND-GAPS-20261027.md) for current capabilities, test boundaries and remaining milestones.
+
 **Status:** Draft for business review · **Version:** 0.1 · **Hierarchy:** Procurement → Strategic Sourcing → Sourcing Event, Bid Evaluation and Award → Operations · **Framework:** [ERP 28-section standard](../hrm/feature-specifications/ERP_Feature_Specification_Framework_Enterprise_Integration_Updated.docx) · **Module:** [PROC-00](PROC-00-PROCUREMENT-MODULE-ARCHITECTURE-AND-CAPABILITY-MAP.md)
 
 **Implementation note (18 October 2026):** The shared ERP host has an own-record sourcing draft API under `/api/procurement/v1/sourcing`. It can create, revise and cancel an internal event and its lines. Removed lines retain a cancellation state and reason. Approved PR-line conversion, method policy, publication, supplier invitations, sealed bids, evaluation and award are not enabled by this draft API.

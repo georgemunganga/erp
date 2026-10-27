@@ -1,5 +1,7 @@
 # Procurement execution checkpoint — 26 October 2026
 
+> **27 October 2026 superseding checkpoint:** M5a is merged and privately verified, but production remains M4 and whole-module UAT is open. Earlier dated implementation limits below are historical. Use the [current UAT and gap register](PROCUREMENT-UAT-AND-GAPS-20261027.md) for current capabilities, test boundaries and remaining milestones.
+
 This checkpoint supersedes earlier status paragraphs, not historical acceptance records. Procurement is not complete. The coordinator continues M0–M10, preserving the imported UI and shared ERP components. The technical release below is deployed; whole-module business UAT remains open. Earlier no-deployment statements are historical.
 
 ## Latest matched release deployed — M4 technical foundation

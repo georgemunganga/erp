@@ -1,3 +1,23 @@
+# Procurement UAT audit checkpoint — 27 October 2026
+
+ERP audited baseline: `fcdafac34351b3e0d312b4e49ff949dc2d1c0ede`.
+UI UAT correction branch: `codex/procurement-uat-fixtures-20261027`, product
+`77f582e` in `georgemunganga/module-connect`; test-only workspace fixture
+corrections and one permission-oriented view-only message, not a UI redesign.
+It is not a published main prerequisite until reviewed and merged.
+
+The [current UAT and gap register](docs/procurement/gap-closure/PROCUREMENT-UAT-AND-GAPS-20261027.md)
+separates current source, private native acceptance, mocked browser coverage and
+deployed M4. Whole Procurement UAT is NOT complete. Do not resume old branches
+on the assumption that schemas or screens establish operational completion.
+M5b receiving remains the assigned complete milestone below; root owns release
+preflight and invoice/payment auditing. Manual payments already have a workflow
+and can run without Finance; fresh native acceptance and activation remain open.
+Core owns identity, permissions and branch scope; employee links are optional.
+No production activation or deployment occurred during this audit.
+
+---
+
 # Published M5a prerequisites and receiving handoff — 27 October 2026
 
 This checkpoint supersedes older assignment/baseline paragraphs below.
