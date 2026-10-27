@@ -1,3 +1,44 @@
+# Procurement collaboration checkpoint — 27 October 2026
+
+Verified published ERP main: `9f2591cc3bd5b322e73cd44ea080795370b7352c`.
+Verified published UI main: `46782ccdb502d8be34e5abb7e25ff659cd325582`.
+The ERP main update after the M4 deployment is documentation only. These are
+the shared starting points; the following draft branches are not merged release
+baselines and must not be deployed as accepted milestones.
+
+Root owns M5a backend and private verification in
+[ERP draft PR #119](https://github.com/georgemunganga/erp/pull/119).
+The existing UI integration is in
+[UI draft PR #87](https://github.com/georgemunganga/module-connect/pull/87).
+Preserve the imported Procurement layout and shared ERP components. Do not
+rewrite the PO screens or introduce another master, ledger or approval engine.
+
+Current verified backend product revision is
+`d901e3c048b386b8a88e44a353798144cb051fe2`; UI build revision is
+`9b2defac773376db7be07e60792a2497f0b83fdd`. Both revisions are published draft
+branch commits. The backend passed 55 focused checks and the bounded real-cookie
+PO lifecycle, original-key Issue recovery, All-write denial and four controlled
+release paths. The UI passed type checking/build, 47 focused checks and five-role
+page reads; full UI workflow acceptance remains open. Exact evidence
+and limitations are in
+[the M5a implementation record](docs/procurement/M5A-PRINCIPAL-ORDER-GOVERNANCE-IMPLEMENTATION.md).
+
+Do not overlap Root's active M5a files, change test credentials/grants, or enable
+production operational flags. The existing independent Manus scanner assignment remains in place. No new collaborator milestone is assigned from
+these drafts. Publish reviewed prerequisite merges and update this checkpoint
+before assigning work that depends on them.
+
+Release holds include full form-driven UI workflows, return/reject and funded
+withdrawal/release cases, stale/concurrent and revoked-user paths, independent
+review, finite production grants, recovery rehearsal and post-deploy checks.
+Receiving/returns, amendments and later principal-identity procure-to-pay work
+remain separate milestones. Finance owns its eventual accounting/payment
+adapter; the private manual evidence here does not implement that adapter.
+
+---
+
+## Earlier retained checkpoints
+
 # Latest UI and UAT checkpoint
 
 ERP prerequisite main is `de449645a5cf4b46da1024c821252ac46b625103`; UI main `dfed2dd1954e8dc735a3bd8ff03449d4b00e6911` includes deployed anonymous-access recovery PR85. Current backend is product `237a936b25690f780cd09ca6ab3f90b1a05cc009` / image `c233ffd9e76f7579f52bfb03259985a7abc6691c94d05b9633773b2389f3aa0a` after the [verified expiry-guard image-only release](docs/procurement/release/CORE-ACCOUNT-LINK-EXPIRY-DEPLOYMENT-20261026.json); current UI product is `9b6ab3442aa1583a339dcfed311adad393a29706`. Fresh M3b and finite-Core current-mainline M2a private browser/owner/preservation checks passed; [current status](docs/procurement/gap-closure/CURRENT-EXECUTION-STATUS-20261026.md) distinguishes that from production activation.
