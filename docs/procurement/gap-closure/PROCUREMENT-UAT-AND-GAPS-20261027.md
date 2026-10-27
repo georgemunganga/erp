@@ -30,11 +30,11 @@ The complete mocked browser suite contains 444 cases. Its first two attempts sto
 
 ## Real payment acceptance and limits
 
-The private test used four separately permissioned Core users with **no employee links**. It captured one structured invoice for ZMW10, created a payment request for4, revised it to5, submitted, independently approved, recorded an external observation and independently confirmed it. The result is **ConfirmedManually**, while the invoice remains **Received** with a null Finance posting reference. This is not a bank payment or ledger posting.
+The private test used four separately permissioned Core users with **no employee links**. It captured one structured invoice for ZMW 10, created a payment request for 4, revised it to 5, submitted, independently approved, recorded an external observation and independently confirmed it. The result is **ConfirmedManually**, while the invoice remains **Received** with a null Finance posting reference. This is not a bank payment or ledger posting.
 
 Owner verification reconciled six decision/receipt pairs and event keys, two real approval cases and date observations, preserved original business records and the source database, and confirmed zero active test sessions. Original-key reads, identical Record replay, wrong-approver403 and an over-capacity409 passed. Native UI forms, alternate transitions, multi-branch isolation and concurrent capacity remain unaccepted by this bounded test.
 
-A release preflight must verify **both** Record and Execution database-role contracts. Execution readiness alone did not prove policy authoring or invoice capture: initial attempts caught missing named Record privileges. Those were corrected only in the isolated test profile, with source/old-row/role reconciliation; no production role or flag was changed. Do not copy fixture role names or its ZMW100 synthetic policy into business configuration.
+A release preflight must verify **both** Record and Execution database-role contracts. Execution readiness alone did not prove policy authoring or invoice capture: initial attempts caught missing named Record privileges. Those were corrected only in the isolated test profile, with source/old-row/role reconciliation; no production role or flag was changed. Do not copy fixture role names or its ZMW 100 synthetic policy into business configuration.
 
 ## Capability assessment
 

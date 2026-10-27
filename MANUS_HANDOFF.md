@@ -9,7 +9,7 @@ published main descendants; no UI rebuild or duplicate import is assigned.
 
 The [UAT report](docs/procurement/gap-closure/PROCUREMENT-UAT-AND-GAPS-20261027.md)
 and [exact checkpoint](docs/procurement/gap-closure/PROCUREMENT-UAT-CHECKPOINT-20261027.json)
-record587 UI units/build,444 mocked browser scenarios (full443/444 then20/20
+record 587 UI tests and a build, 444 mocked browser scenarios (full443/444 then20/20
 affected-file rerun), two fixed navigation races, and real-cookie manual-payment
 API/native-owner acceptance. Four Core users without employees completed the
 payment flow; independent confirmation is not bank/Finance execution. Whole
