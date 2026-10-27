@@ -1,5 +1,7 @@
 # Procurement workflow reference trace
 
+> **27 October 2026:** This reference preserves the original external journey mapping. Its dated implementation column is historical; the [current UAT and gap register](gap-closure/PROCUREMENT-UAT-AND-GAPS-20261027.md) records what is implemented and which tests remain.
+
 **Status:** implementation reference, 18 October 2026. **Scope:** functional workflow coverage, not adopted business policy or copied product code.
 
 Zoho Procurement's [help index](https://www.zoho.com/ca/procurement/help/getting-started/welcome/) is the primary checklist for the journeys users should be able to complete. Its product-specific labels, screens, payment implementation and defaults are not our implementation contract. The 28-section `PROC-*` feature specifications define our transitions and controls; the [live roadmap](PROC-ROADMAP-LIVE-BUILD.md) records what is actually implemented. [ERPNext's procurement cycle](https://docs.frappe.io/erpnext/procurement-cycle-overview) is a secondary check when a data or implementation detail needs another public example.

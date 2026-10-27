@@ -8,11 +8,15 @@ the coordinator's constrained production/build host.
 
 ## Published prerequisites and coordination
 
-- ERP accepted main: `58dedebf9761d20c1dd0490b1b1dd6532c9d8454` (M5a PR119).
-- UI accepted main: `c33b435efe041bb97c7b831be93cd9d8aca05d28` (PR87).
+- ERP audited main prerequisite: `fcdafac34351b3e0d312b4e49ff949dc2d1c0ede` (includes M5a PR119 and handoff).
+- UI accepted main: `f1e237713d5f803212ec2ae72773be842ab0e3b6` (PR89, following PR87).
 - Tested runtime products are backend `20985344252b0b394939cfceb87152d49f39e2e2`
-  and UI `79a19df28b1d3e95d4ab8798c7f27cd1ff53f9d0`; later prerequisite changes
-  are documentation/merges with the relevant application trees unchanged.
+  and UI application `720b108` (final tests `ba25a24`, documentation successor `f03a532`).
+  Earlier M5a actual-UI acceptance used `79a19df`; current UI adds two reviewed
+  navigation guards and permission-based guidance, with 587 units/build and
+  all 444 mocked scenarios covered by full run plus affected-file rerun.
+  See the [current UAT/gap register](../../procurement/gap-closure/PROCUREMENT-UAT-AND-GAPS-20261027.md);
+  regression coverage does not replace this milestone's native receiving acceptance.
 - Fetch current main and branch from these commits or published descendants.
   Never start from the older P31/P33/P35/P37/P38 or vendor task branches.
   Their implementations may inform a focused port; their mixed ancestry,

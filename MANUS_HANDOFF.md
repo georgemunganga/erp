@@ -1,3 +1,37 @@
+# Published Procurement UAT checkpoint — 27 October 2026
+
+Audited ERP backend baseline: `fcdafac34351b3e0d312b4e49ff949dc2d1c0ede`
+(product `20985344252b0b394939cfceb87152d49f39e2e2`).
+UI PR89 is merged: accepted UI main
+`f1e237713d5f803212ec2ae72773be842ab0e3b6`, product `720b108`, final tests
+`ba25a24` and documentation-only successor `f03a532`. Start from current
+published main descendants; no UI rebuild or duplicate import is assigned.
+
+The [UAT report](docs/procurement/gap-closure/PROCUREMENT-UAT-AND-GAPS-20261027.md)
+and [exact checkpoint](docs/procurement/gap-closure/PROCUREMENT-UAT-CHECKPOINT-20261027.json)
+record 587 UI tests and a build, 444 mocked browser scenarios (full443/444 then20/20
+affected-file rerun), two fixed navigation races, and real-cookie manual-payment
+API/native-owner acceptance. Four Core users without employees completed the
+payment flow; independent confirmation is not bank/Finance execution. Whole
+Procurement UAT is NOT signed off; authenticated production CRUD was not tested
+in this audit. Hosted CI is not represented as a pass.
+
+Root owns M5a release readiness and invoice/payment follow-up. Manus may claim
+[M5b receiving/inspection/returns](docs/collaboration/manus/MANUS-M5B-PRINCIPAL-RECEIVING-08.md)
+from these merged prerequisites/current main. Connect Core users and M5 PO
+issued evidence through the original receiving UI. Preserve permission/scope,
+independent approvals, quantity conservation, reversal history and module
+ownership. C04 scanner work remains independent. Do not resume old held branches
+or infer supplier delivery, Finance posting or inventory ledger acceptance.
+
+Production remains M4 with existing flags; this audit changed no production
+role, policy, schema, flag, container or UI alias. Current-row migration preflight,
+fresh recoverable backup/restore, finite Record+Execution grants and paired
+rollout/smoke checks remain required for M5a. Test-profile grants and the synthetic
+ZMW100 review policy are not production configuration.
+
+---
+
 # Published M5a prerequisites and receiving handoff — 27 October 2026
 
 This checkpoint supersedes older assignment/baseline paragraphs below.

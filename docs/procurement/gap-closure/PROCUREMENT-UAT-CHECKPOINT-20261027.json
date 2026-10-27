@@ -1,0 +1,296 @@
+{
+  "schemaVersion": 1,
+  "date": "2026-10-27",
+  "status": "AUDIT_CYCLE_FINISHED_WHOLE_MODULE_UAT_BLOCKED",
+  "fullProcurementUatComplete": false,
+  "businessSignOff": false,
+  "erpAuditedBaseline": "fcdafac34351b3e0d312b4e49ff949dc2d1c0ede",
+  "uiApplicationAndUnitSource": "720b1080b2087f0c8b98a4b0b1bbc3ab88495c00",
+  "uiFinalTestSource": "ba25a24768195f45121c97f48a6799b3c5da117a",
+  "node": "v22.23.3",
+  "typeScript": "PASS",
+  "actorHarnessTests": {
+    "passed": 4,
+    "failed": 0
+  },
+  "unitTests": {
+    "passed": 587,
+    "failed": 0,
+    "rawReportSha256": "fc9b6ec727549930c460fd8ca44fb15426b72066298fc409801bb46cd2189c9e"
+  },
+  "productionUiBuild": "PASS",
+  "mockedUiCoverage": {
+    "currentPassingScenarioCount": 444,
+    "singleUninterrupted444Pass": false,
+    "method": "Full444:443pass/1strict-locator failure; entire affected file rerun after one test-only selector correction. Product/test dependencies outside that file are byte-identical.",
+    "fullRunStats": {
+      "startTime": "2026-10-27T16:07:54.815Z",
+      "duration": 1858505.21,
+      "expected": 443,
+      "skipped": 0,
+      "unexpected": 1,
+      "flaky": 0
+    },
+    "fullRunReportSha256": "5bcae8314fd0b857cddb4e56b4e86f951a8f753616e57a445d042a06f847cb80",
+    "affectedFile": "live-order-execution.spec.ts",
+    "affectedFileCases": 20,
+    "focusedRunStats": {
+      "startTime": "2026-10-27T16:39:49.641Z",
+      "duration": 79410.371,
+      "expected": 20,
+      "skipped": 0,
+      "unexpected": 0,
+      "flaky": 0
+    },
+    "focusedRunReportSha256": "1e1602880e9e4b2d1d0b76e56587ea3c38b76c2dbb267dfcc5360b10e80fc88b",
+    "nativePersistenceProvenByMocks": false
+  },
+  "retainedUiAttempts": [
+    {
+      "run": "01",
+      "stats": {
+        "startTime": "2026-10-27T14:13:33.231Z",
+        "duration": 149903.12,
+        "expected": 6,
+        "skipped": 430,
+        "unexpected": 8,
+        "flaky": 0
+      },
+      "reportSha256": "04b334317884c9ce8416885d48de6b92841806d1c9224d9242729453d911fa48",
+      "runner": {
+        "phase": "whole-ui-mocked-browser-regression",
+        "exit": 1,
+        "stopReason": null,
+        "durationSeconds": 152.04,
+        "network": "isolated private loopback only; no production reachability",
+        "businessResponseMocks": true,
+        "tracesAndScreenshots": false,
+        "productionChanged": false
+      }
+    },
+    {
+      "run": "02",
+      "stats": {
+        "startTime": "2026-10-27T14:35:19.215Z",
+        "duration": 466115.74600000004,
+        "expected": 85,
+        "skipped": 351,
+        "unexpected": 8,
+        "flaky": 0
+      },
+      "reportSha256": "459df9409f178408e3b2f8ea947f11b45a27ff9f245c22acce017e40f2978ed9",
+      "runner": {
+        "phase": "whole-ui-mocked-browser-regression",
+        "source": "44094784a9d54f0b40c5fe4bdec7ef2a15878064",
+        "exit": 1,
+        "stopReason": null,
+        "durationSeconds": 468.14,
+        "network": "isolated private loopback only",
+        "businessResponseMocks": true,
+        "productionChanged": false
+      }
+    },
+    {
+      "run": "03",
+      "runner": {
+        "source": "77f582e6ede3d434baea0f769c234cbb225a4532",
+        "exit": -15,
+        "stopReason": null,
+        "durationSeconds": 549.13,
+        "network": "private loopback only",
+        "businessResponseMocks": true,
+        "productionChanged": false
+      },
+      "review": {
+        "supportedRuntime": false,
+        "observedNode": "20.16.0",
+        "stopReason": "Root halted unsupported Node runtime; retry with Node22 and disabled-action test correction",
+        "productionChanged": false
+      }
+    },
+    {
+      "run": "04",
+      "stats": {
+        "startTime": "2026-10-27T15:01:21.428Z",
+        "duration": 1254183.673,
+        "expected": 261,
+        "skipped": 172,
+        "unexpected": 11,
+        "flaky": 0
+      },
+      "reportSha256": "362a5ff2149019d687488163654cbd91fa5c346eb4f85ea4a8ca97400b536b42",
+      "runner": {
+        "source": "80c6e28e3df18a039cd951430acdfb153c1a6f92",
+        "node": "v22.23.3",
+        "exit": 130,
+        "stopReason": null,
+        "durationSeconds": 1257.27,
+        "network": "private loopback only",
+        "businessResponseMocks": true,
+        "productionChanged": false
+      },
+      "review": {
+        "stopReason": "Root stopped after repeated receiving fixture contract failures; preserve partial results and rerun changed/unrun files",
+        "node": "v22.23.3",
+        "productionChanged": false
+      }
+    },
+    {
+      "run": "05",
+      "stats": {
+        "startTime": "2026-10-27T15:46:21.975Z",
+        "duration": 1067679.447,
+        "expected": 218,
+        "skipped": 0,
+        "unexpected": 9,
+        "flaky": 0
+      },
+      "reportSha256": "c25dba2c5003e3a6afe5157b82033e46b46c27373bef3ebb130375b64d6e72ee",
+      "runner": {
+        "source": "2d69665cd7213004f0b78622e510ff9d489c9327",
+        "node": "v22.23.3",
+        "exit": 1,
+        "stopReason": null,
+        "durationSeconds": 1071.23,
+        "businessResponseMocks": true,
+        "productionChanged": false
+      }
+    },
+    {
+      "run": "06",
+      "stats": {
+        "startTime": "2026-10-27T16:07:54.815Z",
+        "duration": 1858505.21,
+        "expected": 443,
+        "skipped": 0,
+        "unexpected": 1,
+        "flaky": 0
+      },
+      "reportSha256": "5bcae8314fd0b857cddb4e56b4e86f951a8f753616e57a445d042a06f847cb80",
+      "runner": {
+        "source": "720b1080b2087f0c8b98a4b0b1bbc3ab88495c00",
+        "node": "v22.23.3",
+        "exit": 1,
+        "stopReason": null,
+        "durationSeconds": 1860.55,
+        "network": "private loopback only",
+        "businessResponseMocks": true,
+        "productionChanged": false
+      }
+    },
+    {
+      "run": "07",
+      "stats": {
+        "startTime": "2026-10-27T16:39:49.641Z",
+        "duration": 79410.371,
+        "expected": 20,
+        "skipped": 0,
+        "unexpected": 0,
+        "flaky": 0
+      },
+      "reportSha256": "1e1602880e9e4b2d1d0b76e56587ea3c38b76c2dbb267dfcc5360b10e80fc88b",
+      "runner": {
+        "source": "ba25a24768195f45121c97f48a6799b3c5da117a",
+        "node": "v22.23.3",
+        "exit": 0,
+        "stopReason": null,
+        "durationSeconds": 82.03,
+        "businessResponseMocks": true,
+        "productionChanged": false
+      }
+    }
+  ],
+  "nativeManualPayment": {
+    "status": "BOUNDED_PRIVATE_API_AND_OWNER_ACCEPTED",
+    "backendSource": "20985344252b0b394939cfceb87152d49f39e2e2",
+    "apiResultSha256": "754cd838ea9c1c3add747ec51667dca688d71e585159933262d8e7023085a79c",
+    "ownerResultSha256": "ce28bbd7066fa5f529f7c5c870e6afef1920c846f761284ff2ae152464ee7bb0",
+    "ownerPlanSha256": "c9fe4ff021c53c692eeda887013033f2f06abe3f04746761df9081c93334c2c4",
+    "fourCoreUsersWithoutEmployeeLinks": true,
+    "invoiceGross": "10.0000",
+    "paymentAmount": "5.0000",
+    "currency": "ZMW",
+    "invoiceState": "Received",
+    "financePostingRefNull": true,
+    "paymentState": "ConfirmedManually",
+    "phases": [
+      "Create",
+      "Revise",
+      "Submit",
+      "Approve",
+      "Record",
+      "Confirm"
+    ],
+    "originalKeyRecovery": true,
+    "identicalRecordReplay": true,
+    "denials": [
+      403,
+      409
+    ],
+    "sixDecisionReceiptPairs": true,
+    "twoCoreCasesAndDateObservations": true,
+    "oldIdInventories": 207,
+    "stableUsers": 119,
+    "loginMetadataExceptionUsers": 4,
+    "zeroActiveActorSessions": true,
+    "capturedSchemaAndTableAclPreserved": true,
+    "sourceAndGlobalRolesPreserved": true,
+    "browserLaunched": false,
+    "uiFormAcceptanceClaimed": false,
+    "bankOrLedgerExecutionClaimed": false,
+    "policyAcceptance": "independent normal-cookie create/submit/publish in retained attempt02; reused unchanged in03",
+    "limits": [
+      "Before helper inventory covers columns/constraints/indexes/table relacl, not independent historical column/schema/function/default ACL or trigger body comparison.",
+      "Policy identity rows are exact retained baseline rows plus stage/rule/actor linkage checks; this script does not reimplement their EvidenceSha256 serializer.",
+      "This accepts compound policy02+manualAPI03, not an uninterrupted UI journey or whole-module UAT.",
+      "Return/Reject/Dispute/Cancel, stale/changed payloads, contention, multi-branch and production activation not accepted here."
+    ],
+    "retainedFailures": [
+      "Attempt01 policy503:missing finite Record operational-evidence INSERT; owner-proven no Procurement/Core business changes.",
+      "Attempt02 invoice503/unconfirmed:42501 supplier_invoices; quiescent owner proved absence before retry of exact original invoice.",
+      "ACL SQL committed then verifier schema-string TypeError; separate exact-delta owner reconciliation passed; grants not retried.",
+      "Owner03 JSONB payload parse failure; Owner04 login-audit attribution mismatch. Read-only successors preserved failures, added strict typed payload and source-supported exact system/new-session binding."
+    ]
+  },
+  "productionReadonly": {
+    "anonymousRoutes": 25,
+    "exactAssets": 5,
+    "protectedApi401": 8,
+    "rawResultSha256": "c4727bf8ae1db9b05966fe66f2fa25b92d55f529292f043cdd503d748a7f57fa",
+    "authenticatedCrudClaimed": false,
+    "productionWrites": false
+  },
+  "productionBackend": "cca4772473b2a87411b3ca59a0a766fbd84187de",
+  "productionUi": "b51216eaf4af07c3985faef9e8b51145c4bbf92f",
+  "m5aBackendDeployed": false,
+  "productionChanged": false,
+  "remainingCritical": [
+    "M5a production preflight/rollout and approved workflow configuration",
+    "Core-principal/M5 issued-evidence receiving, inspection and returns",
+    "Supplier bids/evaluation/approved award and award-to-PO",
+    "Matching current receipt evidence plus invoice validation authority",
+    "Durable Finance/AP handoff and reconciliation"
+  ],
+  "remainingAdvanced": [
+    "Issued PO amendments and blanket releases",
+    "Credit approval/application",
+    "Active contracts, approved planning conversion, recurring occurrence generation",
+    "Supplier portal, record collaboration and performance",
+    "Reconciled analytics, transport/SLA acceptance and first-use completion"
+  ],
+  "report": "PROCUREMENT-UAT-AND-GAPS-20261027.md",
+  "pullRequests": {
+    "erp": "https://github.com/georgemunganga/erp/pull/124",
+    "ui": "https://github.com/georgemunganga/module-connect/pull/89"
+  },
+  "issues": [
+    "https://github.com/georgemunganga/module-connect/issues/88",
+    "https://github.com/georgemunganga/module-connect/issues/90"
+  ],
+  "erpIssuesEnabled": false,
+  "hostedCiPassClaimed": false,
+  "uiPublishedMain": "f1e237713d5f803212ec2ae72773be842ab0e3b6",
+  "uiReviewedHead": "f03a53287d03ac0df32ea3559bfd6d16773fc530",
+  "uiPullRequestMerged": true,
+  "validationAppliesAcrossUiDocumentationOnlySuccessor": true
+}
