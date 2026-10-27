@@ -1,6 +1,6 @@
 # M5a — Core-identity purchase order governance
 
-Status: private migration rehearsal, bounded API lifecycles and a fresh ten-action form-driven UI journey passed. Scope regression checks and release gates remain open. Not production-enabled or Procurement-UAT-complete.
+Status: bounded private source verification passed: migration rehearsal, API lifecycles, ten-action UI journey, denial/scoped-queue tests and overlapping-command reconciliation. Production release and broader Procurement UAT remain open.
 
 ## Latest verification — 27 October 2026
 
@@ -327,3 +327,78 @@ This accepts this bounded UI journey, not all Procurement features or UAT.
 Manual funding and supplier-response observation remain distinct from Finance
 posting and supplier delivery. A cold private metadata read took 21.736 seconds;
 there is no production performance improvement claim.
+
+
+### Scoped queues and flag-off verification
+
+A separate negative run on backend `2bebdf70b80a9846e0a1ec399a355b32ada40147`
+passed ten current-actor, stale-command, original-key body-conflict and scope
+denials, plus the actor's own selected-branch historical GET. Read-only owner
+reconciliation found every Procurement and Core approval row and the entire
+211-table schema unchanged; all sessions logged out. Receipt:
+`223fb70819f087d4c8041a5574e41f6ae1de83dfd36f6bae9dc26f9f159bda98`.
+
+Product `20985344252b0b394939cfceb87152d49f39e2e2` adds exactly four GET
+collections to the reviewed All-branches middleware paths: buyer, Finance,
+assigned-review and operation queues. It does not admit child/detail/review,
+receipt or mutation routes. Existing query ownership, current company, current
+permission and permitted-branch restrictions remain. This product passed 94
+focused Host checks, no pending model changes and the API publication. Receipt:
+`76431f15af70d9428ddc296dc5746f722d11e914f2f4035ab49ebc822cc7d35f`.
+An independent read-only review found no blocker in this narrow boundary change.
+
+Using the unchanged UI product `79a19df28b1d3e95d4ab8798c7f27cd1ff53f9d0`,
+real-cookie Playwright opened all five role-specific queues with actual browser
+All headers and no selected-branch header. The private new-work flag was off;
+metadata correctly reported read available/write unavailable. Original Funding
+receipt recovery and Issued buyer detail succeeded with a selected branch; a
+new Funding attempt returned 503 and an All-scope detail remained 422. No page
+performed business POSTs, there were no page/API errors, and all sessions logged
+out. Owner verification found all Procurement/Core rows and 211-table schema
+unchanged and zero active actor sessions. Receipt:
+`937f8e93afa221429cb1561b3afe770be1f7c1b749a46fe156ab60570bcdb7dd`.
+This uses a single assigned private branch; it does not claim a multi-branch
+native isolation matrix or production activation.
+
+Seven exact, exited private API containers were retired after checking controller
+ownership and preserving their logs. Five superseded compiled-only publications
+then reclaimed 291,014,599 bytes. Their source archives, manifests, test evidence
+and logs are unchanged; current builds, databases, backups and production rollback
+products remain. Cleanup receipt:
+`ad4a44de590b83c6cac86721117f52c120d3044d01b84b5bf8d91c32a87dd621`.
+The merged PR122 workflow-spec branch was deleted using its exact remote tip,
+accepted-main ancestry and closed/merged PR evidence. Unmerged/open work is kept.
+
+
+### Overlapping command acceptance on the latest product
+
+Backend `20985344252b0b394939cfceb87152d49f39e2e2` completed a fresh
+normal-cookie API lifecycle with deliberately overlapping same-key Submit calls,
+then overlapping same-key Issue calls. Each pair returned byte-identical original
+201 responses. The independently approved PO reached Issued after manual supplier
+response recording; both original command results remained recoverable by GET.
+The HTTP intervals overlapped; this does not claim a forced internal transaction
+barrier or a load test.
+
+Native reconciliation verified exactly one shared Core PO case/assignment/decision,
+one issued version, one Ordered allocation of two units, six unique PO receipts,
+six business audit actions and six outbox events. Four of six approved units remain
+available. The fifteen prior PO rows and 211-table schema are unchanged; all five
+normal sessions logged out and zero active actor sessions remained. Owner receipt:
+`4ed006340e2ba620aea73aa73fe20bd600411f6bb7daa37fb5ecf87b2dd36987`.
+This latest increment is API acceptance, not another complete UI-form run.
+
+An independent read-only migration/legacy compatibility review found no concrete
+blocker for canonical original M3b workflow records. The populated native migration
+rehearsal retained five original POs with digest
+`7eaf3423d5a7ed5329db83a5ced5bd5c2fcc2e2aee35ef0404021de3c348d594`
+through first Up, empty Down and repeated Up. The newer CHECK is stricter than the
+old one for noncanonical revision/closure combinations; production must check its
+current rows before Up. No universal compatibility with manually modified rows
+is claimed. The Down veto remains first and transactional.
+
+Current production release holds are a fresh recoverable production backup/restore,
+current-row migration preflight, exact finite grants, paired API/UI rollout and
+smoke verification. Operational activation and broader Procurement UAT remain
+separate. Historical pending statements above describe their dated checkpoints;
+the later source-specific results supersede them without relabeling old failures.
