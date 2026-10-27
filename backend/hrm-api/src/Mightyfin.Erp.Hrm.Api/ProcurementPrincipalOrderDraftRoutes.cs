@@ -35,7 +35,7 @@ public static partial class ProcurementPrincipalOrderDraftRoutes
     }
     private static async Task<IResult> Run(HttpContext http,ProcurementRequestScope scope,
         Func<ProcurementDbContext,ApprovalDbContext,HrmDbContext,IAuthorizationService,CancellationToken,Task<Reply>> operation,
-        CancellationToken ct)
+        CancellationToken ct,IProcurementPrincipalOrderGovernanceReadiness? governance=null)
     {
         http.Response.Headers.CacheControl="private, no-store";
         try
@@ -43,13 +43,16 @@ public static partial class ProcurementPrincipalOrderDraftRoutes
             var options=http.RequestServices.GetRequiredService<ProcurementPrincipalOrderDraftOptions>();
             var approvals=http.RequestServices.GetRequiredService<ProcurementApprovalExecutionOptions>();
             var readiness=http.RequestServices.GetRequiredService<IProcurementPrincipalOrderDraftReadiness>();
-            if(!ProcurementPrincipalOrderDraftCapability.Configured(options,approvals)
-                || !await readiness.IsReadyAsync(ct))throw new Problem("PrincipalOrderDraftUnavailable",503);
+            if(!ProcurementPrincipalOrderDraftCapability.Configured(options,approvals))
+                throw new Problem("PrincipalOrderDraftUnavailable",503);
+            var unavailable=governance is null?"PrincipalOrderDraftUnavailable":"PrincipalOrderGovernanceUnavailable";
+            if(!await SelectedStoreReadyAsync(readiness,governance,null,false,ct))
+                throw new Problem(unavailable,503);
             if(scope.OrgUnitId is not null)throw new Problem("OrderDepartmentScopeUnsupported",503);
             var result=await http.RequestServices.GetRequiredService<ProcurementApprovalTransaction>().ExecuteAsync(async(db,cases,token)=>
             {
-                if(!await readiness.IsReadyAsync(db,!HttpMethods.IsGet(http.Request.Method),token))
-                    throw new Problem("PrincipalOrderDraftUnavailable",503);
+                if(!await SelectedStoreReadyAsync(readiness,governance,db,!HttpMethods.IsGet(http.Request.Method),token))
+                    throw new Problem(unavailable,503);
                 await using var core=await ProcurementApprovalExecutionLocks.CoreAsync(db,scope,token);
                 return await operation(db,cases,core,http.RequestServices.GetRequiredService<IAuthorizationService>(),token);
             },ct);
@@ -65,6 +68,17 @@ public static partial class ProcurementPrincipalOrderDraftRoutes
                 :ProcurementPostgresFailures.IsStoreFailure(error)?503:error is UnauthorizedAccessException?403:409;
             return Error(error is Problem?error.Message:status==503?"OrderSaveUnconfirmed":"OrderSourceNeedsReview",status);
         }
+    }
+    // The governance provider includes the complete draft proof. Select one
+    // composed proof per stage, retaining the actual transaction check on every
+    // retry. No result is cached across requests, roles, connections or writes.
+    internal static Task<bool> SelectedStoreReadyAsync(IProcurementPrincipalOrderDraftReadiness drafts,
+        IProcurementPrincipalOrderGovernanceReadiness? governance,ProcurementDbContext? owner,
+        bool write,CancellationToken ct)
+    {
+        if(governance is not null)
+            return owner is null?governance.IsReadyAsync(ct):governance.IsReadyAsync(owner,write,ct);
+        return owner is null?drafts.IsReadyAsync(ct):drafts.IsReadyAsync(owner,write,ct);
     }
     private static IResult Error(string code,int status)=>Results.Json(new{code,
         message=code=="OrderBranchRequired"?"Choose a branch before saving an order. Select All branches to view orders across your permitted branches."

@@ -59,11 +59,30 @@ release requests/confirmations, 21 receipts/business audit actions/outbox events
 The approved source returned to six available units. Owner receipt SHA-256:
 `00d63bc4cea57ef85890ec87100fd35f0a115295ec923cb7fc4d77861f0d5391`.
 
-A subsequent source correction removes the Funding action preview when immutable
-funding evidence already exists. Funding deliberately leaves the PO in Draft, so
-state alone must not offer a second capture. The write-side duplicate protection
-already exists. This read-preview fix requires its own build and same-row runtime
-verification; the earlier results do not cover this new revision.
+The next real-cookie test retained a successfully funded Draft whose Finance
+detail incorrectly returned `409 OrderFinanceEvidenceChanged`. The read guard
+treated funding evidence in Draft as corruption even though capture intentionally
+leaves that status unchanged. Source `48cc33019dcfec7afe874e1493743f846125829b`
+allows that valid read, retains all source/amount/snapshot integrity checks and
+removes the second Funding action. Ten state/evidence cases cover the guard.
+It passed 65 focused Host tests, no pending model changes and the genuine API
+publication. SDK receipt SHA-256:
+`6006c49be9231f2ea45129eb52f2f8191a8118fe828cfb7698392409a16f8410`.
+
+The same original order then returned Finance detail successfully, with the same
+funding evidence and no Funding action. Its original Funding key recovered the
+existing 200 result by GET only; no business POST was performed. The Finance
+actor had no buyer-wide PO read permission. Owner reconciliation found all
+Procurement/Core rows and all 211 captured table schemas unchanged. Receipt:
+`7340da100dfea965544f66d081b416d3a58dea59ca0a013482499e695eb0c9a2`.
+
+UI source `79a19df28b1d3e95d4ab8798c7f27cd1ff53f9d0` additionally preserves
+the currency supplied by the assigned-review API without converting its exact
+amount to a JavaScript number. Completed purpose-only issue, acknowledgment and
+release tasks return to their current queue rather than reload a closed detail
+endpoint. Type checking, 51 focused UI tests and the live build passed. The
+form-driven five-role workflow and lost-response/reload journey remain in progress
+at this documentation checkpoint; these source changes are not yet UI acceptance.
 
 Complete form-driven workflow UAT remains separate. Manual Finance attestation is not an external Finance
 integration, and manual response observation is not supplier delivery. Production
@@ -237,3 +256,24 @@ Receiving, returns, commercial amendments, blanket orders, invoice matching,
 manual payment records and the eventual Finance adapter remain separately
 tracked increments. This checkpoint does not complete those features or
 claim full Procurement UAT acceptance.
+
+
+### 27 October: readiness admission optimization under verification
+
+A private one-CPU timing sample measured `/meta` at 8.336 seconds and the
+acknowledgment detail at 8.734 seconds. This is not a production benchmark.
+Governed routes previously ran a standalone draft proof and then a governance
+proof that already composes that same parent proof, at both admission stages.
+The revised dispatcher selects the full composed governance provider once per
+stage, retaining configured admission, the actual owning-transaction proof on
+every retry, write privileges, Core locks, current scope and all feature gates.
+Draft-only routes retain their original parent provider. Nothing is cached across
+requests or actors. Seven dispatch regression cases accompany the change;
+compilation, native verification and any performance claim remain pending.
+
+The remaining UI forms committed acknowledgment, release request and independent
+release confirmation successfully with three distinct original journal-matched
+keys. The harness then failed because its final assertion expected eight unique
+keys instead of three. Preserve that failed result; do not repeat these mutations.
+Database reconciliation is pending. This continues an interrupted journey and
+must not be described as uninterrupted full UI UAT.

@@ -61,15 +61,9 @@ public static partial class ProcurementPrincipalOrderDraftRoutes
         // Historical reads do not acquire new-work authority. The inherited
         // draft/approval transaction gates and current record scope still apply.
         if(options is not {ExecutionDatabaseConfigured:true} || physical is null
-            || !HttpMethods.IsGet(http.Request.Method) && !options.PrincipalExecutionEnabled
-            || !await physical.IsReadyAsync(ct))
+            || !HttpMethods.IsGet(http.Request.Method) && !options.PrincipalExecutionEnabled)
             return Error("PrincipalOrderGovernanceUnavailable",503);
-        return await Run(http,scope,async(db,cases,core,auth,token)=>
-        {
-            if(!await physical.IsReadyAsync(db,!HttpMethods.IsGet(http.Request.Method),token))
-                throw new Problem("PrincipalOrderGovernanceUnavailable",503);
-            return await operation(db,cases,core,auth,token);
-        },ct);
+        return await Run(http,scope,operation,ct,physical);
     }
 
     internal static bool GovernedContextAllowed(bool read,Guid? branch,bool explicitAll) =>
