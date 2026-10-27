@@ -74,6 +74,10 @@ public static partial class ProcurementPrincipalOrderDraftRoutes
     // Purpose-only Finance read. In particular, the Finance actor need not
     // hold buyer-wide PO/PR read, and a list row is not sufficient evidence for
     // a manual external commitment or release.
+    internal static bool FinanceTaskEvidenceMatchesState(string state,bool hasFunding,bool hasRelease) =>
+        state=="Draft" && !hasRelease
+        || state=="ReleasePending" && hasFunding && hasRelease;
+
     private static Task<IResult> FinanceDetail(Guid id,HttpContext http,
         ProcurementRequestScope scope,CancellationToken ct)
     {
@@ -93,8 +97,9 @@ public static partial class ProcurementPrincipalOrderDraftRoutes
                 .SingleOrDefaultAsync(x=>x.PurchaseOrderId==id&&x.CommercialRevision==1,token);
             var release=await db.PrincipalOrderReleaseRequests.AsNoTracking()
                 .SingleOrDefaultAsync(x=>x.PurchaseOrderId==id,token);
-            if(order.Status=="Draft" && (funding is not null || release is not null)
-                || order.Status=="ReleasePending" && (funding is null || release is null)
+            // Capturing funding leaves the PO in Draft. Retain the evidence for
+            // read-back/recovery; the capture action is disabled once it exists.
+            if(!FinanceTaskEvidenceMatchesState(order.Status,funding is not null,release is not null)
                 || release is not null && (release.OriginalDirectSourceSha256!=order.OriginalDirectSourceSha256
                     || release.FundingEvidenceId!=funding?.Id || release.RequestedByPrincipalId!=order.BuyerSubjectId)
                 || funding is not null && (funding.OriginalDirectSourceSha256!=order.OriginalDirectSourceSha256
