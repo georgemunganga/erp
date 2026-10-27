@@ -203,6 +203,41 @@ public sealed class ProcurementScopeMiddlewareTests
         Assert.Equal(branch.Id,selectedScope.WorkLocationId);
     }
 
+    [Theory]
+    [InlineData("principal-funding")]
+    [InlineData("principal-submit")]
+    [InlineData("principal-decisions/11111111-1111-4111-8111-111111111111")]
+    [InlineData("principal-issue")]
+    [InlineData("principal-acknowledgment")]
+    [InlineData("principal-release-request")]
+    [InlineData("principal-release-confirmation")]
+    public async Task Governed_order_commands_reject_raw_All_after_middleware_default_branch_resolution(string operation)
+    {
+        await using var db = TestDbContextFactory.Create("tenant-a");
+        var (user, company, _, branch) = await Seed(db);
+        db.UserBranchAssignments.Add(new HrUserBranchAssignment { UserId = user.Id, LocationId = branch.Id });
+        await db.SaveChangesAsync();
+        var path = $"/api/procurement/v1/orders/{Guid.NewGuid():D}/{operation}";
+        foreach (var all in new[] { true, false })
+        {
+            var (http, scope) = Request(user.Id);
+            http.Request.Path = path; http.Request.Method = "POST";
+            http.Request.Headers["X-Shell-Entity"] = company.Id.ToString();
+            if (all) http.Request.Headers["X-Shell-Branch-Scope"] = "all";
+            else http.Request.Headers["X-Shell-Location"] = branch.Id.ToString();
+            var reached = false;
+            await Middleware(_ =>
+            {
+                reached = true;
+                Assert.Equal(branch.Id, scope.WorkLocationId);
+                Assert.False(scope.IsExplicitAllBranches);
+                Assert.Equal(!all, ProcurementPrincipalOrderDraftRoutes.GovernedRequestContextAllowed(http, scope));
+                return Task.CompletedTask;
+            }).InvokeAsync(http, scope, db);
+            Assert.True(reached);
+        }
+    }
+
     private static async Task<(LocalUser, LegalEntity, LegalEntity, WorkLocation)> Seed(HrmDbContext db)
     {
         var a = new LegalEntity { Code = "A", RegisteredName = "A", IsDefault = true };

@@ -54,8 +54,7 @@ public static partial class ProcurementPrincipalOrderDraftRoutes
         Func<ProcurementDbContext,ApprovalDbContext,HrmDbContext,IAuthorizationService,CancellationToken,Task<Reply>> operation,
         CancellationToken ct)
     {
-        if (!GovernedContextAllowed(HttpMethods.IsGet(http.Request.Method), scope.WorkLocationId,
-                scope.IsExplicitAllBranches))
+        if (!GovernedRequestContextAllowed(http, scope))
             return Error("OrderBranchRequired",422);
         var options=http.RequestServices.GetService<ProcurementOrderExecutionOptions>();
         var physical=http.RequestServices.GetService<IProcurementPrincipalOrderGovernanceReadiness>();
@@ -77,9 +76,17 @@ public static partial class ProcurementPrincipalOrderDraftRoutes
         branch is { } id && id!=Guid.Empty && !explicitAll
         || read && branch is null && explicitAll;
 
+    // The shell's All header must survive default-branch resolution for commands.
+    // Scope middleware only projects explicit All for reviewed read routes; it may
+    // otherwise resolve a default branch. That must never authorize an All write.
+    internal static bool GovernedRequestContextAllowed(HttpContext http, ProcurementRequestScope scope) =>
+        GovernedContextAllowed(HttpMethods.IsGet(http.Request.Method), scope.WorkLocationId,
+            scope.IsExplicitAllBranches || http.Request.Headers.ContainsKey("X-Shell-Branch-Scope"));
+
     private static bool GovernedWritesAvailable(HttpContext http,ProcurementRequestScope scope) =>
         http.RequestServices.GetRequiredService<ProcurementOrderExecutionOptions>().PrincipalExecutionEnabled
-        && GovernedContextAllowed(false,scope.WorkLocationId,scope.IsExplicitAllBranches);
+        && GovernedContextAllowed(false,scope.WorkLocationId,
+            scope.IsExplicitAllBranches || http.Request.Headers.ContainsKey("X-Shell-Branch-Scope"));
 
     private static string GovernanceAction(string operation)=>operation switch
     {
