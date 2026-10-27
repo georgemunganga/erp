@@ -14,13 +14,15 @@ Preserve the imported Procurement layout and shared ERP components. Do not
 rewrite the PO screens or introduce another master, ledger or approval engine.
 
 Current verified backend product revision is
-`d901e3c048b386b8a88e44a353798144cb051fe2`; UI build revision is
-`9b2defac773376db7be07e60792a2497f0b83fdd`. Both revisions are published draft
-branch commits. The backend passed 55 focused checks and the bounded real-cookie
-PO lifecycle, original-key Issue recovery, All-write denial and four controlled
-release paths. The UI passed type checking/build, 47 focused checks and five-role
-page reads; full UI workflow acceptance remains open. Exact evidence
-and limitations are in
+`2bebdf70b80a9846e0a1ec399a355b32ada40147`; UI build revision is
+`79a19df28b1d3e95d4ab8798c7f27cd1ff53f9d0`. Both are published draft branch
+commits, not merged release baselines. The backend passed 72 focused checks,
+no pending model changes and the genuine API publication. Earlier private
+same-row PO and four release workflows are reconciled. The UI passed type
+checking/build and 51 focused checks; the fresh uninterrupted ten-command
+five-role form journey and native owner reconciliation passed on these exact
+products. Scope/negative checks and production release remain open.
+Exact source-specific evidence, preserved failures and release limits are in
 [the M5a implementation record](docs/procurement/M5A-PRINCIPAL-ORDER-GOVERNANCE-IMPLEMENTATION.md).
 
 Do not overlap Root's active M5a files, change test credentials/grants, or enable

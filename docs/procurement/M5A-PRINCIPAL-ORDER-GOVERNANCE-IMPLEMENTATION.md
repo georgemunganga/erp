@@ -1,6 +1,6 @@
 # M5a — Core-identity purchase order governance
 
-Status: migration rehearsal, bounded private API lifecycles and five-role page reads passed; form-driven UI verification remains open. Not release-ready or UAT-complete.
+Status: private migration rehearsal, bounded API lifecycles and a fresh ten-action form-driven UI journey passed. Scope regression checks and release gates remain open. Not production-enabled or Procurement-UAT-complete.
 
 ## Latest verification — 27 October 2026
 
@@ -268,12 +268,62 @@ The revised dispatcher selects the full composed governance provider once per
 stage, retaining configured admission, the actual owning-transaction proof on
 every retry, write privileges, Core locks, current scope and all feature gates.
 Draft-only routes retain their original parent provider. Nothing is cached across
-requests or actors. Seven dispatch regression cases accompany the change;
-compilation, native verification and any performance claim remain pending.
+requests or actors. Seven dispatch regression cases accompany the change. Product source
+`2bebdf70b80a9846e0a1ec399a355b32ada40147` passed 72 focused Host tests
+with no failures or skips, the no-pending-model check and the genuine 150-file API
+publication. Receipt SHA-256:
+`86de839ac1fa001da701d94d90eeb44ff2bce83049e2b6e8baafc1fa4d1c76af`.
+The seven dispatch tests are helper-level checks, not actual transaction retry
+or rollback tests. Existing mapped HTTP and middleware checks remain in the
+focused selection. No production performance improvement is claimed.
 
 The remaining UI forms committed acknowledgment, release request and independent
 release confirmation successfully with three distinct original journal-matched
 keys. The harness then failed because its final assertion expected eight unique
 keys instead of three. Preserve that failed result; do not repeat these mutations.
-Database reconciliation is pending. This continues an interrupted journey and
-must not be described as uninterrupted full UI UAT.
+Read-only reconciliation then verified ten receipts/business audit actions/outbox
+events for the two retained orders, exactly one issued version, the independent
+release, correct Ordered/Released allocations, unchanged 211-table schema and
+normal logout for the final attempt. The original counting failure remains
+retained. Owner receipt SHA-256:
+`3263f1bccd28515ef3e625b627058cec6e7b4e1216c8a56138b7c9f1a7f495d1`.
+This continues an interrupted journey and is not uninterrupted full UI UAT.
+
+
+An independent read-only review of the readiness change and principal-order
+command guards at `2bebdf70b80a9846e0a1ec399a355b32ada40147` identified no
+concrete blocker in the inspected files. This is not comprehensive security,
+concurrency or UAT sign-off. The five distinct private actors are a fixture:
+server policy enforces the documented buyer/requester/approver and independent
+Finance boundaries, rather than requiring five separate people. Issuer and
+acknowledgment actors require their current action and record scope; additional
+staffing separation remains a business policy decision.
+
+
+### Fresh uninterrupted UI acceptance — 27 October
+
+Backend product `2bebdf70b80a9846e0a1ec399a355b32ada40147` and UI product
+`79a19df28b1d3e95d4ab8798c7f27cd1ff53f9d0` completed a fresh isolated
+normal-password/Core-cookie five-role browser journey. The source PR was created,
+manually funded and approved through the API; ten subsequent PO commands were
+performed through the real existing UI: Create, Funding, Submit, Approve, Issue,
+Acknowledgment, then Create/Funding/ReleaseRequest/ReleaseConfirm on a second PO.
+All ten browser POSTs matched their durably saved original journal bodies/keys.
+The genuine Issue response was deliberately dropped after server 201; the same
+browser session reloaded and recovered its original result by GET, after exactly
+one Issue POST. No successful command was replayed.
+
+Read-only database reconciliation verified ten immutable receipts and response
+hashes, ten business audit actions and ten outbox events; both actual shared Core
+approvals; one issued version; two exact funding amounts (10.2468 and 5.1234 ZMW);
+one acknowledgment and one independently confirmed release. The happy PO is
+Issued with two Ordered units; the second is Cancelled with one Released unit,
+leaving four of the six approved units available. All thirteen pre-existing PO
+rows and the 211-table schema are unchanged. All five normal-cookie sessions
+logged out and zero active actor sessions remained. Owner receipt SHA-256:
+`c640cdc6c166ed2d89ef17c10f30fc2a1183633e602771db924844d3436d9117`.
+
+This accepts this bounded UI journey, not all Procurement features or UAT.
+Manual funding and supplier-response observation remain distinct from Finance
+posting and supplier delivery. A cold private metadata read took 21.736 seconds;
+there is no production performance improvement claim.
