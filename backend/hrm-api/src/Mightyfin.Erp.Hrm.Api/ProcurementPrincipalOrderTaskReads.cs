@@ -126,7 +126,7 @@ public static partial class ProcurementPrincipalOrderDraftRoutes
                     funding.ObservedAt,attestedGrossAmountExact=ProcurementEvidenceEncoding.Decimal(funding.AttestedGrossAmount)},
                 release=release is null?null:new{release.Id,release.Reason,release.RequestedAt,
                     release.RequestedByPrincipalId,release.OriginalDirectSourceSha256},
-                canRecordFunding=order.Status=="Draft"&&GovernedWritesAvailable(http,scope),
+                canRecordFunding=order.Status=="Draft"&&funding is null&&GovernedWritesAvailable(http,scope),
                 canConfirmRelease=order.Status=="ReleasePending"&&GovernedWritesAvailable(http,scope),
                 previewOnly=true,financeLedgerChanged=false},Json));
         },ct);
