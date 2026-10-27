@@ -12,7 +12,7 @@ public static class ProcurementApprovalReadinessRoutes
     public static void Map(WebApplication app)
     {
         app.MapGet("/api/procurement/v1/requests/{id:guid}/approval-readiness", Get)
-            .RequireAuthorization("procurement-request-return");
+            .RequireAuthorization(ProcurementApprovalExecutionRoutes.OpenPermission);
     }
 
     private static async Task<IResult> Get(Guid id, ProcurementDbContext db, HrmDbContext core,
