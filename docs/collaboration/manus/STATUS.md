@@ -2,6 +2,25 @@
 
 Authoritative instructions: [MANUS_HANDOFF.md](../../../MANUS_HANDOFF.md).
 
+## 27 October 2026 — M5a prerequisites published; full M5b queued
+
+ERP accepted main `58dedebf9761d20c1dd0490b1b1dd6532c9d8454` (PR119) and UI
+accepted main `c33b435efe041bb97c7b831be93cd9d8aca05d28` (PR87) are published.
+Application trees match verified products `20985344` and `79a19df`; source-specific
+private acceptance is linked from the authoritative handoff. Production is not
+changed by these merges. Hosted CI did not run because of GitHub billing lock.
+
+[MANUS-M5B-PRINCIPAL-RECEIVING-08](MANUS-M5B-PRINCIPAL-RECEIVING-08.md) is ready
+to claim through a new ERP coordination PR with linked UI work. It covers real
+draft CRUD, goods/service receipts, inspection, corrections/returns, reliable
+events, migrations and genuine private Playwright/native acceptance using current
+Core identities. Preserve the imported UI and shared services; no employee link,
+duplicate ledger or production change is assigned. Root owns M5a rollout and M6
+contract auditing. C04 remains independent; record an active claim before taking
+another stream. Earlier queued baselines are retained history, not instructions.
+
+---
+
 ## 25 October 2026 — P35 UI07 queued baseline refreshed
 
 - `MANUS-P35-UI-VERIFICATION-07` remains queued; no Manus pickup or full-task acceptance is recorded.

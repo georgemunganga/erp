@@ -1,3 +1,39 @@
+# Published M5a prerequisites and receiving handoff — 27 October 2026
+
+This checkpoint supersedes older assignment/baseline paragraphs below.
+ERP M5a PR119 is merged in accepted main
+`58dedebf9761d20c1dd0490b1b1dd6532c9d8454`; UI PR87 is merged in accepted main
+`c33b435efe041bb97c7b831be93cd9d8aca05d28`. Start assigned work from these
+published prerequisites or current main descendants. Application trees match
+tested products `20985344` and `79a19df` respectively.
+
+[Bounded M5a evidence](docs/procurement/gap-closure/M5A-PRIVATE-UI-VERIFICATION-20261027.json)
+records 94 latest focused Host checks, 51 focused UI checks/build, ten genuine UI
+form actions with reload/GET recovery, ten scoped/stale denials, five actual All
+queues with writes off, and overlapping Submit/Issue with one Core case/issued
+version. Native checks reconciled original rows, schema and normal logout.
+This is source acceptance, not production deployment or whole Procurement UAT.
+Hosted CI did not start because GitHub reports an account billing lock; local
+results are recorded separately, never presented as a hosted pass.
+
+Root owns M5a production preflight/release and M6 invoice/payment contract auditing.
+Manus may claim the full
+[M5b receiving/inspection/returns milestone 08](docs/collaboration/manus/MANUS-M5B-PRINCIPAL-RECEIVING-08.md)
+from these published prerequisites. Preserve the imported UI and shared services;
+Core users do not require employee links. Publish ERP coordination and linked UI
+PRs. The independent C04 scanner scope remains; record its state/handoff if active
+before claiming another implementation stream. Older queued P35/vendor tasks
+below are historical instructions, not permission to resume stale branches.
+
+Production remains the healthy M4 technical release with existing flags. M5a
+release needs current-row migration preflight, fresh recoverable backup/restore,
+finite grants and paired rollout/smoke checks. Do not enable production workflows,
+claim external Finance/supplier delivery or merge held branch ancestry.
+
+---
+
+## Retained history
+
 # Procurement collaboration checkpoint — 27 October 2026
 
 Verified published ERP main: `9f2591cc3bd5b322e73cd44ea080795370b7352c`.
