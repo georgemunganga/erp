@@ -34,9 +34,11 @@ production operational flags. The existing independent Manus scanner assignment 
 these drafts. Publish reviewed prerequisite merges and update this checkpoint
 before assigning work that depends on them.
 
-Release holds include full form-driven UI workflows, return/reject and funded
-withdrawal/release cases, stale/concurrent and revoked-user paths, independent
-review, finite production grants, recovery rehearsal and post-deploy checks.
+The bounded form-driven, return/reject/release, stale-command, scoped-queue and
+overlapping-command results are recorded above. Release still needs current-row
+canonical migration preflight, a fresh recoverable production backup/restore,
+finite grants, paired rollout and post-deploy smoke checks. Broader security
+matrices and whole Procurement business UAT are not declared complete.
 Receiving/returns, amendments and later principal-identity procure-to-pay work
 remain separate milestones. Finance owns its eventual accounting/payment
 adapter; the private manual evidence here does not implement that adapter.
@@ -44,6 +46,29 @@ adapter; the private manual evidence here does not implement that adapter.
 ---
 
 ## Earlier retained checkpoints
+
+# Current deployed and published baseline — M4 technical release
+
+Use ERP main `63360f128911b0cd66eb4e44e0f79fabcd1a2345` and UI main
+`46782ccdb502d8be34e5abb7e25ff659cd325582` or descendants for new assigned work.
+The matched release is deployed: tested API product `cca4772473b2a87411b3ca59a0a766fbd84187de`,
+UI `b51216eaf4af07c3985faef9e8b51145c4bbf92f`, image `b6dc4e822fd7383e13c186e2bac4d0974dde4fb6922b53e20bf1e5be525f6fff`,
+schema203/histories56/29/1. [Deployment evidence](docs/procurement/release/M4-PRODUCTION-DEPLOYMENT-20261026.json)
+records actual fresh backup/restore, atomic migration/finite grants, readonly
+canary, live review and anonymous public Playwright. Core/HRM3300 and Accounting
+are preserved. Current flags remain unchanged; no operational M4 activation or
+whole Procurement UAT completion is claimed.
+
+Coordinator owns M5a PR119, receiving, sourcing follow-ons and remaining UAT;
+its eight-table migration and Down safety are under review, not deployed.
+Do not duplicate these or merge held mixed migrations/UI ancestry. Manus retains
+the independent Core document-scanner assignment; no overlapping new assignment.
+The imported UI and shared ERP identity, settings, controls and ownership stay
+in place. Nine merged remote branches were retired across the cleanup passes; their
+commits/local worktrees and all unique/advanced work remain. Historical baseline
+paragraphs below are superseded by this section.
+
+---
 
 # Latest UI and UAT checkpoint
 
