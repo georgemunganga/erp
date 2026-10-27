@@ -15,14 +15,34 @@ public static partial class ProcurementSpendingAuthorityRoutes
     private static bool PrincipalOption(HttpContext http)=>http.RequestServices.GetService<ProcurementApprovalExecutionOptions>()
         is {PrincipalExecutionEnabled:true};
 
+    // Authority configuration follows the owning action's explicit successor gate.
+    // No employee link is invented for current Core principals.
     private static bool PrincipalActionOption(HttpContext http,string action)=>PrincipalOption(http)
         && (action==SpendingAuthorityConfiguration.ApprovalAction
             || action==ProcurementSpendingActions.SourcingPublication.Action
-                && http.RequestServices.GetService<ProcurementPrincipalSourcingPublicationOptions>() is {Enabled:true});
+                && http.RequestServices.GetService<ProcurementPrincipalSourcingPublicationOptions>() is {Enabled:true}
+            || action==ProcurementSpendingActions.PurchaseOrder.Action
+                && http.RequestServices.GetService<ProcurementOrderExecutionOptions>() is {PrincipalExecutionEnabled:true});
 
     private static async Task<bool> NewPrincipalIdentity(HttpContext http,ProcurementDbContext db,string action,CancellationToken ct)
-        => PrincipalActionOption(http,action)
-            && await ProcurementPrincipalApprovalSchemaGuard.ReadyAsync(db,http.RequestServices,true,ct);
+    {
+        if(!PrincipalActionOption(http,action))return false;
+        await RequirePrincipalOrderAuthoritySchema(http,action,ct);
+        return await ProcurementPrincipalApprovalSchemaGuard.ReadyAsync(db,http.RequestServices,true,ct);
+    }
+
+    internal static async Task RequirePrincipalOrderAuthoritySchema(HttpContext http,
+        string action,CancellationToken ct)
+    {
+        if(action!=ProcurementSpendingActions.PurchaseOrder.Action)return;
+        var readiness=http.RequestServices.GetService<IProcurementPrincipalOrderGovernanceReadiness>();
+        // Configuration writes retain the existing Record-role authority guards.
+        // M5's physical proof opens its separately configured finite Execution
+        // connection; passing the Record context would always fail role equality.
+        // This check inserts no governance evidence and confers no write grant.
+        if(readiness is null||!await readiness.IsReadyAsync(ct))
+            throw new InvalidOperationException("OrderAuthoritySchemaUnavailable");
+    }
 
     private static async Task<bool> RetainedPrincipalIdentity(HttpContext http,ProcurementDbContext db,
         ProcurementRequestScope scope,ProcurementSpendingAuthorityGrant grant,CancellationToken ct)
@@ -32,6 +52,7 @@ public static partial class ProcurementSpendingAuthorityRoutes
         if(origin.SchemaVersion!=2 || !PrincipalActionOption(http,grant.Action)
             || !await ProcurementPrincipalApprovalSchemaGuard.ReadyAsync(db,http.RequestServices,true,ct))
             throw new InvalidOperationException("AuthorityPrincipalIdentityUnavailable");
+        await RequirePrincipalOrderAuthoritySchema(http,grant.Action,ct);
         return true;
     }
 

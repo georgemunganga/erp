@@ -55,7 +55,8 @@ public sealed class ProcurementPrincipalApprovalStoreReadiness(IApprovalScope co
         CheckDefinitions.TryGetValue(key,out var captured) && expected==captured
             && (actual==captured || RestoredCheckDefinitions.TryGetValue(key,out var restored)
                 && actual==restored || key=="procurement.spending_authority_identity_evidence.ck_authority_identity_evidence"
-                && M4PrincipalRfqPhysicalChecks.Matches("ck_authority_identity_evidence",actual));
+                && (M4PrincipalRfqPhysicalChecks.Matches("ck_authority_identity_evidence",actual)
+                    || ProcurementPrincipalOrderGovernancePhysicalSchema.MatchesCapturedCheck(key,actual)));
 
     internal static readonly IReadOnlyDictionary<string,string> PartialPredicates=new Dictionary<string,string>(StringComparer.Ordinal)
     {

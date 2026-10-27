@@ -1,3 +1,52 @@
+# Procurement collaboration checkpoint — 27 October 2026
+
+Verified published ERP main: `9f2591cc3bd5b322e73cd44ea080795370b7352c`.
+Verified published UI main: `46782ccdb502d8be34e5abb7e25ff659cd325582`.
+The ERP main update after the M4 deployment is documentation only. These are
+the shared starting points; the following draft branches are not merged release
+baselines and must not be deployed as accepted milestones.
+
+Root owns M5a backend and private verification in
+[ERP draft PR #119](https://github.com/georgemunganga/erp/pull/119).
+The existing UI integration is in
+[UI draft PR #87](https://github.com/georgemunganga/module-connect/pull/87).
+Preserve the imported Procurement layout and shared ERP components. Do not
+rewrite the PO screens or introduce another master, ledger or approval engine.
+
+Current verified backend product revision is
+`20985344252b0b394939cfceb87152d49f39e2e2`; UI build revision is
+`79a19df28b1d3e95d4ab8798c7f27cd1ff53f9d0`. Both are published draft branch
+commits, not merged release baselines. The latest backend passed 94 focused checks,
+no pending model changes and the genuine API publication. Earlier private
+same-row PO and four release workflows are reconciled. The UI passed type
+checking/build and 51 focused checks; the fresh uninterrupted ten-command
+five-role form journey passed on backend product `2bebdf70` and that UI build.
+Latest backend `20985344` additionally passed five All-queue UI reads with writes
+off and original-key recovery, plus overlapping Submit/Issue requests with one
+Core case and one issued version. Earlier ten denial checks passed on `2bebdf70`.
+All results have separate native owner reconciliation. Production release and
+broader Procurement UAT remain open.
+Exact source-specific evidence, preserved failures and release limits are in
+[the M5a implementation record](docs/procurement/M5A-PRINCIPAL-ORDER-GOVERNANCE-IMPLEMENTATION.md).
+
+Do not overlap Root's active M5a files, change test credentials/grants, or enable
+production operational flags. The existing independent Manus scanner assignment remains in place. No new collaborator milestone is assigned from
+these drafts. Publish reviewed prerequisite merges and update this checkpoint
+before assigning work that depends on them.
+
+The bounded form-driven, return/reject/release, stale-command, scoped-queue and
+overlapping-command results are recorded above. Release still needs current-row
+canonical migration preflight, a fresh recoverable production backup/restore,
+finite grants, paired rollout and post-deploy smoke checks. Broader security
+matrices and whole Procurement business UAT are not declared complete.
+Receiving/returns, amendments and later principal-identity procure-to-pay work
+remain separate milestones. Finance owns its eventual accounting/payment
+adapter; the private manual evidence here does not implement that adapter.
+
+---
+
+## Earlier retained checkpoints
+
 # Current deployed and published baseline — M4 technical release
 
 Use ERP main `63360f128911b0cd66eb4e44e0f79fabcd1a2345` and UI main

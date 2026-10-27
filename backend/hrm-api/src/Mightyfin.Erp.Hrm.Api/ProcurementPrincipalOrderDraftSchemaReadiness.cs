@@ -121,15 +121,25 @@ CHECK (((schema_version = 2) AND ((operation)::text = ANY ((ARRAY['Create'::char
             if (!order.GetCheckConstraints().Any(x => x.Name == "ck_po_principal_draft_version")) return false;
             checks.Add("ck_po_principal_draft_version");
             if (!checks.SetEquals(NewCheckNames) || !checks.SetEquals(CapturedCheckDefinitions.Keys)) return false;
+            var usesGovernanceShape = false;
             foreach (var (name, expected) in CapturedCheckDefinitions)
             {
                 var table = name == "ck_po_principal_draft_version" ? orderTable
                     : StoreObjectIdentifier.Table(name == "ck_po_principal_binding"
                         ? "principal_order_source_bindings" : "principal_order_draft_receipts", "procurement");
                 command.CommandText = CheckSql(table, name);
-                if (await command.ExecuteScalarAsync(ct) is not string actual || actual != expected) return false;
+                if (await command.ExecuteScalarAsync(ct) is not string actual) return false;
+                if (actual == expected) continue;
+                if (name is not ("ck_po_principal_draft_version" or "ck_po_principal_receipt")
+                    || !ProcurementPrincipalOrderGovernancePhysicalSchema.MatchesCapturedCheck(
+                        table.Schema + "." + table.Name + "." + name, actual)) return false;
+                usesGovernanceShape = true;
             }
-            return true;
+            // The old cancellation path reads retained funding evidence. Do not
+            // admit the broader constraint text if the owning M5 store is absent
+            // or the current execution role cannot safely read it.
+            return !usesGovernanceShape || await ProcurementPrincipalOrderGovernancePhysicalSchema
+                .InspectAsync(owner, false, executionRole, ct);
         }
         catch (Exception error) when (error is not OperationCanceledException) { return false; }
         finally { if (opened) await owner.Database.CloseConnectionAsync(); }
@@ -192,7 +202,10 @@ CHECK (((schema_version = 2) AND ((operation)::text = ANY ((ARRAY['Create'::char
             AND NOT a.attnotnull AND format_type(a.atttypid,a.atttypmod)='character varying(64)')
         """;
 
-    private bool ConnectionBoundary(out string executionRole)
+    private bool ConnectionBoundary(out string executionRole) =>
+        TryExecutionConnection(configuration, out executionRole);
+
+    internal static bool TryExecutionConnection(IConfiguration configuration, out string executionRole)
     {
         executionRole = string.Empty;
         var record = configuration.GetConnectionString("Procurement");

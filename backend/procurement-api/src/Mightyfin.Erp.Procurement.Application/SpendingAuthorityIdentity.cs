@@ -188,7 +188,9 @@ public static class SpendingAuthorityIdentity
             && (row.SchemaVersion==1 || (row.Action==SpendingAuthorityConfiguration.ApprovalAction
                 && row.Permission==SpendingAuthorityConfiguration.ApprovalPermission)
                 || (row.Action==ProcurementSpendingActions.SourcingPublication.Action
-                    && row.Permission==ProcurementSpendingActions.SourcingPublication.Permission))
+                    && row.Permission==ProcurementSpendingActions.SourcingPublication.Permission)
+                || (row.Action==ProcurementSpendingActions.PurchaseOrder.Action
+                    && row.Permission==ProcurementSpendingActions.PurchaseOrder.Permission))
             && row.GrantRecordVersionAtAction > 0 && row.ActionAt != default
             && row.ActionAt == Time(row.ActionAt) && Hex(row.BusinessFingerprint)
             && Hex(row.EvidenceSha256) && row.EvidenceSha256 == Digest(row), "AuthorityIdentityEvidenceInvalid");

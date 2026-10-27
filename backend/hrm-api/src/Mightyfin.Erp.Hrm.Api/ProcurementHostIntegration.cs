@@ -52,6 +52,7 @@ public static class ProcurementHostIntegration
         // P30 remains default-off. Its real inspector also stays unavailable
         // until the three physical CHECK strings are captured from genuine Up.
         services.AddScoped<IProcurementPrincipalOrderDraftReadiness, ProcurementPrincipalOrderDraftSchemaReadiness>();
+        services.AddScoped<IProcurementPrincipalOrderGovernanceReadiness, ProcurementPrincipalOrderGovernanceSchemaReadiness>();
         var sourcingOptions = configuration.GetSection("Procurement:SourcingDrafts").Get<ProcurementSourcingDraftExecutionOptions>() ?? new();
         sourcingOptions.ExecutionDatabaseConfigured = !string.IsNullOrWhiteSpace(executionConnection);
         services.AddSingleton(sourcingOptions);
@@ -180,6 +181,8 @@ public static class ProcurementHostIntegration
                 var publicationReadiness = services.GetService<IProcurementPrincipalSourcingPublicationReadiness>();
                 var approvalOptions = services.GetRequiredService<ProcurementApprovalExecutionOptions>();
                 var principalSourcingPublicationRead = false;
+                var principalOrderGovernanceRead = await ProcurementPrincipalOrderGovernanceCapability
+                    .ReadReadyAsync(services, scope, pending, ct);
                 // The shared sourcing transaction wrapper still requires its
                 // P29 engine for GET. M4's own new-work switch is independent.
                 if (!pending && financeCheckerReads && sourcingOptions is
@@ -260,6 +263,11 @@ public static class ProcurementHostIntegration
                         orderDraft = !pending,
                         principalDirectOrderDrafts = await ProcurementPrincipalOrderDraftCapability.ReadyAsync(
                             services, scope, pending, ct),
+                        principalOrderGovernanceRead,
+                        principalOrderGovernance = principalOrderGovernanceRead
+                            && ProcurementPrincipalOrderDraftRoutes.GovernedContextAllowed(false,
+                                scope.WorkLocationId, scope.IsExplicitAllBranches)
+                            && services.GetRequiredService<ProcurementOrderExecutionOptions>().PrincipalExecutionEnabled,
                         receiving = false, // Existing UI is not yet a compatible live receiving adapter.
                         receivingDrafts,
                         receivingGoods = receivingPositive && receivingRules!.Rules.Any(x => x.Kind.ToString() == "Goods"),
@@ -603,7 +611,11 @@ public sealed class ProcurementScopeMiddleware(RequestDelegate next, IWebHostEnv
         return string.Equals(value, "/api/procurement/v1/requests", StringComparison.OrdinalIgnoreCase)
             || string.Equals(value, "/api/procurement/v1/plans", StringComparison.OrdinalIgnoreCase)
             || string.Equals(value, "/api/procurement/v1/contracts", StringComparison.OrdinalIgnoreCase)
-            || string.Equals(value, "/api/procurement/v1/orders/principal-direct-drafts", StringComparison.OrdinalIgnoreCase);
+            || string.Equals(value, "/api/procurement/v1/orders/principal-direct-drafts", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(value, "/api/procurement/v1/orders/principal-governed-orders", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(value, "/api/procurement/v1/orders/principal-finance-work", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(value, "/api/procurement/v1/orders/principal-assigned-reviews", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(value, "/api/procurement/v1/orders/principal-operation-work", StringComparison.OrdinalIgnoreCase);
     }
 
     internal static bool RequestWriteRequiresBranch(PathString path, string method) =>

@@ -4,6 +4,8 @@ namespace Mightyfin.Erp.Hrm.Api;
 public sealed class ProcurementOrderExecutionOptions
 {
     public bool Enabled { get; set; }
+    // Separate default-off Core-principal PO governance; legacy worker routes retain their gate.
+    public bool PrincipalExecutionEnabled { get; set; }
     public bool ExecutionDatabaseConfigured { get; set; }
     public ProcurementManualFinancePolicy[] ManualCommitmentPolicies { get; set; } = [];
     public string ApprovedManualDispatchPolicyReference { get; set; } = "";

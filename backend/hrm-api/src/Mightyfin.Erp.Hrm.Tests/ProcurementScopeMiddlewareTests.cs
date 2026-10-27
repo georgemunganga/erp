@@ -151,11 +151,18 @@ public sealed class ProcurementScopeMiddlewareTests
     [InlineData("/api/procurement/v1/contracts", true)]
     [InlineData("/api/procurement/v1/orders/principal-direct-drafts", true)]
     [InlineData("/api/procurement/v1/orders/principal-direct-drafts/", true)]
+    [InlineData("/api/procurement/v1/orders/principal-governed-orders", true)]
+    [InlineData("/api/procurement/v1/orders/principal-finance-work", true)]
+    [InlineData("/api/procurement/v1/orders/principal-assigned-reviews", true)]
+    [InlineData("/api/procurement/v1/orders/principal-operation-work", true)]
     [InlineData("/api/procurement/v1/orders", false)]
     [InlineData("/api/procurement/v1/orders/approved-principal-direct-sources", false)]
     [InlineData("/api/procurement/v1/orders/00000000-0000-0000-0000-000000000001/principal-direct-draft", false)]
     [InlineData("/api/procurement/v1/requests/random-child", false)]
     [InlineData("/api/procurement/v1/requestss", false)]
+    [InlineData("/api/procurement/v1/orders/principal-governed-orders/random-child", false)]
+    [InlineData("/api/procurement/v1/orders/11111111-1111-4111-8111-111111111111/principal-governed-detail", false)]
+    [InlineData("/api/procurement/v1/orders/principal-governance-command-receipts/Funding/11111111-1111-4111-8111-111111111111", false)]
     public void All_operational_reads_are_exact_collections_not_commands_or_children(string path, bool allowed)
     {
         Assert.Equal(allowed, ProcurementScopeMiddleware.AllOperationalListReadPath(path,"GET"));
@@ -167,6 +174,10 @@ public sealed class ProcurementScopeMiddlewareTests
     [InlineData("/api/procurement/v1/plans")]
     [InlineData("/api/procurement/v1/contracts")]
     [InlineData("/api/procurement/v1/orders/principal-direct-drafts")]
+    [InlineData("/api/procurement/v1/orders/principal-governed-orders")]
+    [InlineData("/api/procurement/v1/orders/principal-finance-work")]
+    [InlineData("/api/procurement/v1/orders/principal-assigned-reviews")]
+    [InlineData("/api/procurement/v1/orders/principal-operation-work")]
     public async Task Reviewed_All_collections_do_not_default_to_an_assigned_branch(string path)
     {
         await using var db=TestDbContextFactory.Create("tenant-a");var (user,company,_,branch)=await Seed(db);
@@ -201,6 +212,41 @@ public sealed class ProcurementScopeMiddlewareTests
         await Middleware(_=>{reached=true;return Task.CompletedTask;}).InvokeAsync(selected,selectedScope,db);
         Assert.True(reached);Assert.False(selectedScope.IsExplicitAllBranches);
         Assert.Equal(branch.Id,selectedScope.WorkLocationId);
+    }
+
+    [Theory]
+    [InlineData("principal-funding")]
+    [InlineData("principal-submit")]
+    [InlineData("principal-decisions/11111111-1111-4111-8111-111111111111")]
+    [InlineData("principal-issue")]
+    [InlineData("principal-acknowledgment")]
+    [InlineData("principal-release-request")]
+    [InlineData("principal-release-confirmation")]
+    public async Task Governed_order_commands_reject_raw_All_after_middleware_default_branch_resolution(string operation)
+    {
+        await using var db = TestDbContextFactory.Create("tenant-a");
+        var (user, company, _, branch) = await Seed(db);
+        db.UserBranchAssignments.Add(new HrUserBranchAssignment { UserId = user.Id, LocationId = branch.Id });
+        await db.SaveChangesAsync();
+        var path = $"/api/procurement/v1/orders/{Guid.NewGuid():D}/{operation}";
+        foreach (var all in new[] { true, false })
+        {
+            var (http, scope) = Request(user.Id);
+            http.Request.Path = path; http.Request.Method = "POST";
+            http.Request.Headers["X-Shell-Entity"] = company.Id.ToString();
+            if (all) http.Request.Headers["X-Shell-Branch-Scope"] = "all";
+            else http.Request.Headers["X-Shell-Location"] = branch.Id.ToString();
+            var reached = false;
+            await Middleware(_ =>
+            {
+                reached = true;
+                Assert.Equal(branch.Id, scope.WorkLocationId);
+                Assert.False(scope.IsExplicitAllBranches);
+                Assert.Equal(!all, ProcurementPrincipalOrderDraftRoutes.GovernedRequestContextAllowed(http, scope));
+                return Task.CompletedTask;
+            }).InvokeAsync(http, scope, db);
+            Assert.True(reached);
+        }
     }
 
     private static async Task<(LocalUser, LegalEntity, LegalEntity, WorkLocation)> Seed(HrmDbContext db)

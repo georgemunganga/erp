@@ -52,7 +52,8 @@ public sealed partial class ProcurementDbContext
             schema_version IN (1,2) AND (schema_version=2 OR (actor_worker_id IS NOT NULL AND recipient_worker_id IS NOT NULL)) AND id <> '00000000-0000-0000-0000-000000000000'::uuid
             AND grant_id <> '00000000-0000-0000-0000-000000000000'::uuid
             AND (schema_version=1 OR ((action='PurchaseRequest.Approve' AND permission='procurement-approval-decide')
-                OR (action='SourcingEvent.Publish' AND permission='procurement-sourcing-publish')))
+                OR (action='SourcingEvent.Publish' AND permission='procurement-sourcing-publish')
+                OR (action='PurchaseOrder.Approve' AND permission='procurement-po-approve')))
             AND authority_version>0 AND grant_record_version_at_action>0
             AND (actor_worker_id IS NULL OR actor_worker_id <> '00000000-0000-0000-0000-000000000000'::uuid)
             AND (recipient_worker_id IS NULL OR recipient_worker_id <> '00000000-0000-0000-0000-000000000000'::uuid)
