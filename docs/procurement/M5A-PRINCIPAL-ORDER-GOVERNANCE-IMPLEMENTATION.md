@@ -1,6 +1,73 @@
 # M5a — Core-identity purchase order governance
 
-Status: migration rehearsal passed; runtime integration in progress. Not release-ready or UAT-complete.
+Status: migration rehearsal, bounded private API lifecycles and five-role page reads passed; form-driven UI verification remains open. Not release-ready or UAT-complete.
+
+## Latest verification — 27 October 2026
+
+Normal-password/Core-cookie testing found two integration defects: the PR approval
+readiness preview required the unrelated return permission, and an explicit All
+branches PO command could inherit the middleware's default branch. The first fix
+admits approval-open users while preserving existing return-review access; read
+permission alone remains insufficient. The second checks the incoming All header
+before governed writes, even when scope resolution supplies a branch. No role,
+authority limit, company boundary or record scope was widened.
+
+Product source `d901e3c048b386b8a88e44a353798144cb051fe2` built successfully,
+passed 55 focused Host tests without failures or skips, reported no pending EF
+model changes and produced the genuine 150-file API publication. The checks
+include mapped HTTP preview permissions and seven middleware/default-branch
+command regressions. Receipt SHA-256:
+`5e2d2ab73efbaf9ea1b5b7f38bbf73febece9dad3b16be97cc29e5e78fd02511`.
+These are focused results for this source, not a new full-suite result.
+
+The isolated real-cookie continuation retained its original PR and PO after each
+failed assertion. It completed independent PR/PO approvals, manual commitment
+attestation, internal issue and manual acknowledgment. A genuinely dropped Issue
+response was recovered with the original key using GET only, after exactly one
+POST. A fresh unfunded draft rejected All-scope submission with
+`OrderBranchRequired`; its version remained unchanged and no Submit receipt was
+created. Ordinary draft cancellation released that draft's allocation. The
+positive PO has two units Ordered and four approved units remain available.
+
+Read-only owner reconciliation verified the shared Approved Core case, assignment
+and decision links; eight receipts with intact response hashes; eight business
+audit actions plus seven automatic entity audits; eight distinct outbox events;
+the exact funding amount; null worker aliases; and the five original PO rows
+unchanged. All five test sessions were logged out at the API checkpoint. Owner
+receipt SHA-256:
+`490fb7937cffeaff18885b985f32564b4caf65251fde6b41094125fa0b833126`.
+The failed All-write test remains retained as a failure; its committed original
+submission was recovered rather than repeated or relabeled as a rejection.
+
+UI source `9b2defac773376db7be07e60792a2497f0b83fdd` restores the earlier
+tax column and approved-request link in the governed PO detail. It passed type
+checking, 47 focused transport/journal/rule checks and the live build. Real-cookie
+Playwright verified buyer list/detail/tabs and Finance, reviewer, issuer and
+dispatch queues using the existing ERP components, with no page errors, API
+failures or page-driven business writes. Owner checks found no changed Procurement
+or Core approval rows and zero active test sessions. UI owner receipt SHA-256:
+`32c1e3cae3aae18deea29260eb4187bfd5d5cb7476de507a5c3ef8ef13b06664`.
+This is page-read acceptance, not full imported-feature parity or form-driven UAT.
+
+Four further real-cookie workflows passed on the same backend source: Return,
+Reject, pending withdrawal through the actual shared Core cancellation engine,
+and release of a funded Draft. Each retained Reserved allocation until independent
+manual Finance confirmation, then cancelled the PO and restored the source. The
+owner reconciled three retained Core cases (Returned, Rejected, Cancelled), four
+release requests/confirmations, 21 receipts/business audit actions/outbox events,
+17 automatic entity audits and the seven previously retained PO rows unchanged.
+The approved source returned to six available units. Owner receipt SHA-256:
+`00d63bc4cea57ef85890ec87100fd35f0a115295ec923cb7fc4d77861f0d5391`.
+
+A subsequent source correction removes the Funding action preview when immutable
+funding evidence already exists. Funding deliberately leaves the PO in Draft, so
+state alone must not offer a second capture. The write-side duplicate protection
+already exists. This read-preview fix requires its own build and same-row runtime
+verification; the earlier results do not cover this new revision.
+
+Complete form-driven workflow UAT remains separate. Manual Finance attestation is not an external Finance
+integration, and manual response observation is not supplier delivery. Production
+flags, schema, grants and deployed binaries are unchanged by this private work.
 
 ## Latest verification — 26 October 2026
 
