@@ -8,9 +8,9 @@ public sealed partial class ProcurementRequestHttpTests
 {
     [Theory]
     [InlineData("procurement-approval-open", HttpStatusCode.OK)]
-    [InlineData("procurement-request-return", HttpStatusCode.Forbidden)]
+    [InlineData("procurement-request-return", HttpStatusCode.OK)]
     [InlineData("procurement-request-read", HttpStatusCode.Forbidden)]
-    public async Task Approval_readiness_requires_start_permission_without_unrelated_return_authority(
+    public async Task Approval_readiness_accepts_start_or_return_permission_without_write_effects(
         string action, HttpStatusCode expected)
     {
         await using var fixture = await Fixture.Start();
