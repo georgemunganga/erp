@@ -233,5 +233,5 @@ public static class InvoiceUnitReviewTransitions
         var reason = string.Join(" ", (value ?? "").Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries));
         Need(reason.Length <= 2000); return reason.Length == 0 ? null : reason;
     }
-    private static void Need(bool condition) { if (!condition) throw new InvalidOperationException("InvoiceUnitReviewSourceChanged"); }
+    private static void Need([System.Diagnostics.CodeAnalysis.DoesNotReturnIf(false)] bool condition) { if (!condition) throw new InvalidOperationException("InvoiceUnitReviewSourceChanged"); }
 }
