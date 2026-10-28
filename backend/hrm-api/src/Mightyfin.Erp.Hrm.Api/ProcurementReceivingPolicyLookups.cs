@@ -64,10 +64,10 @@ public static partial class ProcurementPolicyDraftRoutes
                             DisplayName = candidate.DisplayName });
                 }
                 var principalItems = eligible.Skip(skip).Take(take).ToArray();
-                return Results.Ok(new { kind, companyId = scope.LegalEntityId, items, total = eligible.Count,
+                return Results.Ok(new { kind, companyId = scope.LegalEntityId, items = principalItems, total = eligible.Count,
                     offset = skip, limit = take,
-                    nextOffset = items.Length > 0 && skip + items.Length < eligible.Count && skip + items.Length <= 100000
-                        ? (int?)(skip + items.Length) : null,
+                    nextOffset = principalItems.Length > 0 && skip + principalItems.Length < eligible.Count && skip + principalItems.Length <= 100000
+                        ? (int?)(skip + principalItems.Length) : null,
                     isAuthority = false, canAcceptDelivery = false });
             }
             var query = ReceivingPolicyLookupQuery(kind, core, db, scope, DateTimeOffset.UtcNow);
