@@ -20,8 +20,8 @@ public interface IProcurementInvoiceOwnerBaselineReadiness
 }
 
 /// <summary>Captures an immutable company invoice inventory for independent
-/// Core review. This route set remains unregistered until the M6 physical
-/// readiness and complete historical owner gates are available. A company
+/// Core review. Physical readiness and a disabled-by-default write flag guard
+/// this baseline-only route set; it does not qualify invoice claims. A company
 /// selection uses an ordinary company-wide Core principal context; an explicit
 /// All-branches shell context is never treated as authority to write.</summary>
 public static class ProcurementInvoiceOwnerBaselineRoutes
@@ -34,6 +34,9 @@ public static class ProcurementInvoiceOwnerBaselineRoutes
 
     public sealed record DecisionInput(long ExpectedCaseVersion, long ExpectedAssignmentVersion,
         string Action, string? Reason);
+
+    internal static bool WriteContextAllowed(bool confined,bool explicitAll,bool rawAll)
+        => !confined && !explicitAll && !rawAll;
 
     public static void MapRoutes(WebApplication app)
     {
@@ -52,6 +55,9 @@ public static class ProcurementInvoiceOwnerBaselineRoutes
         http.Response.Headers.CacheControl = "no-store";
         try
         {
+            if(write && !WriteContextAllowed(scope.IsConfined,scope.IsExplicitAllBranches,
+                    http.Request.Headers.ContainsKey("X-Shell-Branch-Scope")))
+                throw new BaselineProblem("InvoiceOwnerSelectedCompanyContextRequired",422);
             if (write && !http.RequestServices.GetRequiredService<IConfiguration>()
                     .GetValue<bool>("Procurement:InvoiceOwnerBaseline:Enabled"))
                 throw new BaselineProblem("InvoiceOwnerBaselineUnavailable", 503);
@@ -92,7 +98,7 @@ public static class ProcurementInvoiceOwnerBaselineRoutes
         ProcurementRequestScope scope, HttpContext http, IAuthorizationService auth,
         string permission, CancellationToken ct)
     {
-        if (scope.IsConfined || scope.IsExplicitAllBranches
+        if (scope.IsConfined
             || !(await auth.AuthorizeAsync(http.User, permission)).Succeeded)
             throw new UnauthorizedAccessException();
         var person = await ProcurementPrincipalPeople.Resolve(core, scope.TenantId,
@@ -298,7 +304,7 @@ public static class ProcurementInvoiceOwnerBaselineRoutes
         ProcurementRequestScope scope, CancellationToken ct) =>
         Run(http, scope, false, async (db, _, core, auth, token) =>
     {
-        _ = await Actor(core, scope, http, auth,
+        await Actor(core, scope, http, auth,
             InvoiceProcurementBaselineEvidence.ReadPermission, token);
         var receipt = await db.RecoverInvoiceOwnerReceiptAsync(key, operation, null, token)
             ?? throw new KeyNotFoundException();

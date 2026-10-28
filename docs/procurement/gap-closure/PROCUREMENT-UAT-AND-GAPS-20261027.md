@@ -4,7 +4,13 @@
 
 The audit preserves the imported Procurement UI and shared ERP components. Core owns organisation/company, identity, role grants, record scope, branding and shared platform configuration. A permitted Core user need not be an employee. The organisation is the legal entity and its selected currency is the default; test policy amounts are not approved Amizo purchasing thresholds. Finance owns the ledger and payment execution; its absence does not prevent separately governed manual payment recording.
 
-## Baselines and evidence boundaries
+## Current release update — 28 October
+
+The [observed restore-readiness API patch](M5-RESTORE-READINESS-PRODUCTION-20261028.md) is also deployed: source6087, 174 focused Host checks, private Service API/owner acceptance and a new read-only canary/public smoke passed. It changed no schema, flags, permissions, publisher or UI. Original Service UI and wider UAT remain open.
+
+The initial [M5 technical rollout](M5-PRODUCTION-TECHNICAL-RELEASE-20261028.md) deployed API product414 (subsequently updated above), original UI47cac6a, 220 tables, fresh backup/restore/full migration rehearsal and independent production data/permission reconciliation passed. Ten public route checks, five exact UI file hashes and three unauthenticated Playwright renders passed. Existing business flags are preserved; whole-module acceptance and signed-in production CRUD remain open. The 27 October baselines and results below are retained history.
+
+## Original 27 October baselines and evidence boundaries
 
 | Surface | Baseline | Meaning |
 |---|---|---|
@@ -52,15 +58,15 @@ A release preflight must verify **both** Record and Execution database-role cont
 | Buying policy | Draft, validate, preview, review, publish and return exist | Approved business values; negative/effective-version tests and release configuration |
 | Request drafts | Persisted create/read/revise/cancel adapters exist | Full current-baseline CRUD matrix, partial lines and denied/stale cases |
 | Budgets | Live queue/history records independently checked Finance references; no duplicate budget ledger | Actual Finance reservation/release reconciliation and budget balances remain external; a recorded check is not a Finance posting |
-| Request approval and funding evidence | Core-principal private acceptance retained | Production rollout; real Finance reservation adapter remains separate |
+| Request approval and funding evidence | Core-principal private acceptance retained | M5 technical rollout complete; business activation/native UI acceptance and real Finance reservation adapter remain separate |
 | Request-line conversion | M3b/M4 governed direct-order and RFQ source allocations exist | Full split/consolidation/cancellation and contention coverage |
 | RFQ internal publication | M4 private Open/Approve/Return acceptance | Enable only after approved policy; prove actual invitation delivery separately |
 | Supplier quotation intake | No current-main complete mapped workflow established | Integrate/review held quotation work; native/API/UI capture, submit, correction, confidentiality and deadline tests |
 | Evaluation and award | No current-main complete approved-award path | Evaluator conflict rules, sealed opening, independent scores, award approval, split lines and M5 PO source adapter |
-| Standard PO governance | M5a private real-cookie acceptance; not deployed | Reviewed M5a release, branch/revocation/load coverage and business policy activation |
+| Standard PO governance | M5a private real-cookie acceptance; technical source deployed in M5 | Native UI/branch/revocation/load acceptance and approved business policy activation |
 | PO amendments | Initial M5a governance exists | Issued commercial revisions, delta approval, immutable sent versions and supplier acknowledgment |
 | Blanket PO and agreement releases | Not established by standard PO support | Limits, validity, releases, consumption, cancellation and concurrency controls |
-| Goods and service receipts | M5b Core-principal adapter merged; private Goods API/native-owner accepted. M5c company-date fix merged with regression/provider evidence | Native Service and full live UI/multibranch acceptance; reviewed deployment |
+| Goods and service receipts | M5b Core-principal adapter merged; private Goods API/native-owner accepted. M5c company-date fix merged with regression/provider evidence | Private Service API with actual UTC date/owner accepted; original Service UI, non-UTC native and multibranch/concurrency acceptance remain |
 | Receipt corrections and returns | M5d original UI and proposal CRUD published with private normal-cookie/API-owner acceptance, including write-off history; proposal does not alter balances | Native UI/broader scope acceptance; independent execution/consumption/dispatch and negative-fact reconciliation; replacement/credit references |
 | Inventory and Assets | Integration boundaries defined | Idempotent accepted-receipt/return hand-off and reconciliation; their ledgers stay outside Procurement |
 | Invoice intake | Structured invoice CRUD exists | Native/UI validation, duplicate keys, line edits, cancellation and document evidence UAT |
@@ -97,7 +103,7 @@ A release preflight must verify **both** Record and Execution database-role cont
 
 | Priority | Milestone | Completion evidence |
 |---|---|---|
-| P0 | M5a release readiness and rollout | Production compatibility preflight, recoverable backup, exact publication/schema/finite-role verification, independent review, authenticated smoke and rollback record |
+| P0 | M5 technical rollout complete; business acceptance open | Fresh backup/restore, full migration rehearsal, preserved203 data, schema/finite-role/canary and paired UI rollout verified; authenticated CRUD and remaining workflow acceptance still required |
 | P0 | M5b principal receiving | Existing Manus [complete milestone](../../collaboration/manus/MANUS-M5B-PRINCIPAL-RECEIVING-08.md): current PO to partial goods/service acceptance, inspection, reversals and returns; no mandatory employee link |
 | P0 | Manual payment acceptance | Four permitted Core users without employee links completed the native API happy path; finish real UI-form/alternate/concurrent cases. Native owner verification passed. Policy requires creator/approver and recorder/confirmer independence, including worker aliases; no bank or ledger execution |
 | P0 | Matching and invoice authority | Match current accepted quantities, resolve every discrepancy, record validated state, preserve corrections and prove duplicate/retry behavior |

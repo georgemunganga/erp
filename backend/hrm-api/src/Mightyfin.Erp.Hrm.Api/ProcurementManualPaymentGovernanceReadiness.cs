@@ -43,8 +43,18 @@ public sealed class ProcurementManualPaymentGovernanceReadiness(
             if (await command.ExecuteScalarAsync(ct) is not true) return false;
             command.CommandText = CoreOwnerSql;
             if (await command.ExecuteScalarAsync(ct) is not true) return false;
+            var ownerBaselineInstalled=(await db.Database.GetAppliedMigrationsAsync(ct))
+                .Contains(ProcurementInvoiceOwnerBaselineSchemaCapture.MigrationId,StringComparer.Ordinal);
+            var expectedFingerprint=ownerBaselineInstalled
+                ? ProcurementInvoiceOwnerBaselineSchemaCapture.ManualPaymentCatalogFingerprint : ExpectedFingerprint;
             command.CommandText = FingerprintSql;
-            return await command.ExecuteScalarAsync(ct) is string actual && actual == ExpectedFingerprint;
+            if (await command.ExecuteScalarAsync(ct) is string actual && actual == expectedFingerprint) return true;
+            // An accepted logical restore can redistribute casts inside the nine
+            // observed CHECK definitions. Keep the original full catalog hash:
+            // substitute only exact, named restored texts before PostgreSQL hashes
+            // the same jsonb manifest. Any other catalog difference still fails.
+            command.CommandText = FingerprintSqlWithObservedRestoreChecks(ownerBaselineInstalled);
+            return await command.ExecuteScalarAsync(ct) is string restored && restored == expectedFingerprint;
         }
         catch (OperationCanceledException) { throw; }
         catch (Exception error)
@@ -135,4 +145,41 @@ public sealed class ProcurementManualPaymentGovernanceReadiness(
          ) AS value)
          SELECT encode(sha256(convert_to(value::text,'UTF8')),'hex') FROM manifest;
         """;
+
+    internal static readonly string[] ObservedRestoreChecks =
+    [
+        "procurement.manual_payment_core_decisions.ck_manual_payment_core_decision",
+        "procurement.manual_payment_date_observations.ck_manual_payment_company_date",
+        "procurement.manual_payment_decisions.ck_manual_payment_action_states",
+        "procurement.manual_payment_decisions.ck_manual_payment_transition",
+        "procurement.manual_payment_receipts.ck_manual_payment_receipt",
+        "procurement.manual_payment_requests.ck_manual_payment_state_evidence",
+        "procurement.manual_payment_requests.ck_manual_payment_values",
+        "procurement.manual_payment_workflow_cases.ck_manual_payment_case_source",
+        "procurement.operational_policy_identity_evidence.ck_operational_policy_identity"
+    ];
+
+    internal static string FingerprintSqlWithObservedRestoreChecks(bool ownerBaselineInstalled=false)
+    {
+        static string Literal(string value) => "'" + value.Replace("'", "''", StringComparison.Ordinal) + "'";
+        var cases = new List<string>(ObservedRestoreChecks.Length);
+        foreach (var key in ObservedRestoreChecks)
+        {
+            var names = key.Split('.');
+            var pair = ownerBaselineInstalled
+                && key=="procurement.operational_policy_identity_evidence.ck_operational_policy_identity"
+                ? (Canonical:ProcurementInvoiceOwnerBaselineSchemaCapture.OperationalCheckDefinition,
+                    Restored:ProcurementInvoiceOwnerBaselineSchemaCapture.RestoredChecks.GetValueOrDefault(key)
+                        ?? ProcurementInvoiceOwnerBaselineSchemaCapture.OperationalCheckDefinition)
+                : ProcurementRestoreCheckAlternatives.Definitions[key];
+            cases.Add("WHEN c.contype='c' AND r.nspname=" + Literal(names[0])
+                + " AND r.relname=" + Literal(names[1])
+                + " AND c.conname=" + Literal(names[2])
+                + " AND pg_get_constraintdef(c.oid)=" + Literal(pair.Restored)
+                + " THEN " + Literal(pair.Canonical));
+        }
+        var expression = "CASE " + string.Join(" ", cases)
+            + " ELSE pg_get_constraintdef(c.oid) END";
+        return FingerprintSql.Replace("pg_get_constraintdef(c.oid)", expression, StringComparison.Ordinal);
+    }
 }

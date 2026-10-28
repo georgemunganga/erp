@@ -84,19 +84,30 @@ public sealed class ProcurementInvoiceUnitReviewSchemaReadiness : IProcurementIn
                 // reader cannot use evidence it could have rewritten itself.
                 if (!await True(AppendPrivilegesSql(relation, write))) return false;
             }
+            var applied = (await owner.Database.GetAppliedMigrationsAsync(ct)).ToArray();
+            var ownerBaselineInstalled = applied.Contains(ProcurementInvoiceOwnerBaselineSchemaCapture.MigrationId,StringComparer.Ordinal);
             foreach (var (type, name) in new[] { (typeof(InvoiceMatchMappingVersion), "ck_invoice_mapping_evidence"), (typeof(InvoiceMatchResult), "ck_invoice_match_execution") })
             {
                 var entity = model.FindEntityType(type); if (entity is null || !PrincipalCheckDefinitions.TryGetValue(name, out var expected)) return false;
                 var table = StoreObjectIdentifier.Table(entity.GetTableName()!, entity.GetSchema());
                 if (table.Schema != "procurement" || !await True(ColumnsSql(entity, table))) return false;
                 command.CommandText = CheckSql(table, name);
-                if (await command.ExecuteScalarAsync(ct) is not string actual || actual != expected) return false;
+                if (await command.ExecuteScalarAsync(ct) is not string actual) return false;
+                if (name == "ck_invoice_mapping_evidence" && ownerBaselineInstalled)
+                {
+                    if(!ProcurementInvoiceOwnerBaselineSchemaCapture.CheckMatches("procurement.invoice_match_mapping_versions.ck_invoice_mapping_evidence",actual))return false;
+                }
+                else if(actual != expected)return false;
             }
             command.CommandText = CheckSql(StoreObjectIdentifier.Table("operational_policy_identity_evidence", "procurement"), "ck_operational_policy_identity");
-            var paymentInstalled = (await owner.Database.GetAppliedMigrationsAsync(ct))
-                .Contains(ProcurementManualPaymentGovernanceReadiness.MigrationId, StringComparer.Ordinal);
-            var expectedOperational = paymentInstalled ? ProcurementManualPaymentGovernanceReadiness.OperationalCheckDefinition : OperationalCheckDefinition;
-            if (await command.ExecuteScalarAsync(ct) is not string operational || operational != expectedOperational) return false;
+            var paymentInstalled = applied.Contains(ProcurementManualPaymentGovernanceReadiness.MigrationId, StringComparer.Ordinal);
+            var expectedOperational = ownerBaselineInstalled ? ProcurementInvoiceOwnerBaselineSchemaCapture.OperationalCheckDefinition
+                : paymentInstalled ? ProcurementManualPaymentGovernanceReadiness.OperationalCheckDefinition : OperationalCheckDefinition;
+            if (await command.ExecuteScalarAsync(ct) is not string operational
+                || (ownerBaselineInstalled
+                    ? !ProcurementInvoiceOwnerBaselineSchemaCapture.CheckMatches("procurement.operational_policy_identity_evidence.ck_operational_policy_identity",operational)
+                    : operational != expectedOperational && !ProcurementRestoreCheckAlternatives.Matches(
+                        "procurement.operational_policy_identity_evidence.ck_operational_policy_identity",expectedOperational,operational))) return false;
             if (!await True("SELECT " + ProcurementSpendingAuthorityIdentitySchemaReadiness.NoCoreIdentityWritesSql)
                 || !await True("SELECT " + ProcurementSpendingAuthorityIdentitySchemaReadiness.NoOwnershipSql)
                 || !await True(CoreReadBoundarySql)) return false;

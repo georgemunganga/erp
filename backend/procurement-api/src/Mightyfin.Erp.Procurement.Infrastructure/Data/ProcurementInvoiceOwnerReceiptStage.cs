@@ -51,7 +51,7 @@ public sealed partial class ProcurementDbContext
     {
         if(commandKey==Guid.Empty || operation is not ("Open" or "Decide")
             || !ProcurementPrincipalEvidence.Canonical(scope.SubjectId)
-            || scope.IsConfined || scope.IsExplicitAllBranches)
+            || scope.IsConfined)
             throw new InvalidOperationException("InvoiceOwnerReceiptReadScopeInvalid");
         var receipt=await InvoiceProcurementOwnerCommandReceipts.AsNoTracking()
             .SingleOrDefaultAsync(x=>x.CommandKey==commandKey
