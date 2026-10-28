@@ -1,3 +1,6 @@
+using System.Text.Json;
+using Mightyfin.Erp.Procurement.Domain;
+
 namespace Mightyfin.Erp.Procurement.Application;
 
 /// <summary>One table's complete, approved baseline set. Row digests include
@@ -20,3 +23,72 @@ public sealed record InvoiceProcurementExposureOwnerEnvelope(
     string UnionClaimsSha256, long ExposureSequence,
     DateTimeOffset ObservedAt, DateTimeOffset ValidUntil,
     string AllocationsSha256);
+
+public static class InvoiceProcurementHistoricalOwnerContract
+{
+    private static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web);
+
+    /// <summary>Check a producer's typed lease and disjoint active-claim partition.
+    /// The producer must separately prove that the reviewed table manifest and
+    /// complete row sets came from the owning database transaction. Passing this
+    /// pure check is never authorization to set InvoiceHistoricalExposure.Complete.</summary>
+    public static void VerifyPartition(InvoiceProcurementExposureOwnerEnvelope envelope,
+        InvoiceExposureReadContext context, InvoiceMatchExposureState exposure,
+        IReadOnlyList<string> approvedTableNames,
+        IReadOnlyList<InvoiceMatchConsumption> activeBaselineClaims,
+        IReadOnlyList<InvoiceMatchConsumption> activeLocalClaims)
+    {
+        ArgumentNullException.ThrowIfNull(envelope);
+        ArgumentNullException.ThrowIfNull(context);
+        ArgumentNullException.ThrowIfNull(exposure);
+        ArgumentNullException.ThrowIfNull(approvedTableNames);
+        ArgumentNullException.ThrowIfNull(activeBaselineClaims);
+        ArgumentNullException.ThrowIfNull(activeLocalClaims);
+        var tables=envelope.BaselineTables;
+        var names=approvedTableNames.Order(StringComparer.Ordinal).ToArray();
+        if (envelope.SchemaVersion != 2 || envelope.TenantId != context.TenantId
+            || envelope.LegalEntityId != context.LegalEntityId || envelope.BranchId != context.BranchId
+            || envelope.PurchaseOrderId != context.PurchaseOrderId || envelope.IssuedVersionId != context.IssuedVersionId
+            || envelope.SupplierId != context.SupplierId || envelope.CurrencyCode != context.CurrencyCode
+            || envelope.PolicyRulesSha256 != context.PolicyRulesSha256
+            || exposure.TenantId != context.TenantId || exposure.LegalEntityId != context.LegalEntityId
+            || exposure.PurchaseOrderId != context.PurchaseOrderId || exposure.IssuedVersionId != context.IssuedVersionId
+            || exposure.SupplierId != context.SupplierId || exposure.CurrencyCode != context.CurrencyCode
+            || envelope.BaselineId == Guid.Empty || envelope.ExposureSequence != exposure.Sequence
+            || envelope.ExposureSequence < 0 || envelope.ObservedAt > context.At
+            || envelope.ValidUntil <= context.At || envelope.ValidUntil <= envelope.ObservedAt
+            || string.IsNullOrWhiteSpace(envelope.OwnerReference) || string.IsNullOrWhiteSpace(envelope.Watermark)
+            || tables is null || names.Length == 0 || names.Length != names.Distinct(StringComparer.Ordinal).Count()
+            || tables.Count != names.Length || tables.Any(x => x is null)
+            || !tables.Select(x => x.TableName).Order(StringComparer.Ordinal).SequenceEqual(names)
+            || tables.Any(x => x.RowCount < 0 || !Sha(x.IdSetSha256) || !Sha(x.RowSetSha256))
+            || !Sha(envelope.CurrentCompleteSetSha256)
+            || !Sha(envelope.BaselineManifestSha256)
+            || !Sha(envelope.BaselineSetSha256)
+            || !Sha(envelope.ActiveBaselineClaimsSha256)
+            || !Sha(envelope.ActiveLocalClaimsSha256)
+            || !Sha(envelope.UnionClaimsSha256)
+            || !Sha(envelope.AllocationsSha256))
+            throw new InvalidOperationException("InvoiceProcurementOwnerEnvelopeInvalid");
+        var manifest=ProcurementEvidenceEncoding.PolicyJsonDigest(JsonSerializer.Serialize(names,Json));
+        var baseline=ProcurementEvidenceEncoding.PolicyJsonDigest(JsonSerializer.Serialize(tables.OrderBy(x=>x.TableName,StringComparer.Ordinal),Json));
+        var union=activeBaselineClaims.Concat(activeLocalClaims).ToArray();
+        if (union.Any(x => x is null || x.Kind != InvoiceConsumptionKind.Debit
+                || x.TenantId != context.TenantId || x.LegalEntityId != context.LegalEntityId
+                || x.BranchRef != context.BranchId || x.PurchaseOrderId != context.PurchaseOrderId
+                || x.RevisionId != context.IssuedVersionId || x.SupplierId != context.SupplierId
+                || x.CurrencyCode != context.CurrencyCode)
+            || union.Select(x=>x.Id).Distinct().Count()!=union.Length
+            || union.Select(x=>(x.InvoiceId,x.InvoiceLineId)).Distinct().Count()!=union.Length)
+            throw new InvalidOperationException("InvoiceProcurementOwnerClaimOverlap");
+        if (envelope.BaselineManifestSha256 != manifest || envelope.BaselineSetSha256 != baseline
+            || envelope.ActiveBaselineClaimsSha256 != InvoiceMatchExecutionEvidence.AllocationsDigest(activeBaselineClaims)
+            || envelope.ActiveLocalClaimsSha256 != InvoiceMatchExecutionEvidence.AllocationsDigest(activeLocalClaims)
+            || envelope.AllocationsSha256 != envelope.ActiveBaselineClaimsSha256
+            || envelope.UnionClaimsSha256 != InvoiceMatchExecutionEvidence.AllocationsDigest(union))
+            throw new InvalidOperationException("InvoiceProcurementOwnerSetDigestChanged");
+    }
+
+    private static bool Sha(string? value) => value is {Length:64}
+        && value.All(x => x is >= '0' and <= '9' or >= 'a' and <= 'f');
+}
