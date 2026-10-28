@@ -13,7 +13,7 @@ public sealed record PrincipalInvoiceAcceptedFact(
     DateTimeOffset AcceptedAt);
 
 public sealed record PrincipalInvoiceAcceptedHistory(
-    Guid SourceStateId, string SourceSha256, long SourceSequence,
+    Guid SourceStateId, string SourceSha256, long SourceSequence, string UnitCode,
     IReadOnlyList<PrincipalInvoiceAcceptedFact> Facts);
 
 public static class PrincipalInvoiceAcceptedSourceProjection
@@ -72,6 +72,6 @@ public static class PrincipalInvoiceAcceptedSourceProjection
                 ledger.Source.Commercial.Kind, value.Quantity, value.NetAmount,
                 row.PayloadSha256, value.AcceptedAt);
         }).ToArray();
-        return new(state.Id, state.SourceSha256, state.Sequence, accepted);
+        return new(state.Id, state.SourceSha256, state.Sequence, expectedSource.Commercial.UnitCode, accepted);
     }
 }
