@@ -145,7 +145,10 @@ internal static class ProcurementPrincipalInvoiceMatchingReadiness
     {
         var required=new List<string>
         {
-            ProcurementInvoiceOwnerBaselineReadiness.PrivilegeSql(write,executionRole)[7..],
+            // Matching reads the approved baseline and Core decision. It does
+            // not open baseline cases or write baseline receipts. Keep the
+            // parent's finite-role and immutable-history denials in both modes.
+            ProcurementInvoiceOwnerBaselineReadiness.PrivilegeSql(false,executionRole)[7..],
             "has_table_privilege(current_user,'procurement.commercial_command_receipts','SELECT')"
         };
         foreach(var table in new[]{"invoice_match_allocations","invoice_match_mapping_versions",
@@ -157,7 +160,8 @@ internal static class ProcurementPrincipalInvoiceMatchingReadiness
         if(write)
         {
             foreach(var table in new[]{"invoice_match_mapping_versions","invoice_match_allocations",
-                "invoice_match_results","invoice_exceptions","commercial_command_receipts"})
+                "invoice_match_results","invoice_match_exposure_states","invoice_exceptions",
+                "commercial_command_receipts","audit_events","outbox_events"})
                 required.Add("has_table_privilege(current_user,"+Literal("procurement."+table)+",'INSERT')");
             foreach(var table in new[]{"invoice_match_exposure_states","supplier_invoices",
                 "invoice_exceptions"})
