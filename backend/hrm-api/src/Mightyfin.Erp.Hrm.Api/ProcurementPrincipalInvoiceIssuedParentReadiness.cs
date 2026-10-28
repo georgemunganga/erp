@@ -82,7 +82,9 @@ internal static class ProcurementPrincipalInvoiceIssuedParentReadiness
                 var issuedForeigns=entity.GetForeignKeys().Where(x=>x.Properties.Any(p=>p.Name is
                     "LegacyIssuedVersionRefId" or "PrincipalIssuedVersionRefId")).ToArray();
                 if(issuedForeigns.Length!=2)return false;
-                foreach(var foreign in issuedForeigns)
+                // The old scoped relations remain part of the admitted shape;
+                // a matching count cannot prove their exact parent or tuple.
+                foreach(var foreign in entity.GetForeignKeys())
                 {
                     var parent=StoreObjectIdentifier.Table(foreign.PrincipalEntityType.GetTableName()!,
                         foreign.PrincipalEntityType.GetSchema());
