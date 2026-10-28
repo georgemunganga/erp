@@ -53,4 +53,18 @@ public sealed class InvoiceProcurementHistoricalOwnerContractTests
         Assert.Throws<InvalidOperationException>(()=>InvoiceProcurementHistoricalOwnerContract.VerifyPartition(
             f.Envelope,f.Context,f.Exposure,f.Names,[f.Claim with{Kind=InvoiceConsumptionKind.Credit}],[]));
     }
+
+    [Fact]
+    public void Historical_cursor_requires_every_increment_and_exact_active_pointer_set()
+    {
+        var f=Fixture();var inactive=Guid.NewGuid();
+        InvoiceProcurementHistoricalOwnerContract.VerifyHistoricalSequence(2,
+            [new(inactive,1,false),new(f.Claim.Id,2,true)],[f.Claim]);
+        Assert.Throws<InvalidOperationException>(()=>InvoiceProcurementHistoricalOwnerContract.VerifyHistoricalSequence(2,
+            [new(f.Claim.Id,2,true)],[f.Claim]));
+        Assert.Throws<InvalidOperationException>(()=>InvoiceProcurementHistoricalOwnerContract.VerifyHistoricalSequence(2,
+            [new(inactive,1,false),new(f.Claim.Id,2,false)],[f.Claim]));
+        Assert.Throws<InvalidOperationException>(()=>InvoiceProcurementHistoricalOwnerContract.VerifyHistoricalSequence(2,
+            [new(inactive,1,false),new(inactive,2,true)],[f.Claim]));
+    }
 }

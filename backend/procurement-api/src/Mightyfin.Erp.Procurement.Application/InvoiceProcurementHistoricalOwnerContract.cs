@@ -8,6 +8,11 @@ namespace Mightyfin.Erp.Procurement.Application;
 public sealed record InvoiceProcurementBaselineTable(string TableName, long RowCount,
     string IdSetSha256, string RowSetSha256);
 
+/// <summary>Every retained allocation, including inactive history, in one
+/// exposure's owning row set. Active must come from the current invoice pointer,
+/// not from the caller or this DTO.</summary>
+public sealed record InvoiceProcurementClaimCursor(Guid AllocationId, long ExposureSequence, bool Active);
+
 /// <summary>Proposed Procurement owner schema, distinct from the installed v1
 /// owner envelope. This DTO alone grants no completeness: an owning database
 /// adapter must validate the reviewed table manifest and every live row under
@@ -87,6 +92,29 @@ public static class InvoiceProcurementHistoricalOwnerContract
             || envelope.AllocationsSha256 != envelope.ActiveBaselineClaimsSha256
             || envelope.UnionClaimsSha256 != InvoiceMatchExecutionEvidence.AllocationsDigest(union))
             throw new InvalidOperationException("InvoiceProcurementOwnerSetDigestChanged");
+    }
+
+    /// <summary>Detect a lost or unexplained exposure increment. Multiple invoice
+    /// lines may share one sequence; every sequence must have at least one row.
+    /// The owning adapter must derive Active from retained invoice pointers.</summary>
+    public static void VerifyHistoricalSequence(long exposureSequence,
+        IReadOnlyList<InvoiceProcurementClaimCursor> allRetainedRows,
+        IReadOnlyList<InvoiceMatchConsumption> activeClaims)
+    {
+        ArgumentNullException.ThrowIfNull(allRetainedRows);
+        ArgumentNullException.ThrowIfNull(activeClaims);
+        if (exposureSequence < 0 || allRetainedRows.Count > 100_000
+            || allRetainedRows.Any(x => x is null || x.AllocationId == Guid.Empty
+                || x.ExposureSequence < 1 || x.ExposureSequence > exposureSequence)
+            || allRetainedRows.Select(x => x.AllocationId).Distinct().Count() != allRetainedRows.Count
+            || activeClaims.Any(x => x is null || x.Id == Guid.Empty)
+            || activeClaims.Select(x => x.Id).Distinct().Count() != activeClaims.Count
+            || !allRetainedRows.Where(x => x.Active).Select(x => x.AllocationId).Order()
+                .SequenceEqual(activeClaims.Select(x => x.Id).Order())
+            || allRetainedRows.Select(x => x.ExposureSequence).Distinct().Order()
+                .Where((sequence,index) => sequence != index + 1).Any()
+            || allRetainedRows.Select(x => x.ExposureSequence).Distinct().LongCount() != exposureSequence)
+            throw new InvalidOperationException("InvoiceProcurementExposureSequenceIncomplete");
     }
 
     private static bool Sha(string? value) => value is {Length:64}
