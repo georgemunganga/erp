@@ -26,6 +26,7 @@ public sealed partial class ProcurementDbContext
         if(!Database.IsNpgsql() || Database.CurrentTransaction?.GetDbTransaction().IsolationLevel != IsolationLevel.Serializable
             || stagedInvoiceOwnerBaseline is not null || baselineId==Guid.Empty
             || pendingCoreCase is null || reviewerWorkerAliases is null
+            || scope.IsConfined || scope.IsExplicitAllBranches
             || !ProcurementPrincipalEvidence.Canonical(scope.SubjectId)
             || !ProcurementPrincipalEvidence.OptionalWorker(scope.CoreLinkedWorkerId))
             throw new InvalidOperationException("InvoiceOwnerSerializableCaptureRequired");
@@ -35,11 +36,7 @@ public sealed partial class ProcurementDbContext
         var summary=InvoiceProcurementInventoryEvidence.Summarize(capture);
         var classifications=InvoiceProcurementHistoricalClassification.Classify(capture)
             .ToDictionary(x=>(x.TableName,x.RowId));
-        // Existing claims and exposure checkpoints need a separately reviewed
-        // full classifier. Never label them empty from caller input.
-        if(capture.Tables.Single(x=>x.TableName=="invoice_match_allocations").Rows.Count!=0
-            || capture.Tables.Single(x=>x.TableName=="invoice_match_exposure_states").Rows.Count!=0)
-            throw new InvalidOperationException("InvoiceOwnerHistoricalClaimsUnclassified");
+        var initialClaims=await CaptureInitialInvoiceClaimsAsync(capture,ct);
         var migrations=(await Database.GetAppliedMigrationsAsync(ct)).ToArray();
         if(migrations.Length==0) throw new InvalidOperationException("InvoiceOwnerMigrationBoundaryUnavailable");
         var baseline=new InvoiceProcurementOwnerBaseline
@@ -50,7 +47,7 @@ public sealed partial class ProcurementDbContext
             CatalogManifestSha256=summary.ManifestSha256,InventorySetSha256=summary.CompleteSetSha256,
             InventoryRowCount=summary.RowCount,CoreCaseId=pendingCoreCase.Id,
             MakerPrincipalId=scope.SubjectId,MakerWorkerAliasId=scope.CoreLinkedWorkerId,
-            InitialActiveClaimsSha256=InvoiceMatchExecutionEvidence.AllocationsDigest([]),
+            InitialActiveClaimsSha256=InvoiceMatchExecutionEvidence.AllocationsDigest(initialClaims),
             InitialExposureSetSha256=InvoiceProcurementInitialExposureEvidence.Digest(capture),
             CreatedAt=capturedAt,CreatedBy=scope.SubjectId
         };

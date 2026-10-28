@@ -106,9 +106,14 @@ public static class InvoiceProcurementHistoricalClassification
     private static Guid? GuidOf(JsonElement row,string name) =>
         row.TryGetProperty(name,out var value) && value.ValueKind!=JsonValueKind.Null ? value.GetGuid() : null;
     private static bool Null(JsonElement row,string name) =>
-        !row.TryGetProperty(name,out var value) || value.ValueKind==JsonValueKind.Null;
+        row.TryGetProperty(name,out var value)
+            ? value.ValueKind==JsonValueKind.Null
+            : throw new InvalidOperationException("InvoiceOwnerHistoricalColumnMissing");
     private static string? String(JsonElement row,string name) =>
-        row.TryGetProperty(name,out var value) && value.ValueKind!=JsonValueKind.Null ? value.GetString() : null;
+        row.TryGetProperty(name,out var value)
+            ? value.ValueKind==JsonValueKind.Null ? null : value.GetString()
+            : throw new InvalidOperationException("InvoiceOwnerHistoricalColumnMissing");
     private static long Number(JsonElement row,string name) =>
-        row.TryGetProperty(name,out var value) && value.ValueKind!=JsonValueKind.Null ? value.GetInt64() : -1;
+        row.TryGetProperty(name,out var value) && value.ValueKind!=JsonValueKind.Null
+            ? value.GetInt64() : throw new InvalidOperationException("InvoiceOwnerHistoricalColumnMissing");
 }

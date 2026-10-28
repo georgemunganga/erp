@@ -143,6 +143,7 @@ public static class InvoiceProcurementBaselineEvidence
             || approvalAudit.RecordType!=SourceType || approvalAudit.RecordId!=baseline.Id
             || approvalAudit.Action!="InvoiceOwnerBaselineApproved"
             || approvalAudit.ActorSubjectId!=reviewerPrincipalId
+            || approvalAudit.CorrelationId!=workflow.CompletionKey
             || approvalAudit.ChangedFieldsJson!=DecisionAuditJson(baseline,final)
             || !assignments.Any(x=>x.Id==final.AssignmentId && x.CaseId==workflow.Id
                 && x.StageId==final.StageId && x.AssigneeSubjectId==reviewerPrincipalId

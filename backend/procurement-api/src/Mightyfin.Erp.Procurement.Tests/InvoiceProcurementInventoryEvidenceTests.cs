@@ -48,6 +48,9 @@ public sealed class InvoiceProcurementInventoryEvidenceTests
         json["status"]="Received";json["intake_channel"]="Manual";
         json["mapping_revision"]=0;json["match_revision"]=0;
         json["matching_state"]="NotCompared";
+        foreach(var name in new[]{"finance_posting_ref","evidence_document_ref_id","credit_for_invoice_ref",
+            "current_mapping_version_id","last_match_result_id","active_match_claim_result_id"})
+            json[name]=null;
         var current=json.ToJsonString();
         var draft=invoice with{RowJson=current,CanonicalRowSha256=ProcurementEvidenceEncoding.PolicyJsonDigest(current)};
         var tables=original.Tables.ToArray();
@@ -173,6 +176,7 @@ public sealed class InvoiceProcurementInventoryEvidenceTests
         var approvalAudit=new AuditEvent{TenantId="tenant-a",LegalEntityId=company,
             RecordType=InvoiceProcurementBaselineEvidence.SourceType,RecordId=baseline.Id,
             Action="InvoiceOwnerBaselineApproved",ActorSubjectId=reviewer,
+            CorrelationId=key,
             ChangedFieldsJson=InvoiceProcurementBaselineEvidence.DecisionAuditJson(baseline,decision)};
         var pendingStage=new ApprovalStage{TenantId="tenant-a",LegalEntityId=company,CaseId=baseline.CoreCaseId,
             Sequence=1,Code="IndependentReview",Mode="Any",RequiredApprovals=1,State="Active"};
