@@ -19,6 +19,20 @@ public sealed class ProcurementPrincipalReceivingAdmissionTests
         Assert.Equal(expected, ProcurementPrincipalReceivingCapability.Configured(options, write));
     }
 
+    [Theory]
+    [InlineData(false, false, true)]
+    [InlineData(true, false, false)]
+    [InlineData(false, true, false)]
+    [InlineData(true, true, false)]
+    public void Raw_All_cannot_become_a_write_after_default_branch_resolution(
+        bool explicitAll, bool rawAll, bool expected)
+    {
+        Assert.Equal(expected, ProcurementPrincipalReceivingCapability.WriteContextAllowed(
+            Guid.NewGuid(), explicitAll, rawAll));
+        Assert.False(ProcurementPrincipalReceivingCapability.WriteContextAllowed(null, explicitAll, rawAll));
+        Assert.False(ProcurementPrincipalReceivingCapability.WriteContextAllowed(Guid.Empty, explicitAll, rawAll));
+    }
+
     [Fact]
     public void Missing_options_never_admit_reads_or_writes()
     {

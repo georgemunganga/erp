@@ -10,6 +10,9 @@ internal static class ProcurementPrincipalReceivingCapability
     internal static bool Configured(ProcurementPrincipalReceivingOptions? options, bool write) =>
         options is { ExecutionDatabaseConfigured: true } && (!write || options.Enabled);
 
+    internal static bool WriteContextAllowed(Guid? branch, bool explicitAll, bool rawAll) =>
+        branch is not null && branch != Guid.Empty && !explicitAll && !rawAll;
+
     internal static async Task<bool> ReadReadyAsync(IServiceProvider services,
         ProcurementRequestScope scope, bool pending, CancellationToken ct)
     {

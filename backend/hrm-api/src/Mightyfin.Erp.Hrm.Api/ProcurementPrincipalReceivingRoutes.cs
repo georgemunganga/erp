@@ -55,7 +55,8 @@ public static partial class ProcurementPrincipalReceivingRoutes
             if(!ProcurementPrincipalReceivingCapability.Configured(options, write) || ready is null
                 || !await ready.IsReadyAsync(ct))
                 throw new Problem("PrincipalReceivingUnavailable",503);
-            if(write && (scope.WorkLocationId is null || scope.IsExplicitAllBranches))
+            if(write && !ProcurementPrincipalReceivingCapability.WriteContextAllowed(scope.WorkLocationId,
+                scope.IsExplicitAllBranches, http.Request.Headers.ContainsKey("X-Shell-Branch-Scope")))
                 throw new Problem("ReceivingBranchRequired",400);
             var result=await http.RequestServices.GetRequiredService<ProcurementApprovalTransaction>().ExecuteAsync(async(db,cases,token)=>
             {
