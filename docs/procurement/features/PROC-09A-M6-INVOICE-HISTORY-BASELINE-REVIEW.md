@@ -26,7 +26,7 @@ The existing Procurement API provides baseline Open, detail, assigned review, De
 
 ## 7. Preconditions
 
-The policy is published and effective. Physical schema, exact finite database grants, complete inventory scope and current tenant/company context are required. An unknown historical row blocks capture; an empty live claim table alone is not evidence of complete history.
+The policy is published and effective. Physical schema, exact finite database grants, complete inventory scope and current tenant/company context are required. A known but ambiguous historical row may be captured and reviewed as `BlockedAmbiguity`; it cannot qualify the affected PO. An unclassifiable row or incomplete inventory blocks capture. An empty live claim table alone is not evidence of complete history.
 
 ## 8. Workflow
 
@@ -66,7 +66,7 @@ M6A classifies retained references; it does not validate original invoice docume
 
 ## 17. Exceptions & Edge Cases
 
-Unknown or changed history, mismatched source hashes, wrong actor, stale case version, wrong company/tenant or incomplete physical grants fail closed. A keyed Open that committed despite a lost or failed readback must be recovered with that key; no fresh Open key is inferred.
+Unclassifiable or incomplete history, mismatched source hashes, wrong actor, stale case version, wrong company/tenant or incomplete physical grants fail closed. Classified `BlockedAmbiguity` remains visible but cannot qualify the affected PO. A keyed Open that committed despite a lost or failed readback must be recovered with that key; no fresh Open key is inferred.
 
 ## 18. Integrations / APIs / Events / Sandbox
 
@@ -110,4 +110,4 @@ Core retains account, company scope, policy reviewer assignment and decision own
 
 ## 28. Open Decisions / Assumptions
 
-This checkpoint establishes one private baseline approval only. A later release must prove current production history coverage, old/new image compatibility, document ownership, qualified claim capacity, Finance handoff and broader signed-in UAT before enabling matching. Raw ACL text may differ after GRANT/REVOKE while effective grants and column ACLs are equal; that representation difference is recorded rather than rewritten.
+This checkpoint establishes one private baseline approval only. Enabling qualified Procurement matching requires current history coverage, source/capacity and original-document review, scope proof, compatible images and broader signed-in UAT. Finance handoff and posting are separate future gates, not prerequisites for Procurement matching. Raw ACL text may differ after GRANT/REVOKE while effective grants and column ACLs are equal; that representation difference is recorded rather than rewritten.
