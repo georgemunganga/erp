@@ -1,6 +1,7 @@
 using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
+using Mightyfin.Erp.Procurement.Application;
 using Microsoft.EntityFrameworkCore;
 using Mightyfin.Erp.Hrm.Api;
 using Mightyfin.Erp.Hrm.Infrastructure.Data;
@@ -11,6 +12,69 @@ namespace Mightyfin.Erp.Hrm.Tests;
 public sealed partial class ProcurementRequestHttpTests
 {
     private const string ReceivingLookupPath = "/api/procurement/v1/configuration/policies/lookups/receiving/";
+
+    [Fact]
+    public async Task Receiving_schema_two_validation_accepts_named_Core_accounts_without_worker_fields_and_preserves_schema_one()
+    {
+        await using var fixture = await Fixture.Start(); await fixture.ConfigureSourcingPolicyActors();
+        var principal = Guid.NewGuid().ToString("D"); var site = Guid.NewGuid();
+        var schemaTwo = JsonSerializer.Serialize(new { schemaVersion = 2, transactionType = "Receiving", currencyCode = "ZMW",
+            rules = new[] { new { code = "NAMED", categoryCode = "IT", purchaseType = "Goods", kind = "Goods",
+                siteIds = new[] { site }, inspectionRequired = false, checklistReference = (string?)null,
+                inspectorPrincipalIds = Array.Empty<string>(), acceptorPrincipalIds = new[] { principal },
+                serviceOwnerPrincipalIds = Array.Empty<string>(), allowRequesterCertification = false,
+                allowBuyerCertification = false, allowReceiverCertification = false, requireIndependentInspector = true,
+                evidenceMode = "ControlledManualReference", evidenceReferencePrefix = "REC:" } } });
+        Assert.True(PrincipalReceivingPolicyRules.IsDocument(schemaTwo));
+        var response = await SendJson(fixture.Client, HttpMethod.Post,
+            "/api/procurement/v1/configuration/policies/validate", fixture.Other,
+            new { rulesJson = schemaTwo }, role: "procurement_manager");
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.True((await response.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("isValid").GetBoolean());
+        var schemaOne = JsonSerializer.Serialize(new { schemaVersion = 1, transactionType = "Receiving", currencyCode = "ZMW",
+            rules = new[] { new { code = "LEGACY", categoryCode = "IT", purchaseType = "Goods", kind = "Goods",
+                siteIds = new[] { site }, inspectionRequired = false, checklistReference = (string?)null,
+                inspectorWorkerIds = Array.Empty<Guid>(), serviceOwnerWorkerIds = Array.Empty<Guid>(),
+                allowRequesterCertification = false, allowBuyerCertification = false, allowReceiverCertification = false,
+                requireIndependentInspector = true, evidenceMode = "ControlledManualReference", evidenceReferencePrefix = "REC:" } } });
+        response = await SendJson(fixture.Client, HttpMethod.Post,
+            "/api/procurement/v1/configuration/policies/validate", fixture.Other,
+            new { rulesJson = schemaOne }, role: "procurement_manager");
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.True((await response.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("isValid").GetBoolean());
+        var wrong = schemaTwo.Replace("\"acceptorPrincipalIds\"", "\"acceptorWorkerIds\"", StringComparison.Ordinal);
+        response = await SendJson(fixture.Client, HttpMethod.Post,
+            "/api/procurement/v1/configuration/policies/validate", fixture.Other,
+            new { rulesJson = wrong }, role: "procurement_manager");
+        Assert.False((await response.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("isValid").GetBoolean());
+    }
+
+    [Fact]
+    public async Task Receiving_principal_lookup_selects_current_workerless_Core_account_without_changing_worker_lookup()
+    {
+        await using var fixture = await Fixture.Start(); await fixture.ConfigureSourcingPolicyActors();
+        var workerless = await fixture.SeedSourcingLookupPerson("Receiving named Core account", "no-worker");
+        await fixture.ConfigureCoreActions(workerless, "procurement-access");
+        var selection = "?ids=" + workerless.ToString("D");
+        var before = await fixture.SourcingConfigurationFootprint();
+        var principalResponse = await Send(fixture.Client, HttpMethod.Get,
+            ReceivingLookupPath + "principals" + selection, fixture.Other, role: "procurement_manager");
+        Assert.Equal(HttpStatusCode.OK, principalResponse.StatusCode);
+        var principalPage = await principalResponse.Content.ReadFromJsonAsync<JsonElement>();
+        var row = Assert.Single(principalPage.GetProperty("items").EnumerateArray());
+        Assert.Equal(workerless, row.GetProperty("id").GetGuid());
+        Assert.Equal(workerless, row.GetProperty("principalId").GetGuid());
+        Assert.False(principalPage.GetProperty("isAuthority").GetBoolean());
+        var legacyResponse = await Send(fixture.Client, HttpMethod.Get,
+            ReceivingLookupPath + "people" + selection, fixture.Other, role: "procurement_manager");
+        Assert.Equal(HttpStatusCode.OK, legacyResponse.StatusCode);
+        Assert.Equal(0, (await legacyResponse.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("total").GetInt32());
+        await fixture.ConfigureCoreActions(workerless, "");
+        var revoked = await Send(fixture.Client, HttpMethod.Get,
+            ReceivingLookupPath + "principals" + selection, fixture.Other, role: "procurement_manager");
+        Assert.Equal(0, (await revoked.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("total").GetInt32());
+        Assert.Equal(before, await fixture.SourcingConfigurationFootprint());
+    }
 
     [Theory]
     [InlineData("people")]

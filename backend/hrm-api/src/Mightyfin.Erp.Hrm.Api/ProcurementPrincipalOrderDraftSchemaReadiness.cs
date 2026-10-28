@@ -84,7 +84,7 @@ CHECK (((schema_version = 2) AND ((operation)::text = ANY ((ARRAY['Create'::char
             if (owned.Any(x => x is null)
                 || owned.Sum(x => x!.GetKeys().Count()) != 4 // 2 PK + 2 scoped AK
                 || owned.Sum(x => x!.GetForeignKeys().Count()) != 9
-                || owned.Sum(x => x!.GetIndexes().Count()) != 10) return false;
+                || owned.Sum(x => x!.GetIndexes().Count(index => !ProcurementPrincipalReceivingParentIndexes.IsOwned(index))) != 10) return false;
             var orderTable = StoreObjectIdentifier.Table(order.GetTableName()!, order.GetSchema());
             command.CommandText = "SELECT principal_draft_schema_version,original_direct_source_sha256 FROM "
                 + Quote(orderTable.Schema!) + "." + Quote(orderTable.Name) + " LIMIT 0";
