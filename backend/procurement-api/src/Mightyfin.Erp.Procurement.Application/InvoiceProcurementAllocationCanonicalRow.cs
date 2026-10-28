@@ -76,26 +76,33 @@ public static class InvoiceProcurementAllocationCanonicalRow
             var factPresent = fact.Name is not null;
             var sourceHasValue = sourcePresent && source.Kind != JsonTokenType.Null;
             var factHasValue = factPresent && fact.Kind != JsonTokenType.Null;
-            if (sourceHasValue != factHasValue)
+            if (sourcePresent != factPresent || sourceHasValue != factHasValue)
                 throw new InvalidOperationException("InvoiceOwnerAllocationPrincipalPairIncomplete");
             if (sourceHasValue || !sourcePresent && !factPresent) return raw;
 
             var ranges = new List<(int Start, int End)>();
-            for (var index = 0; index < properties.Count; index++)
+            for (var index = 0; index < properties.Count;)
             {
-                if (properties[index].Name is not (Source or Fact)) continue;
-                var property = properties[index];
-                if (index > 0)
+                if (properties[index].Name is not (Source or Fact))
                 {
-                    var comma = Comma(bytes, properties[index - 1].End, property.Start);
-                    ranges.Add((comma, property.End));
+                    index++;
+                    continue;
                 }
-                else if (index + 1 < properties.Count)
+                var first = index;
+                while (index < properties.Count && properties[index].Name is (Source or Fact))
+                    index++;
+                var last = index - 1;
+                if (first > 0)
                 {
-                    _ = Comma(bytes, property.End, properties[index + 1].Start);
-                    ranges.Add((property.Start, properties[index + 1].Start));
+                    var comma = Comma(bytes, properties[first - 1].End, properties[first].Start);
+                    ranges.Add((comma, properties[last].End));
                 }
-                else ranges.Add((property.Start, property.End));
+                else if (index < properties.Count)
+                {
+                    _ = Comma(bytes, properties[last].End, properties[index].Start);
+                    ranges.Add((properties[first].Start, properties[index].Start));
+                }
+                else ranges.Add((properties[first].Start, properties[last].End));
             }
             var ordered = ranges.OrderBy(x => x.Start).ToArray();
             var output = new List<byte>(bytes.Length);
