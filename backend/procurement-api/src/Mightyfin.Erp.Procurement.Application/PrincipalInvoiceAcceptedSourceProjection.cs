@@ -3,7 +3,9 @@ using Mightyfin.Erp.Procurement.Domain;
 namespace Mightyfin.Erp.Procurement.Application;
 
 /// <summary>A verified historical M5 receiving graph for one issued order line.
-/// This projection proves physical acceptance; it grants no invoice capacity or AP authority.</summary>
+/// The caller must first verify the retained issued order, physical ownership FKs and
+/// absence of unknown earlier legacy receiving history. This projection proves
+/// accepted facts only; it grants no invoice capacity or AP authority.</summary>
 public sealed record PrincipalInvoiceAcceptedFact(
     Guid FactId, Guid SourceStateId, long SourceSequence, Guid PurchaseOrderId,
     Guid IssuedVersionId, Guid PurchaseOrderLineId, ReceivingKind Kind,
@@ -29,6 +31,9 @@ public static class PrincipalInvoiceAcceptedSourceProjection
         ArgumentNullException.ThrowIfNull(lineBindings);
         ArgumentNullException.ThrowIfNull(receipts);
         ArgumentNullException.ThrowIfNull(retainedPolicies);
+        if (facts.Count > 2_000 || lineBindings.Count > 2_000 || receipts.Count > 2_000
+            || retainedPolicies.Count > 2_000 || state.Sequence > 2_000)
+            throw new InvalidOperationException("PrincipalInvoiceReceivingHistoryBoundExceeded");
         if (state.Id == Guid.Empty || PrincipalReceivingStorageCodec.Source(state) != expectedSource)
             throw new InvalidOperationException("PrincipalInvoiceOriginalReceivingSourceChanged");
 
