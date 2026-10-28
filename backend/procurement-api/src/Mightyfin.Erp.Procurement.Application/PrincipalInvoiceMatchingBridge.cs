@@ -100,6 +100,8 @@ public static class PrincipalInvoiceMatchingBridge
         IProcurementScope scope, IReadOnlyList<PrincipalInvoiceAllocationSourceInput> activeClaims,
         PolicyVersion currentPolicy, IReadOnlyList<PrincipalInvoiceAcceptedHistory> histories)
     {
+        Need(result.SourceSchemaVersion == 3 && exposure.SourceSchemaVersion == 3,
+            "PrincipalInvoiceIssuedFamilyRequired");
         var policyProjection = InvoiceMatchingPolicyRules.Project(currentPolicy);
         Need(currentPolicy.TenantId == original.TenantId && currentPolicy.LegalEntityId == original.LegalEntityId
             && currentPolicy.State == "Published" && currentPolicy.Id == reviewContext.PolicyId

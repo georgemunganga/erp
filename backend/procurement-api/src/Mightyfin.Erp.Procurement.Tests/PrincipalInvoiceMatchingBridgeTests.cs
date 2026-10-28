@@ -5,6 +5,23 @@ namespace Mightyfin.Erp.Procurement.Tests;
 
 public sealed class PrincipalInvoiceMatchingBridgeTests
 {
+    [Theory]
+    [InlineData(null, 3)]
+    [InlineData(3, null)]
+    [InlineData(null, null)]
+    [InlineData(2, 3)]
+    [InlineData(3, 2)]
+    public void Claims_reject_legacy_or_unknown_issued_family_before_consuming_other_evidence(
+        int? resultSchema, int? exposureSchema)
+    {
+        var result = new InvoiceMatchResult { SourceSchemaVersion = resultSchema };
+        var exposure = new InvoiceMatchExposureState { SourceSchemaVersion = exposureSchema };
+        var error = Assert.Throws<InvalidOperationException>(() => PrincipalInvoiceMatchingBridge.Claims(
+            null!, null!, result, exposure, null!, default, null!, [], null!, null!, null!,
+            null!, null!, [], null!, []));
+        Assert.Equal("PrincipalInvoiceIssuedFamilyRequired", error.Message);
+    }
+
     [Fact]
     public void A_verified_boolean_without_retained_Core_review_never_supplies_units()
     {
