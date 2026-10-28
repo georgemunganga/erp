@@ -46,7 +46,7 @@ Two-way compares invoice quantity, unit price, tax and total against issued orde
 
 ## 12. Data Fields & Ownership
 
-The new mapping variant carries `principalReceivingFactId` and `principalReceivingSourceStateId` as typed, nullable links, mutually exclusive with legacy goods/service IDs. Immutable comparison and allocation rows retain source schema version, issued version, policy digest, original invoice digest, acceptance fact digest/sequence, owner watermark and command key. Procurement owns claims; Finance/AP owns any external historical exposure checkpoint.
+The new mapping variant carries `principalReceivingFactId` and `principalReceivingSourceStateId` as typed, nullable links, mutually exclusive with legacy goods/service IDs. The mapping row stores an explicit nullable source schema discriminator: null retains the original v1/v2 payload path; 3 selects the principal payload. This is separate from Core identity schema 2. Unit review dispatches by this stored source discriminator and checks original document links; it never converts a principal fact into a legacy goods/service acceptance. Immutable comparison and allocation rows retain source schema version, issued version, policy digest, original invoice digest, acceptance fact digest/sequence, owner watermark and command key. Procurement owns claims; Finance/AP owns external posting.
 
 ## 13. Screens & Data Views
 

@@ -101,13 +101,36 @@ public sealed class PrincipalInvoiceMappingEvidenceTests
         var row=new InvoiceMatchMappingVersion{TenantId=invoice.TenantId,LegalEntityId=invoice.LegalEntityId,
             SupplierInvoiceId=invoice.Id,PurchaseOrderId=order,IssuedVersionId=issued,MappingRevision=1,
             InvoiceOriginalSha256=payload.Snapshot.InvoiceOriginalSha256,MappingJson=payload.Json,MappingSha256=payload.Sha256,
-            ActorPrincipalId=actor,ActorWorkerId=null,IdentitySchemaVersion=2};
+            ActorPrincipalId=actor,ActorWorkerId=null,IdentitySchemaVersion=2,SourceSchemaVersion=3};
         Assert.Equal(3,PrincipalInvoiceMappingEvidence.VerifyStored(row,invoice,[line]).SchemaVersion);
         Assert.Throws<InvalidOperationException>(()=>InvoiceMappingEvidence.Verify(row,invoice,[line]));
         row=new InvoiceMatchMappingVersion{TenantId=invoice.TenantId,LegalEntityId=invoice.LegalEntityId,
             SupplierInvoiceId=invoice.Id,PurchaseOrderId=order,IssuedVersionId=issued,MappingRevision=1,
             InvoiceOriginalSha256=payload.Snapshot.InvoiceOriginalSha256,MappingJson=payload.Json,MappingSha256=payload.Sha256,
-            ActorPrincipalId=Guid.NewGuid().ToString("D"),ActorWorkerId=null,IdentitySchemaVersion=2};
+            ActorPrincipalId=Guid.NewGuid().ToString("D"),ActorWorkerId=null,IdentitySchemaVersion=2,SourceSchemaVersion=3};
         Assert.Throws<InvalidOperationException>(()=>PrincipalInvoiceMappingEvidence.VerifyStored(row,invoice,[line]));
+    }
+
+    [Fact]
+    public void Unit_review_dispatch_preserves_legacy_shape_and_never_aliases_principal_fact_to_legacy_acceptance()
+    {
+        var (invoice,line)=Original();var order=Guid.NewGuid();var issued=Guid.NewGuid();
+        var actor=Guid.NewGuid().ToString("D");var document=Guid.NewGuid();var source=Guid.NewGuid();var fact=Guid.NewGuid();
+        var legacy=InvoiceMappingEvidence.Create(invoice,[line],order,issued,
+            [new InvoiceMappingLine(line.Id,Guid.NewGuid(),null,null,"EACH",document,"original line")],
+            actor,null,DateTimeOffset.UtcNow,identitySchemaVersion:2);
+        Assert.Equal(2,InvoiceMappingReviewSourceDispatch.Verify(legacy,invoice,[line]).SchemaVersion);
+        var link=new PrincipalInvoiceMappingLine(line.Id,Guid.NewGuid(),source,fact,"EACH",document,"original line");
+        var payload=PrincipalInvoiceMappingEvidence.Create(invoice,[line],order,issued,[link],actor,null);
+        var principal=new InvoiceMatchMappingVersion{TenantId=invoice.TenantId,LegalEntityId=invoice.LegalEntityId,
+            SupplierInvoiceId=invoice.Id,PurchaseOrderId=order,IssuedVersionId=issued,MappingRevision=1,
+            InvoiceOriginalSha256=payload.Snapshot.InvoiceOriginalSha256,MappingJson=payload.Json,MappingSha256=payload.Sha256,
+            ActorPrincipalId=actor,IdentitySchemaVersion=2,SourceSchemaVersion=3};
+        var review=InvoiceMappingReviewSourceDispatch.Verify(principal,invoice,[line]);
+        Assert.Equal(3,review.SchemaVersion);
+        Assert.Null(Assert.Single(review.Lines).GoodsReceiptLineId);
+        Assert.Null(Assert.Single(review.Lines).ServiceAcceptanceId);
+        Assert.Equal(document,Assert.Single(review.Lines).DocumentVersionId);
+        Assert.Equal(fact,Assert.Single(PrincipalInvoiceMappingEvidence.VerifyStored(principal,invoice,[line]).Lines).PrincipalReceivingFactId);
     }
 }

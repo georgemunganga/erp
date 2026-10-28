@@ -24,12 +24,13 @@ public sealed partial class ProcurementDbContext
         mapping.Property(x => x.MappingJson).HasColumnType("text"); mapping.Property(x => x.VerificationEvidenceJson).HasColumnType("text");
         mapping.Property(x => x.MappingSha256).HasMaxLength(64); mapping.Property(x => x.InvoiceOriginalSha256).HasMaxLength(64);
         mapping.Property(x => x.IdentitySchemaVersion).HasDefaultValue(1);
+        mapping.Property(x => x.SourceSchemaVersion).HasColumnName("source_schema_version");
         mapping.Property(x => x.ActorPrincipalId).HasMaxLength(200); mapping.Property(x => x.VerificationState).HasMaxLength(100);
         mapping.HasIndex(x => new { x.TenantId, x.LegalEntityId, x.SupplierInvoiceId, x.MappingRevision }).IsUnique();
         Link<InvoiceMatchMappingVersion, SupplierInvoice>(model, nameof(InvoiceMatchMappingVersion.SupplierInvoiceId));
         mapping.HasOne<PurchaseOrderIssuedVersion>().WithMany().HasForeignKey(x => new { x.TenantId, x.LegalEntityId, x.IssuedVersionId, x.PurchaseOrderId })
             .HasPrincipalKey(x => new { x.TenantId, x.LegalEntityId, x.Id, x.PurchaseOrderId }).OnDelete(DeleteBehavior.Restrict);
-        mapping.ToTable(t => t.HasCheckConstraint("ck_invoice_mapping_evidence", "mapping_revision > 0 AND mapping_sha256 ~ '^[0-9a-f]{64}$' AND invoice_original_sha256 ~ '^[0-9a-f]{64}$' AND identity_schema_version IN (1,2) AND (identity_schema_version=2 OR actor_worker_id IS NOT NULL) AND (actor_worker_id IS NULL OR actor_worker_id <> '00000000-0000-0000-0000-000000000000'::uuid) AND actor_principal_id IS NOT NULL AND (identity_schema_version=1 OR (actor_principal_id ~ '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$' AND actor_principal_id <> '00000000-0000-0000-0000-000000000000'))"));
+        mapping.ToTable(t => t.HasCheckConstraint("ck_invoice_mapping_evidence", "mapping_revision > 0 AND mapping_sha256 ~ '^[0-9a-f]{64}$' AND invoice_original_sha256 ~ '^[0-9a-f]{64}$' AND identity_schema_version IN (1,2) AND (source_schema_version IS NULL OR (source_schema_version=3 AND identity_schema_version=2)) AND (identity_schema_version=2 OR actor_worker_id IS NOT NULL) AND (actor_worker_id IS NULL OR actor_worker_id <> '00000000-0000-0000-0000-000000000000'::uuid) AND actor_principal_id IS NOT NULL AND (identity_schema_version=1 OR (actor_principal_id ~ '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$' AND actor_principal_id <> '00000000-0000-0000-0000-000000000000'))"));
         var exposure = model.Entity<InvoiceMatchExposureState>();
         exposure.Property(x => x.CurrencyCode).HasMaxLength(3); exposure.Property(x => x.CoverageState).HasMaxLength(30);
         exposure.Property(x => x.OwnerReference).HasMaxLength(500); exposure.Property(x => x.OwnerWatermark).HasMaxLength(500);
@@ -105,7 +106,7 @@ public sealed partial class ProcurementDbContext
             {
                 var invoice = ApprovalEvidence<SupplierInvoice>(entry.Entity.SupplierInvoiceId) ?? throw new InvalidOperationException("InvoiceMappingSourceMissing");
                 var lines = SupplierInvoiceLines.Where(x => x.SupplierInvoiceId == invoice.Id && x.IsActive).ToArray();
-                InvoiceMappingEvidence.Verify(entry.Entity, invoice, lines);
+                _ = InvoiceMappingReviewSourceDispatch.Verify(entry.Entity, invoice, lines);
                 if (entry.Entity.ActorPrincipalId != scope.SubjectId || !ProcurementPrincipalEvidence.OptionalWorker(entry.Entity.ActorWorkerId)
                     || entry.Entity.IdentitySchemaVersion == 2 && entry.Entity.ActorWorkerId != scope.CoreLinkedWorkerId) throw new InvalidOperationException("InvoiceMappingActorInvalid");
             }

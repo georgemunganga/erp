@@ -78,7 +78,7 @@ public static class PrincipalInvoiceMappingEvidence
         ArgumentNullException.ThrowIfNull(row);
         ArgumentNullException.ThrowIfNull(invoice);
         ArgumentNullException.ThrowIfNull(originalLines);
-        if (row.Id == Guid.Empty || row.IdentitySchemaVersion != 2
+        if (row.Id == Guid.Empty || row.IdentitySchemaVersion != 2 || row.SourceSchemaVersion != 3
             || row.SupplierInvoiceId != invoice.Id || row.TenantId != invoice.TenantId
             || row.LegalEntityId != invoice.LegalEntityId
             || row.InvoiceOriginalSha256 != InvoiceMappingEvidence.OriginalDigest(invoice, originalLines)

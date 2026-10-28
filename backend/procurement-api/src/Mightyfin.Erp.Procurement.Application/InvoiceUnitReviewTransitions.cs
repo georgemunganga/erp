@@ -138,7 +138,7 @@ public static class InvoiceUnitReviewTransitions
             && order.RevisionNumber > 0 && !string.IsNullOrWhiteSpace(order.IssuedReference)
             && order.IssuedAt != default && order.IssuedAt <= at && order.Lines.Count is > 0 and <= 200
             && order.Lines.Select(x => x.Id).Distinct().Count() == order.Lines.Count);
-        var links = InvoiceMappingEvidence.Verify(mapping, invoice, originals).Lines;
+        var links = InvoiceMappingReviewSourceDispatch.Verify(mapping, invoice, originals).Lines;
         Need(links.All(x => order.Lines.Any(line => line.Id == x.PurchaseOrderLineId)));
         return ProcurementEvidenceEncoding.PolicyJsonDigest(JsonSerializer.Serialize(new {
             order.Id, order.RevisionId, order.RevisionNumber, order.TenantId, order.LegalEntityId, order.BranchRef,
@@ -153,7 +153,7 @@ public static class InvoiceUnitReviewTransitions
         Need(invoice.CurrentMappingVersionId == mapping.Id && invoice.MappingRevision == mapping.MappingRevision
             && invoice.FinancePostingRef is null && invoice.ActiveMatchClaimResultId is null
             && invoice.Status is "Received" or "MatchPending" or "Exception");
-        _ = InvoiceMappingEvidence.Verify(mapping, invoice, originals);
+        _ = InvoiceMappingReviewSourceDispatch.Verify(mapping, invoice, originals);
     }
     private static string MatchingPolicy(PolicyVersion policy, SupplierInvoice invoice, DateTimeOffset now)
     {
@@ -165,7 +165,7 @@ public static class InvoiceUnitReviewTransitions
     private static IReadOnlyList<InvoiceReviewedDocumentLine> DocumentLines(InvoiceMatchMappingVersion mapping,
         SupplierInvoice invoice, IReadOnlyList<SupplierInvoiceLine> originals, IReadOnlyDictionary<Guid, string> hashes)
     {
-        var snapshot = InvoiceMappingEvidence.Verify(mapping, invoice, originals);
+        var snapshot = InvoiceMappingReviewSourceDispatch.Verify(mapping, invoice, originals);
         Need(hashes is not null && hashes.Count == snapshot.Lines.Select(x => x.DocumentVersionId).Distinct().Count());
         var result = new List<InvoiceReviewedDocumentLine>();
         foreach (var line in snapshot.Lines.OrderBy(x => x.InvoiceLineId))
