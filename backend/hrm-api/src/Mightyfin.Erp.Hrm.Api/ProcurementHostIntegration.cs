@@ -630,7 +630,16 @@ public sealed class ProcurementScopeMiddleware(RequestDelegate next, IWebHostEnv
     {
         if (!HttpMethods.IsGet(method)) return false;
         var value = path.Value?.TrimEnd('/');
-        return string.Equals(value, "/api/procurement/v1/requests", StringComparison.OrdinalIgnoreCase)
+        var parts=value?.Split('/',StringSplitOptions.RemoveEmptyEntries);
+        var principalInvoiceSources=parts is { Length: 7 }
+            && string.Equals(parts[0],"api",StringComparison.OrdinalIgnoreCase)
+            && string.Equals(parts[1],"procurement",StringComparison.OrdinalIgnoreCase)
+            && string.Equals(parts[2],"v1",StringComparison.OrdinalIgnoreCase)
+            && string.Equals(parts[3],"invoices",StringComparison.OrdinalIgnoreCase)
+            && Guid.TryParseExact(parts[4],"D",out var invoiceId) && invoiceId!=Guid.Empty
+            && string.Equals(parts[5],"matching",StringComparison.OrdinalIgnoreCase)
+            && string.Equals(parts[6],"principal-sources",StringComparison.OrdinalIgnoreCase);
+        return principalInvoiceSources || string.Equals(value, "/api/procurement/v1/requests", StringComparison.OrdinalIgnoreCase)
             || string.Equals(value, "/api/procurement/v1/plans", StringComparison.OrdinalIgnoreCase)
             || string.Equals(value, "/api/procurement/v1/contracts", StringComparison.OrdinalIgnoreCase)
             || string.Equals(value, "/api/procurement/v1/orders/principal-direct-drafts", StringComparison.OrdinalIgnoreCase)

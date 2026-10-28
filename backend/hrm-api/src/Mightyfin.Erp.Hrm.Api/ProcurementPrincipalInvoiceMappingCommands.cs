@@ -23,6 +23,8 @@ public static partial class ProcurementInvoiceMatchingRoutes
                 message = "Invoice matching is not ready. Ask your administrator to check its configuration." }, statusCode: 503))
             : Run(http, scope, async (db, cases, core, auth, token) =>
         {
+            if (!write && http.Request.Headers.ContainsKey("X-Shell-Branch-Scope") && !scope.IsExplicitAllBranches)
+                throw new MatchingProblem("InvoiceMatchingSelectedBranchRequired", 422);
             await RequirePrincipalMatching(http, scope, db, cases, write, token);
             return await work(db, cases, core, auth, token);
         }, ct, deferSchema: true);
