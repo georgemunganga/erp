@@ -90,6 +90,8 @@ public sealed class PrincipalInvoiceMappingEvidenceTests
         Assert.Throws<InvalidOperationException>(()=>PrincipalInvoiceMappingEvidence.VerifyAcceptedSources(payload.Snapshot,[history with{Facts=[fact with{IssuedVersionId=Guid.NewGuid()}]}]));
         Assert.Throws<InvalidOperationException>(()=>PrincipalInvoiceMappingEvidence.VerifyAcceptedSources(payload.Snapshot,[history with{Facts=[fact with{AcceptedQuantity=0}]}]));
         Assert.Throws<InvalidOperationException>(()=>PrincipalInvoiceMappingEvidence.VerifyAcceptedSources(payload.Snapshot,[history with{SourceSha256="unverified"}]));
+        Assert.Throws<InvalidOperationException>(()=>PrincipalInvoiceMappingEvidence.VerifyAcceptedSources(payload.Snapshot,
+            [history with{Facts=[fact,fact with{FactId=Guid.NewGuid(),PurchaseOrderId=Guid.NewGuid()}]}]));
     }
 
     [Fact]

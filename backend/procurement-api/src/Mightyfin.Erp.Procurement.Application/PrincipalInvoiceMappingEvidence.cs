@@ -111,8 +111,15 @@ public static class PrincipalInvoiceMappingEvidence
         foreach (var line in selected)
         {
             var history = histories.SingleOrDefault(x => x.SourceStateId == line.PrincipalReceivingSourceStateId);
-            if (history is null || history.SourceSequence < 1 || !Sha(history.SourceSha256)
+            if (history is null || history.Facts is null || history.SourceSequence < 1 || !Sha(history.SourceSha256)
                 || history.Facts.Count is < 1 or > 2_000
+                || history.Facts.Select(x=>x.FactId).Distinct().Count()!=history.Facts.Count
+                || history.Facts.Any(x=>x.SourceStateId!=history.SourceStateId
+                    || x.PurchaseOrderId!=snapshot.PurchaseOrderId
+                    || x.IssuedVersionId!=snapshot.IssuedVersionId
+                    || x.SourceSequence<1 || x.SourceSequence>history.SourceSequence
+                    || x.AcceptedQuantity<=0 || x.AcceptedNetAmount<0
+                    || !Sha(x.PayloadSha256) || x.AcceptedAt==default)
                 || history.Facts.Count(x => x.FactId == line.PrincipalReceivingFactId) != 1)
                 throw new InvalidOperationException("PrincipalInvoiceAcceptedFactUnavailable");
             var fact = history.Facts.Single(x => x.FactId == line.PrincipalReceivingFactId);
