@@ -195,6 +195,7 @@ public sealed class ProcurementScopeMiddlewareTests
     [InlineData("/api/procurement/v1/orders/principal-finance-work")]
     [InlineData("/api/procurement/v1/orders/principal-assigned-reviews")]
     [InlineData("/api/procurement/v1/orders/principal-operation-work")]
+    [InlineData("/api/procurement/v1/manual-invoice-unit-reviews/tasks")]
     public async Task Reviewed_All_collections_do_not_default_to_an_assigned_branch(string path)
     {
         await using var db=TestDbContextFactory.Create("tenant-a");var (user,company,_,branch)=await Seed(db);
@@ -264,6 +265,20 @@ public sealed class ProcurementScopeMiddlewareTests
             }).InvokeAsync(http, scope, db);
             Assert.True(reached);
         }
+    }
+
+    [Fact]
+    public void Manual_unit_review_All_scope_is_exact_task_collection_GET_only()
+    {
+        const string tasks="/api/procurement/v1/manual-invoice-unit-reviews/tasks";
+        Assert.True(ProcurementScopeMiddleware.AllOperationalListReadPath(tasks,"GET"));
+        Assert.False(ProcurementScopeMiddleware.AllOperationalListReadPath(tasks,"POST"));
+        Assert.False(ProcurementScopeMiddleware.AllOperationalListReadPath(tasks+"/child","GET"));
+        Assert.False(ProcurementScopeMiddleware.AllOperationalListReadPath(tasks+"s","GET"));
+        Assert.False(ProcurementScopeMiddleware.AllOperationalListReadPath(
+            "/api/procurement/v1/manual-invoice-unit-reviews/11111111-1111-1111-1111-111111111111","GET"));
+        Assert.False(ProcurementScopeMiddleware.AllOperationalListReadPath(
+            "/api/procurement/v1/manual-invoice-unit-reviews/11111111-1111-1111-1111-111111111111/commands/22222222-2222-2222-2222-222222222222","GET"));
     }
 
     private static async Task<(LocalUser, LegalEntity, LegalEntity, WorkLocation)> Seed(HrmDbContext db)

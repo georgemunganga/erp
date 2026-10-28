@@ -646,7 +646,8 @@ public sealed class ProcurementScopeMiddleware(RequestDelegate next, IWebHostEnv
             && Guid.TryParseExact(parts[4],"D",out var invoiceId) && invoiceId!=Guid.Empty
             && string.Equals(parts[5],"matching",StringComparison.OrdinalIgnoreCase)
             && string.Equals(parts[6],"principal-sources",StringComparison.OrdinalIgnoreCase);
-        return principalInvoiceSources || string.Equals(value, "/api/procurement/v1/requests", StringComparison.OrdinalIgnoreCase)
+        return principalInvoiceSources || string.Equals(value, "/api/procurement/v1/manual-invoice-unit-reviews/tasks", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(value, "/api/procurement/v1/requests", StringComparison.OrdinalIgnoreCase)
             || string.Equals(value, "/api/procurement/v1/plans", StringComparison.OrdinalIgnoreCase)
             || string.Equals(value, "/api/procurement/v1/contracts", StringComparison.OrdinalIgnoreCase)
             || string.Equals(value, "/api/procurement/v1/orders/principal-direct-drafts", StringComparison.OrdinalIgnoreCase)
