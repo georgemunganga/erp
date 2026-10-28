@@ -131,6 +131,57 @@ public sealed class InvoiceProcurementStoredBaselineEvidenceTests
                 baseline, [row], current, order, Guid.NewGuid(), "ZMW"));
     }
 
+    [Fact]
+    public void Safe_old_payment_draft_can_transition_only_with_unchanged_financial_identity()
+    {
+        var company = Guid.NewGuid();
+        var supplier = Guid.NewGuid();
+        var branch = Guid.NewGuid();
+        var invoiceId = Guid.NewGuid();
+        var paymentId = Guid.NewGuid();
+        var invoice = Captured(invoiceId, 1,
+            InvoiceJson(invoiceId, company, supplier, 1, "Received", null, 10m));
+        var payment = Captured(paymentId, 1,
+            PaymentJson(paymentId, invoiceId, company, branch, supplier, 1, "Draft", 10m));
+        var opening = new InvoiceProcurementInventoryCapture("tenant-a", company,
+            InvoiceProcurementOwnerTables.Names.Select(name => new InvoiceProcurementCapturedTable(
+                name, name == "supplier_invoices" ? [invoice]
+                    : name == "manual_payment_requests" ? [payment] : [])).ToArray());
+        var classes = InvoiceProcurementHistoricalClassification.Classify(opening)
+            .ToDictionary(x => (x.TableName, x.RowId));
+        Assert.Equal("MutableDraft", classes[("manual_payment_requests", paymentId)].Classification);
+        Assert.Equal("BlockedAmbiguity", classes[("supplier_invoices", invoiceId)].Classification);
+        var baseline = Baseline(opening);
+        var rows = opening.Tables.SelectMany(table => table.Rows.Select(source =>
+            new InvoiceProcurementOwnerBaselineRow
+            {
+                TenantId = baseline.TenantId, LegalEntityId = baseline.LegalEntityId,
+                BaselineId = baseline.Id, TableName = table.TableName,
+                SourceRowId = source.Id, SourceRowVersion = source.Version,
+                OriginalRowSha256 = source.CanonicalRowSha256,
+                ImmutableFieldsSha256 = InvoiceProcurementImmutableFields.Digest(
+                    table.TableName, source.RowJson),
+                InitialClassification = classes[(table.TableName, source.Id)].Classification,
+                SupplierInvoiceId = classes[(table.TableName, source.Id)].SupplierInvoiceId,
+                PurchaseOrderId = classes[(table.TableName, source.Id)].PurchaseOrderId,
+                CreatedAt = baseline.CapturedAtUtc, CreatedBy = baseline.MakerPrincipalId
+            })).ToArray();
+        var transitioned = Captured(paymentId, 2,
+            PaymentJson(paymentId, invoiceId, company, branch, supplier, 2, "PendingApproval", 10m));
+        var current = opening with { Tables = opening.Tables.Select(table =>
+            table.TableName == "manual_payment_requests"
+                ? table with { Rows = [transitioned] } : table).ToArray() };
+        Assert.Equal(paymentId, Assert.Single(InvoiceProcurementStoredBaselineEvidence
+            .ReconcileCurrent(baseline, rows, current).ChangedMutableDraftRows).RowId);
+        var tampered = Captured(paymentId, 2,
+            PaymentJson(paymentId, invoiceId, company, branch, supplier, 2, "PendingApproval", 11m));
+        var changedValue = opening with { Tables = opening.Tables.Select(table =>
+            table.TableName == "manual_payment_requests"
+                ? table with { Rows = [tampered] } : table).ToArray() };
+        Assert.Throws<InvalidOperationException>(() => InvoiceProcurementStoredBaselineEvidence
+            .ReconcileCurrent(baseline, rows, changedValue));
+    }
+
     private static InvoiceProcurementInventoryCapture Capture(InvoiceProcurementCapturedRow? invoice = null,
         Guid? company = null)
     {
@@ -168,7 +219,15 @@ public sealed class InvoiceProcurementStoredBaselineEvidenceTests
             supplier_id = supplier, invoice_number = "INV-1",
             normalized_invoice_number = "INV1", currency_code = "ZMW",
             net_amount = net, tax_amount = 0m, gross_amount = net,
-            invoice_date = "2026-10-28", status, current_mapping_version_id = mapping
+            invoice_date = "2026-10-28", status, intake_channel = "Manual",
+            finance_posting_ref = (string?)null,
+            evidence_document_ref_id = (Guid?)null,
+            credit_for_invoice_ref = (Guid?)null,
+            mapping_revision = mapping is null ? 0 : 1,
+            match_revision = 0, matching_state = mapping is null ? "NotCompared" : "MappingUnverified",
+            current_mapping_version_id = mapping,
+            last_match_result_id = (Guid?)null,
+            active_match_claim_result_id = (Guid?)null
         });
     }
 
@@ -179,4 +238,26 @@ public sealed class InvoiceProcurementStoredBaselineEvidenceTests
         supplier_invoice_id = (Guid?)null, supplier_id = supplier,
         currency_code = currency
     });
+
+    private static InvoiceProcurementCapturedRow Captured(Guid id, long version, string json) =>
+        new(id, version, ProcurementEvidenceEncoding.PolicyJsonDigest(json), json);
+
+    private static string PaymentJson(Guid id, Guid invoiceId, Guid company,
+        Guid branch, Guid supplier, long version, string status, decimal amount) =>
+        JsonSerializer.Serialize(new
+        {
+            id, version, tenant_id = "tenant-a", legal_entity_id = company,
+            branch_id = branch, supplier_invoice_id = invoiceId,
+            supplier_id = supplier, currency_code = "ZMW", amount, status,
+            approved_amount = (decimal?)null, approved_by_principal_id = (string?)null,
+            approved_by_core_linked_worker_id = (Guid?)null,
+            approved_at = (DateTimeOffset?)null, paid_on = (DateOnly?)null,
+            external_method = (string?)null, external_reference = (string?)null,
+            recorded_amount = (decimal?)null, recorded_by_principal_id = (string?)null,
+            recorded_by_core_linked_worker_id = (Guid?)null,
+            recorded_at = (DateTimeOffset?)null, confirmed_by_principal_id = (string?)null,
+            confirmed_by_core_linked_worker_id = (Guid?)null,
+            confirmed_at = (DateTimeOffset?)null,
+            evidence_document_ref_id = (Guid?)null, closure_reason = (string?)null
+        });
 }

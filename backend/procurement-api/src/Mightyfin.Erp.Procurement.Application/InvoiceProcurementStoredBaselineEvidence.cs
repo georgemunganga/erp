@@ -110,7 +110,7 @@ public static class InvoiceProcurementStoredBaselineEvidence
                 continue;
             }
             if (stored.InitialClassification != "MutableDraft"
-                || stored.TableName != "supplier_invoices"
+                || stored.TableName is not ("supplier_invoices" or "manual_payment_requests")
                 || item.Row.Version <= stored.SourceRowVersion)
                 throw new InvalidOperationException("InvoiceOwnerUnprovenHistoricalTransition");
             changed.Add(new(stored.TableName, stored.SourceRowId, stored.InitialClassification,
