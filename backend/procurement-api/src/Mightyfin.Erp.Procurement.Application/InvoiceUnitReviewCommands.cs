@@ -76,8 +76,9 @@ public static class InvoiceUnitReviewCommands
             && response.CaseState == "Pending" && response.CaseVersion == 1 && response.ReviewState == "Pending" && response.DecisionId is null);
         else Need(row.Operation == "Decision" && request.ReviewId == source.Id && request.AssignmentId is not null
             && request.Action is "Approve" or "Return" or "Reject" && response.DecisionId is not null
-            && (owned.SourceSchemaVersion != 4 || request.Action != "Approve"
-                || request.Attestation == ManualUnitAttestation && !string.IsNullOrWhiteSpace(request.Reason)));
+            && (owned.SourceSchemaVersion != 4
+                || !string.IsNullOrWhiteSpace(request.Reason)
+                    && (request.Action != "Approve" || request.Attestation == ManualUnitAttestation)));
         return response;
     }
     public static void Verify(InvoiceUnitReviewCommandReceipt row, InvoiceUnitReviewSource source,
