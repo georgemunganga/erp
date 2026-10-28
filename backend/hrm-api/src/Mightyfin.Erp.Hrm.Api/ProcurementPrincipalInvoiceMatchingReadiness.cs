@@ -19,6 +19,14 @@ namespace Mightyfin.Erp.Hrm.Api;
 /// readiness using read mode for selectors and write mode for commands.</summary>
 internal static class ProcurementPrincipalInvoiceMatchingReadiness
 {
+    // UPDATE(id) is retained only for row locking. Mapping and Compare write
+    // these nine invoice fields; a table-wide UPDATE grant is unnecessary.
+    internal static readonly string[] SupplierInvoiceWriteColumns =
+    [
+        "current_mapping_version_id", "mapping_revision", "matching_state",
+        "last_match_result_id", "match_revision", "active_match_claim_result_id",
+        "version", "updated_at", "updated_by"
+    ];
     internal const string MigrationId = "20261028184527_M6bPrincipalInvoiceReceivingBindings";
 
     internal static readonly IReadOnlyDictionary<string,string[]> ParentKeys =
@@ -164,9 +172,12 @@ internal static class ProcurementPrincipalInvoiceMatchingReadiness
                 "invoice_match_results","invoice_match_exposure_states","invoice_exceptions",
                 "commercial_command_receipts","audit_events","outbox_events"})
                 required.Add("has_table_privilege(current_user,"+Literal("procurement."+table)+",'INSERT')");
-            foreach(var table in new[]{"invoice_match_exposure_states","supplier_invoices",
-                "invoice_exceptions"})
+            foreach(var table in new[]{"invoice_match_exposure_states","invoice_exceptions"})
                 required.Add("has_table_privilege(current_user,"+Literal("procurement."+table)+",'UPDATE')");
+            required.Add("NOT has_table_privilege(current_user,'procurement.supplier_invoices','UPDATE')");
+            foreach(var column in SupplierInvoiceWriteColumns)
+                required.Add("has_column_privilege(current_user,'procurement.supplier_invoices',"
+                    +Literal(column)+",'UPDATE')");
         }
         return "SELECT "+string.Join(" AND ",required);
     }

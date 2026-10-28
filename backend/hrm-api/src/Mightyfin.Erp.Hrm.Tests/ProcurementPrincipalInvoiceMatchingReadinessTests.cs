@@ -44,6 +44,23 @@ public sealed class ProcurementPrincipalInvoiceMatchingReadinessTests
             Assert.DoesNotContain("'procurement."+table+"','INSERT'",write,StringComparison.Ordinal);
         Assert.DoesNotContain("'core_approval.cases','INSERT'",write,StringComparison.Ordinal);
         Assert.DoesNotContain("'core_approval.assignments','UPDATE'",write,StringComparison.Ordinal);
+        Assert.DoesNotContain("has_table_privilege(current_user,'procurement.supplier_invoices','UPDATE')",
+            read,StringComparison.Ordinal);
+        Assert.Contains("NOT has_table_privilege(current_user,'procurement.supplier_invoices','UPDATE')",
+            write,StringComparison.Ordinal);
+        Assert.Equal(new[]{"current_mapping_version_id","mapping_revision","matching_state",
+            "last_match_result_id","match_revision","active_match_claim_result_id",
+            "version","updated_at","updated_by"},
+            ProcurementPrincipalInvoiceMatchingReadiness.SupplierInvoiceWriteColumns);
+        foreach(var column in ProcurementPrincipalInvoiceMatchingReadiness.SupplierInvoiceWriteColumns)
+        {
+            Assert.Contains("has_column_privilege(current_user,'procurement.supplier_invoices','"+column+"','UPDATE')",
+                write,StringComparison.Ordinal);
+            Assert.DoesNotContain("has_column_privilege(current_user,'procurement.supplier_invoices','"+column+"','UPDATE')",
+                read,StringComparison.Ordinal);
+        }
+        Assert.DoesNotContain("has_column_privilege(current_user,'procurement.supplier_invoices','id','UPDATE')",
+            write,StringComparison.Ordinal);
         Assert.Contains("NOT has_database_privilege(current_user,current_database(),'CREATE')",write,StringComparison.Ordinal);
         Assert.Contains("NOT has_any_column_privilege(current_user,'procurement.finance_payment_status_refs','UPDATE')",write,StringComparison.Ordinal);
         var privileged=ProcurementPrincipalInvoiceMatchingReadiness.PrivilegeSql(false,"postgres");
