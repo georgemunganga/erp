@@ -26,6 +26,12 @@ public sealed class PrincipalInvoiceAllocationSourceEvidenceTests
         Assert.Throws<InvalidOperationException>(() => PrincipalInvoiceAllocationSourceEvidence.VerifySet(
             [f.Input with { Allocation = Claim(f.Input.Allocation, unit: "BOX") }], [f.History]));
         Assert.Throws<InvalidOperationException>(() => PrincipalInvoiceAllocationSourceEvidence.VerifySet(
+            [f.Input], [f.History with { SupplierId = Guid.NewGuid() }]));
+        Assert.Throws<InvalidOperationException>(() => PrincipalInvoiceAllocationSourceEvidence.VerifySet(
+            [f.Input], [f.History with { BranchId = Guid.NewGuid() }]));
+        Assert.Throws<InvalidOperationException>(() => PrincipalInvoiceAllocationSourceEvidence.VerifySet(
+            [f.Input], [f.History with { CurrencyCode = "USD" }]));
+        Assert.Throws<InvalidOperationException>(() => PrincipalInvoiceAllocationSourceEvidence.VerifySet(
             [f.Input, AdditionalClaim(f.Input, .6m)], [f.History]));
         Assert.Throws<InvalidOperationException>(() => PrincipalInvoiceAllocationSourceEvidence.VerifySet(
             [f.Input, f.Input], [f.History]));
@@ -102,7 +108,9 @@ public sealed class PrincipalInvoiceAllocationSourceEvidenceTests
             order, issued, orderLine, ReceivingKind.Goods, 1m, 1m,
             new string('a', 64), DateTimeOffset.UtcNow);
         return (new(claim, result, mapping, invoice, [original]),
-            new(source, new string('b', 64), 1, "EACH", [accepted]));
+            new PrincipalInvoiceAcceptedHistory(source, new string('b', 64), 1, "EACH", [accepted])
+            { SupplierId = invoice.SupplierId, BranchId = invoice.BranchRef!.Value,
+                CurrencyCode = invoice.CurrencyCode });
     }
 
     private static InvoiceMatchAllocation Claim(InvoiceMatchAllocation original,

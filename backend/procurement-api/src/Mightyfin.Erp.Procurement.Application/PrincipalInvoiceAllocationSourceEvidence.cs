@@ -103,6 +103,9 @@ public static class PrincipalInvoiceAllocationSourceEvidence
         if (fact.PurchaseOrderLineId != claim.PurchaseOrderLineId
             || fact.PurchaseOrderId != claim.PurchaseOrderId
             || fact.IssuedVersionId != claim.IssuedVersionId
+            || history.SupplierId == Guid.Empty || history.SupplierId != invoice.SupplierId
+            || history.BranchId == Guid.Empty || history.BranchId != invoice.BranchRef
+            || history.CurrencyCode != invoice.CurrencyCode
             || claim.UnitCode != history.UnitCode
             || claim.Quantity > fact.AcceptedQuantity
             || claim.NetAmount > fact.AcceptedNetAmount)

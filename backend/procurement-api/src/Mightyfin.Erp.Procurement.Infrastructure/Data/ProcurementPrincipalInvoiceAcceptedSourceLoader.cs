@@ -49,8 +49,12 @@ public sealed partial class ProcurementDbContext
             var receipts = await PrincipalReceivingCommandReceipts.AsNoTracking()
                 .Where(x => keys.Contains(x.CommandKey)).ToArrayAsync(ct);
             var policies = ledger.RetainedPolicies.ToArray();
+            var order = await PurchaseOrders.SingleAsync(x => x.Id == state.PurchaseOrderId, ct);
+            if (order.SupplierId == Guid.Empty || order.BranchRef != state.BranchId
+                || order.CurrencyCode != expected.Commercial.CurrencyCode)
+                throw new InvalidOperationException("PrincipalInvoiceAcceptedOrderScopeChanged");
             histories.Add(PrincipalInvoiceAcceptedSourceProjection.Verify(
-                expected, state, facts, bindings, receipts, policies));
+                expected, state, facts, bindings, receipts, policies, order.SupplierId));
         }
         return histories;
     }

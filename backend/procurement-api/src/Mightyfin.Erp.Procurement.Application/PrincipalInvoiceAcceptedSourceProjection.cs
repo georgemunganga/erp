@@ -14,7 +14,12 @@ public sealed record PrincipalInvoiceAcceptedFact(
 
 public sealed record PrincipalInvoiceAcceptedHistory(
     Guid SourceStateId, string SourceSha256, long SourceSequence, string UnitCode,
-    IReadOnlyList<PrincipalInvoiceAcceptedFact> Facts);
+    IReadOnlyList<PrincipalInvoiceAcceptedFact> Facts)
+{
+    public Guid SupplierId { get; init; }
+    public Guid BranchId { get; init; }
+    public string CurrencyCode { get; init; } = "";
+}
 
 public static class PrincipalInvoiceAcceptedSourceProjection
 {
@@ -23,7 +28,7 @@ public static class PrincipalInvoiceAcceptedSourceProjection
         IReadOnlyList<PrincipalReceivingFact> facts,
         IReadOnlyList<PrincipalReceivingDraftLineBinding> lineBindings,
         IReadOnlyList<PrincipalReceivingCommandReceipt> receipts,
-        IReadOnlyList<PolicyVersion> retainedPolicies)
+        IReadOnlyList<PolicyVersion> retainedPolicies, Guid supplierId)
     {
         ArgumentNullException.ThrowIfNull(expectedSource);
         ArgumentNullException.ThrowIfNull(state);
@@ -31,7 +36,9 @@ public static class PrincipalInvoiceAcceptedSourceProjection
         ArgumentNullException.ThrowIfNull(lineBindings);
         ArgumentNullException.ThrowIfNull(receipts);
         ArgumentNullException.ThrowIfNull(retainedPolicies);
-        if (facts.Count > 2_000 || lineBindings.Count > 2_000 || receipts.Count > 2_000
+        if (supplierId == Guid.Empty || expectedSource.Commercial.BranchId is not { } sourceBranch
+            || sourceBranch == Guid.Empty || string.IsNullOrWhiteSpace(expectedSource.Commercial.CurrencyCode)
+            || facts.Count > 2_000 || lineBindings.Count > 2_000 || receipts.Count > 2_000
             || retainedPolicies.Count > 2_000 || state.Sequence > 2_000)
             throw new InvalidOperationException("PrincipalInvoiceReceivingHistoryBoundExceeded");
         if (state.Id == Guid.Empty || PrincipalReceivingStorageCodec.Source(state) != expectedSource)
@@ -72,6 +79,8 @@ public static class PrincipalInvoiceAcceptedSourceProjection
                 ledger.Source.Commercial.Kind, value.Quantity, value.NetAmount,
                 row.PayloadSha256, value.AcceptedAt);
         }).ToArray();
-        return new(state.Id, state.SourceSha256, state.Sequence, expectedSource.Commercial.UnitCode, accepted);
+        return new PrincipalInvoiceAcceptedHistory(state.Id, state.SourceSha256, state.Sequence,
+            expectedSource.Commercial.UnitCode, accepted)
+        { SupplierId = supplierId, BranchId = sourceBranch, CurrencyCode = expectedSource.Commercial.CurrencyCode };
     }
 }
