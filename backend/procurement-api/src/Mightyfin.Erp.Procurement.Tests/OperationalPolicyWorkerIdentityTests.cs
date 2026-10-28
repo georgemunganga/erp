@@ -16,7 +16,14 @@ public sealed class OperationalPolicyWorkerIdentityTests
     [Fact]
     public void Invoice_owner_baseline_identity_requires_schema_two_Core_principal_without_worker()
     {
-        var policy=new Fixture(InvoiceProcurementBaselineReviewPolicyRules.PolicyKey).Policy;
+        var policy=new PolicyVersion
+        {
+            TenantId="tenant",LegalEntityId=Guid.NewGuid(),
+            PolicyKey=InvoiceProcurementBaselineReviewPolicyRules.PolicyKey,
+            PolicyVersionNumber=1,RulesJson="{\"schemaVersion\":1}",
+            CreatedBy=Maker,CreatedAt=At,EffectiveFrom=At.AddDays(-2),
+            State="Draft",Version=1
+        };
         var created=OperationalPolicyWorkerIdentity.Capture(policy,"Created",Maker,null,1,At,schemaVersion:2);
         OperationalPolicyWorkerIdentity.VerifyOrigin(policy,created);
         Assert.Throws<InvalidOperationException>(()=>OperationalPolicyWorkerIdentity.Capture(
