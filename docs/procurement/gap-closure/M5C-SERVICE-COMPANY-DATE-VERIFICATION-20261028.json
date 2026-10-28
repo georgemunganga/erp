@@ -1,0 +1,38 @@
+{
+  "status": "PASS_REGRESSION_AND_CORE_DATE_TESTS_NOT_NATIVE_SERVICE_UAT",
+  "productCommit": "406dd1bd",
+  "backendTests": {
+    "passed": 1483,
+    "failed": 0,
+    "skipped": 0
+  },
+  "focusedHostDateTests": {
+    "passed": 21,
+    "failed": 0,
+    "skipped": 0
+  },
+  "pendingModelChanges": false,
+  "evidence": [
+    {
+      "file": "source-manifest.private.json",
+      "sha256": "47ea07b44661fc4cbeec3ff58cbe79f68b366b6f39c3ff4afc8861d9e53ec5d5"
+    },
+    {
+      "file": "m5c-procurement.trx",
+      "sha256": "94e0ba2df334d0d6115c59afb760c4cfe8c842f4db491a84a9b47b397e52642d"
+    },
+    {
+      "file": "m5c-host.trx",
+      "sha256": "b93a1bb4257d9a078f16aef508225d29415cf0a0d1f7999fcefc92739a4406dc"
+    },
+    {
+      "file": "ef-pending-model.log",
+      "sha256": "815c5cd494b61a9d8737ba7653cd05fb05926e7b40a924683fa4eef4ca87566c"
+    }
+  ],
+  "uiChanged": false,
+  "productionChanged": false,
+  "nativeServiceAcceptance": false,
+  "wholeModuleUatComplete": false,
+  "independentSourceReview": "No concrete defect found; no actual-payload .NET roundtrip asserted by review."
+}
