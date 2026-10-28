@@ -85,6 +85,7 @@ public static class InvoiceProcurementStoredBaselineEvidence
         InvoiceProcurementInventoryCapture current)
     {
         _ = VerifyStored(baseline, rows);
+        current = InvoiceProcurementAllocationCanonicalRow.ProjectCapture(current);
         var summary = InvoiceProcurementInventoryEvidence.Summarize(current);
         if (current.TenantId != baseline.TenantId || current.LegalEntityId != baseline.LegalEntityId
             || summary.ManifestSha256 != baseline.CatalogManifestSha256)

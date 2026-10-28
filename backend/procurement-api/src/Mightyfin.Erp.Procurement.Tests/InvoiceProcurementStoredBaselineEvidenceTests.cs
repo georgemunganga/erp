@@ -257,6 +257,82 @@ public sealed class InvoiceProcurementStoredBaselineEvidenceTests
             .ReconcileCurrent(baseline, rows, changedValue));
     }
 
+    [Fact]
+    public void Null_M6B_allocation_columns_preserve_M6A_baseline_bytes_and_digests()
+    {
+        var company = Guid.NewGuid();
+        var id = Guid.NewGuid();
+        var oldJson = JsonSerializer.Serialize(new
+        {
+            id, version = 1, tenant_id = "tenant-a", legal_entity_id = company,
+            purchase_order_id = Guid.NewGuid(), quantity = 2.0000m,
+            note = "comma, and escaped \"quote\""
+        });
+        var changedSchemaJson = oldJson[..^1]
+            + ",\"principal_receiving_source_state_id\":null,\"principal_receiving_fact_id\":null}";
+        var projected = InvoiceProcurementAllocationCanonicalRow.Project(
+            "invoice_match_allocations", changedSchemaJson);
+        Assert.Equal(oldJson, projected);
+        Assert.Equal(ProcurementEvidenceEncoding.PolicyJsonDigest(oldJson),
+            ProcurementEvidenceEncoding.PolicyJsonDigest(projected));
+
+        var opening = new InvoiceProcurementInventoryCapture("tenant-a", company,
+            InvoiceProcurementOwnerTables.Names.Select(name => new InvoiceProcurementCapturedTable(
+                name, name == "invoice_match_allocations" ? [Captured(id, 1, oldJson)] : [])).ToArray());
+        var baseline = Baseline(opening);
+        var stored = new InvoiceProcurementOwnerBaselineRow
+        {
+            TenantId = baseline.TenantId, LegalEntityId = baseline.LegalEntityId,
+            BaselineId = baseline.Id, TableName = "invoice_match_allocations",
+            SourceRowId = id, SourceRowVersion = 1,
+            OriginalRowSha256 = ProcurementEvidenceEncoding.PolicyJsonDigest(oldJson),
+            ImmutableFieldsSha256 = InvoiceProcurementImmutableFields.Digest(
+                "invoice_match_allocations", oldJson),
+            InitialClassification = "BlockedAmbiguity",
+            PurchaseOrderId = Guid.Parse(JsonDocument.Parse(oldJson).RootElement
+                .GetProperty("purchase_order_id").GetString()!),
+            CreatedAt = baseline.CapturedAtUtc, CreatedBy = baseline.MakerPrincipalId
+        };
+        var current = opening with { Tables = opening.Tables.Select(table =>
+            table.TableName == "invoice_match_allocations"
+                ? table with { Rows = [Captured(id, 1, changedSchemaJson)] } : table).ToArray() };
+        var unchanged = InvoiceProcurementStoredBaselineEvidence.ReconcileCurrent(
+            baseline, [stored], current);
+        Assert.Empty(unchanged.ChangedMutableDraftRows);
+        Assert.Empty(unchanged.AddedRows);
+        var linked = changedSchemaJson
+            .Replace("\"principal_receiving_source_state_id\":null",
+                $"\"principal_receiving_source_state_id\":\"{Guid.NewGuid():D}\"")
+            .Replace("\"principal_receiving_fact_id\":null",
+                $"\"principal_receiving_fact_id\":\"{Guid.NewGuid():D}\"");
+        Assert.Throws<InvalidOperationException>(() =>
+            InvoiceProcurementStoredBaselineEvidence.ReconcileCurrent(baseline, [stored],
+                current with { Tables = current.Tables.Select(table =>
+                    table.TableName == "invoice_match_allocations"
+                        ? table with { Rows = [Captured(id, 1, linked)] } : table).ToArray() }));
+    }
+
+    [Fact]
+    public void Principal_allocation_links_are_never_removed_and_half_pairs_fail_closed()
+    {
+        const string old = "{\"a\":1,\"note\":\"field, value\",\"z\":2}";
+        const string interleaved = "{\"a\":1,\"principal_receiving_fact_id\":null,\"note\":\"field, value\",\"principal_receiving_source_state_id\":null,\"z\":2}";
+        Assert.Equal(old, InvoiceProcurementAllocationCanonicalRow.Project(
+            "invoice_match_allocations", interleaved));
+        Assert.Equal("{\"a\":1, \"z\":2}", InvoiceProcurementAllocationCanonicalRow.Project(
+            "invoice_match_allocations",
+            "{\"a\":1, \"principal_receiving_source_state_id\":null, \"principal_receiving_fact_id\":null, \"z\":2}"));
+        var source = Guid.NewGuid();
+        var fact = Guid.NewGuid();
+        var linked = $"{{\"a\":1,\"principal_receiving_source_state_id\":\"{source:D}\",\"principal_receiving_fact_id\":\"{fact:D}\"}}";
+        Assert.Equal(linked, InvoiceProcurementAllocationCanonicalRow.Project(
+            "invoice_match_allocations", linked));
+        var half = $"{{\"a\":1,\"principal_receiving_source_state_id\":\"{source:D}\",\"principal_receiving_fact_id\":null}}";
+        Assert.Throws<InvalidOperationException>(() =>
+            InvoiceProcurementAllocationCanonicalRow.Project("invoice_match_allocations", half));
+        Assert.Equal(half, InvoiceProcurementAllocationCanonicalRow.Project("supplier_invoices", half));
+    }
+
     private static InvoiceProcurementInventoryCapture Capture(InvoiceProcurementCapturedRow? invoice = null,
         Guid? company = null)
     {

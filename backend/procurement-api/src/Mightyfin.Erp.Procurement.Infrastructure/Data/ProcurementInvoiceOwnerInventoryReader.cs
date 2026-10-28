@@ -36,7 +36,8 @@ public sealed partial class ProcurementDbContext
             await using var reader=await command.ExecuteReaderAsync(ct);
             while(await reader.ReadAsync(ct))
             {
-                var id=reader.GetGuid(0);var version=reader.GetInt64(1);var json=reader.GetString(2);
+                var id=reader.GetGuid(0);var version=reader.GetInt64(1);
+                var json=InvoiceProcurementAllocationCanonicalRow.Project(table,reader.GetString(2));
                 var bytes=Encoding.UTF8.GetByteCount(json);
                 totalRows++;totalBytes+=bytes;
                 if(id==Guid.Empty || version<1 || bytes is < 1 or > 1_048_576
