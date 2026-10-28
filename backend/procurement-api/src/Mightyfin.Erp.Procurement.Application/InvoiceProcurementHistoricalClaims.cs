@@ -53,12 +53,18 @@ public static class InvoiceProcurementHistoricalClaims
                 || !exposureById.TryGetValue(allocation.ExposureStateId,out var exposure)
                 || allocation.Kind!="Debit" || allocation.OriginalDebitId is not null
                 || allocation.Quantity<=0 || allocation.NetAmount<0 || allocation.TaxAmount<0
+                || string.IsNullOrWhiteSpace(allocation.UnitCode)
+                || string.IsNullOrWhiteSpace(allocation.ValidationReference)
+                || allocation.GoodsReceiptLineId is not null && allocation.ServiceAcceptanceId is not null
                 || allocation.ExposureSequence<1 || allocation.ExposureSequence>exposure.Sequence
                 || invoice.ActiveMatchClaimResultId!=result.Id
                 || !line.IsActive || line.SupplierInvoiceId!=invoice.Id
                 || line.PurchaseOrderLineId!=allocation.PurchaseOrderLineId
                 || result.Outcome!="Compared" || result.ExecutionVersion is not (1 or 2)
                 || result.SupplierInvoiceId!=invoice.Id || mapping.SupplierInvoiceId!=invoice.Id
+                || result.InvoiceVersion<1 || mapping.MappingRevision<1
+                || mapping.InvoiceOriginalSha256 is null || mapping.InvoiceOriginalSha256.Length!=64
+                || result.InvoiceOriginalSha256!=mapping.InvoiceOriginalSha256
                 || invoice.CurrentMappingVersionId!=mapping.Id
                 || result.PurchaseOrderId!=allocation.PurchaseOrderId
                 || result.IssuedVersionId!=allocation.IssuedVersionId

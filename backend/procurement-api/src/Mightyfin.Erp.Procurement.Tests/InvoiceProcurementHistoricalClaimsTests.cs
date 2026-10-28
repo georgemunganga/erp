@@ -12,11 +12,14 @@ public sealed class InvoiceProcurementHistoricalClaimsTests
         const string tenant="tenant-a";
         var company=Guid.NewGuid();var supplier=Guid.NewGuid();var po=Guid.NewGuid();
         var issued=Guid.NewGuid();var invoiceId=Guid.NewGuid();var lineId=Guid.NewGuid();
+        var originalSha=new string('a',64);
         var mapping=new InvoiceMatchMappingVersion{TenantId=tenant,LegalEntityId=company,
-            SupplierInvoiceId=invoiceId,PurchaseOrderId=po,IssuedVersionId=issued,MappingRevision=1};
+            SupplierInvoiceId=invoiceId,PurchaseOrderId=po,IssuedVersionId=issued,MappingRevision=1,
+            InvoiceOriginalSha256=originalSha};
         var result=new InvoiceMatchResult{TenantId=tenant,LegalEntityId=company,
             SupplierInvoiceId=invoiceId,MappingVersionId=mapping.Id,PurchaseOrderId=po,
-            IssuedVersionId=issued,ExecutionVersion=1,Outcome="Compared"};
+            IssuedVersionId=issued,ExecutionVersion=1,InvoiceVersion=1,
+            InvoiceOriginalSha256=originalSha,Outcome="Compared"};
         var invoice=new SupplierInvoice{Id=invoiceId,TenantId=tenant,LegalEntityId=company,
             SupplierId=supplier,CurrencyCode="ZMW",CurrentMappingVersionId=mapping.Id,
             ActiveMatchClaimResultId=result.Id};
