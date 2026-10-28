@@ -127,6 +127,7 @@ public static partial class ProcurementPrincipalReceivingRoutes
         var body = PrincipalGoodsReturnRules.ResponseJson(head, revision);
         db.AddScoped(new PrincipalGoodsReturnCommandReceipt
         {
+            TenantId = head.TenantId, LegalEntityId = head.LegalEntityId,
             DraftId = head.Id, BranchId = head.BranchId, CommandKey = key, Operation = operation,
             ActorPrincipalId = actor, RequestJson = requestJson,
             RequestSha256 = ProcurementEvidenceEncoding.PolicyJsonDigest(requestJson), ResponseJson = body,
