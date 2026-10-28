@@ -94,7 +94,7 @@ A mapping has one immutable version and typed source links per active invoice li
 
 ## 24. Failure & Recovery
 
-Lost responses recover by original key. A DB rollback leaves no result, claim, receipt or outbox. Owner outage or expiry records a blocked result only where complete safe diagnostics can be retained; it never creates a claim. Earlier v1 results remain readable after rollout or feature disablement.
+Lost responses recover by original key. Baseline Open/Decide use their own append-only scoped receipt with the exact response bytes, original actor/key, request digest and Core case/decision links. Recovery reauthorizes the current actor and read scope without requiring the old policy window to remain effective. A DB rollback leaves no result, claim, receipt or outbox. Owner outage or expiry records a blocked result only where complete safe diagnostics can be retained; it never creates a claim. Earlier v1 results remain readable after rollout or feature disablement.
 
 ## 25. Acceptance Criteria
 

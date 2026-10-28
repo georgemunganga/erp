@@ -1,10 +1,13 @@
 using Microsoft.EntityFrameworkCore;
+using Mightyfin.Erp.Procurement.Application;
 using Mightyfin.Erp.Procurement.Domain;
 
 namespace Mightyfin.Erp.Procurement.Infrastructure.Data;
 
 public sealed partial class ProcurementDbContext
 {
+    private readonly List<InvoiceProcurementOwnerCommandReceipt> stagedInvoiceOwnerReceipts = [];
+
     private void GuardInvoiceOwnerBaselineAdmission()
     {
         var addedBaselines=ChangeTracker.Entries<InvoiceProcurementOwnerBaseline>()
@@ -33,6 +36,20 @@ public sealed partial class ProcurementDbContext
         {
             if(entry.State is EntityState.Modified or EntityState.Deleted)
                 throw new InvalidOperationException("InvoiceOwnerBaselineInventoryAppendOnly");
+        }
+        foreach(var entry in ChangeTracker.Entries<InvoiceProcurementOwnerCommandReceipt>())
+        {
+            if(entry.State is EntityState.Modified or EntityState.Deleted)
+                throw new InvalidOperationException("InvoiceOwnerReceiptAppendOnly");
+            if(entry.State==EntityState.Added)
+            {
+                if(!stagedInvoiceOwnerReceipts.Any(x=>ReferenceEquals(x,entry.Entity)))
+                    throw new InvalidOperationException("InvoiceOwnerReceiptAdmissionUnavailable");
+                var baseline=InvoiceProcurementOwnerBaselines.Local.SingleOrDefault(x=>x.Id==entry.Entity.BaselineId);
+                if(baseline is null)
+                    throw new InvalidOperationException("InvoiceOwnerReceiptSourceUnavailable");
+                _=InvoiceProcurementOwnerReceiptEvidence.Verify(entry.Entity,baseline);
+            }
         }
     }
 }

@@ -32,3 +32,23 @@ public sealed class InvoiceProcurementOwnerBaselineRow : ProcurementRecord
     public Guid? SupplierInvoiceId { get; init; }
     public Guid? PurchaseOrderId { get; init; }
 }
+
+/// <summary>Exact original response journal for baseline Open or Core Decide.
+/// The Core case and decision remain the authority; this row only recovers
+/// the committed command response for its original actor and key.</summary>
+public sealed class InvoiceProcurementOwnerCommandReceipt : ProcurementRecord
+{
+    public int SchemaVersion { get; init; } = 2;
+    public Guid BaselineId { get; init; }
+    public Guid CoreCaseId { get; init; }
+    public Guid? CoreDecisionId { get; init; }
+    public string Operation { get; init; } = "";
+    public Guid CommandKey { get; init; }
+    public string ActorPrincipalId { get; init; } = "";
+    public Guid? ActorWorkerAliasId { get; init; }
+    public string RequestSha256 { get; init; } = "";
+    public string ResponseJson { get; init; } = "";
+    public string ResponseSha256 { get; init; } = "";
+    public int ResponseStatus { get; init; }
+    public long CoreCaseVersion { get; init; }
+}

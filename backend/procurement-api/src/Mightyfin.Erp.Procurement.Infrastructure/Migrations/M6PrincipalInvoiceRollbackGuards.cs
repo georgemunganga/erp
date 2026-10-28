@@ -7,6 +7,7 @@ internal static class M6PrincipalInvoiceRollbackGuards
     internal const string BeforeDownSql = """
         LOCK TABLE procurement.invoice_owner_baselines,
           procurement.invoice_owner_baseline_rows,
+          procurement.invoice_owner_command_receipts,
           procurement.invoice_match_mapping_versions,
           procurement.invoice_match_results,
           procurement.invoice_match_allocations,
@@ -19,6 +20,7 @@ internal static class M6PrincipalInvoiceRollbackGuards
         BEGIN
           IF EXISTS (SELECT 1 FROM procurement.invoice_owner_baselines)
             OR EXISTS (SELECT 1 FROM procurement.invoice_owner_baseline_rows)
+            OR EXISTS (SELECT 1 FROM procurement.invoice_owner_command_receipts)
             OR EXISTS (SELECT 1 FROM procurement.invoice_match_mapping_versions
                        WHERE source_schema_version=3)
             OR EXISTS (SELECT 1 FROM procurement.invoice_match_results r
