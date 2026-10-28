@@ -76,6 +76,63 @@ internal static class ProcurementPrincipalInvoiceIssuedWitness
             new ReadOnlyDictionary<Guid, PrincipalReceivingSource>(sources));
     }
 
+    /// <summary>Read-only retained commercial projection for original-unit review.
+    /// The caller already owns invoice/case ordering. Do not acquire upstream PR/PO
+    /// locks here or require a receiving source for a two-way mapping.</summary>
+    internal static async Task<InvoiceIssuedOrder> LoadReviewIssuedOrderAsync(
+        ProcurementDbContext db, ApprovalDbContext cases, ProcurementRequestScope scope,
+        IReadOnlySet<Guid> currentCoreAllowedBranches, Guid orderId,
+        Guid issuedVersionId, CancellationToken ct)
+    {
+        var transaction = db.Database.CurrentTransaction?.GetDbTransaction();
+        if (!db.Database.IsNpgsql() || !cases.Database.IsNpgsql()
+            || transaction is null || transaction.IsolationLevel != IsolationLevel.Serializable
+            || !ReferenceEquals(db.Database.GetDbConnection(), cases.Database.GetDbConnection())
+            || !ReferenceEquals(transaction, cases.Database.CurrentTransaction?.GetDbTransaction()))
+            throw Invalid();
+        await db.Database.ExecuteSqlRawAsync("SET LOCAL row_security = off", ct);
+        var retained = await ProcurementPrincipalOrderRetainedIssued.LoadAsync(
+            db, cases, scope, currentCoreAllowedBranches, orderId, issuedVersionId,
+            selectedLineId: null, lockSources: false, ct: ct);
+        return ProjectIssuedOrder(retained);
+    }
+
+    // Pure projection only. LoadReviewIssuedOrderAsync supplies the authoritative
+    // retained proof; constructing a Result in memory never asserts Core approval.
+    internal static InvoiceIssuedOrder ProjectIssuedOrder(ProcurementPrincipalOrderRetainedIssued.Result retained)
+    {
+        var order = retained.Order;
+        var issued = retained.Issued;
+        if (order.PrincipalDraftSchemaVersion != 2 || order.Status != "Issued"
+            || order.Id == Guid.Empty || order.SupplierId == Guid.Empty
+            || order.BranchRef is null || order.BranchRef == Guid.Empty
+            || string.IsNullOrWhiteSpace(order.CurrencyCode) || issued.Id == Guid.Empty
+            || issued.PurchaseOrderId != order.Id || issued.CommercialRevision != 1
+            || issued.AuthorizedAt == default || string.IsNullOrWhiteSpace(issued.CommercialSnapshotSha256)
+            || retained.Lines.Count is < 1 or > 100
+            || retained.Lines.Select(x => x.Id).Distinct().Count() != retained.Lines.Count
+            || retained.Sources.Count != retained.Lines.Count
+            || !retained.Sources.Select(x => x.OrderLine.Id).Order()
+                .SequenceEqual(retained.Lines.Select(x => x.Id).Order()))
+            throw Invalid();
+        var lines = retained.Lines.OrderBy(x => x.LineNumber).Select(line =>
+        {
+            var source = retained.Sources.Single(x => x.OrderLine.Id == line.Id);
+            if (line.Id == Guid.Empty || line.PurchaseOrderId != order.Id
+                || line.TenantId != order.TenantId || line.LegalEntityId != order.LegalEntityId
+                || string.IsNullOrWhiteSpace(source.OriginalCategoryCode))
+                throw Invalid();
+            return new InvoiceIssuedOrderLine(line.Id, line.Version, source.OriginalCategoryCode,
+                line.UnitCode, line.Quantity, line.UnitPrice, line.TaxAmount);
+        }).ToArray();
+        // AuthorizedAt is retained commercial authorization; supplier manual
+        // acknowledgment is never recast as actual delivery/acceptance evidence.
+        return new(order.Id, issued.Id, issued.CommercialRevision, order.Version,
+            order.TenantId, order.LegalEntityId, order.BranchRef, order.SupplierId,
+            order.CurrencyCode, "Issued", issued.CommercialSnapshotSha256,
+            issued.AuthorizedAt, lines);
+    }
+
     private static InvalidOperationException Invalid()
         => new("PrincipalInvoiceRetainedIssuedWitnessUnavailable");
 }
