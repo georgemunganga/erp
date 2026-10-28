@@ -81,7 +81,8 @@ public static partial class ProcurementPolicyDraftRoutes
             .Select(message => new PolicyRuleIssue("stages", message)).ToArray(),
         SourcingPublicationPolicyRules.PolicyKey => SourcingPublicationPolicyRules.AnalyzeCoverage(policy.RulesJson),
         InvoiceMatchingPolicyRules.PolicyKey => InvoiceMatchingPolicyRules.Validate(policy.RulesJson),
-        InvoiceProcurementBaselineReviewPolicyRules.PolicyKey => InvoiceProcurementBaselineReviewPolicyRules.Validate(policy.RulesJson),
+        InvoiceProcurementBaselineReviewPolicyRules.PolicyKey => InvoiceProcurementBaselineReviewPolicyRules.Validate(policy.RulesJson)
+            .Select(message => new PolicyRuleIssue("stages", message)).ToArray(),
         "RECEIVING" => PrincipalReceivingPolicyRules.IsDocument(policy.RulesJson) ? PrincipalReceivingPolicyRules.Validate(policy.RulesJson) : ReceivingPolicyRules.Validate(policy.RulesJson),
         _ => PolicyRulePreview.AnalyzeCoverage(policy.RulesJson),
     };
