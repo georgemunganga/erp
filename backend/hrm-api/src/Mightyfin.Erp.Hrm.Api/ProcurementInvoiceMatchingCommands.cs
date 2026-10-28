@@ -21,6 +21,12 @@ public static partial class ProcurementInvoiceMatchingRoutes
             var worker=await Actor(core,scope,http,auth,"procurement-invoice-match",invoice.BranchRef,token);
             var mapping=await db.InvoiceMatchMappingVersions.SingleOrDefaultAsync(x=>x.Id==input.MappingVersionId && x.SupplierInvoiceId==id,token)
                 ?? throw new MatchingProblem("InvoiceMappingNotFound",404);
+            if(mapping.SourceSchemaVersion==3)
+                return await ComparePrincipal(id,input,http,scope,db,cases,core,auth,mapping,token);
+            if(mapping.SourceSchemaVersion is not null)
+                throw new MatchingProblem("InvoiceMatchingSourceSchemaUnavailable",409);
+            if(!await http.RequestServices.GetRequiredService<IProcurementInvoiceMatchingSchemaReadiness>().IsReadyAsync(token))
+                throw new MatchingProblem("InvoiceMatchingUnavailable",503);
             _=await Target(db,core,scope,http,auth,"procurement-invoice-match",invoice,mapping.PurchaseOrderId,token);
             if(await Replay(db,scope,"InvoiceCompare",key,fingerprint,id,mapping.PurchaseOrderId,token) is { } replay) return replay;
             var originalLines=await db.SupplierInvoiceLines.Where(x=>x.SupplierInvoiceId==id && x.IsActive).OrderBy(x=>x.LineNumber).ToArrayAsync(token);
@@ -105,7 +111,7 @@ public static partial class ProcurementInvoiceMatchingRoutes
             return await Save(db,scope,id,mapping.PurchaseOrderId,"InvoiceCompare","procurement-invoice-match",key,fingerprint,
                 ()=>new { result.Id,result.Outcome,invoice.Version,invoice.MatchingState,hasCapacityClaim=invoice.ActiveMatchClaimResultId==result.Id,
                     canPostToFinance=false,discrepancies=comparison.Discrepancies,sourceBlockers=source.Blockers },token);
-        },ct);
+        },ct,deferSchema:true);
 
     private static async Task<IReadOnlyDictionary<Guid,string>> DocumentHashes(ProcurementDbContext db,ProcurementRequestScope scope,
         HttpContext http,Guid invoiceId,InvoiceMappingSnapshot mapping,CancellationToken ct)

@@ -37,8 +37,10 @@ public sealed class ProcurementPrincipalInvoiceMatchingReadinessTests
     }
 
     [Fact]
-    public void Principal_readiness_stays_closed_until_native_check_is_captured()
+    public void Allocation_check_matches_the_retained_native_capture()
     {
-        Assert.Equal("",ProcurementPrincipalInvoiceMatchingReadiness.CapturedAllocationCheck);
+        Assert.Equal("cd6f76386006c3420c302e8e0b2f604cd80061560c73b9fb88ae2fc9bb216393",
+            Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(
+                System.Text.Encoding.UTF8.GetBytes(ProcurementPrincipalInvoiceMatchingReadiness.CapturedAllocationCheck))).ToLowerInvariant());
     }
 }

@@ -7,6 +7,8 @@ namespace Mightyfin.Erp.Hrm.Api;
 public sealed class ProcurementInvoiceMatchingExecutionOptions
 {
     public bool Enabled { get; set; }
+    // Source-schema-3 activation is independent of retained legacy matching.
+    public bool PrincipalSourcesEnabled { get; set; }
     public bool ExecutionDatabaseConfigured { get; set; }
 }
 public interface IProcurementInvoiceMatchingSchemaReadiness { Task<bool> IsReadyAsync(CancellationToken ct); }

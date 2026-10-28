@@ -50,10 +50,8 @@ internal static class ProcurementPrincipalInvoiceMatchingReadiness
                 ForeignKeys["fk_invoice_allocation_principal_fact_source"].From
         };
 
-    // A native pg_get_constraintdef(oid,false) capture from the reviewed M6B Up
-    // must fill this single literal before the principal path can be enabled.
-    // Guessing PostgreSQL deparse text or accepting a weakened CHECK is unsafe.
-    internal const string CapturedAllocationCheck = "";
+    // Exact native private B Up capture; no whitespace/cast normalization.
+    internal const string CapturedAllocationCheck = "CHECK ((((kind)::text = 'Debit'::text) AND (original_debit_id IS NULL) AND (quantity > (0)::numeric) AND (net_amount >= (0)::numeric) AND (tax_amount >= (0)::numeric) AND (exposure_sequence > 0) AND (((principal_receiving_source_state_id IS NULL) AND (principal_receiving_fact_id IS NULL) AND ((goods_receipt_line_id IS NULL) OR (service_acceptance_id IS NULL)) AND (((goods_receipt_line_id IS NULL) AND (service_acceptance_id IS NULL) AND (receiving_source_state_id IS NULL)) OR ((receiving_source_state_id IS NOT NULL) AND ((goods_receipt_line_id IS NOT NULL) OR (service_acceptance_id IS NOT NULL))))) OR ((principal_receiving_source_state_id IS NOT NULL) AND (principal_receiving_source_state_id <> '00000000-0000-0000-0000-000000000000'::uuid) AND (principal_receiving_fact_id IS NOT NULL) AND (principal_receiving_fact_id <> '00000000-0000-0000-0000-000000000000'::uuid) AND (receiving_source_state_id IS NULL) AND (goods_receipt_line_id IS NULL) AND (service_acceptance_id IS NULL)))))";
 
     internal static async Task<bool> IsReadyAsync(ProcurementDbContext db,
         ApprovalDbContext cases,bool write,CancellationToken ct)

@@ -1,15 +1,25 @@
 # M5 technical release and current prerequisites — 28 October 2026
 
-Published ERP main: `536f4c7721d3aef32a831dadecff7dd13908a31d` (through PR134).
+Published ERP main: `1c6a81d772c654e7a58254845d116e2cc3b0d7bd` (through PR133).
 Published Procurement UI main: `47cac6a13a24e9db113383f8a9cf5b319494d526`
 (PR92, `georgemunganga/module-connect`). Use current main descendants.
 These include M5b receiving and M5c company-local service-date source fixes.
 
 M6A invoice-history Open and independent review passed a bounded private
-real-cookie/native owner checkpoint on pending backend source `6287bd22`:
+real-cookie/native owner checkpoint on backend source `6287bd22`, now published through PR133:
 [scope and exact evidence](docs/procurement/gap-closure/M6A-INVOICE-HISTORY-PRIVATE-ACCEPTANCE-20261028.md).
-Published ERP main remains `536f4c77`; PR #133 is pending, and this checkpoint
+Published ERP main is `1c6a81d7`; PR #133 is merged, and this checkpoint
 does not activate M6 or prove qualified matching, Finance posting or whole UAT.
+
+M6B principal source mapping and matching are under integration. The generated
+receiving-fact binding migration passed private Up with all original business
+rows preserved. Review then identified a separate legacy-issued-version FK
+on mapping, exposure and result records that rejects genuine principal issued
+IDs. A discriminated, scoped dual-source schema correction is required before
+source3 can be activated. Do not insert surrogate legacy issued versions or drop
+ownership constraints to bypass this. No M6B production or full UAT claim exists.
+GitHub Actions currently cannot start because its account has a billing lock;
+local pinned SDK/native evidence must remain explicit, never reported as CI.
 
 M5d accepted-Goods return-request CRUD/history now has private normal-cookie
 API and independently replayed native owner acceptance. It preserves the
