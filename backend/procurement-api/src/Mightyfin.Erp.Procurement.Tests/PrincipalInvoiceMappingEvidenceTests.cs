@@ -90,4 +90,24 @@ public sealed class PrincipalInvoiceMappingEvidenceTests
         Assert.Throws<InvalidOperationException>(()=>PrincipalInvoiceMappingEvidence.VerifyAcceptedSources(payload.Snapshot,[history with{Facts=[fact with{IssuedVersionId=Guid.NewGuid()}]}]));
         Assert.Throws<InvalidOperationException>(()=>PrincipalInvoiceMappingEvidence.VerifyAcceptedSources(payload.Snapshot,[history with{Facts=[fact with{AcceptedQuantity=0}]}]));
     }
+
+    [Fact]
+    public void Retained_schema_three_mapping_row_binds_actor_scope_and_payload_without_legacy_rewrite()
+    {
+        var (invoice,line)=Original();var order=Guid.NewGuid();var issued=Guid.NewGuid();
+        var actor=Guid.NewGuid().ToString("D");
+        var payload=PrincipalInvoiceMappingEvidence.Create(invoice,[line],order,issued,
+            [new(line.Id,Guid.NewGuid(),null,null,"EACH",Guid.Empty,"")],actor,null);
+        var row=new InvoiceMatchMappingVersion{TenantId=invoice.TenantId,LegalEntityId=invoice.LegalEntityId,
+            SupplierInvoiceId=invoice.Id,PurchaseOrderId=order,IssuedVersionId=issued,MappingRevision=1,
+            InvoiceOriginalSha256=payload.Snapshot.InvoiceOriginalSha256,MappingJson=payload.Json,MappingSha256=payload.Sha256,
+            ActorPrincipalId=actor,ActorWorkerId=null,IdentitySchemaVersion=2};
+        Assert.Equal(3,PrincipalInvoiceMappingEvidence.VerifyStored(row,invoice,[line]).SchemaVersion);
+        Assert.Throws<InvalidOperationException>(()=>InvoiceMappingEvidence.Verify(row,invoice,[line]));
+        row=new InvoiceMatchMappingVersion{TenantId=invoice.TenantId,LegalEntityId=invoice.LegalEntityId,
+            SupplierInvoiceId=invoice.Id,PurchaseOrderId=order,IssuedVersionId=issued,MappingRevision=1,
+            InvoiceOriginalSha256=payload.Snapshot.InvoiceOriginalSha256,MappingJson=payload.Json,MappingSha256=payload.Sha256,
+            ActorPrincipalId=Guid.NewGuid().ToString("D"),ActorWorkerId=null,IdentitySchemaVersion=2};
+        Assert.Throws<InvalidOperationException>(()=>PrincipalInvoiceMappingEvidence.VerifyStored(row,invoice,[line]));
+    }
 }

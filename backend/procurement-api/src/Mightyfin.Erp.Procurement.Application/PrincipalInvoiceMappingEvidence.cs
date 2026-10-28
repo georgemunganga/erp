@@ -70,6 +70,28 @@ public static class PrincipalInvoiceMappingEvidence
         return snapshot;
     }
 
+    /// <summary>Verify a retained schema-3 payload and its existing immutable mapping row.
+    /// Callers must dispatch by payload schema before invoking the legacy verifier.</summary>
+    public static PrincipalInvoiceMappingSnapshot VerifyStored(InvoiceMatchMappingVersion row,
+        SupplierInvoice invoice, IReadOnlyList<SupplierInvoiceLine> originalLines)
+    {
+        ArgumentNullException.ThrowIfNull(row);
+        ArgumentNullException.ThrowIfNull(invoice);
+        ArgumentNullException.ThrowIfNull(originalLines);
+        if (row.Id == Guid.Empty || row.IdentitySchemaVersion != 2
+            || row.SupplierInvoiceId != invoice.Id || row.TenantId != invoice.TenantId
+            || row.LegalEntityId != invoice.LegalEntityId
+            || row.InvoiceOriginalSha256 != InvoiceMappingEvidence.OriginalDigest(invoice, originalLines)
+            || row.MappingSha256 != ProcurementEvidenceEncoding.PolicyJsonDigest(row.MappingJson))
+            throw new InvalidOperationException("PrincipalInvoiceMappingStoredEvidenceChanged");
+        var snapshot = Verify(row.MappingJson, row.MappingSha256, invoice, originalLines,
+            row.PurchaseOrderId, row.IssuedVersionId, row.MappingRevision);
+        if (row.ActorPrincipalId != snapshot.ActorPrincipalId
+            || row.ActorWorkerId != snapshot.ActorWorkerId)
+            throw new InvalidOperationException("PrincipalInvoiceMappingStoredEvidenceChanged");
+        return snapshot;
+    }
+
     /// <summary>Bind a selected three-way fact to its fully replayed M5 receiving source.
     /// Histories must have been loaded from the owning store and verified by
     /// PrincipalInvoiceAcceptedSourceProjection. This establishes source identity,
