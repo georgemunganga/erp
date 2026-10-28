@@ -76,7 +76,7 @@ public sealed partial class ProcurementDbContext
             var invoice = SupplierInvoices.Single(x => x.Id == source.SupplierInvoiceId);
             var mapping = InvoiceMatchMappingVersions.Single(x => x.Id == source.MappingVersionId);
             var originals = SupplierInvoiceLines.Where(x => x.SupplierInvoiceId == invoice.Id && x.IsActive).OrderBy(x => x.LineNumber).ToArray();
-            _ = InvoiceMappingEvidence.Verify(mapping, invoice, originals);
+            _ = InvoiceMappingReviewSourceDispatch.Verify(mapping, invoice, originals);
             if (source.MakerPrincipalId != scope.SubjectId || source.MakerWorkerId != mapping.ActorWorkerId || invoice.Version != source.InvoiceVersionAtOpen
                 || invoice.CurrentMappingVersionId != mapping.Id || invoice.BranchRef != source.BranchRef || mapping.ActorPrincipalId != scope.SubjectId
                 || source.MappingRevision != mapping.MappingRevision || source.MappingSha256 != mapping.MappingSha256 || source.OriginalSha256 != mapping.InvoiceOriginalSha256)

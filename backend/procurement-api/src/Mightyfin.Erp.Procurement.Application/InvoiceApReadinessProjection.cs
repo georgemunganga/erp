@@ -53,7 +53,7 @@ public static class InvoiceApReadinessProjection
                         || mappedLines.ValueKind != JsonValueKind.Array
                         || mappedLines.EnumerateArray().Any(x => x.ValueKind != JsonValueKind.Object))
                         throw new InvalidOperationException("InvoiceMappingEvidenceChanged");
-                    _ = InvoiceMappingEvidence.Verify(mapping, invoice, lines);
+                    _ = InvoiceMappingReviewSourceDispatch.Verify(mapping, invoice, lines);
                     mappingState = mapping.VerificationState == "Verified" ? "RecordedVerified" : "ReviewRequired";
                     if (mapping.VerificationState != "Verified")
                         Block("InvoiceMappingReviewRequired", "The original document lines and units still need verified review.");
