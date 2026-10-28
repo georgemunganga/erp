@@ -109,9 +109,16 @@ public static partial class ProcurementInvoiceMatchingRoutes
                 ActorSubjectId = scope.SubjectId, Action = "PrincipalInvoiceMappingProposed",
                 CorrelationId = key.ToString("D"), ChangedFieldsJson = evidence });
             db.AddScoped(new OutboxEvent { AggregateType = "SupplierInvoice", AggregateId = id,
-                EventType = "supplier_invoice.mapping_proposed.v3", IdempotencyKey = key.ToString("D"), PayloadJson = evidence });
-            return await Save(db, scope, id, input.PurchaseOrderId, "InvoiceMapping", "procurement-invoice-capture",
-                key, fingerprint, () => new { mapping.Id, mapping.MappingRevision, mapping.MappingSha256,
-                    mapping.VerificationState, invoice.Version, sourceSchemaVersion = 3 }, token);
+                EventType = "supplier_invoice.mapping_proposed.v3", EventVersion = 3, IdempotencyKey = key.ToString("D"), PayloadJson = evidence });
+            await db.SaveChangesAsync(token);
+            var response = JsonSerializer.Serialize(new { invoiceId = id, commandKey = key,
+                commandPermission = "procurement-invoice-capture", commandSchemaVersion = 3,
+                sourceSchemaVersion = 3, recordedHistoricalResult = true, isCurrentApproval = false,
+                canPostToFinance = false, result = new { mapping.Id, mapping.MappingRevision,
+                    mapping.MappingSha256, mapping.VerificationState, invoice.Version, sourceSchemaVersion = 3 } }, Json);
+            db.AddScoped(new ProcurementCommercialCommandReceipt { PurchaseOrderId = input.PurchaseOrderId,
+                ActorPrincipalId = scope.SubjectId, Operation = "InvoiceMapping", CommandKey = key,
+                Fingerprint = fingerprint, ResponseJson = response, CompletedAt = Now() });
+            return response;
         }, ct);
 }

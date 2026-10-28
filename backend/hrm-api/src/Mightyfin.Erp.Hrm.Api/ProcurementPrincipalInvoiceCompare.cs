@@ -41,7 +41,7 @@ public static partial class ProcurementInvoiceMatchingRoutes
         if (await ReplayPrincipalCompare(db,scope,key,fingerprint,id,mapping.PurchaseOrderId,token) is { } recovered)
             return recovered;
 
-        var allowed=await NewPrincipalMatchingBranches(core,scope,token);
+        var allowed=await PrincipalMatchingBranches(core,scope,token);
         // Preserve upstream PR -> PO -> exposure -> invoice ordering. No invoice or
         // exposure row lock is taken before the retained issued owner acquires its locks.
         var issuedWitness=await ProcurementPrincipalInvoiceIssuedWitness.LoadAsync(

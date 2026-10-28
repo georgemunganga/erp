@@ -46,6 +46,29 @@ public sealed class ProcurementInvoiceMatchingGateHttpTests
         Assert.Equal(readinessCalls,readiness.Calls);
     }
     [Fact]
+    public async Task Principal_source_routes_stay_closed_by_default_before_database_use()
+    {
+        var readiness=new Readiness(true);
+        await using var app=await App(new() { Enabled=true,ExecutionDatabaseConfigured=true },readiness);
+        using var client=app.GetTestClient(); var id=Guid.NewGuid();
+        var responses=new[] {
+            await client.GetAsync($"/api/procurement/v1/invoices/{id}/matching/principal-sources"),
+            await client.GetAsync($"/api/procurement/v1/invoices/{id}/matching/principal-sources/{Guid.NewGuid()}/lines/{Guid.NewGuid()}/acceptances"),
+            await client.PutAsJsonAsync($"/api/procurement/v1/invoices/{id}/matching/principal-mapping",
+                new ProcurementInvoiceMatchingRoutes.PrincipalMappingInput(1,Guid.NewGuid(),Guid.NewGuid(),[])) };
+        foreach(var response in responses)
+        {
+            using(response)
+            {
+                Assert.Equal(HttpStatusCode.ServiceUnavailable,response.StatusCode);
+                var body=await response.Content.ReadFromJsonAsync<JsonElement>();
+                Assert.Equal("PrincipalInvoiceMatchingUnavailable",body.GetProperty("code").GetString());
+            }
+        }
+        Assert.Equal(0,readiness.Calls);
+    }
+
+    [Fact]
     public async Task Invoice_capture_role_does_not_implicitly_gain_new_qualified_matching_permission()
     {
         var readiness=new Readiness(false); await using var app=await App(new(),readiness);
