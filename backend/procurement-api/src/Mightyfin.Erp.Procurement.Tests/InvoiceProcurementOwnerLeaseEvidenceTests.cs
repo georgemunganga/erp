@@ -27,7 +27,7 @@ public sealed class InvoiceProcurementOwnerLeaseEvidenceTests
         Assert.Equal(at.AddMinutes(2), empty.ValidUntil);
         Assert.Empty(empty.Allocations);
         var claim = new InvoiceMatchConsumption(Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(),
-            context.TenantId, company, branch, supplier, order, issued, Guid.NewGuid(),
+            context.TenantId, company, branch, supplier, order, issued, Guid.NewGuid(), null,
             "ZMW", InvoiceConsumptionKind.Debit, null, 1m, 1m, 0m, "principal3");
         var live = InvoiceProcurementOwnerLeaseEvidence.Encode(context, baseline,
             Guid.NewGuid(), current, [claim], Guid.NewGuid(), 1, null);
