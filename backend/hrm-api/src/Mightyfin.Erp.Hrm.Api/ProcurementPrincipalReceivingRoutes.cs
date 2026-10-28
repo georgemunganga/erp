@@ -52,7 +52,8 @@ public static partial class ProcurementPrincipalReceivingRoutes
             var options=http.RequestServices.GetService<ProcurementPrincipalReceivingOptions>();
             var ready=http.RequestServices.GetService<IProcurementPrincipalReceivingReadiness>();
             var write = !HttpMethods.IsGet(http.Request.Method);
-            if(!ProcurementPrincipalReceivingCapability.Configured(options, write) || ready is null)
+            if(!ProcurementPrincipalReceivingCapability.Configured(options, write) || ready is null
+                || !await ready.IsReadyAsync(ct))
                 throw new Problem("PrincipalReceivingUnavailable",503);
             if(write && (scope.WorkLocationId is null || scope.IsExplicitAllBranches))
                 throw new Problem("ReceivingBranchRequired",400);
