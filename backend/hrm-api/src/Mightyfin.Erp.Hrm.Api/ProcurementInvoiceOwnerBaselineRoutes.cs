@@ -74,13 +74,15 @@ public static class ProcurementInvoiceOwnerBaselineRoutes
             or JsonException or System.Data.Common.DbException or DbUpdateException)
         {
             var status = error is BaselineProblem problem ? problem.Status
+                : error is OperationalPolicyPublicationProblem publication ? publication.Status
                 : error is UnauthorizedAccessException ? 403
                 : error is KeyNotFoundException ? 404
                 : ProcurementPostgresFailures.IsConcurrency(error) ? 409
                 : ProcurementPostgresFailures.IsStoreFailure(error) ? 503 : 409;
             return Results.Json(new
             {
-                code = error is BaselineProblem ? error.Message : "InvoiceOwnerBaselineEvidenceNeedsReview",
+                code = error is BaselineProblem or OperationalPolicyPublicationProblem
+                    ? error.Message : "InvoiceOwnerBaselineEvidenceNeedsReview",
                 message = "Refresh the company invoice history, Core reviewer and current access before continuing. No invoice claim or Finance posting was created."
             }, statusCode: status);
         }
