@@ -77,7 +77,7 @@
   },
   "limits": {
     "completeIntegratedSdkAccepted": false,
-    "integratedSdkStateAtCheckpoint": "RUN02_RUNNING_NO_RESULT_CLAIM",
+    "integratedSdkStateAtCheckpoint": "SDK05_PASS_RETAINED; COLUMN_READINESS_SUCCESSOR_SDK06_PENDING",
     "newPrincipalMappingInsertNativeTested": false,
     "principalCompareNativeTested": false,
     "documentOrManualReviewJourneyAccepted": false,
@@ -92,5 +92,32 @@
     "fixtureFixCommit": "6d212b2b",
     "run02StateAtCheckpoint": "RUNNING_NO_RESULT_CLAIM",
     "fullSuitePassClaimed": false
+  },
+  "sdk05Checkpoint": {
+    "sourceCommit": "9137e5a3d05f5fba7a96c38c19e04ab1044cb446",
+    "status": "PASS_M6B_INTEGRATED_BUILD_TESTS_PUBLISH_GUARDED_EF_NO_DATABASE",
+    "resultSha256": "ea64c6dd0a97b024dd036897b3830bba7e961536418ad30a98cf052777282ff7",
+    "procurementTestsPassed": 1559,
+    "hostTestsPassed": 304,
+    "skipped": 0,
+    "apiPublicationFiles": 150,
+    "publicationManifestSha256": "a20746e969c574143566d5f55f74ef623692fd0640a318fe2fd27434cb3e6943",
+    "allPublicationBytesAndTrxIndependentlyVerified": true,
+    "nativeBusinessAcceptanceImplied": false
+  },
+  "privateFixtureAttempt01": {
+    "status": "FAILED_BEFORE_GRANTS_COMPLETE_ROLLBACK_RECORDED",
+    "sqlSha256": "7224836295f4974ec87603c73bc425288410551df81896cf99a6278baccdd187",
+    "failedApplyReceiptSha256": "7c78cf118098ffd6a186f9bb49a69b9799fcc2a17a639d9d8f5ff3ef03bd6d9f",
+    "beforeCaptureSha256": "a74577e6422ae71e808248c59a2a21d0f67238061159c42349e157b3c4cbe45e",
+    "ownerRollbackReceiptSha256": "ba92041a2838e62174145441da532f09b39b9acdd1a3e8a4df2fefa6d4a1bae2",
+    "reason": "Existing supplier_invoices column UPDATE(id) was mistaken for a table-level workflow UPDATE gap",
+    "guard": "ExactGrantDeltaChanged",
+    "ownerRecordedAll223BusinessAndSecurityEqualBefore": true,
+    "activeSyntheticSessions": 0,
+    "apiStarted": false,
+    "businessHttpExecuted": false,
+    "productionChanged": false,
+    "successor": "Reviewed16SELECT6INSERT2tableUPDATEplus9namedcolumnUPDATE; preserveexistingidgrant; actualapplyverificationseparate"
   }
 }
