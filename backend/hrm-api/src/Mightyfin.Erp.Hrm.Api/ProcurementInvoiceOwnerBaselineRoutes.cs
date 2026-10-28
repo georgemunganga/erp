@@ -115,9 +115,9 @@ public static class ProcurementInvoiceOwnerBaselineRoutes
     private static DateTimeOffset Now() =>
         ProcurementEvidenceEncoding.DatabaseTimestamp(DateTimeOffset.UtcNow)!.Value;
 
-    private static string Fingerprint(string operation, Guid key, Guid? baselineId,
-        DecisionInput? input) => ProcurementEvidenceEncoding.PolicyJsonDigest(
-        JsonSerializer.Serialize(new { schemaVersion = 1, operation, key, baselineId, input }, Json));
+    internal static string Fingerprint(string operation, Guid key, Guid? baselineId,
+        Guid? assignmentId, DecisionInput? input) => ProcurementEvidenceEncoding.PolicyJsonDigest(
+        JsonSerializer.Serialize(new { schemaVersion = 1, operation, key, baselineId, assignmentId, input }, Json));
 
     private static async Task<PolicyVersion> CurrentPolicy(ProcurementDbContext db,
         ProcurementRequestScope scope, DateTimeOffset at, CancellationToken ct)
@@ -147,7 +147,7 @@ public static class ProcurementInvoiceOwnerBaselineRoutes
         var actor = await Actor(core, scope, http, auth,
             InvoiceProcurementBaselineEvidence.OpenPermission, token);
         var key = Key(http);
-        var requestSha = Fingerprint("Open", key, null, null);
+        var requestSha = Fingerprint("Open", key, null, null, null);
         if (await db.RecoverInvoiceOwnerReceiptAsync(key, "Open", requestSha, token) is { } prior)
             return Results.Content(prior.ResponseJson, "application/json", statusCode: 201);
         var at = Now();
@@ -188,7 +188,7 @@ public static class ProcurementInvoiceOwnerBaselineRoutes
         var actor = await Actor(core, scope, http, auth,
             InvoiceProcurementBaselineEvidence.ReviewPermission, token);
         var key = Key(http);
-        var requestSha = Fingerprint("Decide", key, id, input);
+        var requestSha = Fingerprint("Decide", key, id, assignmentId, input);
         if (await db.RecoverInvoiceOwnerReceiptAsync(key, "Decide", requestSha, token) is { } prior)
         {
             if (prior.BaselineId != id) throw new BaselineProblem("InvoiceOwnerCommandKeyConflict", 409);
