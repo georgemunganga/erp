@@ -101,8 +101,10 @@ public sealed class ProcurementPrincipalGoodsReturnStoreReadiness(
             foreach(var check in entity.GetCheckConstraints())
             {
                 command.CommandText=CheckSql(table,check.Name);
-                if(!ProcurementPrincipalGoodsReturnSchemaCapture.Checks.TryGetValue("procurement."+table.Name+"."+check.Name,out var expected)
-                    || await command.ExecuteScalarAsync(ct)is not string actual || actual!=expected)return false;
+                var qualifiedName="procurement."+table.Name+"."+check.Name;
+                if(!ProcurementPrincipalGoodsReturnSchemaCapture.Checks.TryGetValue(qualifiedName,out var expected)
+                    || await command.ExecuteScalarAsync(ct)is not string actual
+                    || actual!=expected && !ProcurementRestoreCheckAlternatives.Matches(qualifiedName,expected,actual))return false;
             }
         }
         foreach(var pair in ProcurementPrincipalGoodsReturnSchemaCapture.ForeignDefinitions)

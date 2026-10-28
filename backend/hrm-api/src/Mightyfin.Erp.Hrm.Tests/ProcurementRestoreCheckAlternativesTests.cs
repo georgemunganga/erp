@@ -20,13 +20,24 @@ public sealed class ProcurementRestoreCheckAlternativesTests
         { "procurement.principal_receiving_sources.ck_prcv_source", "0ba7828812d571d483f82f29716d0166fafaf7f8332f218724ad848aa5c8f938", "f1d572dc6be6690890ffe3de0517c63db6937050b63abd1dfbafbbdbe75f9a05" },
         { "procurement.purchase_orders.ck_po_principal_draft_version", "c5c93b16f666d283ae859d4f24a945dfc43a8e2697e8ce18908404931285dacd", "1e83fa2fcde59e7b07427bdf8307829bee1f3b81d39babca6bca1691478598e7" },
         { "procurement.sourcing_command_receipts.ck_rfq_receipt_identity", "6655f301bd4b0c80611a54c5994725bf172b07fd1fee390e9e55e5ccee363a6e", "4e58f02a6e44e8210cb2776d06c597e598d6c72026851c8690b3d03bdf7d9e0d" },
+        { "procurement.manual_payment_core_decisions.ck_manual_payment_core_decision", "a17ffb0e78c3c45c5d4ab966a631c0b39d8ea7fdd2e80253dcd3011b0ace4920", "d66f2b73461af81c360c7ebd93c97788270e0bd2a1e1b3ab699d0f8051aba0d0" },
+        { "procurement.manual_payment_date_observations.ck_manual_payment_company_date", "586c960a65d056b8de03404c50ab8b02f8ed0381723f8471951771f5023a9a18", "512020c4f2a66fc1649e5942010b0a2e4071dbfd9b15da965782bef75eb52bf6" },
+        { "procurement.manual_payment_decisions.ck_manual_payment_action_states", "51e3568e0c354568af6333878e860f3d9701146760f40981c73edf4724759e4f", "5070b8435e794bf0922317b8abdebaebd43c3233ea447307abbdf5c5be8f5001" },
+        { "procurement.manual_payment_decisions.ck_manual_payment_transition", "719827736f22b385aaac4967bff9971e2dab74ecdf205481af110ce15b4c7c46", "f68705e45a53874d6c98a7f6d74560c51025d934daaced2f5603df20bfc1d1cf" },
+        { "procurement.manual_payment_receipts.ck_manual_payment_receipt", "8d65fe91c2dfb68f4f1b688982f602c099362651ad39922b7a97e5fb660dd2be", "a3f6e0c69d5f3d7c0eb0027a3630b17c62286d91cd990b8aa03af983fc1e7265" },
+        { "procurement.manual_payment_requests.ck_manual_payment_state_evidence", "90fd662e5345caf22574c364423c05dee9a067cdfd875d680c15187fe5f80092", "bc8783a117ffebc061093db2afb5798d7b925eefb0080d895654275dabf57b65" },
+        { "procurement.manual_payment_requests.ck_manual_payment_values", "c0ca366c9e2563bc968edd4bfb650e32b8ff20e8b784d8a86a4517fece3bfab1", "dbd9953d9c4c2e768dc68d8beaa384f20d3dbb2ebce26771e26678a799ca8564" },
+        { "procurement.manual_payment_workflow_cases.ck_manual_payment_case_source", "7a73deb157158191ab8ec19ba7ebb8f22798c5169d961ecd69e7188edfc93523", "718fb77a7de5cfb54feaee6984a8bc5794a1855d1ec0e299a54060d5b571ed77" },
+        { "procurement.principal_goods_return_drafts.ck_pgret_draft", "faeb8294dd01da3ba71c685aff00fe93a0e01a3426f2a8eb14cf603287f000f6", "d1d66d7fafe6fd66adbea3edd2402303e82ec69f9cc80edaeddcb1d9cdb51948" },
+        { "procurement.principal_goods_return_receipts.ck_pgret_receipt", "713a7150dccf60497413782dd810a02d8bdbdd38a89f4a14332d6f7ac79bdf27", "50b2ce5c4d689babd4f5de61101217760c42b9d2404e4107c2a768f0584bcd5f" },
+        { "procurement.principal_goods_return_revisions.ck_pgret_revision", "ee287e75f907d7786a0ed5ef3bdfa41ba3cb4d45a84eef8b51ff04ac62e6673b", "b54a3abe12c1041af2cacf9468b988af9dce1900e047519a3362f6b9be634a71" },
     };
 
     [Theory]
     [MemberData(nameof(ExactObservedCases))]
     public void Only_exact_qualified_canonical_and_restored_pair_is_admitted(string key, string canonicalSha256, string restoredSha256)
     {
-        Assert.Equal(12, ProcurementRestoreCheckAlternatives.Definitions.Count);
+        Assert.Equal(23, ProcurementRestoreCheckAlternatives.Definitions.Count);
         var pair = ProcurementRestoreCheckAlternatives.Definitions[key];
         Assert.NotEqual(pair.Canonical, pair.Restored);
         Assert.Equal(canonicalSha256, Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(pair.Canonical))).ToLowerInvariant());
@@ -87,6 +98,34 @@ public sealed class ProcurementRestoreCheckAlternativesTests
             Assert.False(ExistingComparator("procurement.operational_policy_identity_evidence.ck_operational_policy_identity",
                 operational.Canonical, operational.Restored.Replace(guard, weakened, StringComparison.Ordinal)));
         }
+        var payment = ProcurementRestoreCheckAlternatives.Definitions[
+            "procurement.manual_payment_requests.ck_manual_payment_values"];
+        Assert.Contains("'Draft'", payment.Restored);
+        Assert.False(ExistingComparator("procurement.manual_payment_requests.ck_manual_payment_values",
+            payment.Canonical, payment.Restored.Replace("'Draft'", "'UnreviewedState'", StringComparison.Ordinal)));
+        var goodsReturn = ProcurementRestoreCheckAlternatives.Definitions[
+            "procurement.principal_goods_return_receipts.ck_pgret_receipt"];
+        Assert.Contains("'Cancel'", goodsReturn.Restored);
+        Assert.False(ExistingComparator("procurement.principal_goods_return_receipts.ck_pgret_receipt",
+            goodsReturn.Canonical, goodsReturn.Restored.Replace("'Cancel'", "'UnreviewedOperation'", StringComparison.Ordinal)));
+    }
+
+    [Fact]
+    public void Manual_payment_full_catalog_fingerprint_substitutes_only_nine_exact_observed_checks()
+    {
+        Assert.Equal(9, ProcurementManualPaymentGovernanceReadiness.ObservedRestoreChecks.Length);
+        var sql = ProcurementManualPaymentGovernanceReadiness.FingerprintSqlWithObservedRestoreChecks();
+        Assert.Contains("ELSE pg_get_constraintdef(c.oid) END", sql);
+        foreach (var key in ProcurementManualPaymentGovernanceReadiness.ObservedRestoreChecks)
+        {
+            var parts = key.Split('.');
+            var pair = ProcurementRestoreCheckAlternatives.Definitions[key];
+            Assert.Contains("c.contype='c' AND r.nspname='" + parts[0] + "' AND r.relname='" + parts[1]
+                + "' AND c.conname='" + parts[2] + "'", sql);
+            Assert.Contains(pair.Restored.Replace("'", "''", StringComparison.Ordinal), sql);
+            Assert.Contains(pair.Canonical.Replace("'", "''", StringComparison.Ordinal), sql);
+        }
+        Assert.Equal(1, sql.Split("CASE ", StringSplitOptions.None).Length - 1);
     }
 
     private static bool ExistingComparator(string key, string canonical, string actual) =>
@@ -95,6 +134,11 @@ public sealed class ProcurementRestoreCheckAlternativesTests
                 && (actual == canonical || ProcurementSourcingDraftSchemaReadiness.MatchesRestoredReceipt(key, canonical, actual))
             : key == "procurement.operational_policy_identity_evidence.ck_operational_policy_identity"
                 ? canonical == ProcurementManualPaymentGovernanceReadiness.OperationalCheckDefinition
+                    && (actual == canonical || ProcurementRestoreCheckAlternatives.Matches(key, canonical, actual))
+            : key.StartsWith("procurement.manual_payment_", StringComparison.Ordinal)
+                ? actual == canonical || ProcurementRestoreCheckAlternatives.Matches(key, canonical, actual)
+            : key.StartsWith("procurement.principal_goods_return_", StringComparison.Ordinal)
+                ? canonical == ProcurementPrincipalGoodsReturnSchemaCapture.Checks[key]
                     && (actual == canonical || ProcurementRestoreCheckAlternatives.Matches(key, canonical, actual))
             : key.StartsWith("procurement.assignment_authority_evidence.", StringComparison.Ordinal)
                 ? ProcurementPrincipalApprovalStoreReadiness.MatchesCapturedCheck(key, canonical, actual)
