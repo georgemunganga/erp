@@ -15,7 +15,14 @@
   "initialReceivingUiSource": "213e899a594df5c17d3bc9cdb186e6ead23e298f",
   "initialUiFocusedUnitPassed": 99,
   "initialUiMockedBrowserPassed": 27,
-  "settingsUiIncrement": "verification in progress; not covered by initial UI receipt",
+  "settingsUiIncrement": "Passed TypeScript, full607 unit/contract, receiving27 and settings6 across retained runs; first32/33 browser run had a test-only locator failure corrected before settings6 rerun.",
   "productionChanged": false,
-  "wholeModuleUatComplete": false
+  "wholeModuleUatComplete": false,
+  "currentUiSource": "0145bce0828c954d9f035ca706bcb7b3ebf55b8a",
+  "currentUiProductCommit": "56310e21fce5ecf63ad68260ecaa89ab49b1b9b2",
+  "currentUiUnitAndContractPassed": 607,
+  "currentUiReceivingBrowserPassed": 27,
+  "currentUiSettingsBrowserPassed": 6,
+  "currentUiProductionBuildPassed": true,
+  "realReceivingApi": "Running private normal-cookie flow; policy lifecycle confirmed, receiving owner acceptance pending"
 }

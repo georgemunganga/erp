@@ -33,3 +33,9 @@ On an isolated, nonempty M5a database clone, official Up passed exact physical v
 The original receiving UI transport passed Node22 TypeScript, 99 focused unit/contract checks and 27 mocked browser cases. A subsequent Core-account receiving-policy editor increment is under separate verification; do not apply the earlier UI receipt to untested increments.
 
 Remaining admission holds: finite runtime grants on the isolated clone, current Core role fixtures for receiving actors, real-cookie positive API/owner reconciliation, final settings UI verification, service business-date handling and subsequent return/reversal integration. Production remains unchanged; no deployment or whole-module acceptance is claimed.
+
+## Receiving settings UI checkpoint
+
+UI PR91 now includes explicit new-draft selection of Core-account receiving policies, named Core-account pickers for inspectors/acceptors/service owners and preserved schema-1 employee-policy editing/history. It uses the original form and ERP controls. Current UI source `0145bce` passed Node22 TypeScript, **607/607** unit/contract tests and the production build. The combined focused browser run passed the 27 receiving scenarios and five settings scenarios; one new settings test used the wrong assertion for the custom Select. After a test-only correction, all **6/6** settings cases passed. This is not represented as a single33-green invocation or a full444-scenario rerun.
+
+On the isolated clone, finite receiving execution grants and three synthetic-only role fixtures have been applied under exact target/CAS guards. Core accounts remain workerless. The genuine normal-cookie API has completed receiving policy creation/review/publication and is waiting for the effective policy window before the Goods workflow. That running test is not acceptance; owner reconciliation and fixture/session cleanup remain required.
