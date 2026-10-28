@@ -26,9 +26,18 @@ public sealed record PrincipalGoodsInspection(
     string ChecklistReference,string EvidenceReference,Guid PolicyVersionId,string PolicyRulesSha256,
     Guid CommandKey,long Sequence,DateTimeOffset InspectedAt);
 
+/// <summary>Immutable Core company business-date observation for a service certification.
+/// The API obtains this alongside the server clock; a client cannot supply it.</summary>
+public sealed record PrincipalReceivingBusinessDate(
+    int SchemaVersion,string TenantId,Guid LegalEntityId,DateOnly CompanyBusinessDate,
+    string CompanyTimeZoneId,int UtcOffsetMinutes,DateTimeOffset ObservedAtUtc);
+
 /// <summary>Positive Procurement acceptance only. No posting, stock, asset, return or available-balance claim.</summary>
 public sealed record PrincipalReceivingAcceptance(
     Guid Id,Guid AcceptanceRecordId,PrincipalReceivingSource Source,Guid? ObservationId,Guid? InspectionId,
     decimal Quantity,decimal NetAmount,PrincipalReceivingPerson Actor,Guid PolicyVersionId,string PolicyRulesSha256,
     string EvidenceReference,string? DeliverableReference,DateOnly? PeriodFrom,DateOnly? PeriodTo,
-    Guid CommandKey,long Sequence,DateTimeOffset AcceptedAt);
+    Guid CommandKey,long Sequence,DateTimeOffset AcceptedAt)
+{
+    public PrincipalReceivingBusinessDate? BusinessDateObservation { get; init; }
+}

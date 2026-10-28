@@ -1,6 +1,7 @@
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using System.Text.Json.Serialization.Metadata;
 using Mightyfin.Erp.Procurement.Domain;
 
 namespace Mightyfin.Erp.Procurement.Application;
@@ -9,11 +10,22 @@ namespace Mightyfin.Erp.Procurement.Application;
 /// are mandatory after decode. Text storage preserves original digest bytes.</summary>
 public static class PrincipalReceivingStorageCodec
 {
-    private static readonly JsonSerializerOptions Options = new()
+    private static readonly JsonSerializerOptions Options = CreateOptions();
+    private static JsonSerializerOptions CreateOptions()
     {
-        PropertyNameCaseInsensitive = false, UnmappedMemberHandling = JsonUnmappedMemberHandling.Disallow,
-        NumberHandling = JsonNumberHandling.Strict, MaxDepth = 24
-    };
+        var resolver=new DefaultJsonTypeInfoResolver();
+        resolver.Modifiers.Add(info=>
+        {
+            if(info.Type!=typeof(PrincipalReceivingAcceptance))return;
+            var witness=info.Properties.Single(x=>x.Name==nameof(PrincipalReceivingAcceptance.BusinessDateObservation));
+            witness.ShouldSerialize=(_,value)=>value is not null;
+        });
+        return new JsonSerializerOptions
+        {
+            PropertyNameCaseInsensitive=false,UnmappedMemberHandling=JsonUnmappedMemberHandling.Disallow,
+            NumberHandling=JsonNumberHandling.Strict,MaxDepth=24,TypeInfoResolver=resolver
+        };
+    }
     public static string Encode<T>(T value) where T : class
     {
         ArgumentNullException.ThrowIfNull(value);

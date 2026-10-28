@@ -65,15 +65,17 @@ public static class PrincipalControlledReceiving
     }
     public static PrincipalReceivingAcceptance CertifyService(PrincipalReceivingLedger ledger,PolicyVersion policy,
         PrincipalReceivingActor actor,Guid certificateId,Guid commandKey,long expectedSequence,decimal quantity,
-        string deliverable,DateOnly from,DateOnly to,string evidence,DateTimeOffset at)
+        string deliverable,DateOnly from,DateOnly to,string evidence,DateTimeOffset at,
+        PrincipalReceivingBusinessDate businessDate)
     {
         var selected=Guard(ledger,policy,actor,ControlledReceiving.CertifyPermission,commandKey,expectedSequence,at);
         Need(ledger.Source.Commercial.Kind==ReceivingKind.Service&&selected.Rule.ServiceOwnerPrincipalIds.Contains(actor.PrincipalId)
             &&certificateId!=Guid.Empty&&!ledger.Acceptances.Any(value=>value.AcceptanceRecordId==certificateId),"PrincipalReceivingServiceOwnerRequired");
         Need(Quantity(quantity)&&quantity>0&&!string.IsNullOrWhiteSpace(deliverable)&&deliverable.Trim().Length<=200
-            &&from!=default&&to>=from&&to<=DateOnly.FromDateTime(at.UtcDateTime),"PrincipalReceivingServiceEvidenceRequired");
+            &&from!=default&&to>=from,"PrincipalReceivingServiceEvidenceRequired");
+        BusinessDate(ledger.Source,businessDate,at,to);
         MakerChecker(ledger.Source,selected.Rule,actor);Capacity(ledger,quantity);
-        return Acceptance(ledger,selected,actor,certificateId,null,null,quantity,evidence,deliverable.Trim(),from,to,commandKey,at);
+        return Acceptance(ledger,selected,actor,certificateId,null,null,quantity,evidence,deliverable.Trim(),from,to,commandKey,at,businessDate);
     }
     public static (decimal AcceptedQuantity,decimal AcceptedNetAmount,decimal RemainingQuantity) Balance(PrincipalReceivingLedger ledger)
     {
@@ -153,6 +155,7 @@ public static class PrincipalControlledReceiving
                 Need(observed is not null&&effect.AcceptanceRecordId==observed!.ReceiptLineId&&effect.PolicyVersionId==observed.PolicyVersionId
                     &&effect.PolicyRulesSha256==observed.PolicyRulesSha256&&effect.Sequence>observed.Sequence&&effect.AcceptedAt>=observed.RecordedAt
                     &&effect.DeliverableReference is null&&effect.PeriodFrom is null&&effect.PeriodTo is null
+                    &&effect.BusinessDateObservation is null
                     &&rule.AcceptorPrincipalIds.Contains(effect.Actor.PrincipalId)
                     &&(rule.AllowReceiverCertification||Independent(observed.Receiver,effect.Actor))
                     &&(!rule.InspectionRequired||inspection is not null)
@@ -162,7 +165,10 @@ public static class PrincipalControlledReceiving
             }
             else Need(rule.ServiceOwnerPrincipalIds.Contains(effect.Actor.PrincipalId)&&effect.ObservationId is null&&effect.InspectionId is null&&!string.IsNullOrWhiteSpace(effect.DeliverableReference)
                 &&effect.PeriodFrom is {} from&&from!=default&&effect.PeriodTo is {} to&&to>=from
-                &&ledger.Acceptances.Count(value=>value.AcceptanceRecordId==effect.AcceptanceRecordId)==1,"PrincipalReceivingServiceHistoryInvalid");
+                &&ledger.Acceptances.Count(value=>value.AcceptanceRecordId==effect.AcceptanceRecordId)==1
+                &&(effect.BusinessDateObservation is {} witnessed
+                    ?BusinessDateValid(ledger.Source,witnessed,effect.AcceptedAt,to,retained:true)
+                    :to<=DateOnly.FromDateTime(effect.AcceptedAt.UtcDateTime)),"PrincipalReceivingServiceHistoryInvalid");
         }
         Need(ExactDecimalArithmetic.Sum(ledger.Acceptances.Select(value=>value.Quantity))<=ledger.Source.Commercial.AuthorizedQuantity,"PrincipalReceivingIssuedCapacityExceeded");
     }
@@ -194,8 +200,25 @@ public static class PrincipalControlledReceiving
         =>Need((rule.AllowBuyerCertification||Independent(source.Buyer,actor))&&(rule.AllowRequesterCertification||Independent(source.Requester,actor)),"PrincipalReceivingMakerCheckerDenied");
     private static bool Independent(PrincipalReceivingPerson original,PrincipalReceivingPerson actor)=>ProcurementPrincipalEvidence.Independent(original.PrincipalId,original.WorkerAliasId,actor.PrincipalId,actor.WorkerAliasId);
     private static bool Independent(PrincipalReceivingPerson original,PrincipalReceivingActor actor)=>ProcurementPrincipalEvidence.Independent(original.PrincipalId,original.WorkerAliasId,actor.PrincipalId,actor.WorkerAliasId);
-    private static PrincipalReceivingAcceptance Acceptance(PrincipalReceivingLedger ledger,PrincipalReceivingPolicy policy,PrincipalReceivingActor actor,Guid record,Guid? observation,Guid? inspection,decimal quantity,string evidence,string? deliverable,DateOnly? from,DateOnly? to,Guid key,DateTimeOffset at)
-        =>new(Guid.CreateVersion7(),record,ledger.Source,observation,inspection,quantity,ExactDecimalArithmetic.Multiply(quantity,ledger.Source.Commercial.NetUnitPrice),Person(actor),policy.Record.Id,policy.RulesSha256,Evidence(policy.Rule,evidence),deliverable,from,to,key,Next(ledger),Time(at));
+    private static PrincipalReceivingAcceptance Acceptance(PrincipalReceivingLedger ledger,PrincipalReceivingPolicy policy,PrincipalReceivingActor actor,Guid record,Guid? observation,Guid? inspection,decimal quantity,string evidence,string? deliverable,DateOnly? from,DateOnly? to,Guid key,DateTimeOffset at,PrincipalReceivingBusinessDate? businessDate=null)
+        =>new PrincipalReceivingAcceptance(Guid.CreateVersion7(),record,ledger.Source,observation,inspection,quantity,ExactDecimalArithmetic.Multiply(quantity,ledger.Source.Commercial.NetUnitPrice),Person(actor),policy.Record.Id,policy.RulesSha256,Evidence(policy.Rule,evidence),deliverable,from,to,key,Next(ledger),Time(at))
+        {BusinessDateObservation=businessDate};
+    private static void BusinessDate(PrincipalReceivingSource source,PrincipalReceivingBusinessDate witness,DateTimeOffset at,DateOnly to)
+        =>Need(BusinessDateValid(source,witness,at,to,retained:false),"PrincipalReceivingCompanyBusinessDateInvalid");
+    private static bool BusinessDateValid(PrincipalReceivingSource source,PrincipalReceivingBusinessDate? witness,DateTimeOffset at,DateOnly to,bool retained)
+    {
+        if(witness is null || witness.SchemaVersion!=1 || witness.TenantId!=source.Commercial.TenantId
+            || witness.LegalEntityId!=source.Commercial.LegalEntityId || witness.CompanyBusinessDate==default
+            || string.IsNullOrWhiteSpace(witness.CompanyTimeZoneId)
+            || witness.CompanyTimeZoneId!=witness.CompanyTimeZoneId.Trim() || witness.CompanyTimeZoneId.Length>128
+            || witness.UtcOffsetMinutes is < -840 or > 840 || witness.ObservedAtUtc==default
+            || witness.ObservedAtUtc.Offset!=TimeSpan.Zero) return false;
+        // PostgreSQL preserves microseconds. New commands demand the same exact
+        // instant; retained facts compare that canonical instant to AcceptedAt.
+        if(retained?Time(witness.ObservedAtUtc)!=at:at!=Time(at)||witness.ObservedAtUtc!=at.ToUniversalTime())return false;
+        var local=witness.ObservedAtUtc.ToOffset(TimeSpan.FromMinutes(witness.UtcOffsetMinutes));
+        return DateOnly.FromDateTime(local.DateTime)==witness.CompanyBusinessDate&&to<=witness.CompanyBusinessDate;
+    }
     private static void Capacity(PrincipalReceivingLedger ledger,decimal quantity)=>Need(quantity<=ExactDecimalArithmetic.Subtract(ledger.Source.Commercial.AuthorizedQuantity,ExactDecimalArithmetic.Sum(ledger.Acceptances.Select(value=>value.Quantity))),"PrincipalReceivingIssuedCapacityExceeded");
     private static void PinPolicy(Guid id,string sha,PrincipalReceivingPolicy current)=>Need(current.Record.Id==id&&current.RulesSha256==sha,"PrincipalReceivingOriginalPolicyChanged");
     private static PrincipalReceivingPerson Person(PrincipalReceivingActor actor)=>new(actor.PrincipalId,actor.WorkerAliasId);

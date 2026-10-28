@@ -37,10 +37,10 @@ public sealed partial class PrincipalControlledReceivingTests
         var source=Source(ReceivingKind.Service,1,100);var policy=Policy(source);var creator=Actor(Receiver);
         var draft=PrincipalReceivingDraftLifecycle.CreateService(creator,source,"Half milestone",new(2026,10,22),new(2026,10,22),0.5m,new string('n',1500));
         var revised=PrincipalReceivingDraftLifecycle.ReviseService(draft,creator,1,"Documented half milestone",draft.PeriodFrom,draft.PeriodTo,0.5m,draft.Notes);
-        var completed=PrincipalReceivingDraftLifecycle.CertifyService(revised,Actor(Inspector),2,Empty(source,policy),policy,0,Guid.NewGuid(),"REC:service",At);
+        var completed=PrincipalReceivingDraftLifecycle.CertifyService(revised,Actor(Inspector),2,Empty(source,policy),policy,0,Guid.NewGuid(),"REC:service",At,BusinessDate(source));
         Assert.Equal("Certified",completed.Draft.State);Assert.Equal(3,completed.Draft.Version);Assert.Equal(50m,completed.Acceptance.NetAmount);Assert.Equal(draft.Id,completed.Acceptance.AcceptanceRecordId);Assert.Null(completed.Acceptance.Actor.WorkerAliasId);Assert.Equal(1500,completed.Draft.Notes!.Length);
         Assert.Throws<InvalidOperationException>(()=>PrincipalReceivingDraftLifecycle.ReviseService(completed.Draft,creator,3,"Cannot rewrite",draft.PeriodFrom,draft.PeriodTo,1,null));
-        Assert.Throws<InvalidOperationException>(()=>PrincipalReceivingDraftLifecycle.CertifyService(revised,Actor(Inspector),2,Empty(source,policy),policy,1,Guid.NewGuid(),"REC:stale-source",At));
+        Assert.Throws<InvalidOperationException>(()=>PrincipalReceivingDraftLifecycle.CertifyService(revised,Actor(Inspector),2,Empty(source,policy),policy,1,Guid.NewGuid(),"REC:stale-source",At,BusinessDate(source)));
     }
     [Fact]
     public void Draft_cancel_preserves_notes_and_separate_reason_and_cannot_grant_negative_effects()

@@ -16,6 +16,12 @@ public sealed partial class PrincipalControlledReceivingTests
         return new(2,commercial,Guid.NewGuid(),Guid.NewGuid(),Guid.NewGuid(),Guid.NewGuid(),hash,new(Buyer,null),new(Requester,null),At.AddDays(-2),At.AddDays(-1),Guid.NewGuid());
     }
     private static PrincipalReceivingActor Actor(string who,Guid? alias=null)=>new(who,alias,"tenant-a",Company,new HashSet<Guid>{Branch},new HashSet<string>{"procurement-receipt-create","procurement-receipt-edit",ControlledReceiving.RecordPermission,ControlledReceiving.InspectPermission,ControlledReceiving.AcceptPermission,ControlledReceiving.CertifyPermission});
+    private static PrincipalReceivingBusinessDate BusinessDate(PrincipalReceivingSource source,DateTimeOffset? at=null,int offset=0,string zone="Etc/UTC")
+    {
+        var instant=at??At;
+        return new(1,source.Commercial.TenantId,source.Commercial.LegalEntityId,
+            DateOnly.FromDateTime(instant.ToOffset(TimeSpan.FromMinutes(offset)).DateTime),zone,offset,instant.ToUniversalTime());
+    }
     private static PolicyVersion Policy(PrincipalReceivingSource source,bool inspection=true)
     {
         var service=source.Commercial.Kind==ReceivingKind.Service;
@@ -63,10 +69,10 @@ public sealed partial class PrincipalControlledReceivingTests
     public void Two_partial_service_certificates_conserve_exact_value_and_require_named_independent_principal()
     {
         var source=Source(ReceivingKind.Service,1,100);var policy=Policy(source);var ledger=Empty(source,policy);
-        foreach(var ignored in new[]{1,2})ledger=Add(ledger,PrincipalControlledReceiving.CertifyService(ledger,policy,Actor(Inspector),Guid.NewGuid(),Guid.NewGuid(),ledger.Sequence,0.5m,"Actual half deliverable",new DateOnly(2026,10,22),new DateOnly(2026,10,22),"REC:service",At));
+        foreach(var ignored in new[]{1,2})ledger=Add(ledger,PrincipalControlledReceiving.CertifyService(ledger,policy,Actor(Inspector),Guid.NewGuid(),Guid.NewGuid(),ledger.Sequence,0.5m,"Actual half deliverable",new DateOnly(2026,10,22),new DateOnly(2026,10,22),"REC:service",At,BusinessDate(source)));
         Assert.Equal((1m,100m,0m),PrincipalControlledReceiving.Balance(ledger));
-        Assert.Throws<InvalidOperationException>(()=>PrincipalControlledReceiving.CertifyService(ledger,policy,Actor(Inspector),Guid.NewGuid(),Guid.NewGuid(),2,0.0001m,"Excess",new(2026,10,22),new(2026,10,22),"REC:excess",At));
-        Assert.Throws<InvalidOperationException>(()=>PrincipalControlledReceiving.CertifyService(Empty(source,policy),policy,Actor(Buyer),Guid.NewGuid(),Guid.NewGuid(),0,0.5m,"Self",new(2026,10,22),new(2026,10,22),"REC:self",At));
+        Assert.Throws<InvalidOperationException>(()=>PrincipalControlledReceiving.CertifyService(ledger,policy,Actor(Inspector),Guid.NewGuid(),Guid.NewGuid(),2,0.0001m,"Excess",new(2026,10,22),new(2026,10,22),"REC:excess",At,BusinessDate(source)));
+        Assert.Throws<InvalidOperationException>(()=>PrincipalControlledReceiving.CertifyService(Empty(source,policy),policy,Actor(Buyer),Guid.NewGuid(),Guid.NewGuid(),0,0.5m,"Self",new(2026,10,22),new(2026,10,22),"REC:self",At,BusinessDate(source)));
     }
     [Fact]
     public void Named_inspector_cannot_share_retained_receiver_worker_alias_and_no_fake_worker_is_required()
