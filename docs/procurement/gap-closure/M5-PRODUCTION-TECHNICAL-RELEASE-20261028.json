@@ -1,0 +1,86 @@
+{
+  "status": "PRODUCTION_M5_TECHNICAL_RELEASE_VERIFIED_NOT_WHOLE_MODULE_UAT",
+  "recordedAtUtc": "2026-10-28T15:04:34.985704+00:00",
+  "backendProductCommit": "414ca94fe05f222d21d62d069d2428881f68db57",
+  "backendPublishedMain": "e03ac9735379b35f789d9e900fe849d7ab02f1f1",
+  "uiPublishedMain": "47cac6a13a24e9db113383f8a9cf5b319494d526",
+  "apiImageId": "sha256:268f4d7c8dafc033b7460c48b2e5b4da584bd0d4f1521a9fc7b79f1950d9829b",
+  "publicationFileCount": 150,
+  "publicationManifestSha256": "71c668737ad4bdf966e4bb8c78aea9ca922bbede84defde48e4fa708237d874c",
+  "schema": {
+    "originalTables": 203,
+    "newTables": 17,
+    "finalTables": 220,
+    "hrmMigrations": 56,
+    "procurementMigrations": 32,
+    "coreApprovalMigrations": 1,
+    "migrationsAdded": [
+      "20261026201259_M5aPrincipalOrderGovernance",
+      "20261028160000_AddPrincipalReceivingExecution",
+      "20261028180000_AddPrincipalGoodsReturnDrafts"
+    ],
+    "original203ProjectedRowsAndSequencesPreserved": true,
+    "new17TablesEmptyAtRelease": true,
+    "executionSelectAdditions": 21,
+    "legacyDefaultGrantRemovalsOnNewTables": 68,
+    "productionRolesMembershipsDefaultsUnchanged": true
+  },
+  "evidence": {
+    "freshEncryptedBackupRestore": {
+      "status": "PASS_FRESH_POST_STOP_PRODUCTION_203_BACKUP_PRIVATE_RESTORE_ROWS_SEQUENCES",
+      "sha256": "b500450f725bf898a4fb54e3fdb408c7dc191717e76a988b155dc81d7748e31d"
+    },
+    "freshFullThreeMigrationRoundtrip": {
+      "status": "PASS_PRIVATE_FRESH_PRODUCTION_RESTORE_FULL_THREE_UP_EMPTY_DOWN_UP_203_TO_220",
+      "sha256": "e0507e0e1185dd29def2cdb891f7d1f28792aa170a5f6aa3d238e5aa31911e6c"
+    },
+    "correctedWholeAtomicPrivateRehearsal": {
+      "status": "PASS_PRIVATE_CORRECTED_FULL_ATOMIC_M5_SCHEMA_ACL",
+      "sha256": "8247d0f8ccfb776b7ab52f330f0216b5343d9bc571c6ed9fae0ab10bd52ec38b"
+    },
+    "firstAttemptFullRollback": {
+      "status": "PASS_PRODUCTION_FAILED_FIRST_M5_APPLY_FULL_ROLLBACK_READ_ONLY",
+      "sha256": "e94f435ebfdaa8a7c35d56b9b6d42a1c20a148df8029f333c5b917e32205ef23"
+    },
+    "productionOwnerReconciliation": {
+      "status": "PASS_PRODUCTION_M5_FULL_THREE_SCHEMA_SELECT_ONLY_ACL_AND_ORIGINAL_203_PRESERVATION",
+      "sha256": "69f3c722fdc764a87b0bffc697985455cc0530e7870b2d2fde853cc35bdbe93d"
+    },
+    "readOnlyCandidateCanary": {
+      "status": "PASS_READONLY_M5_IMAGE_CANARY_NO_PUBLIC_PORTS",
+      "sha256": "2a09b2dd1854391362911ee36e0c14f3f0b17efffc928aeb167059d197d49ca3"
+    },
+    "pairedCutover": {
+      "status": "PASS_M5_API_AND_ORIGINAL_UI_TECHNICAL_CUTOVER",
+      "sha256": "82fab00183c9f0cc7cc33755a9310f74f1d11df416fd7f0a2cd3c6e358893ad7"
+    },
+    "publicRoutes": {
+      "status": "PASS_PUBLIC_READONLY_M5_TECHNICAL_SMOKE",
+      "sha256": "219b9d22d9177f53ada26bdf981f807dca7ab18da24344402bc8d30751332014"
+    },
+    "publicAssets": {
+      "status": "PASS_ALL_FIVE_ACCEPTED_UI_PUBLIC_FILE_BYTES",
+      "sha256": "6ae5a0ccfd31d6e865d992f3838090923ce06cc147ae635044c1bf2705c38ea4"
+    },
+    "publicPlaywright": {
+      "status": "PASS_PUBLIC_PLAYWRIGHT_UNAUTHENTICATED_RENDER_SMOKE",
+      "sha256": "7f01627454ff75b49a6aaeada9ada626ec529a3d028c0f55ecff59c771e41109"
+    }
+  },
+  "releaseBoundaries": {
+    "existingBusinessFlagsPreserved": true,
+    "newReturnRequestWritesEnabled": false,
+    "originalOutboxPublisherRetained": true,
+    "originalUiLayoutPreserved": true,
+    "coreAndAccountingAliasesUnchanged": true,
+    "authenticatedProductionCrudTested": false,
+    "wholeProcurementUatComplete": false,
+    "financePostingEnabled": false
+  },
+  "remaining": [
+    "Native Service and broader live UI/multiple-branch/concurrency acceptance",
+    "Principal receiving to invoice mapping/comparison and qualified consumption ownership",
+    "Actual return approval, dispatch, reversal and balance reconciliation",
+    "Remaining supplier, sourcing, contract and other workflow gaps in the UAT register"
+  ]
+}
