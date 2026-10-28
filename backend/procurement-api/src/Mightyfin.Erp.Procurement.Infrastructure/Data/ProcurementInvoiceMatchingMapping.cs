@@ -9,6 +9,8 @@ public sealed partial class ProcurementDbContext
     public DbSet<InvoiceMatchMappingVersion> InvoiceMatchMappingVersions => Set<InvoiceMatchMappingVersion>();
     public DbSet<InvoiceMatchAllocation> InvoiceMatchAllocations => Set<InvoiceMatchAllocation>();
     public DbSet<InvoiceMatchExposureState> InvoiceMatchExposureStates => Set<InvoiceMatchExposureState>();
+    public DbSet<InvoiceProcurementOwnerBaseline> InvoiceProcurementOwnerBaselines => Set<InvoiceProcurementOwnerBaseline>();
+    public DbSet<InvoiceProcurementOwnerBaselineRow> InvoiceProcurementOwnerBaselineRows => Set<InvoiceProcurementOwnerBaselineRow>();
 
     private void ConfigureInvoiceMatchingExecution(ModelBuilder model)
     {
@@ -20,6 +22,31 @@ public sealed partial class ProcurementDbContext
         ConfigureBase<InvoiceMatchMappingVersion>(model, "invoice_match_mapping_versions");
         ConfigureBase<InvoiceMatchAllocation>(model, "invoice_match_allocations");
         ConfigureBase<InvoiceMatchExposureState>(model, "invoice_match_exposure_states");
+        ConfigureBase<InvoiceProcurementOwnerBaseline>(model, "invoice_owner_baselines");
+        ConfigureBase<InvoiceProcurementOwnerBaselineRow>(model, "invoice_owner_baseline_rows");
+        var ownerBaseline=model.Entity<InvoiceProcurementOwnerBaseline>();
+        ownerBaseline.Property(x=>x.CapturedThroughMigration).HasMaxLength(150);
+        ownerBaseline.Property(x=>x.CatalogManifestJson).HasColumnType("text");
+        ownerBaseline.Property(x=>x.MakerPrincipalId).HasMaxLength(200);
+        foreach(var name in new[]{nameof(InvoiceProcurementOwnerBaseline.CatalogManifestSha256),nameof(InvoiceProcurementOwnerBaseline.InventorySetSha256),nameof(InvoiceProcurementOwnerBaseline.InitialActiveClaimsSha256)})
+            ownerBaseline.Property(name).HasMaxLength(64);
+        // Retain rejected/stale captures. The qualified owner must choose one
+        // approved current capture under the serializable exposure lock.
+        ownerBaseline.HasIndex(x=>new{x.TenantId,x.LegalEntityId,x.CapturedAtUtc});
+        ownerBaseline.HasIndex(x=>new{x.TenantId,x.LegalEntityId,x.CoreCaseId}).IsUnique().HasDatabaseName("ux_invoice_owner_baseline_case");
+        ownerBaseline.ToTable(t=>t.HasCheckConstraint("ck_invoice_owner_baseline",
+            "schema_version=2 AND initial_exposure_sequence>=0 AND inventory_row_count>=0 AND core_case_id <> '00000000-0000-0000-0000-000000000000'::uuid AND catalog_manifest_sha256 ~ '^[0-9a-f]{64}$' AND inventory_set_sha256 ~ '^[0-9a-f]{64}$' AND initial_active_claims_sha256 ~ '^[0-9a-f]{64}$' AND octet_length(catalog_manifest_json) BETWEEN 1 AND 262144 AND maker_principal_id ~ '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$' AND isfinite(captured_at_utc)"));
+        var ownerRow=model.Entity<InvoiceProcurementOwnerBaselineRow>();
+        ownerRow.Property(x=>x.TableName).HasMaxLength(100);
+        ownerRow.Property(x=>x.InitialClassification).HasMaxLength(50);
+        ownerRow.Property(x=>x.OriginalRowSha256).HasMaxLength(64);
+        ownerRow.Property(x=>x.ImmutableFieldsSha256).HasMaxLength(64);
+        ownerRow.HasOne<InvoiceProcurementOwnerBaseline>().WithMany().HasForeignKey(x=>new{x.TenantId,x.LegalEntityId,x.BaselineId})
+            .HasPrincipalKey(x=>new{x.TenantId,x.LegalEntityId,x.Id}).OnDelete(DeleteBehavior.Restrict);
+        ownerRow.HasIndex(x=>new{x.TenantId,x.LegalEntityId,x.BaselineId,x.TableName,x.SourceRowId})
+            .IsUnique().HasDatabaseName("ux_invoice_owner_original_row");
+        ownerRow.ToTable(t=>t.HasCheckConstraint("ck_invoice_owner_baseline_row",
+            "source_row_id <> '00000000-0000-0000-0000-000000000000'::uuid AND source_row_version>0 AND table_name ~ '^[a-z][a-z0-9_]{0,99}$' AND initial_classification IN ('ClaimBearing','HistoricalOnly','MutableDraft','BlockedAmbiguity') AND original_row_sha256 ~ '^[0-9a-f]{64}$' AND immutable_fields_sha256 ~ '^[0-9a-f]{64}$'"));
         var mapping = model.Entity<InvoiceMatchMappingVersion>();
         mapping.Property(x => x.MappingJson).HasColumnType("text"); mapping.Property(x => x.VerificationEvidenceJson).HasColumnType("text");
         mapping.Property(x => x.MappingSha256).HasMaxLength(64); mapping.Property(x => x.InvoiceOriginalSha256).HasMaxLength(64);
