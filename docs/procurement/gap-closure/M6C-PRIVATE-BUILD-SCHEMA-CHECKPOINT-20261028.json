@@ -1,0 +1,108 @@
+{
+  "candidateImage": {
+    "changedFiles": 8,
+    "containerStarted": false,
+    "imageId": "sha256:06afd49034c0d0ea9d290760daf210de1541eda2614ece55acf90b3fb347d4a0",
+    "productionMutation": false,
+    "publicationFiles": 150,
+    "receiptSha256": "051513d600b7c31f13eef38dc54e610df29c67361d07840f3b4229c3ccef326f",
+    "status": "PASS_PRIVATE_M6C_IMAGE_ALL150_PUBLICATION_BYTES"
+  },
+  "date": "2026-10-28",
+  "erpSourceCommit": "921e4abc29c7a052a1a24100d85bbf5fa1e63ee8",
+  "financePostingScope": "Owned by the future Finance module; not required for this review checkpoint and not implemented here.",
+  "integratedSdk": {
+    "independentRetainedVerification": {
+      "controllerResourceBudgetExceeded": true,
+      "genuineUpAndGuardedDownVerified": {
+        "databaseAccess": false,
+        "onlyCToB2Exported": true,
+        "soleFirstDownGuardBeforeCheckRevert": true,
+        "upExactGenuineRaw": true
+      },
+      "noPendingEfModelChanges": true,
+      "publicationFiles": 150,
+      "publicationManifestSha256": "4cd30b8a87cf1fdaeeed11fda4c81680f1be8d7e22c8d9b4fa7976317f0b7e73",
+      "receiptSha256": "32e3f6a1e4346e9c7f4ad6f3dedf674d40cf9959b00028729f1aa52a9eb0b323",
+      "sourceArchiveSha256": "9bf80a7049adfd578fb057661ad8e7a6bd62245b440b6d6e31203f477dec78a7",
+      "status": "PASS_RETAINED_M6C_BUILD_TESTS_PUBLISH_AFTER_EVIDENCE_BUDGET_STOP",
+      "tests": {
+        "host": {
+          "failed": 0,
+          "passed": 669,
+          "skipped": 0,
+          "total": 669,
+          "trxSha256": "5bc5fbcea579ba9ab60f6ba9d8484d5c76af19e82cb33ef7c16dee2d6860a574"
+        },
+        "host-focused": {
+          "failed": 0,
+          "passed": 1,
+          "skipped": 0,
+          "total": 1,
+          "trxSha256": "988290eeb224d00044b1da24f19101bd56ee70521c2b3f6cd10d207f5e20e89a"
+        },
+        "procurement": {
+          "failed": 0,
+          "passed": 1567,
+          "skipped": 0,
+          "total": 1567,
+          "trxSha256": "53e87996cb024059023f43affb5cc800b3d3a0c91aa1d533def5c33865c98cac"
+        }
+      }
+    },
+    "run01": {
+      "failure": "one branch-scope test fixture",
+      "hostPassed": 668,
+      "hostTotal": 669,
+      "receiptSha256": "eedf33f2c49bb9e8cc5d41b6380b7ee32e0c639dce134c063d64c88ae082a7f6",
+      "sourceCommit": "39d8a7de96b8f7d8e02817097485cc2ad449e882",
+      "status": "FAILED_M6C_INTEGRATED_SDK"
+    },
+    "run02": {
+      "dockerClientExitCode": 0,
+      "dockerContainerExitCode": 0,
+      "dockerOOMKilled": false,
+      "originalControllerPassClaim": false,
+      "reason": "EvidenceGrowth",
+      "receiptSha256": "4b23c5a61174f6bca2d711c31564d7570d42b00ef8c9b1fa62dd39f21c41192a",
+      "status": "FAILED_M6C_INTEGRATED_SDK"
+    },
+    "testFixtureFixCommit": "921e4abc29c7a052a1a24100d85bbf5fa1e63ee8"
+  },
+  "pending": {
+    "browserAcceptance": true,
+    "manualOpenAndIndependentDecision": true,
+    "originalKeyRecovery": true,
+    "productionActivation": true,
+    "qualifiedCompareAndClaims": true,
+    "realCookiePolicy": true,
+    "source4RetainedVeto": true
+  },
+  "privateSchema": {
+    "acceptedBSourceUnchanged": true,
+    "genuineUpReceiptSha256": "2eab16a28b7582792f59e13614b33e7939593191493e61f5c20b349111051154",
+    "genuineUpStatus": "PASS_PRIVATE_M6C_GENUINE_RAW_UP_ONLY_OLD_ROWS_PRESERVED",
+    "guardedRoundtripReceiptSha256": "78b80e255ef4322055ab204a00541cb98de910d45c01f8ec531866ff6ddf1df3",
+    "guardedRoundtripStatus": "PASS_PRIVATE_M6C_GUARDED_EMPTY_DOWN_UP_OLD_ROWS_PRESERVED",
+    "oldRowsAndSecurityPreserved": true,
+    "productionMutation": false,
+    "rawDownExecuted": false,
+    "source4RetainedVetoProved": false,
+    "tableCount": 223
+  },
+  "productionMutation": false,
+  "schemaVersion": 1,
+  "status": "PRIVATE_M6C_BUILD_SCHEMA_CHECKPOINT_NOT_WORKFLOW_ACCEPTANCE",
+  "uiBuild": {
+    "apiCalled": false,
+    "assetFiles": 5,
+    "browserExecuted": false,
+    "canonicalRoutes": 112,
+    "liveMode": true,
+    "productionDeployed": false,
+    "receiptSha256": "250444152fbab2e3f371b1cb1d6abf61b96d4713b10bb1cb38e7ba32e144fe38",
+    "status": "PASS_PRIVATE_M6C_LIVE_UI_BUILD_SOURCE_ONLY",
+    "transformedModules": 1844
+  },
+  "uiSourceCommit": "56fbd3b90a6f57854717a6dfc8e55203108a1312"
+}
