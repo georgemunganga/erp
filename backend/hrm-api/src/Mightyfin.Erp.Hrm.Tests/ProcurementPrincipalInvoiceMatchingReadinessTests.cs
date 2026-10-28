@@ -33,8 +33,19 @@ public sealed class ProcurementPrincipalInvoiceMatchingReadinessTests
         Assert.Contains("procurement.commercial_command_receipts','SELECT'",read,StringComparison.Ordinal);
         Assert.DoesNotContain("procurement.commercial_command_receipts','INSERT'",read,StringComparison.Ordinal);
         Assert.Contains("procurement.commercial_command_receipts','INSERT'",write,StringComparison.Ordinal);
-        Assert.Contains("core_approval.decisions','INSERT'",write,StringComparison.Ordinal);
+        Assert.DoesNotContain("core_approval.decisions','INSERT'",write,StringComparison.Ordinal);
         Assert.DoesNotContain("core_approval.decisions','INSERT'",read,StringComparison.Ordinal);
+        foreach(var table in new[]{"invoice_match_mapping_versions","invoice_match_allocations",
+            "invoice_match_results","invoice_match_exposure_states","invoice_exceptions",
+            "commercial_command_receipts","audit_events","outbox_events"})
+            Assert.Contains("'procurement."+table+"','INSERT'",write,StringComparison.Ordinal);
+        foreach(var table in new[]{"invoice_owner_baselines","invoice_owner_baseline_rows",
+            "invoice_owner_command_receipts"})
+            Assert.DoesNotContain("'procurement."+table+"','INSERT'",write,StringComparison.Ordinal);
+        Assert.DoesNotContain("'core_approval.cases','INSERT'",write,StringComparison.Ordinal);
+        Assert.DoesNotContain("'core_approval.assignments','UPDATE'",write,StringComparison.Ordinal);
+        Assert.Contains("NOT has_database_privilege(current_user,current_database(),'CREATE')",write,StringComparison.Ordinal);
+        Assert.Contains("NOT has_any_column_privilege(current_user,'procurement.finance_payment_status_refs','UPDATE')",write,StringComparison.Ordinal);
         var privileged=ProcurementPrincipalInvoiceMatchingReadiness.PrivilegeSql(false,"postgres");
         Assert.Contains("current_user='postgres'",privileged,StringComparison.Ordinal);
         Assert.Contains("r.rolsuper OR r.rolcreatedb",privileged,StringComparison.Ordinal);
