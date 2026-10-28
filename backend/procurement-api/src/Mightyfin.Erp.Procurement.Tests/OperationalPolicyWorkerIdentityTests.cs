@@ -14,6 +14,23 @@ public sealed class OperationalPolicyWorkerIdentityTests
     private static readonly DateTimeOffset At = new(2026, 10, 22, 12, 0, 0, TimeSpan.Zero);
 
     [Fact]
+    public void Invoice_owner_baseline_identity_requires_schema_two_Core_principal_without_worker()
+    {
+        var policy=new PolicyVersion
+        {
+            TenantId="tenant",LegalEntityId=Guid.NewGuid(),
+            PolicyKey=InvoiceProcurementBaselineReviewPolicyRules.PolicyKey,
+            PolicyVersionNumber=1,RulesJson="{\"schemaVersion\":1}",
+            CreatedBy=Maker,CreatedAt=At,EffectiveFrom=At.AddDays(-2),
+            State="Draft",Version=1
+        };
+        var created=OperationalPolicyWorkerIdentity.Capture(policy,"Created",Maker,null,1,At,schemaVersion:2);
+        OperationalPolicyWorkerIdentity.VerifyOrigin(policy,created);
+        Assert.Throws<InvalidOperationException>(()=>OperationalPolicyWorkerIdentity.Capture(
+            policy,"Created",Maker,MakerWorker,1,At,schemaVersion:1));
+    }
+
+    [Fact]
     public void Version_two_uses_named_Core_authors_and_independent_reviewers_without_employees()
     {
         var f = new Fixture("INVOICE_MATCHING"); var policy = f.Policy;

@@ -30,7 +30,7 @@ public static partial class ProcurementPolicyDraftRoutes
         => RunOperationalPolicyMutation(null, id, db, organizationDb, scope, http, ct,
             core => ReturnForChangesPolicy(id, input, db, core, scope, http, ct));
 
-    private static bool IsOperationalIdentityPolicy(string? key) => key is "RECEIVING" or "INVOICE_MATCHING" or "INVOICE_UNIT_REVIEW" or "MANUAL_PAYMENT_REVIEW";
+    private static bool IsOperationalIdentityPolicy(string? key) => key is "RECEIVING" or "INVOICE_MATCHING" or "INVOICE_UNIT_REVIEW" or "MANUAL_PAYMENT_REVIEW" or InvoiceProcurementBaselineReviewPolicyRules.PolicyKey;
 
     private static async Task<IResult> RunOperationalPolicyMutation(string? createKey, Guid? id,
         ProcurementDbContext db, HrmDbContext originalCore, ProcurementRequestScope scope, HttpContext http,

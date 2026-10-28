@@ -98,7 +98,7 @@ public static class InvoiceRetainedUnitReview
             && context.BranchId == invoice.BranchRef && context.At != default && context.DocumentVersionHashes is not null
             && invoice.CurrentMappingVersionId == mapping.Id && invoice.MappingRevision == mapping.MappingRevision);
         Need(originalLines is not null && originalLines.Count is > 0 and <= 200);
-        var snapshot = InvoiceMappingEvidence.Verify(mapping, invoice, originalLines);
+        var snapshot = InvoiceMappingReviewSourceDispatch.Verify(mapping, invoice, originalLines);
         Need(authority.ReviewId != Guid.Empty && authority.ReviewSourceVersion > 0
             && Sha(authority.EvidenceSha256) && !string.IsNullOrWhiteSpace(authority.EvidenceJson));
         ValidateJson(authority.EvidenceJson); // Bound work before shared canonical duplicate validation.

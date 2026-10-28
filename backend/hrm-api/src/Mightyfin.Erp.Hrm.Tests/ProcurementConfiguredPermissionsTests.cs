@@ -7,6 +7,26 @@ namespace Mightyfin.Erp.Hrm.Tests;
 public sealed class ProcurementConfiguredPermissionsTests
 {
     [Theory]
+    [InlineData("procurement-invoice-owner-baseline-open")]
+    [InlineData("procurement-invoice-owner-baseline-read")]
+    [InlineData("procurement-invoice-owner-baseline-review")]
+    public void Invoice_owner_baseline_actions_require_explicit_configured_Core_grants(string action)
+    {
+        var catalog=Mightyfin.Erp.Hrm.Application.ProcurementActionCatalog.AdminReadCatalog();
+        Assert.Contains(catalog,x=>x.Key==action && x.Group=="Invoices");
+        Assert.True(Mightyfin.Erp.Hrm.Application.ProcurementActionCatalog.RequiresExplicitConfiguredGrant(action));
+        Assert.Empty(Mightyfin.Erp.Hrm.Application.ProcurementActionCatalog.BootstrapGrants[action]);
+        Assert.DoesNotContain(action,Mightyfin.Erp.Hrm.Application.ProcurementActionCatalog
+            .ResolveConfiguredActionsForRole("erp_admin","erp_admin"));
+        Assert.False(ProcurementPermissions.Allows(action,[new Claim(ClaimTypes.Role,"erp_admin")]));
+        Assert.True(ProcurementPermissions.Allows(action,[
+            new Claim(ProcurementPermissions.ConfiguredClaim,"true"),
+            new Claim(ProcurementPermissions.ActionClaim,"procurement-access"),
+            new Claim(ProcurementPermissions.ActionClaim,action)]));
+        Assert.Contains(action,JobsAdminServiceImpl.PermissionKeys);
+    }
+
+    [Theory]
     [InlineData("procurement-return-read")]
     [InlineData("procurement-return-create")]
     [InlineData("procurement-return-edit")]

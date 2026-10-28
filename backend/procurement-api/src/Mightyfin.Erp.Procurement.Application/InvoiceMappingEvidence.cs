@@ -53,7 +53,7 @@ public static class InvoiceMappingEvidence
             && mapping.MappingRevision > 0 && mapping.InvoiceOriginalSha256 == OriginalDigest(invoice, lines)
             && mapping.MappingSha256 == ProcurementEvidenceEncoding.PolicyJsonDigest(mapping.MappingJson), "InvoiceMappingEvidenceChanged");
         var snapshot = JsonSerializer.Deserialize<InvoiceMappingSnapshot>(mapping.MappingJson, Json) ?? throw new InvalidOperationException("InvoiceMappingEvidenceChanged");
-        Need(mapping.IdentitySchemaVersion is 1 or 2 && snapshot.SchemaVersion == mapping.IdentitySchemaVersion
+        Need(mapping.SourceSchemaVersion is null && mapping.IdentitySchemaVersion is 1 or 2 && snapshot.SchemaVersion == mapping.IdentitySchemaVersion
             && ProcurementPrincipalEvidence.OptionalWorker(mapping.ActorWorkerId)
             && (mapping.IdentitySchemaVersion == 1 ? mapping.ActorWorkerId is not null && snapshot.ActorPrincipalId is null && snapshot.ActorWorkerId is null
                 : ProcurementPrincipalEvidence.Canonical(mapping.ActorPrincipalId) && snapshot.ActorPrincipalId == mapping.ActorPrincipalId && snapshot.ActorWorkerId == mapping.ActorWorkerId)

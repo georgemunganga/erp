@@ -170,6 +170,8 @@ public sealed class JobsAdminTests
             .Except(["procurement-vendor-export", "procurement-item-export",
                 "procurement-vendor-import", "procurement-item-import",
                 "procurement-sourcing-submit", "procurement-sourcing-publish",
+                "procurement-invoice-owner-baseline-open", "procurement-invoice-owner-baseline-read",
+                "procurement-invoice-owner-baseline-review",
                 "procurement-return-read", "procurement-return-create", "procurement-return-edit"])
             .Order(StringComparer.Ordinal).ToArray();
         Assert.Equal(expectedLegacyAdmin, admin.EffectiveProcurementPermissions);

@@ -35,6 +35,17 @@ public sealed record InvoiceOwnerExposureEnvelope(int SchemaVersion, string Tena
     Guid? BranchId, Guid PurchaseOrderId, Guid IssuedVersionId, Guid SupplierId, string CurrencyCode,
     string PolicyRulesSha256, string OwnerReference, string Watermark, DateTimeOffset ValidUntil,
     string AllocationsSha256);
+/// <summary>The Procurement-owned checkpoint binds one independently reviewed
+/// immutable baseline to a complete current inventory and the old-claim
+/// partition. Its producer must verify the Core decision and full live set in
+/// the comparison's serializable transaction before issuing this envelope.</summary>
+public sealed record InvoiceProcurementOwnerExposureEnvelope(int SchemaVersion, string TenantId,
+    Guid LegalEntityId, Guid? BranchId, Guid PurchaseOrderId, Guid IssuedVersionId,
+    Guid SupplierId, string CurrencyCode, string PolicyRulesSha256, string OwnerReference,
+    string Watermark, DateTimeOffset ValidUntil, string AllocationsSha256,
+    Guid BaselineId, Guid CoreCaseId, string CatalogManifestSha256,
+    string BaselineSetSha256, string CurrentSetSha256, string HistoricalClaimsSha256,
+    string LocalClaimsSha256, string UnionClaimsSha256, long ExposureSequence);
 public sealed record InvoiceActiveLocalClaim(InvoiceMatchAllocation Allocation, SupplierInvoice Invoice);
 public sealed record InvoiceExposureReadContext(string TenantId, Guid LegalEntityId, Guid? BranchId,
     Guid PurchaseOrderId, Guid IssuedVersionId, Guid SupplierId, string CurrencyCode,

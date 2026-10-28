@@ -9,6 +9,9 @@ public sealed partial class ProcurementDbContext
     public DbSet<InvoiceMatchMappingVersion> InvoiceMatchMappingVersions => Set<InvoiceMatchMappingVersion>();
     public DbSet<InvoiceMatchAllocation> InvoiceMatchAllocations => Set<InvoiceMatchAllocation>();
     public DbSet<InvoiceMatchExposureState> InvoiceMatchExposureStates => Set<InvoiceMatchExposureState>();
+    public DbSet<InvoiceProcurementOwnerBaseline> InvoiceProcurementOwnerBaselines => Set<InvoiceProcurementOwnerBaseline>();
+    public DbSet<InvoiceProcurementOwnerBaselineRow> InvoiceProcurementOwnerBaselineRows => Set<InvoiceProcurementOwnerBaselineRow>();
+    public DbSet<InvoiceProcurementOwnerCommandReceipt> InvoiceProcurementOwnerCommandReceipts => Set<InvoiceProcurementOwnerCommandReceipt>();
 
     private void ConfigureInvoiceMatchingExecution(ModelBuilder model)
     {
@@ -20,16 +23,56 @@ public sealed partial class ProcurementDbContext
         ConfigureBase<InvoiceMatchMappingVersion>(model, "invoice_match_mapping_versions");
         ConfigureBase<InvoiceMatchAllocation>(model, "invoice_match_allocations");
         ConfigureBase<InvoiceMatchExposureState>(model, "invoice_match_exposure_states");
+        ConfigureBase<InvoiceProcurementOwnerBaseline>(model, "invoice_owner_baselines");
+        ConfigureBase<InvoiceProcurementOwnerBaselineRow>(model, "invoice_owner_baseline_rows");
+        ConfigureBase<InvoiceProcurementOwnerCommandReceipt>(model, "invoice_owner_command_receipts");
+        var ownerBaseline=model.Entity<InvoiceProcurementOwnerBaseline>();
+        ownerBaseline.Property(x=>x.CapturedThroughMigration).HasMaxLength(150);
+        ownerBaseline.Property(x=>x.CatalogManifestJson).HasColumnType("text");
+        ownerBaseline.Property(x=>x.MakerPrincipalId).HasMaxLength(200);
+        foreach(var name in new[]{nameof(InvoiceProcurementOwnerBaseline.CatalogManifestSha256),nameof(InvoiceProcurementOwnerBaseline.InventorySetSha256),nameof(InvoiceProcurementOwnerBaseline.InitialActiveClaimsSha256),nameof(InvoiceProcurementOwnerBaseline.InitialExposureSetSha256)})
+            ownerBaseline.Property(name).HasMaxLength(64);
+        // Retain rejected/stale captures. The qualified owner must choose one
+        // approved current capture under the serializable exposure lock.
+        ownerBaseline.HasIndex(x=>new{x.TenantId,x.LegalEntityId,x.CapturedAtUtc});
+        ownerBaseline.HasIndex(x=>new{x.TenantId,x.LegalEntityId,x.CoreCaseId}).IsUnique().HasDatabaseName("ux_invoice_owner_baseline_case");
+        ownerBaseline.ToTable(t=>t.HasCheckConstraint("ck_invoice_owner_baseline",
+            "schema_version=2 AND inventory_row_count>=0 AND core_case_id <> '00000000-0000-0000-0000-000000000000'::uuid AND catalog_manifest_sha256 ~ '^[0-9a-f]{64}$' AND inventory_set_sha256 ~ '^[0-9a-f]{64}$' AND initial_active_claims_sha256 ~ '^[0-9a-f]{64}$' AND initial_exposure_set_sha256 ~ '^[0-9a-f]{64}$' AND octet_length(catalog_manifest_json) BETWEEN 1 AND 262144 AND maker_principal_id ~ '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$' AND isfinite(captured_at_utc)"));
+        var ownerRow=model.Entity<InvoiceProcurementOwnerBaselineRow>();
+        ownerRow.Property(x=>x.TableName).HasMaxLength(100);
+        ownerRow.Property(x=>x.InitialClassification).HasMaxLength(50);
+        ownerRow.Property(x=>x.OriginalRowSha256).HasMaxLength(64);
+        ownerRow.Property(x=>x.ImmutableFieldsSha256).HasMaxLength(64);
+        ownerRow.HasOne<InvoiceProcurementOwnerBaseline>().WithMany().HasForeignKey(x=>new{x.TenantId,x.LegalEntityId,x.BaselineId})
+            .HasPrincipalKey(x=>new{x.TenantId,x.LegalEntityId,x.Id}).OnDelete(DeleteBehavior.Restrict);
+        ownerRow.HasIndex(x=>new{x.TenantId,x.LegalEntityId,x.BaselineId,x.TableName,x.SourceRowId})
+            .IsUnique().HasDatabaseName("ux_invoice_owner_original_row");
+        ownerRow.ToTable(t=>t.HasCheckConstraint("ck_invoice_owner_baseline_row",
+            "source_row_id <> '00000000-0000-0000-0000-000000000000'::uuid AND source_row_version>0 AND table_name ~ '^[a-z][a-z0-9_]{0,99}$' AND initial_classification IN ('ClaimBearing','HistoricalOnly','MutableDraft','BlockedAmbiguity') AND original_row_sha256 ~ '^[0-9a-f]{64}$' AND immutable_fields_sha256 ~ '^[0-9a-f]{64}$'"));
+        var ownerReceipt=model.Entity<InvoiceProcurementOwnerCommandReceipt>();
+        ownerReceipt.Property(x=>x.Operation).HasMaxLength(20);
+        ownerReceipt.Property(x=>x.ActorPrincipalId).HasMaxLength(200);
+        ownerReceipt.Property(x=>x.RequestSha256).HasMaxLength(64);
+        ownerReceipt.Property(x=>x.ResponseSha256).HasMaxLength(64);
+        ownerReceipt.Property(x=>x.ResponseJson).HasColumnType("text");
+        ownerReceipt.HasOne<InvoiceProcurementOwnerBaseline>().WithMany()
+            .HasForeignKey(x=>new{x.TenantId,x.LegalEntityId,x.BaselineId})
+            .HasPrincipalKey(x=>new{x.TenantId,x.LegalEntityId,x.Id}).OnDelete(DeleteBehavior.Restrict);
+        ownerReceipt.HasIndex(x=>new{x.TenantId,x.LegalEntityId,x.CommandKey}).IsUnique()
+            .HasDatabaseName("ux_invoice_owner_command_key");
+        ownerReceipt.ToTable(t=>t.HasCheckConstraint("ck_invoice_owner_command_receipt",
+            "schema_version=2 AND version=1 AND updated_at IS NULL AND updated_by IS NULL AND isfinite(created_at) AND created_by=actor_principal_id AND baseline_id <> '00000000-0000-0000-0000-000000000000'::uuid AND core_case_id <> '00000000-0000-0000-0000-000000000000'::uuid AND command_key <> '00000000-0000-0000-0000-000000000000'::uuid AND operation IN ('Open','Decide') AND ((operation='Open' AND core_decision_id IS NULL AND response_status=201) OR (operation='Decide' AND core_decision_id IS NOT NULL AND core_decision_id <> '00000000-0000-0000-0000-000000000000'::uuid AND response_status=200)) AND core_case_version>0 AND actor_principal_id ~ '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$' AND (actor_worker_alias_id IS NULL OR actor_worker_alias_id <> '00000000-0000-0000-0000-000000000000'::uuid) AND request_sha256 ~ '^[0-9a-f]{64}$' AND response_sha256 ~ '^[0-9a-f]{64}$' AND octet_length(response_json) BETWEEN 2 AND 65536"));
         var mapping = model.Entity<InvoiceMatchMappingVersion>();
         mapping.Property(x => x.MappingJson).HasColumnType("text"); mapping.Property(x => x.VerificationEvidenceJson).HasColumnType("text");
         mapping.Property(x => x.MappingSha256).HasMaxLength(64); mapping.Property(x => x.InvoiceOriginalSha256).HasMaxLength(64);
         mapping.Property(x => x.IdentitySchemaVersion).HasDefaultValue(1);
+        mapping.Property(x => x.SourceSchemaVersion).HasColumnName("source_schema_version");
         mapping.Property(x => x.ActorPrincipalId).HasMaxLength(200); mapping.Property(x => x.VerificationState).HasMaxLength(100);
         mapping.HasIndex(x => new { x.TenantId, x.LegalEntityId, x.SupplierInvoiceId, x.MappingRevision }).IsUnique();
         Link<InvoiceMatchMappingVersion, SupplierInvoice>(model, nameof(InvoiceMatchMappingVersion.SupplierInvoiceId));
         mapping.HasOne<PurchaseOrderIssuedVersion>().WithMany().HasForeignKey(x => new { x.TenantId, x.LegalEntityId, x.IssuedVersionId, x.PurchaseOrderId })
             .HasPrincipalKey(x => new { x.TenantId, x.LegalEntityId, x.Id, x.PurchaseOrderId }).OnDelete(DeleteBehavior.Restrict);
-        mapping.ToTable(t => t.HasCheckConstraint("ck_invoice_mapping_evidence", "mapping_revision > 0 AND mapping_sha256 ~ '^[0-9a-f]{64}$' AND invoice_original_sha256 ~ '^[0-9a-f]{64}$' AND identity_schema_version IN (1,2) AND (identity_schema_version=2 OR actor_worker_id IS NOT NULL) AND (actor_worker_id IS NULL OR actor_worker_id <> '00000000-0000-0000-0000-000000000000'::uuid) AND actor_principal_id IS NOT NULL AND (identity_schema_version=1 OR (actor_principal_id ~ '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$' AND actor_principal_id <> '00000000-0000-0000-0000-000000000000'))"));
+        mapping.ToTable(t => t.HasCheckConstraint("ck_invoice_mapping_evidence", "mapping_revision > 0 AND mapping_sha256 ~ '^[0-9a-f]{64}$' AND invoice_original_sha256 ~ '^[0-9a-f]{64}$' AND identity_schema_version IN (1,2) AND (source_schema_version IS NULL OR (source_schema_version=3 AND identity_schema_version=2)) AND (identity_schema_version=2 OR actor_worker_id IS NOT NULL) AND (actor_worker_id IS NULL OR actor_worker_id <> '00000000-0000-0000-0000-000000000000'::uuid) AND actor_principal_id IS NOT NULL AND (identity_schema_version=1 OR (actor_principal_id ~ '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$' AND actor_principal_id <> '00000000-0000-0000-0000-000000000000'))"));
         var exposure = model.Entity<InvoiceMatchExposureState>();
         exposure.Property(x => x.CurrencyCode).HasMaxLength(3); exposure.Property(x => x.CoverageState).HasMaxLength(30);
         exposure.Property(x => x.OwnerReference).HasMaxLength(500); exposure.Property(x => x.OwnerWatermark).HasMaxLength(500);
@@ -105,7 +148,7 @@ public sealed partial class ProcurementDbContext
             {
                 var invoice = ApprovalEvidence<SupplierInvoice>(entry.Entity.SupplierInvoiceId) ?? throw new InvalidOperationException("InvoiceMappingSourceMissing");
                 var lines = SupplierInvoiceLines.Where(x => x.SupplierInvoiceId == invoice.Id && x.IsActive).ToArray();
-                InvoiceMappingEvidence.Verify(entry.Entity, invoice, lines);
+                _ = InvoiceMappingReviewSourceDispatch.Verify(entry.Entity, invoice, lines);
                 if (entry.Entity.ActorPrincipalId != scope.SubjectId || !ProcurementPrincipalEvidence.OptionalWorker(entry.Entity.ActorWorkerId)
                     || entry.Entity.IdentitySchemaVersion == 2 && entry.Entity.ActorWorkerId != scope.CoreLinkedWorkerId) throw new InvalidOperationException("InvoiceMappingActorInvalid");
             }

@@ -14,6 +14,9 @@ public sealed class InvoiceMatchMappingVersion : ProcurementRecord
     public string VerificationEvidenceJson { get; init; } = "{}";
     public string ActorPrincipalId { get; init; } = null!;
     public int IdentitySchemaVersion { get; init; } = 1;
+    /// <summary>Null on retained v1/v2 rows. Version 3 is the separate principal
+    /// receiving source payload; it does not change Core identity schema 2.</summary>
+    public int? SourceSchemaVersion { get; init; }
     public Guid? ActorWorkerId { get; init; }
     public DateTimeOffset ReviewedAt { get; init; }
 }
