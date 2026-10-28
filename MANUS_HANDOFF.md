@@ -1,6 +1,6 @@
-# Accepted return requests and current prerequisites — 28 October 2026
+# M5 technical release and current prerequisites — 28 October 2026
 
-Published ERP main: `33f08bf8585b5931fb07be5eb451a9b098a6749f` (PR127).
+Published ERP main: `7a19b7b595806b7fc7181d41908182b094c0bb9f` (through PR131).
 Published Procurement UI main: `47cac6a13a24e9db113383f8a9cf5b319494d526`
 (PR92, `georgemunganga/module-connect`). Use current main descendants.
 These include M5b receiving and M5c company-local service-date source fixes.
@@ -12,16 +12,29 @@ all cohort sessions are revoked, temporary role rows restored and private
 API/proxy services stopped. See [M5d scope and evidence](docs/procurement/gap-closure/M5D-GOODS-RETURN-PROPOSALS-20261028.md).
 Do not duplicate M5b/M5c/M5d or resume held P37 migrations.
 
-Production remains M4. Next release work requires current-row compatibility,
-recoverable backup, finite grants, paired publication and authenticated smoke.
+Production M5 technical rollout and observed restore-readiness fix are complete:
+product `6087f211`, UI `47cac6a1`,
+220 tables, independently preserved original203 rows/sequences, finite grants,
+read-only canary, public route/asset checks and three Playwright renders passed.
+Existing business flags are preserved; new return writes remain off. See the
+[release record](docs/procurement/gap-closure/M5-PRODUCTION-TECHNICAL-RELEASE-20261028.md).
+The [API-only recovery fix](docs/procurement/gap-closure/M5-RESTORE-READINESS-PRODUCTION-20261028.md)
+preserves schema, settings, permissions, publisher and UI. Authenticated
+production CRUD is not claimed.
 Whole-module UAT is open: actual return approval/dispatch/reversal, qualified
-invoice source/consumption ownership, native Service/UI journeys and broader
-scope/concurrency tests remain. Return requests alone change no accepted,
+invoice source/consumption ownership, the original Service UI journey and broader
+scope/concurrency tests remain. A private normal-cookie Service API journey now
+has scoped owner and Core UTC-date acceptance; see the
+[Service checkpoint](docs/procurement/gap-closure/M5-SERVICE-RESTORE-READINESS-PRIVATE-CHECKPOINT-20261028.md).
+It does not establish production Service activation or non-UTC/multibranch UAT.
+Return requests alone change no accepted,
 Inventory, credit or Finance balance. Core retains shared identity/roles/scope,
 organisation/calendar/branding ownership.
 
-Root owns receiving/matching/release follow-up. Existing independent C04
-ownership is unchanged; no new Manus implementation assignment is made here.
+Root owns release follow-up. Active agent work covers the Service restore-readiness
+release review and M6 principal invoice matching specification/implementation. No
+new Manus implementation assignment is made by these agent scopes. Existing
+independent C04 ownership is unchanged.
 
 The checkpoints below are historical. Their invitations and baseline claims are
 superseded by this active ownership section.

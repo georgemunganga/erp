@@ -54,7 +54,8 @@ public sealed class ProcurementPrincipalApprovalStoreReadiness(IApprovalScope co
     internal static bool MatchesCapturedCheck(string key,string expected,string actual) =>
         CheckDefinitions.TryGetValue(key,out var captured) && expected==captured
             && (actual==captured || RestoredCheckDefinitions.TryGetValue(key,out var restored)
-                && actual==restored || key=="procurement.spending_authority_identity_evidence.ck_authority_identity_evidence"
+                && actual==restored || ProcurementRestoreCheckAlternatives.Matches(key,captured,actual)
+                || key=="procurement.spending_authority_identity_evidence.ck_authority_identity_evidence"
                 && (M4PrincipalRfqPhysicalChecks.Matches("ck_authority_identity_evidence",actual)
                     || ProcurementPrincipalOrderGovernancePhysicalSchema.MatchesCapturedCheck(key,actual)));
 

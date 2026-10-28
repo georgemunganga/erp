@@ -1,0 +1,59 @@
+{
+  "status": "PASS_PRIVATE_M5_SERVICE_API_NATIVE_SCOPED_UAT_WITH_OWNER_AND_RESTORATION",
+  "dateUtc": "2026-10-28",
+  "productCommit": "6087f2112fdb3b4eb977a33659ac9522026a1a41",
+  "scope": "isolated private clone, genuine Core password-cookie API, read-only native owner verification",
+  "restoreReadiness": {
+    "newExactQualifiedPairs": 23,
+    "preexistingM4ExactForms": 3,
+    "observedRestoredFormsCovered": 26,
+    "p28ExpectedFingerprintPreserved": true,
+    "ddlOrGrantChangedByProductFix": false
+  },
+  "sdk": {
+    "hostPassed": 174,
+    "hostFailed": 0,
+    "pendingEfModelChanges": false,
+    "apiPublicationFiles": 150,
+    "apiPublicationManifestSha256": "b5b3c65a5aa1418f6f630a96a353f071613bcb7dcbb107b4ba3dae81724adcfa"
+  },
+  "service": {
+    "certifiedQuantityExact": "1.0000",
+    "certifiedNetAmountExact": "5.1234",
+    "coreCompanyTimeZoneId": "UTC",
+    "coreCompanyBusinessDate": "2026-10-28",
+    "originalKeyCertifyRecoveryVerified": true,
+    "independentOwnerLinksVerified": true,
+    "temporaryPrivateRolesRestored": true,
+    "activeSyntheticSessions": 0,
+    "ownedPrivateRuntimeStopped": true
+  },
+  "evidenceSha256": {
+    "observedCheckComparison": "15cd065afe53b6a687a649ce173ddbaae1f9ee747bbc4e7964c6161f9c83c52a",
+    "genuineSdk": "6f0df8bee4b474cbfc8e101df863ef90bf95a6d543fd044b05193736912ab810",
+    "privateP28Fingerprint": "79d55725a60ecda45366f2113344922b5f76df04fa2b47f1f22c281549a8d8f0",
+    "serviceSourceProducer": "0aa807bc92c13d30ae988b6d50520ca00a30a7182449417c610b45cbdd73ed60",
+    "issuedSourceOwner": "b21a6c17aee153df8de811fa7ef9ccc5837af88bfd58dad01a9cb6953cfbc6cb",
+    "historicalAuthorityFailure": "e6cc40388ff051626bf528ec319409a702878265841c293cf338e449a8585f9d",
+    "historicalPoAuthorityFailure": "7028da3f654ae6b8ab1f0b84f60cc1b2c048b4b12dcc8b280afb42c59b68d428",
+    "historicalReceivingReadinessFailure": "c8b3d22e247277631185b0d5337017f10cce2fc3632d3d0f8a7046b019294b86",
+    "historicalReceivingHarnessFailure": "f6bb646799812e9c914614be7248d527209101e6ae52eb549ad7981e3c5f7b65",
+    "certifyOnlyContinuation": "baedd5a4b7f1ca24d47addb0af2db49eb6e7f474f8484b206b173a5a3780263a",
+    "strengthenedOwner": "7b87fa9ed3f6f020fd0b8f3411338bab1f5014675413b7a937799581c1c0f100",
+    "companyDateSupplement": "d18754be99db6c697c4c2b41f1a84deecdefefd7839a05840c9db89f328b48b9",
+    "policyIdentitySupplement": "7bef7c5e942ac291267a5b6a99e958c2663fc36535203e0865b895f519a5b1fd",
+    "privateRoleRestoration": "7a4975f073895c2c0d4f570336d0eee5206919e4a11eda7f8fe2693e1eb7974e",
+    "privateRuntimeStop": "03a5b7037bafd954236f3810f0dde21c4638c8a81066f792e47c61cd81ba6404",
+    "compositePrivateAcceptance": "5b135b26785d8eedf788f2de3c796fc351bcc64e5d4fc4e84de366c0725daf37"
+  },
+  "limits": {
+    "originalServiceUiJourneyAccepted": false,
+    "nonUtcOrMultibranchServiceUatAccepted": false,
+    "productionBusinessActivationClaimed": false,
+    "externalFinanceVerificationClaimed": false,
+    "stockPostingClaimed": false,
+    "supplierDeliveryClaimed": false,
+    "invoiceMatchingClaimed": false,
+    "wholeProcurementUatComplete": false
+  }
+}

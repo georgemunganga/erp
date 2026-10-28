@@ -67,7 +67,9 @@ internal static class ProcurementPrincipalOrderGovernancePhysicalSchema
 
     internal static bool MatchesCapturedCheck(string qualifiedName, string actual) =>
         CapturedChecks.TryGetValue(qualifiedName, out var captured)
-        && !string.IsNullOrEmpty(captured) && string.Equals(captured, actual, StringComparison.Ordinal);
+        && !string.IsNullOrEmpty(captured)
+        && (string.Equals(captured, actual, StringComparison.Ordinal)
+            || ProcurementRestoreCheckAlternatives.Matches(qualifiedName, captured, actual));
 
     internal static async Task<bool> InspectAsync(ProcurementDbContext owner, bool write,
         string expectedExecutionRole, CancellationToken ct)
