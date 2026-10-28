@@ -18,13 +18,14 @@ public sealed class ProcurementRestoreCheckAlternativesTests
         { "procurement.principal_receiving_receipts.ck_prcv_receipt", "fe6b813ae280152663cd0013d5d62a56628b5a21b7952d522457248333b5af8b", "9e55c194357c7f7e68e87a712acf5de47f38d0cea371321b342710814ccc22b5" },
         { "procurement.principal_receiving_sources.ck_prcv_source", "0ba7828812d571d483f82f29716d0166fafaf7f8332f218724ad848aa5c8f938", "f1d572dc6be6690890ffe3de0517c63db6937050b63abd1dfbafbbdbe75f9a05" },
         { "procurement.purchase_orders.ck_po_principal_draft_version", "c5c93b16f666d283ae859d4f24a945dfc43a8e2697e8ce18908404931285dacd", "1e83fa2fcde59e7b07427bdf8307829bee1f3b81d39babca6bca1691478598e7" },
+        { "procurement.sourcing_command_receipts.ck_rfq_receipt_identity", "6655f301bd4b0c80611a54c5994725bf172b07fd1fee390e9e55e5ccee363a6e", "4e58f02a6e44e8210cb2776d06c597e598d6c72026851c8690b3d03bdf7d9e0d" },
     };
 
     [Theory]
     [MemberData(nameof(ExactObservedCases))]
     public void Only_exact_qualified_canonical_and_restored_pair_is_admitted(string key, string canonicalSha256, string restoredSha256)
     {
-        Assert.Equal(10, ProcurementRestoreCheckAlternatives.Definitions.Count);
+        Assert.Equal(11, ProcurementRestoreCheckAlternatives.Definitions.Count);
         var pair = ProcurementRestoreCheckAlternatives.Definitions[key];
         Assert.NotEqual(pair.Canonical, pair.Restored);
         Assert.Equal(canonicalSha256, Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(pair.Canonical))).ToLowerInvariant());
@@ -51,11 +52,30 @@ public sealed class ProcurementRestoreCheckAlternativesTests
         Assert.Contains("accepted_quantity >= (0)::numeric", source.Restored);
         Assert.False(ExistingComparator("procurement.principal_receiving_sources.ck_prcv_source", source.Canonical,
             source.Restored.Replace("accepted_quantity >= (0)::numeric", "accepted_quantity < (0)::numeric", StringComparison.Ordinal)));
+        var receipt = ProcurementRestoreCheckAlternatives.Definitions["procurement.sourcing_command_receipts.ck_rfq_receipt_identity"];
+        Assert.Contains("'Cancel'", receipt.Restored);
+        Assert.False(ExistingComparator("procurement.sourcing_command_receipts.ck_rfq_receipt_identity", receipt.Canonical,
+            receipt.Restored.Replace("'Cancel'", "'UnreviewedOperation'", StringComparison.Ordinal)));
+        foreach (var (guard, weakened) in new[]
+        {
+            ("response_schema_version = 1", "response_schema_version = 0"),
+            ("actor_worker_id IS NOT NULL", "actor_worker_id IS NULL"),
+            ("response_status_code = 201", "response_status_code = 200"),
+            ("result_version > 0", "result_version >= 0"),
+        })
+        {
+            Assert.Contains(guard, receipt.Restored);
+            Assert.False(ExistingComparator("procurement.sourcing_command_receipts.ck_rfq_receipt_identity",
+                receipt.Canonical, receipt.Restored.Replace(guard, weakened, StringComparison.Ordinal)));
+        }
     }
 
     private static bool ExistingComparator(string key, string canonical, string actual) =>
-        key.StartsWith("procurement.assignment_authority_evidence.", StringComparison.Ordinal)
-            ? ProcurementPrincipalApprovalStoreReadiness.MatchesCapturedCheck(key, canonical, actual)
+        key == "procurement.sourcing_command_receipts.ck_rfq_receipt_identity"
+            ? canonical == ProcurementSourcingDraftSchemaReadiness.CheckDefinitions["ck_rfq_receipt_identity"]
+                && (actual == canonical || ProcurementSourcingDraftSchemaReadiness.MatchesRestoredReceipt(key, canonical, actual))
+            : key.StartsWith("procurement.assignment_authority_evidence.", StringComparison.Ordinal)
+                ? ProcurementPrincipalApprovalStoreReadiness.MatchesCapturedCheck(key, canonical, actual)
             : key.StartsWith("procurement.principal_receiving_", StringComparison.Ordinal)
                 ? ProcurementPrincipalReceivingPhysicalSchema.MatchesCapturedCheck(key, canonical, actual)
                 : ProcurementPrincipalOrderGovernancePhysicalSchema.MatchesCapturedCheck(key, actual);

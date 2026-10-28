@@ -78,7 +78,9 @@ public sealed class ProcurementSourcingDraftSchemaReadiness(IConfiguration confi
                     command.CommandText = CheckSql(table, check.Name);
                     if (await command.ExecuteScalarAsync(ct) is not string actual
                         || actual != expected && !(check.Name == "ck_sourcing_owned_draft"
-                            && M4PrincipalRfqPhysicalChecks.Matches(check.Name, actual))) return false;
+                            && M4PrincipalRfqPhysicalChecks.Matches(check.Name, actual))
+                        && !MatchesRestoredReceipt(
+                            table.Schema + "." + table.Name + "." + check.Name, expected, actual)) return false;
                 }
                 foreach (var foreign in entity.GetForeignKeys())
                 {
@@ -95,6 +97,12 @@ public sealed class ProcurementSourcingDraftSchemaReadiness(IConfiguration confi
         catch (Exception error) when (error is not OperationCanceledException) { return false; }
         finally { if (opened) await owner.Database.CloseConnectionAsync(); }
     }
+
+    internal static bool MatchesRestoredReceipt(string qualifiedName, string expected, string actual) =>
+        qualifiedName == "procurement.sourcing_command_receipts.ck_rfq_receipt_identity"
+        && CheckDefinitions.TryGetValue("ck_rfq_receipt_identity", out var canonical)
+        && string.Equals(expected, canonical, StringComparison.Ordinal)
+        && ProcurementRestoreCheckAlternatives.Matches(qualifiedName, canonical, actual);
 
     internal static string PrivilegeSql(bool write)
     {
