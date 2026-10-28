@@ -1,5 +1,5 @@
 {
-  "status": "IMPLEMENTED_PARTIALLY_VERIFIED_NOT_RELEASED",
+  "status": "GOODS_RECEIVING_SLICE_ACCEPTED_PRIVATE_NOT_DEPLOYED",
   "date": "2026-10-28",
   "backendSourceCommit": "6b8553afdf4d2a7db22fc763a018012ddb05c61f",
   "hostPassed": 58,
@@ -24,5 +24,12 @@
   "currentUiReceivingBrowserPassed": 27,
   "currentUiSettingsBrowserPassed": 6,
   "currentUiProductionBuildPassed": true,
-  "realReceivingApi": "Running private normal-cookie flow; policy lifecycle confirmed, receiving owner acceptance pending"
+  "realReceivingApi": "Passed normal-cookie Goods workflow, original-key recovery and denied/stale/overcapacity cases; independently reconciled captured footprint",
+  "procurementBackendRegressionPassed": 1478,
+  "procurementBackendRegressionReceiptSha256": "42368f145c7bc7b100ff8e9bf13babddc2e5a59eca0db256264750312eb275be",
+  "realReceivingApiOwnerReceiptSha256": "d68cfb9e43e42b3aecae9c7bbe67b4ea67423b4f00889d7929e5988d220ed23e",
+  "temporaryRoleFixturesRestored": true,
+  "temporaryRoleRestorationReceiptSha256": "bb5caa00c41fdf2f5b1417969462e7593a6e82060cb1820c7efa9f5980be6a73",
+  "privateApiAndProxyStopped": true,
+  "activeTestSessions": 0
 }
