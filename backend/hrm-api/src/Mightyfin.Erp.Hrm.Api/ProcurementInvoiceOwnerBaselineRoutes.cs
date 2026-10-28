@@ -226,7 +226,8 @@ public static class ProcurementInvoiceOwnerBaselineRoutes
         cases.Decisions.Add(vote);
         await cases.SaveChangesAsync(token);
         if (input.Action == "Approve")
-            db.AddScoped(new AuditEvent
+        {
+            var approvalAudit = new AuditEvent
             {
                 TenantId = scope.TenantId, LegalEntityId = scope.LegalEntityId,
                 RecordType = InvoiceProcurementBaselineEvidence.SourceType,
@@ -235,7 +236,11 @@ public static class ProcurementInvoiceOwnerBaselineRoutes
                 ChangedFieldsJson = InvoiceProcurementBaselineEvidence.DecisionAuditJson(baseline, vote),
                 CorrelationId = workflow.CompletionKey!, CreatedAt = at,
                 CreatedBy = actor.PrincipalId
-            });
+            };
+            InvoiceProcurementBaselineEvidence.VerifyCoreReview(baseline, workflow,
+                decisions, approvalAudit, actor.PrincipalId, actor.CoreLinkedWorkerId, at);
+            db.AddScoped(approvalAudit);
+        }
         var response = new InvoiceProcurementOwnerReceiptEvidence.Response(1,
             baseline.Id, workflow.Id, vote.Id, "Decide", key, workflow.Version,
             workflow.State, baseline.InventorySetSha256);
