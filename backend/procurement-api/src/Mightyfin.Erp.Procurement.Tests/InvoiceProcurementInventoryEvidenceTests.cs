@@ -23,6 +23,57 @@ public sealed class InvoiceProcurementInventoryEvidenceTests
     }
 
     [Fact]
+    public void Unattributed_credit_blocks_its_supplier_currency_without_denial_of_other_supplier()
+    {
+        var original=Capture();var creditId=Guid.NewGuid();var supplierId=Guid.NewGuid();
+        var json=JsonSerializer.Serialize(new
+        {
+            id=creditId,version=1,tenant_id=original.TenantId,
+            legal_entity_id=original.LegalEntityId,supplier_id=supplierId,
+            currency_code="ZMW",supplier_invoice_id=(Guid?)null,
+            supplier_return_id=Guid.NewGuid()
+        });
+        var table=original.Tables.Single(x=>x.TableName=="supplier_credit_note_refs");
+        var capture=original with{Tables=original.Tables.Select(x=>x.TableName==table.TableName
+            ?x with{Rows=[new InvoiceProcurementCapturedRow(creditId,1,
+                ProcurementEvidenceEncoding.PolicyJsonDigest(json),json)]}:x).ToArray()};
+        var summary=InvoiceProcurementInventoryEvidence.Summarize(capture);
+        var baseline=new InvoiceProcurementOwnerBaseline
+        {
+            TenantId=capture.TenantId,LegalEntityId=capture.LegalEntityId,
+            CoreCaseId=Guid.NewGuid(),MakerPrincipalId=Guid.NewGuid().ToString("D"),
+            CapturedAtUtc=new DateTimeOffset(2026,10,28,12,0,0,TimeSpan.Zero),
+            CatalogManifestJson=InvoiceProcurementBaselineEvidence.CatalogManifestJson(),
+            CatalogManifestSha256=summary.ManifestSha256,
+            InventorySetSha256=summary.CompleteSetSha256,
+            InventoryRowCount=summary.RowCount,InitialActiveClaimsSha256=new string('a',64),
+            InitialExposureSetSha256=InvoiceProcurementInitialExposureEvidence.Digest(capture)
+        };
+        var classified=InvoiceProcurementHistoricalClassification.Classify(capture)
+            .ToDictionary(x=>(x.TableName,x.RowId));
+        var rows=capture.Tables.SelectMany(x=>x.Rows.Select(source=>
+        {
+            var kind=classified[(x.TableName,source.Id)];
+            return new InvoiceProcurementOwnerBaselineRow
+            {
+                TenantId=capture.TenantId,LegalEntityId=capture.LegalEntityId,
+                BaselineId=baseline.Id,TableName=x.TableName,SourceRowId=source.Id,
+                SourceRowVersion=source.Version,OriginalRowSha256=source.CanonicalRowSha256,
+                ImmutableFieldsSha256=InvoiceProcurementImmutableFields.Digest(x.TableName,source.RowJson),
+                InitialClassification=kind.Classification,SupplierInvoiceId=kind.SupplierInvoiceId,
+                PurchaseOrderId=kind.PurchaseOrderId
+            };
+        })).ToArray();
+        var orderId=Guid.NewGuid();
+        Assert.False(InvoiceProcurementBaselineEvidence.NoRetainedExposureForOrder(
+            baseline,rows,capture,orderId,supplierId,"ZMW"));
+        Assert.True(InvoiceProcurementBaselineEvidence.NoRetainedExposureForOrder(
+            baseline,rows,capture,orderId,Guid.NewGuid(),"ZMW"));
+        Assert.True(InvoiceProcurementBaselineEvidence.NoRetainedExposureForOrder(
+            baseline,rows,capture,orderId,supplierId,"USD"));
+    }
+
+    [Fact]
     public void Server_read_inventory_requires_exact_twenty_one_table_manifest_and_row_scope()
     {
         var capture=Capture();var summary=InvoiceProcurementInventoryEvidence.Summarize(capture);
@@ -138,7 +189,7 @@ public sealed class InvoiceProcurementInventoryEvidenceTests
         Assert.Throws<InvalidOperationException>(()=>InvoiceProcurementBaselineEvidence.RequireResolvedClassification(baseline,[row]));
         InvoiceProcurementBaselineEvidence.RequireResolvedClassificationForOrder(baseline,[row],Guid.NewGuid());
         Assert.True(InvoiceProcurementBaselineEvidence.NoRetainedExposureForOrder(
-            baseline,[row],capture,Guid.NewGuid()));
+            baseline,[row],capture,Guid.NewGuid(),Guid.NewGuid(),"ZMW"));
         var affectedOrder=Guid.NewGuid();
         var linkedBlocked=new InvoiceProcurementOwnerBaselineRow
         {
@@ -151,7 +202,7 @@ public sealed class InvoiceProcurementInventoryEvidenceTests
         Assert.Throws<InvalidOperationException>(()=>InvoiceProcurementBaselineEvidence.RequireResolvedClassificationForOrder(
             baseline,[linkedBlocked],affectedOrder));
         Assert.Throws<InvalidOperationException>(()=>InvoiceProcurementBaselineEvidence.NoRetainedExposureForOrder(
-            baseline,[linkedBlocked],capture,affectedOrder));
+            baseline,[linkedBlocked],capture,affectedOrder,Guid.NewGuid(),"ZMW"));
         var credit=new InvoiceProcurementOwnerBaselineRow
         {
             TenantId=row.TenantId,LegalEntityId=row.LegalEntityId,BaselineId=row.BaselineId,
@@ -165,7 +216,7 @@ public sealed class InvoiceProcurementInventoryEvidenceTests
             InventoryRowCount=2
         };
         Assert.Throws<InvalidOperationException>(()=>InvoiceProcurementBaselineEvidence.NoRetainedExposureForOrder(
-            twoRows,[row,credit],capture,Guid.NewGuid()));
+            twoRows,[row,credit],capture,Guid.NewGuid(),Guid.NewGuid(),"ZMW"));
         var tampered=new InvoiceProcurementOwnerBaselineRow
         {
             TenantId=row.TenantId,LegalEntityId=row.LegalEntityId,BaselineId=row.BaselineId,

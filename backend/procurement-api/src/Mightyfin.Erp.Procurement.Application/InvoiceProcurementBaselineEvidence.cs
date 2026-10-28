@@ -208,17 +208,35 @@ public static class InvoiceProcurementBaselineEvidence
     public static bool NoRetainedExposureForOrder(
         InvoiceProcurementOwnerBaseline baseline,
         IReadOnlyList<InvoiceProcurementOwnerBaselineRow> rows,
-        InvoiceProcurementInventoryCapture capturedAtOpening,Guid purchaseOrderId)
+        InvoiceProcurementInventoryCapture capturedAtOpening,Guid purchaseOrderId,
+        Guid supplierId,string currencyCode)
     {
+        if(supplierId==Guid.Empty || string.IsNullOrWhiteSpace(currencyCode))
+            throw new InvalidOperationException("InvoiceOwnerOrderScopeInvalid");
         VerifyCapture(baseline,rows,capturedAtOpening);
         RequireResolvedClassificationForOrder(baseline,rows,purchaseOrderId);
         var linkedInvoices=rows.Where(x=>x.PurchaseOrderId==purchaseOrderId
             && x.SupplierInvoiceId is not null).Select(x=>x.SupplierInvoiceId!.Value).ToHashSet();
         // A credit reference without an invoice has only a supplier return ID.
-        // This manifest cannot yet prove its PO; do not infer an empty PO from it.
-        return !rows.Any(x=>x.TableName=="supplier_credit_note_refs"
-                && x.SupplierInvoiceId is null)
-            && !rows.Any(x=>x.PurchaseOrderId==purchaseOrderId
+        // It may affect any order for the same supplier/currency; a different
+        // supplier's uncertain credit cannot deny this order's capacity.
+        var unlinkedIds=rows.Where(x=>x.TableName=="supplier_credit_note_refs"
+            && x.SupplierInvoiceId is null).Select(x=>x.SourceRowId).ToHashSet();
+        var unlinkedCredits=capturedAtOpening.Tables.Single(x=>x.TableName=="supplier_credit_note_refs")
+            .Rows.Where(x=>unlinkedIds.Contains(x.Id));
+        foreach(var credit in unlinkedCredits)
+        {
+            using var parsed=JsonDocument.Parse(credit.RowJson);
+            var source=parsed.RootElement;
+            if(!source.TryGetProperty("supplier_id",out var supplier)
+                || supplier.ValueKind!=JsonValueKind.String
+                || !source.TryGetProperty("currency_code",out var currency)
+                || currency.ValueKind!=JsonValueKind.String)
+                throw new InvalidOperationException("InvoiceOwnerHistoricalCreditUnclassifiable");
+            if(supplier.GetGuid()==supplierId && currency.GetString()==currencyCode)
+                return false;
+        }
+        return !rows.Any(x=>x.PurchaseOrderId==purchaseOrderId
             || x.SupplierInvoiceId is { } invoiceId && linkedInvoices.Contains(invoiceId));
     }
 }
