@@ -72,6 +72,12 @@ public static class ProcurementHostIntegration
         receivingOptions.ExecutionDatabaseConfigured = !string.IsNullOrWhiteSpace(executionConnection);
         services.AddSingleton(receivingOptions);
         services.AddScoped<IProcurementReceivingSchemaReadiness, ProcurementReceivingSchemaReadiness>();
+        services.AddSingleton(new ProcurementPrincipalReceivingOptions
+        {
+            Enabled = configuration.GetValue<bool>("Procurement:Receiving:PrincipalExecutionEnabled"),
+            ExecutionDatabaseConfigured = !string.IsNullOrWhiteSpace(executionConnection)
+        });
+        services.AddScoped<IProcurementPrincipalReceivingReadiness, ProcurementPrincipalReceivingSchemaReadiness>();
         var matchingOptions = configuration.GetSection("Procurement:InvoiceMatching").Get<ProcurementInvoiceMatchingExecutionOptions>() ?? new();
         matchingOptions.ExecutionDatabaseConfigured = !string.IsNullOrWhiteSpace(executionConnection);
         services.AddSingleton(matchingOptions);
@@ -133,6 +139,7 @@ public static class ProcurementHostIntegration
         ProcurementPrincipalOrderDraftRoutes.MapRoutes(app);
         ProcurementOrderExecutionRoutes.MapRoutes(app);
         ProcurementReceivingRoutes.MapRoutes(app);
+        ProcurementPrincipalReceivingRoutes.MapRoutes(app);
         MapMetadataRoute(app);
     }
 
@@ -152,6 +159,10 @@ public static class ProcurementHostIntegration
                 var receivingOptions = services.GetRequiredService<ProcurementReceivingExecutionOptions>();
                 var receivingDrafts = !pending && receivingOptions.DraftsEnabled && receivingOptions.ExecutionDatabaseConfigured
                     && await services.GetRequiredService<IProcurementReceivingSchemaReadiness>().IsReadyAsync(ct);
+                var principalReceivingRead = await ProcurementPrincipalReceivingCapability.ReadReadyAsync(
+                    services, scope, pending, ct);
+                var principalReceiving = principalReceivingRead
+                    && services.GetRequiredService<ProcurementPrincipalReceivingOptions>().Enabled;
                 var originalUnitReview = !pending && await ProcurementInvoiceUnitReviewCapability.ReadyAsync(services, ct);
                 var now = DateTimeOffset.UtcNow;
                 var receivingPolicies = receivingDrafts && receivingOptions.PositiveExecutionEnabled
@@ -269,6 +280,8 @@ public static class ProcurementHostIntegration
                                 scope.WorkLocationId, scope.IsExplicitAllBranches)
                             && services.GetRequiredService<ProcurementOrderExecutionOptions>().PrincipalExecutionEnabled,
                         receiving = false, // Existing UI is not yet a compatible live receiving adapter.
+                        principalReceivingRead,
+                        principalReceiving,
                         receivingDrafts,
                         receivingGoods = receivingPositive && receivingRules!.Rules.Any(x => x.Kind.ToString() == "Goods"),
                         receivingInspection = receivingPositive && receivingRules!.Rules.Any(x => x.InspectionRequired),
@@ -615,7 +628,12 @@ public sealed class ProcurementScopeMiddleware(RequestDelegate next, IWebHostEnv
             || string.Equals(value, "/api/procurement/v1/orders/principal-governed-orders", StringComparison.OrdinalIgnoreCase)
             || string.Equals(value, "/api/procurement/v1/orders/principal-finance-work", StringComparison.OrdinalIgnoreCase)
             || string.Equals(value, "/api/procurement/v1/orders/principal-assigned-reviews", StringComparison.OrdinalIgnoreCase)
-            || string.Equals(value, "/api/procurement/v1/orders/principal-operation-work", StringComparison.OrdinalIgnoreCase);
+            || string.Equals(value, "/api/procurement/v1/orders/principal-operation-work", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(value, "/api/procurement/v1/receiving/principal-sources", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(value, "/api/procurement/v1/receiving/principal-worklist", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(value, "/api/procurement/v1/receiving/principal-inspection-tasks", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(value, "/api/procurement/v1/receiving/principal-acceptance-tasks", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(value, "/api/procurement/v1/receiving/principal-service-tasks", StringComparison.OrdinalIgnoreCase);
     }
 
     internal static bool RequestWriteRequiresBranch(PathString path, string method) =>
