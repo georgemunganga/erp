@@ -47,6 +47,9 @@ public sealed class ProcurementInvoiceUnitReviewSchemaReadiness : IProcurementIn
     internal static string AppendPrivilegesSql(string relation, bool write)
         => $"SELECT NOT has_any_column_privilege(current_user,{Literal(relation)},'UPDATE') AND NOT has_table_privilege(current_user,{Literal(relation)},'DELETE,TRUNCATE') AND NOT EXISTS(SELECT 1 FROM pg_class c WHERE c.oid={Literal(relation)}::regclass AND (pg_has_role(current_user,c.relowner,'MEMBER') OR pg_has_role(current_user,c.relowner,'SET')))"
             + (write ? $" AND has_table_privilege(current_user,{Literal(relation)},'INSERT')" : "");
+    internal static bool IssuedParentColumnsCovered(Type type, bool issuedParentsInstalled) =>
+        issuedParentsInstalled && (type == typeof(InvoiceMatchMappingVersion) || type == typeof(InvoiceMatchResult));
+
     private static async Task<bool> Check(ProcurementDbContext owner, bool write, CancellationToken ct)
     {
         if (!ManifestCaptured || !owner.Database.IsNpgsql()) return false;
@@ -86,11 +89,22 @@ public sealed class ProcurementInvoiceUnitReviewSchemaReadiness : IProcurementIn
             }
             var applied = (await owner.Database.GetAppliedMigrationsAsync(ct)).ToArray();
             var ownerBaselineInstalled = applied.Contains(ProcurementInvoiceOwnerBaselineSchemaCapture.MigrationId,StringComparer.Ordinal);
+            var issuedParentsInstalled = ProcurementPrincipalInvoiceIssuedParentReadiness.MigrationId.Length > 0
+                && applied.Contains(ProcurementPrincipalInvoiceIssuedParentReadiness.MigrationId, StringComparer.Ordinal);
+            // The full B2 proof owns the six generated pins, their exact CASE
+            // expressions, scoped parent FKs and both changed CHECK definitions.
+            if (issuedParentsInstalled
+                && !await ProcurementPrincipalInvoiceIssuedParentReadiness.RequireIssuedParentsAsync(owner, ct)) return false;
             foreach (var (type, name) in new[] { (typeof(InvoiceMatchMappingVersion), "ck_invoice_mapping_evidence"), (typeof(InvoiceMatchResult), "ck_invoice_match_execution") })
             {
                 var entity = model.FindEntityType(type); if (entity is null || !PrincipalCheckDefinitions.TryGetValue(name, out var expected)) return false;
                 var table = StoreObjectIdentifier.Table(entity.GetTableName()!, entity.GetSchema());
-                if (table.Schema != "procurement" || !await True(ColumnsSql(entity, table))) return false;
+                if (table.Schema != "procurement"
+                    || (!IssuedParentColumnsCovered(type, issuedParentsInstalled)
+                        && !await True(ColumnsSql(entity, table)))) return false;
+                // The B2 result CHECK was proved above from its exact native
+                // capture. Mapping keeps the existing M6A CHECK proof below.
+                if (issuedParentsInstalled && type == typeof(InvoiceMatchResult)) continue;
                 command.CommandText = CheckSql(table, name);
                 if (await command.ExecuteScalarAsync(ct) is not string actual) return false;
                 if (name == "ck_invoice_mapping_evidence" && ownerBaselineInstalled)

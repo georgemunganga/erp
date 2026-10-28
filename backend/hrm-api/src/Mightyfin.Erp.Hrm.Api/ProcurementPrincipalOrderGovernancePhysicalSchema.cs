@@ -83,10 +83,13 @@ internal static class ProcurementPrincipalOrderGovernancePhysicalSchema
                 || (await owner.Database.GetPendingMigrationsAsync(ct)).Any()
                 || !(await owner.Database.GetAppliedMigrationsAsync(ct)).Contains(MigrationId, StringComparer.Ordinal))
                 return false;
+            var applied = (await owner.Database.GetAppliedMigrationsAsync(ct)).ToArray();
+            var issuedParentsInstalled = ProcurementPrincipalInvoiceIssuedParentReadiness.MigrationId.Length > 0
+                && applied.Contains(ProcurementPrincipalInvoiceIssuedParentReadiness.MigrationId, StringComparer.Ordinal);
             var model = owner.GetService<IDesignTimeModel>().Model;
             var entities = OwnedTables.Keys.Select(model.FindEntityType).ToArray();
             if (entities.Any(x => x is null)
-                || entities.Sum(x => x!.GetKeys().Count()) != 16
+                || !GovernanceKeyManifestMatches(entities.Select(x => x!).ToArray(), issuedParentsInstalled)
                 || entities.Sum(x => x!.GetForeignKeys().Count()) != 17
                 || entities.Sum(x => x!.GetIndexes().Count(index => !ProcurementPrincipalReceivingParentIndexes.IsOwned(index))) != 27
                 || entities.Sum(x => x!.GetCheckConstraints().Count()) != 19) return false;
@@ -162,6 +165,21 @@ internal static class ProcurementPrincipalOrderGovernancePhysicalSchema
         catch (Exception error) when (error is not OperationCanceledException) { return false; }
         finally { if (opened) await owner.Database.CloseConnectionAsync(); }
     }
+
+    // Admit only B2's named additive key. Every key is still physically checked
+    // below, and unrelated changes retain the original exact model counts.
+    internal static bool GovernanceKeyManifestMatches(IReadOnlyList<IEntityType> entities, bool issuedParentsInstalled)
+    {
+        var bindings = entities.Where(x => x.ClrType == typeof(PrincipalOrderIssuedVersion))
+            .SelectMany(x => x.GetKeys()).Where(x => MatchesIssuedBinding(x.GetName(),
+                x.Properties.Select(p => p.Name), x.IsPrimaryKey())).Count();
+        return entities.Sum(x => x.GetKeys().Count()) == (issuedParentsInstalled ? 17 : 16)
+            && bindings == (issuedParentsInstalled ? 1 : 0);
+    }
+
+    internal static bool MatchesIssuedBinding(string? name, IEnumerable<string> properties, bool primary) =>
+        !primary && name == "ak_invoice_principal_issued_order_binding"
+        && properties.SequenceEqual(new[] { "TenantId", "LegalEntityId", "Id", "PurchaseOrderId" });
 
     internal static string ExactTableShapeSql(IEntityType entity, StoreObjectIdentifier table)
     {

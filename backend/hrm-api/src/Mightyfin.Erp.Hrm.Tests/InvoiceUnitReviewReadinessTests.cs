@@ -7,6 +7,22 @@ namespace Mightyfin.Erp.Hrm.Tests;
 public sealed class InvoiceUnitReviewReadinessTests
 {
     [Fact]
+    public void B2_generated_column_proof_cannot_skip_other_unit_review_tables()
+    {
+        var mapping = typeof(Mightyfin.Erp.Procurement.Domain.InvoiceMatchMappingVersion);
+        var result = typeof(Mightyfin.Erp.Procurement.Domain.InvoiceMatchResult);
+        foreach (var type in new[] { mapping, result })
+        {
+            Assert.False(ProcurementInvoiceUnitReviewSchemaReadiness.IssuedParentColumnsCovered(type, false));
+            Assert.True(ProcurementInvoiceUnitReviewSchemaReadiness.IssuedParentColumnsCovered(type, true));
+        }
+        foreach (var type in new[] { typeof(Mightyfin.Erp.Procurement.Domain.InvoiceUnitReviewSource),
+            typeof(Mightyfin.Erp.Procurement.Domain.InvoiceUnitReviewOutcome),
+            typeof(Mightyfin.Erp.Procurement.Domain.InvoiceMatchAllocation) })
+            Assert.False(ProcurementInvoiceUnitReviewSchemaReadiness.IssuedParentColumnsCovered(type, true));
+    }
+
+    [Fact]
     public void Execution_stays_default_off_after_actual_catalog_capture()
     {
         var options = new ProcurementInvoiceUnitReviewOptions();

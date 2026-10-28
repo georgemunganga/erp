@@ -5,6 +5,22 @@ namespace Mightyfin.Erp.Hrm.Tests;
 public sealed class ProcurementPrincipalOrderGovernancePhysicalSchemaTests
 {
     [Fact]
+    public void B2_key_allowance_requires_exact_nonprimary_name_and_ordered_scope()
+    {
+        var columns = new[] { "TenantId", "LegalEntityId", "Id", "PurchaseOrderId" };
+        Assert.True(ProcurementPrincipalOrderGovernancePhysicalSchema.MatchesIssuedBinding(
+            "ak_invoice_principal_issued_order_binding", columns, false));
+        Assert.False(ProcurementPrincipalOrderGovernancePhysicalSchema.MatchesIssuedBinding(
+            "ak_unrelated", columns, false));
+        Assert.False(ProcurementPrincipalOrderGovernancePhysicalSchema.MatchesIssuedBinding(
+            "ak_invoice_principal_issued_order_binding", columns, true));
+        Assert.False(ProcurementPrincipalOrderGovernancePhysicalSchema.MatchesIssuedBinding(
+            "ak_invoice_principal_issued_order_binding", columns.Skip(1), false));
+        Assert.False(ProcurementPrincipalOrderGovernancePhysicalSchema.MatchesIssuedBinding(
+            "ak_invoice_principal_issued_order_binding", columns.Reverse(), false));
+    }
+
+    [Fact]
     public void Captured_constraint_cannot_be_reused_under_another_table_or_weakened()
     {
         Assert.NotEmpty(ProcurementPrincipalOrderGovernancePhysicalSchema.CapturedChecks);
