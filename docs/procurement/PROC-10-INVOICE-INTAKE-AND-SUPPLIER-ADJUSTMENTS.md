@@ -44,6 +44,8 @@ Received → Identification → Validation → Ready for Match; branches Missing
 
 AP processor sees assigned entity; supplier portal user sees own submissions only; buyer sees commercial references but not restricted accounting/bank fields. Correction/void/duplicate disposition need scoped authority. Supplier cannot edit after submission except by new version.
 
+**Selected-branch intake boundary (28 October 2026):** Company All is a read scope. Capture, correction and cancellation require an actual nonempty selected permitted branch and reject both the raw All header and resolved All scope with a clear 422 before accessing invoice storage. A middleware default branch must not silently authorize a raw-All write. New intake does not infer branch selection from an optional PO. Existing invoice reads and retained null-branch data are preserved; editing/cancellation never reassign a retained invoice branch. A selected branch still cannot expose a different or unknown retained branch. Company-wide master data scope is unchanged.
+
 ## 11. Business Rules
 
 `BR-PROC-INT-001` preserve original source document; `002` duplicate normalized supplier/invoice/entity key blocks second handoff pending disposition; `003` supplier/entity/currency/totals required; `004` OCR is untrusted input until confirmed; `005` correction links prior version; `006` credit reason references original invoice/receipt/PO; `007` Finance owns posted credit and refund status.
