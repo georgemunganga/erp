@@ -68,6 +68,27 @@ public sealed class ProcurementInvoiceMatchingGateHttpTests
         Assert.Equal(0,readiness.Calls);
     }
 
+    [Theory]
+    [InlineData(true,2)]
+    [InlineData(false,0)]
+    public async Task Historical_read_without_either_physical_owner_stops_before_database_use(
+        bool registerLegacy,int readinessCalls)
+    {
+        var readiness=new Readiness(false);
+        await using var app=await App(new() { Enabled=true,ExecutionDatabaseConfigured=true,
+            PrincipalSourcesEnabled=false },readiness,registerLegacy);
+        using var client=app.GetTestClient(); var id=Guid.NewGuid();
+        foreach(var path in new[] { $"/api/procurement/v1/invoices/{id}/matching",
+            $"/api/procurement/v1/invoices/{id}/matching/commands/{Guid.NewGuid()}?operation=InvoiceCompare" })
+        {
+            using var response=await client.GetAsync(path);
+            Assert.Equal(HttpStatusCode.ServiceUnavailable,response.StatusCode);
+            var body=await response.Content.ReadFromJsonAsync<JsonElement>();
+            Assert.Equal("InvoiceMatchingUnavailable",body.GetProperty("code").GetString());
+        }
+        Assert.Equal(readinessCalls,readiness.Calls);
+    }
+
     [Fact]
     public async Task Invoice_capture_role_does_not_implicitly_gain_new_qualified_matching_permission()
     {
@@ -88,12 +109,13 @@ public sealed class ProcurementInvoiceMatchingGateHttpTests
         { using var response=await client.GetAsync(path); Assert.Equal(HttpStatusCode.Forbidden,response.StatusCode); }
         Assert.Equal(0,readiness.Calls);
     }
-    private static async Task<WebApplication> App(ProcurementInvoiceMatchingExecutionOptions options,Readiness readiness)
+    private static async Task<WebApplication> App(ProcurementInvoiceMatchingExecutionOptions options,
+        Readiness readiness,bool registerLegacy=true)
     {
         var scope=new ProcurementRequestScope(); scope.Set("matching-gate",Guid.NewGuid(),Guid.NewGuid().ToString("D"),null,null,false,"fixture");
         var builder=WebApplication.CreateBuilder(); builder.Logging.ClearProviders(); builder.WebHost.UseTestServer();
         builder.Services.AddSingleton(scope); builder.Services.AddSingleton(options);
-        builder.Services.AddSingleton<IProcurementInvoiceMatchingSchemaReadiness>(readiness);
+        if(registerLegacy)builder.Services.AddSingleton<IProcurementInvoiceMatchingSchemaReadiness>(readiness);
         builder.Services.AddSingleton(new ProcurementApprovalTransaction("Host=127.0.0.1;Port=1;Database=never_open;Username=fixture;Timeout=1",scope,scope));
         builder.Services.AddAuthentication("matching-gate").AddScheme<AuthenticationSchemeOptions,Authentication>("matching-gate",_=>{});
         builder.Services.AddAuthorization(ProcurementPermissions.AddPolicies);

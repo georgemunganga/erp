@@ -24,18 +24,16 @@ internal static class ProcurementPrincipalInvoiceMatchingCapability
     {
         var unavailable=new Availability(false,false);
         var options=services.GetService<ProcurementInvoiceMatchingExecutionOptions>();
-        var legacy=services.GetService<IProcurementInvoiceMatchingSchemaReadiness>();
         var baseline=services.GetService<IProcurementInvoiceOwnerBaselineReadiness>();
         var coordinator=services.GetService<ProcurementApprovalTransaction>();
         var authorization=services.GetService<IAuthorizationService>();
         if(pending || !ReadContext(scope)
             || options is not { Enabled:true,ExecutionDatabaseConfigured:true }
-            || legacy is null || baseline is null || coordinator is null || authorization is null)
+            || baseline is null || coordinator is null || authorization is null)
             return unavailable;
         try
         {
-            if(!await legacy.IsReadyAsync(ct)
-                || !(await authorization.AuthorizeAsync(http.User,"procurement-invoice-read")).Succeeded)
+            if(!(await authorization.AuthorizeAsync(http.User,"procurement-invoice-read")).Succeeded)
                 return unavailable;
             var rawAll=http.Request.Headers.ContainsKey("X-Shell-Branch-Scope");
             var writeConfigured=options.PrincipalSourcesEnabled && WriteContext(scope,rawAll)
