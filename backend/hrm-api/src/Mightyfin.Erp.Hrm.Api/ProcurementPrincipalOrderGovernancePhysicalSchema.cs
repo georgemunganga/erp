@@ -86,7 +86,7 @@ internal static class ProcurementPrincipalOrderGovernancePhysicalSchema
             if (entities.Any(x => x is null)
                 || entities.Sum(x => x!.GetKeys().Count()) != 16
                 || entities.Sum(x => x!.GetForeignKeys().Count()) != 17
-                || entities.Sum(x => x!.GetIndexes().Count()) != 27
+                || entities.Sum(x => x!.GetIndexes().Count(index => !ProcurementPrincipalReceivingParentIndexes.IsOwned(index))) != 27
                 || entities.Sum(x => x!.GetCheckConstraints().Count()) != 19) return false;
             var connection = owner.Database.GetDbConnection();
             if (connection.State != ConnectionState.Open)
