@@ -14,7 +14,7 @@ This child feature covers mapping, original document/unit review, comparison, ex
 
 ## 4. Parent & Related Features
 
-The invoice intake owns `SupplierInvoice` and original lines. M5a owns the issued order revision and its Core approval/funding lineage. M5b/c own immutable goods/service acceptance facts and company-date evidence. M5d owns return proposals only. Existing invoice matching v1 rows and response hashes remain readable byte-for-byte.
+The invoice intake owns `SupplierInvoice` and original lines. M5a owns the issued order revision and its Core approval/funding lineage. M5b/c own immutable goods/service acceptance facts and company-date evidence. M5d owns return proposals only. [PROC-09A](PROC-09A-M6-INVOICE-HISTORY-BASELINE-REVIEW.md) owns the bounded invoice-history baseline review prerequisite. Existing invoice matching v1 rows and response hashes remain readable byte-for-byte.
 
 ## 5. Actors & Participants
 

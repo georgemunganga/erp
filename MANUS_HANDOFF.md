@@ -1,9 +1,15 @@
 # M5 technical release and current prerequisites — 28 October 2026
 
-Published ERP main: `7213aff386082140a52c8c44972338d6a6898656` (through PR132).
+Published ERP main: `536f4c7721d3aef32a831dadecff7dd13908a31d` (through PR134).
 Published Procurement UI main: `47cac6a13a24e9db113383f8a9cf5b319494d526`
 (PR92, `georgemunganga/module-connect`). Use current main descendants.
 These include M5b receiving and M5c company-local service-date source fixes.
+
+M6A invoice-history Open and independent review passed a bounded private
+real-cookie/native owner checkpoint on pending backend source `6287bd22`:
+[scope and exact evidence](docs/procurement/gap-closure/M6A-INVOICE-HISTORY-PRIVATE-ACCEPTANCE-20261028.md).
+Published ERP main remains `536f4c77`; PR #133 is pending, and this checkpoint
+does not activate M6 or prove qualified matching, Finance posting or whole UAT.
 
 M5d accepted-Goods return-request CRUD/history now has private normal-cookie
 API and independently replayed native owner acceptance. It preserves the

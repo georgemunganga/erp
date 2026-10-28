@@ -1,0 +1,91 @@
+{
+  "status": "PASS_BOUNDED_PRIVATE_M6A_INVOICE_HISTORY_BASELINE_REVIEW_ONLY",
+  "dateUtc": "2026-10-28",
+  "scope": "private normal-cookie invoice-history Open, original-key recovery, independent Decide and owner reconciliation",
+  "publishedErpMainAtCheckpoint": "536f4c7721d3aef32a831dadecff7dd13908a31d",
+  "publishedProcurementUiMainAtCheckpoint": "47cac6a13a24e9db113383f8a9cf5b319494d526",
+  "pendingErpSourceCommit": "6287bd220523bd727f32006bd52d0aae8564bd51",
+  "pendingBackendPr": 133,
+  "sdk": {
+    "status": "PASS_M6_BASELINE_INTEGRATED_BUILD_TESTS_PUBLISH_EF_NO_DATABASE",
+    "resultSha256": "fdd4a331a93f3d825e6a39e92deadf2f65b884039b4cef294b85fb4c3af78a37",
+    "procurementPassed": 1529,
+    "hostPassed": 144,
+    "failed": 0,
+    "analyzersSkipped": false,
+    "efNoPendingModelChanges": true,
+    "apiPublicationFiles": 150,
+    "publicationManifestSha256": "186ca25c60945f3aa9868acac07c5e002e6b75fc5631588e64799b9b57aa3e6b",
+    "guardedDownVetoBeforeDestructiveDdl": true,
+    "noDatabaseAccess": true,
+    "priorCleanupFailureResultSha256": "2ce9648f28bfad7497e3c33937d17b58e7e8ac702dd558c3ff2c8954b6943819",
+    "priorExactCleanupRecoverySha256": "93799ddcafd0d31918b728e192878de5ef465fe2ac2c34070e2105d02507db40"
+  },
+  "privateImage": {
+    "imageId": "sha256:fd0b5f8ea2a440b381b4baabd659e0c000a0a2cc421bdafafeeceb113cc31272",
+    "all150VerifiedReceiptSha256": "7fc5c87fb3d71cc5537a54ac0490e98f3a6808cba6c869a890c03a9ad21db133"
+  },
+  "privateNativeSchema": {
+    "database": "proc_m6_owner_native_20261028_01",
+    "tableCountAfterUp": 223,
+    "oldTableCount": 220,
+    "firstUpIndependentReviewSha256": "344b6caa067550da5bea9e0acfda2403c8efee9e15f90db762ae6e53fd1b177d",
+    "emptyDownUpAndRetainedBaselineVetoSha256": "c909f2ba7403b40ef8b01812a003ac6971a2bcc24edb28d2db44e3b7beaa93e3",
+    "retainedBaselineVetoSqlState": "55000",
+    "schemaOnlyLogicalRestoreExactCheckReviewSha256": "08afa27923b0ee1bf3dbc7434c679e03da42f379e750290f48074be4bd7eb1d0",
+    "restoredP28FingerprintReviewSha256": "8963e617e7ee31530680350e4d9ec6347623ed4bc31d88410a5bce83d8dcb881",
+    "schemaOnlyRestoreProvedOwnersAndAcl": false,
+    "otherGuardMarkerFamiliesNativeTested": false
+  },
+  "normalCookieHistory": {
+    "firstOpen503NoEffectSha256": "a861eacb01822a9ca3c60a48bc8ef7b558a9d4dba7ff06bba412b2f9efcd7a69",
+    "exactTwelveInventorySelectGrantSha256": "a5438b6bb2a49be3694155e6d06b573826a47ab5e912b35722c1f8c00f01e8f5",
+    "sameOriginalKeyOpen201ThenReadback409Sha256": "84d1f01ad5336e3111ea53993bb353f67b0e96b66564c3390d5f8d52887f47e9",
+    "committedPendingOwnerFactSha256": "bd17695c53c201e3348ec263c4c56e6ce702291a93f00ae354e304d2fc12f5fa",
+    "correctedSource": "6287bd220523bd727f32006bd52d0aae8564bd51",
+    "sameCaseContinuationSha256": "8b04337c869bd6e91f41d1f947ea230839c463524fe131308839d49af8f8dafb",
+    "observed": [
+      "original Open key GET 200 with unchanged typed response",
+      "company All original-key GET 200 with unchanged typed response",
+      "company All Open POST 422",
+      "one independent Decide POST 200",
+      "Decide original-key GET 200",
+      "foreign Decide-key GET 404",
+      "final approved historical detail GET 200"
+    ],
+    "allCookiesLoggedOut": true
+  },
+  "nativeOwner": {
+    "resultSha256": "5d6036fad25aa8f0ddda8d7d804dc48345b104f377662f9712ebce15894f3251",
+    "baselineCount": 1,
+    "inventoryRows": 21,
+    "commandReceipts": 2,
+    "coreCaseState": "Approved",
+    "independentCoreDecisions": 1,
+    "unchangedTableDigestsBeforeRestoration": 213,
+    "capturedOldRowIdsRetained": 17621,
+    "activeSyntheticSessions": 0,
+    "originalCapturedInventoryAndOpenReceiptUnchanged": true,
+    "qualifiedExposure": false,
+    "financePosting": false
+  },
+  "cleanup": {
+    "exactPrivateApiStopReceiptSha256": "4ceb85f2c84ee4a18c241665cf94c6404086f3c8d709c05922701ae597b938c4",
+    "apiContainerExitCode": 0,
+    "controllerExitCodeFromIntentionalSignal": 130,
+    "twoRolesAndFifteenEffectiveAclRestoreSha256": "367f227a39092e0d31d5bf97615d18c4c7d29f72170fda9e62d73218e24aa4f5",
+    "rawAclRepresentationChangedTableCount": 8,
+    "allFifteenEffectiveAclAndColumnAclSetsOriginal": true,
+    "activeSyntheticSessions": 0,
+    "productionContainerIdentityGuardsUnchanged": 3
+  },
+  "limits": [
+    "M6B principal source mapping and qualified matching claims not accepted",
+    "independent original invoice document/unit review not accepted",
+    "Finance posting or payment not established",
+    "original invoice-history UI not tested",
+    "multi-branch, cross-tenant and concurrent commands not established",
+    "production M6 activation and whole Procurement UAT not approved"
+  ],
+  "productionBusinessMutation": false
+}
