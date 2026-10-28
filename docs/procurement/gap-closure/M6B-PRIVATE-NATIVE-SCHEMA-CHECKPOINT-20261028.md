@@ -75,3 +75,7 @@ The narrowed private setup actually committed and independently passed owner ver
 The actual read-only owner-before capture (`d9708e40c541db1975467433cf0a1c0a68bab031addbfdb1e9505324ab4065fd`) proves one existing approved baseline, zero matching policies, one genuine accepted Goods source and zero synthetic sessions. It does not create a replacement baseline or seed a policy. A prior read-only query syntax failure is retained separately; only the corrected capture is accepted.
 
 Private image05 (`sha256:9fa10ccf5d5985b6040e87ce9dd09e427ddaa2d852c2105635409d8b9421ce61`) was built from SDK06 and all 150 image publication bytes verified against the manifest through a stopped-only verifier. Image receipt: `bca9ce869da03116d3ea662d5cfb9ed88bf818c1999337a473ab1ff481c72f0f`. Production identities were unchanged. This image is a private candidate, not a production rollout or completed business UAT.
+
+## Superseding bounded workflow checkpoint
+
+The [private invoice-link acceptance](M6B-PRINCIPAL-INVOICE-LINKS-PRIVATE-ACCEPTANCE-20261028.md) now records the actual API and original-UI mapping, original-key recovery, review-required denial and flag-off history journeys. Both private runtime stacks stopped; the separate Record PO read grant and original two-role/24-table/nine-column fixture were restored exactly, with zero active synthetic sessions and legitimate new business evidence retained. This closes the temporary-fixture obligation above; it does not accept qualified comparison, independent unit review or production activation.

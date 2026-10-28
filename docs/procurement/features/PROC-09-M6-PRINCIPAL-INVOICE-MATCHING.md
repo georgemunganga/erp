@@ -72,6 +72,8 @@ Block for stale invoice/mapping/issued revision, missing principal fact, changed
 
 The source adapter reads the retained M5a issued graph and M5b/c receiving graph in the same execution database transaction. A Procurement-owned exposure reader runs in that transaction, from an explicit reviewed baseline plus all later invoice, claim, credit/handoff and manual-payment records. It returns a lease-bound complete-set envelope with an exact row-set digest and sequence; no network call occurs while locks are held. Private acceptance uses finite Core/Record/Execution roles, normal cookies and a restored nonproduction database.
 
+Invoice intake and matching use distinct finite database roles. Linking an intake invoice to an existing PO requires the Record role to SELECT `procurement.purchase_orders` for the server-owned supplier/branch validation; a matching-only Execution grant does not supply this access. Rehearsal and release preflight must exercise an actual PO-linked invoice Create and detail read under that Record role. Do not grant PO writes to repair this read dependency. Principal matching writes require the nine named invoice workflow/audit-stamp columns, preserve the existing invoice ID lock grant and reject table-wide invoice UPDATE. User authorization and tenant/entity/branch scope remain server-enforced independently of database privileges.
+
 ## 19. Audit / Security / Privacy
 
 Record principal and optional worker alias, mapping review, policy, source digests and result in append-only evidence. Do not log invoice text, supplier identity, document content or raw database errors. Unknown owner or source evidence fails closed. Core role grants never inherit legacy administrator permission implicitly.

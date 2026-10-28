@@ -11,13 +11,24 @@ real-cookie/native owner checkpoint on backend source `6287bd22`, now published 
 Published ERP main is `1c6a81d7`; PR #133 is merged, and this checkpoint
 does not activate M6 or prove qualified matching, Finance posting or whole UAT.
 
-M6B principal source mapping and matching are under integration. The generated
-receiving-fact binding migration passed private Up with all original business
-rows preserved. Review then identified a separate legacy-issued-version FK
-on mapping, exposure and result records that rejects genuine principal issued
-IDs. A discriminated, scoped dual-source schema correction is required before
-source3 can be activated. Do not insert surrogate legacy issued versions or drop
-ownership constraints to bypass this. No M6B production or full UAT claim exists.
+M6B principal invoice mapping remains under Root integration in ERP draft PR135
+and UI draft PR93; these are not published prerequisites for new Manus work.
+The genuine receiving and dual-issued-parent migrations passed private Up,
+guarded Down/Up and retention veto checks. Source `7f44d5f3` passed 1,559
+Procurement and 304 focused Host tests. A real-cookie private journey created
+an invoice, saved source3 links to a genuine principal receipt, recovered the
+original command, denied another actor's key and Company All writes, and
+required independent original-unit review before comparison. Native persistence
+reconciliation passed. The original UI then passed a second mapping, lost-response
+original-key recovery and review-required denial; the wording successor and
+flag-off history reads also passed real Playwright. Exact temporary roles/grants
+were restored and both private runtime stacks stopped, preserving the legitimate
+test records. See [M6B bounded acceptance and receipt pins](docs/procurement/gap-closure/M6B-PRINCIPAL-INVOICE-LINKS-PRIVATE-ACCEPTANCE-20261028.md).
+No M6B production activation, qualified matching, Finance posting or full-module
+UAT is claimed. M6C manual unit attestation and the invoice selected-branch fix
+remain internal source work requiring a fresh SDK/native/API/UI checkpoint;
+they are not published Manus prerequisites. Preserve real principal parent
+constraints; never insert surrogate legacy versions or fake document evidence.
 GitHub Actions currently cannot start because its account has a billing lock;
 local pinned SDK/native evidence must remain explicit, never reported as CI.
 

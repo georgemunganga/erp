@@ -138,12 +138,25 @@
     "tableGrantAdditions": 24,
     "invoiceColumnUpdateAdditions": 9,
     "broadInvoiceUpdateGranted": false,
-    "temporaryRestoreStillRequired": true
+    "temporaryRestoreStillRequired": false,
+    "restoredReceiptSha256": "6533d8325fc27c9927fc3fd7d4f92474c2d670b75c8f328e82c33c93c50546ef",
+    "activeSyntheticSessionsAfterRestore": 0,
+    "legitimatePrivateBusinessRowsRetained": true
   },
   "privateImage05": {
     "imageId": "sha256:9fa10ccf5d5985b6040e87ce9dd09e427ddaa2d852c2105635409d8b9421ce61",
     "all150PublicationFilesVerified": true,
     "receiptSha256": "bca9ce869da03116d3ea662d5cfb9ed88bf818c1999337a473ab1ff481c72f0f",
     "productionDeployment": false
+  },
+  "latestScopedWorkflowCheckpoint": {
+    "record": "M6B-PRINCIPAL-INVOICE-LINKS-PRIVATE-ACCEPTANCE-20261028.json",
+    "nativePrincipalMappingTested": true,
+    "realUiMappingAndOriginalKeyRecoveryTested": true,
+    "reviewRequiredDenialTested": true,
+    "flagOffHistoryTested": true,
+    "qualifiedComparisonTested": false,
+    "fullUatAccepted": false,
+    "productionChanged": false
   }
 }
