@@ -197,4 +197,22 @@ public static class InvoiceProcurementBaselineEvidence
                 || x.SupplierInvoiceId is { } invoiceId && linkedInvoices.Contains(invoiceId))))
             throw new InvalidOperationException("InvoiceOwnerOrderHistoryUnclassified");
     }
+
+    /// <summary>An exact reviewed baseline may show that a particular order
+    /// had no retained Procurement invoice exposure. This is only a partition
+    /// fact; current post-baseline rows and Core approval still need proof.</summary>
+    public static bool NoRetainedExposureForOrder(
+        InvoiceProcurementOwnerBaseline baseline,
+        IReadOnlyList<InvoiceProcurementOwnerBaselineRow> rows,Guid purchaseOrderId)
+    {
+        RequireResolvedClassificationForOrder(baseline,rows,purchaseOrderId);
+        var linkedInvoices=rows.Where(x=>x.PurchaseOrderId==purchaseOrderId
+            && x.SupplierInvoiceId is not null).Select(x=>x.SupplierInvoiceId!.Value).ToHashSet();
+        // A credit reference without an invoice has only a supplier return ID.
+        // This manifest cannot yet prove its PO; do not infer an empty PO from it.
+        return !rows.Any(x=>x.TableName=="supplier_credit_note_refs"
+                && x.SupplierInvoiceId is null)
+            && !rows.Any(x=>x.PurchaseOrderId==purchaseOrderId
+            || x.SupplierInvoiceId is { } invoiceId && linkedInvoices.Contains(invoiceId));
+    }
 }

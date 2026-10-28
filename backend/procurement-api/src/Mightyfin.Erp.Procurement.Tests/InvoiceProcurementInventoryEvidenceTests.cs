@@ -137,6 +137,8 @@ public sealed class InvoiceProcurementInventoryEvidenceTests
             baseline,[row],refreshedCapture));
         Assert.Throws<InvalidOperationException>(()=>InvoiceProcurementBaselineEvidence.RequireResolvedClassification(baseline,[row]));
         InvoiceProcurementBaselineEvidence.RequireResolvedClassificationForOrder(baseline,[row],Guid.NewGuid());
+        Assert.True(InvoiceProcurementBaselineEvidence.NoRetainedExposureForOrder(
+            baseline,[row],Guid.NewGuid()));
         var affectedOrder=Guid.NewGuid();
         var linkedBlocked=new InvoiceProcurementOwnerBaselineRow
         {
@@ -148,6 +150,31 @@ public sealed class InvoiceProcurementInventoryEvidenceTests
         };
         Assert.Throws<InvalidOperationException>(()=>InvoiceProcurementBaselineEvidence.RequireResolvedClassificationForOrder(
             baseline,[linkedBlocked],affectedOrder));
+        Assert.Throws<InvalidOperationException>(()=>InvoiceProcurementBaselineEvidence.NoRetainedExposureForOrder(
+            baseline,[linkedBlocked],affectedOrder));
+        var linkedKnown=new InvoiceProcurementOwnerBaselineRow
+        {
+            TenantId=row.TenantId,LegalEntityId=row.LegalEntityId,BaselineId=row.BaselineId,
+            TableName=row.TableName,SourceRowId=row.SourceRowId,SourceRowVersion=row.SourceRowVersion,
+            OriginalRowSha256=row.OriginalRowSha256,ImmutableFieldsSha256=row.ImmutableFieldsSha256,
+            InitialClassification="MutableDraft",SupplierInvoiceId=invoice.Id,PurchaseOrderId=affectedOrder
+        };
+        Assert.False(InvoiceProcurementBaselineEvidence.NoRetainedExposureForOrder(
+            baseline,[linkedKnown],affectedOrder));
+        var credit=new InvoiceProcurementOwnerBaselineRow
+        {
+            TenantId=row.TenantId,LegalEntityId=row.LegalEntityId,BaselineId=row.BaselineId,
+            TableName="supplier_credit_note_refs",SourceRowId=Guid.NewGuid(),SourceRowVersion=1,
+            OriginalRowSha256=new string('d',64),ImmutableFieldsSha256=new string('d',64),
+            InitialClassification="BlockedAmbiguity"
+        };
+        var twoRows=new InvoiceProcurementOwnerBaseline
+        {
+            Id=baseline.Id,TenantId=baseline.TenantId,LegalEntityId=baseline.LegalEntityId,
+            InventoryRowCount=2
+        };
+        Assert.False(InvoiceProcurementBaselineEvidence.NoRetainedExposureForOrder(
+            twoRows,[row,credit],Guid.NewGuid()));
         var tampered=new InvoiceProcurementOwnerBaselineRow
         {
             TenantId=row.TenantId,LegalEntityId=row.LegalEntityId,BaselineId=row.BaselineId,
