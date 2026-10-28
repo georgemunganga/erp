@@ -126,13 +126,13 @@ public static class PrincipalInvoiceMappingEvidence
                 || x.TenantId != invoice.TenantId || x.LegalEntityId != invoice.LegalEntityId))
             throw new InvalidOperationException("PrincipalInvoiceMappingInputInvalid");
         foreach (var line in snapshot.Lines)
+            // Original-document review is independent of the optional physical fact.
+            // A proposal may have neither document pin; review must later require both.
             if (line.PurchaseOrderLineId == Guid.Empty
                 || line.PrincipalReceivingFactId.HasValue != line.PrincipalReceivingSourceStateId.HasValue
                 || line.PrincipalReceivingFactId == Guid.Empty
                 || line.PrincipalReceivingSourceStateId == Guid.Empty
-                || (line.PrincipalReceivingFactId.HasValue
-                    && (line.DocumentVersionId == Guid.Empty || string.IsNullOrWhiteSpace(line.DocumentLineReference)))
-                || (!line.PrincipalReceivingFactId.HasValue && line.DocumentVersionId != Guid.Empty)
+                || (line.DocumentVersionId == Guid.Empty) != string.IsNullOrWhiteSpace(line.DocumentLineReference)
                 || string.IsNullOrWhiteSpace(line.InvoiceUnitCode)
                 || line.InvoiceUnitCode.Length > 20 || line.InvoiceUnitCode != line.InvoiceUnitCode.Trim()
                 || line.DocumentLineReference is null || line.DocumentLineReference.Length > 200)

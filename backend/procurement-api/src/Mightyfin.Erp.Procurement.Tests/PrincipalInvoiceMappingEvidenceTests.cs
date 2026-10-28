@@ -48,6 +48,8 @@ public sealed class PrincipalInvoiceMappingEvidenceTests
         var twoWay=new PrincipalInvoiceMappingLine(line.Id,Guid.NewGuid(),null,null,"EACH",Guid.Empty,"");
         var payload=PrincipalInvoiceMappingEvidence.Create(invoice,[line],order,issued,[twoWay],actor,null);
         Assert.Null(Assert.Single(PrincipalInvoiceMappingEvidence.Verify(payload.Json,payload.Sha256,invoice,[line],order,issued,1).Lines).PrincipalReceivingFactId);
+        var documentedTwoWay=twoWay with{DocumentVersionId=Guid.NewGuid(),DocumentLineReference="invoice line 1"};
+        Assert.Equal(documentedTwoWay,Assert.Single(PrincipalInvoiceMappingEvidence.Create(invoice,[line],order,issued,[documentedTwoWay],actor,null).Snapshot.Lines));
         Assert.Throws<InvalidOperationException>(()=>PrincipalInvoiceMappingEvidence.Create(invoice,[line],order,issued,
             [twoWay with{PrincipalReceivingFactId=Guid.NewGuid()}],actor,null));
         Assert.Throws<InvalidOperationException>(()=>PrincipalInvoiceMappingEvidence.Create(invoice,[line],order,issued,
