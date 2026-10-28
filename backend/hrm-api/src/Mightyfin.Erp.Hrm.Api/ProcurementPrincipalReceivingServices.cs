@@ -64,7 +64,10 @@ public static partial class ProcurementPrincipalReceivingRoutes
             var denied=new List<PrincipalReceivingPerson>();if(!policy.Rule.AllowBuyerCertification)denied.Add(draft.Source.Buyer);
             if(!policy.Rule.AllowRequesterCertification)denied.Add(draft.Source.Requester);
             await ProcurementPrincipalReceivingActor.RequireIndependentAsync(core,actor,denied,token);
-            var result=PrincipalReceivingDraftLifecycle.CertifyService(draft,actor,input.Version,loaded.Ledger,policy.Record,input.SourceVersion,key,input.EvidenceReference,DateTimeOffset.UtcNow);
+            var companyDate=await ProcurementPrincipalReceivingBusinessDate.ObserveAsync(core,
+                scope.TenantId,scope.LegalEntityId,http.RequestServices.GetRequiredService<TimeProvider>(),token);
+            var result=PrincipalReceivingDraftLifecycle.CertifyService(draft,actor,input.Version,loaded.Ledger,
+                policy.Record,input.SourceVersion,key,input.EvidenceReference,companyDate.ObservedAtUtc,companyDate);
             var store=new PrincipalReceivingStore(db);store.Stage(result.Draft,key,actor.PrincipalId);await store.AppendAsync(loaded.State,id,result.Acceptance,token);
             return Complete(db,head,"Certify",key,actor.PrincipalId,hash);
         },ct);
