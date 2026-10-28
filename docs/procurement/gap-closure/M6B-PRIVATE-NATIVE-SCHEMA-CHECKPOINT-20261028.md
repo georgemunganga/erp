@@ -33,7 +33,9 @@ There is no other business DML; the only explicit row write is EF migration hist
 
 Actual private Up completed on the same 223-table test database. Captured old business-row fingerprints were preserved, using the reviewed projection for newly added/derived fields; only migration history changed. Native generated expressions and CHECK definitions for all three matching tables were captured. The admission query proved zero pre-existing schema3 mappings. This is a concrete preflight result, not universal compatibility for every row valid under an earlier CHECK. Existing schema3 mappings elsewhere require genuine principal-parent reconciliation before Up.
 
-B2 Down has not run. The raw Down is unsafe for retained principal evidence; the first-operation B2 retention guard must be wired and its guarded export/native downgrade evidence reviewed before claiming downgrade acceptance.
+The genuine combined B1/B2 export subsequently included both first-operation retention guards in their migration order. Actual guarded combined Down and Up completed on the private target. The name-keyed 223-table old-business-row inventories were restored exactly; only migration history differed after Down. The existing approved M6A baseline alone permitted Down.
+
+A separate rollback-only transaction inserted exactly one synthetic schema3 exposure with a genuine principal-issued foreign key. The independent B2 exposure/result guard returned SQLSTATE `55000`, and the exposure rolled back; the complete row inventory stayed unchanged. This proves that one relational exposure veto path, not all retained-data veto families or a real matching command. Raw unguarded Down remains unsafe and was not executed.
 
 ## Evidence pins
 
@@ -46,9 +48,10 @@ The adjacent JSON records complete SHA-256 pins for the protected receipts. It c
 | B1 recovered Down/Up and audit veto | `6e541d394aaa` |
 | B2 genuine EF scaffold/export | `0285191eb0c9` |
 | B2 native Up | `15548d77353a` |
+| Combined guarded B1/B2 Down/Up and exposure veto | `1734878ce96b` |
 
 ## Remaining acceptance
 
-The complete integrated SDK run for source `294fd99d` was running when this checkpoint was prepared; no successful result is claimed here. Native principal mapping insertion, retained unit-review authority, Compare/claim creation, capacity enforcement and original-key recovery remain workflow acceptance work. Document-backed review must use the real shared Core Documents owner; any fileless review needs its explicit policy/evidence contract. Neither path is accepted by this schema checkpoint.
+Integrated SDK run01 for source `294fd99d` exported the genuine guarded SQL and built the product, then failed while compiling a Procurement test fixture that omitted the optional acceptance identity constructor argument. The failed receipt is retained. Commit `6d212b2b` corrects that fixture. SDK run02 was running the full suites at this update; no successful full-suite result is claimed here. Native principal mapping insertion, retained unit-review authority, Compare/claim creation, capacity enforcement and original-key recovery remain workflow acceptance work. Document-backed review must use the real shared Core Documents owner; any fileless review needs its explicit policy/evidence contract. Neither path is accepted by this schema checkpoint.
 
 No full UI, multibranch, concurrency, complete veto-family, Finance or production workflow sign-off is claimed.

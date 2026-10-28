@@ -63,16 +63,34 @@
     "changedChecks": 2,
     "nativeExpressionsAndChecksCaptured": true,
     "rawDownExecuted": false,
-    "guardedDownNativeAccepted": false
+    "guardedDownNativeAccepted": true,
+    "combinedRoundtripReceiptSha256": "1734878ce96b130e92bed6ae2250ed5254a5400abffc79a6dea28bbc26af4b1a",
+    "combinedGuardedDownSha256": "56b28032b50ff84b911e531750af3478320092a6057a8101dcdfec46fa7de99d",
+    "combinedUpSha256": "9315f457168246f00b79ad4a8f702d82f64b0f1a6adf37e8fca622bfa172c705",
+    "veto": {
+      "sqlstate": "55000",
+      "syntheticSource3ExposureOnly": true,
+      "actualPrincipalParentForeignKey": true,
+      "transactionRolledBack": true,
+      "allVetoFamiliesTested": false
+    }
   },
   "limits": {
     "completeIntegratedSdkAccepted": false,
-    "integratedSdkStateAtCheckpoint": "RUNNING_NO_RESULT_CLAIM",
+    "integratedSdkStateAtCheckpoint": "RUN02_RUNNING_NO_RESULT_CLAIM",
     "newPrincipalMappingInsertNativeTested": false,
     "principalCompareNativeTested": false,
     "documentOrManualReviewJourneyAccepted": false,
     "fullUatAccepted": false,
     "productionActivationAuthorizedByCheckpoint": false,
     "allOldCheckValidRowsUniversallyCompatible": false
+  },
+  "integratedSdk": {
+    "run01Status": "FAILED_M6B_INTEGRATED_SDK",
+    "run01ReceiptSha256": "484c1d4b3b791108cdc978448fc5dab80486feeefb4b1a0452207ee7d9ed7341",
+    "failure": "Procurement test fixture omitted optional acceptance identity constructor argument",
+    "fixtureFixCommit": "6d212b2b",
+    "run02StateAtCheckpoint": "RUNNING_NO_RESULT_CLAIM",
+    "fullSuitePassClaimed": false
   }
 }
