@@ -203,8 +203,10 @@ public static class InvoiceProcurementBaselineEvidence
     /// fact; current post-baseline rows and Core approval still need proof.</summary>
     public static bool NoRetainedExposureForOrder(
         InvoiceProcurementOwnerBaseline baseline,
-        IReadOnlyList<InvoiceProcurementOwnerBaselineRow> rows,Guid purchaseOrderId)
+        IReadOnlyList<InvoiceProcurementOwnerBaselineRow> rows,
+        InvoiceProcurementInventoryCapture capturedAtOpening,Guid purchaseOrderId)
     {
+        VerifyCapture(baseline,rows,capturedAtOpening);
         RequireResolvedClassificationForOrder(baseline,rows,purchaseOrderId);
         var linkedInvoices=rows.Where(x=>x.PurchaseOrderId==purchaseOrderId
             && x.SupplierInvoiceId is not null).Select(x=>x.SupplierInvoiceId!.Value).ToHashSet();
