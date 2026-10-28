@@ -103,6 +103,8 @@ public static class PrincipalInvoiceAllocationSourceEvidence
             return null; // A two-way comparison has no physical acceptance claim.
         var history = relevantHistories.Single(x => x.SourceStateId == line.PrincipalReceivingSourceStateId);
         var fact = history.Facts.Single(x => x.FactId == factId);
+        if (line.InvoiceUnitCode != history.UnitCode)
+            throw new InvalidOperationException("PrincipalInvoiceUnitConversionReviewRequired");
         if (fact.PurchaseOrderLineId != claim.PurchaseOrderLineId
             || fact.PurchaseOrderId != claim.PurchaseOrderId
             || fact.IssuedVersionId != claim.IssuedVersionId

@@ -25,6 +25,9 @@ public sealed class PrincipalInvoiceAllocationSourceEvidenceTests
                 { PurchaseOrderLineId = Guid.NewGuid() }] }]));
         Assert.Throws<InvalidOperationException>(() => PrincipalInvoiceAllocationSourceEvidence.VerifySet(
             [f.Input with { Allocation = Claim(f.Input.Allocation, unit: "BOX") }], [f.History]));
+        Assert.Equal("PrincipalInvoiceUnitConversionReviewRequired", Assert.Throws<InvalidOperationException>(() =>
+            PrincipalInvoiceAllocationSourceEvidence.VerifySet([f.Input],
+                [f.History with { UnitCode = "BOX" }])).Message);
         Assert.Throws<InvalidOperationException>(() => PrincipalInvoiceAllocationSourceEvidence.VerifySet(
             [f.Input], [f.History with { SupplierId = Guid.NewGuid() }]));
         Assert.Throws<InvalidOperationException>(() => PrincipalInvoiceAllocationSourceEvidence.VerifySet(
