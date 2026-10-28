@@ -10,6 +10,8 @@ namespace Mightyfin.Erp.Procurement.Application;
 public static class InvoiceProcurementBaselineEvidence
 {
     public const string SourceType = "InvoiceProcurementOwnerBaseline";
+    public const string OpenPermission = "procurement-invoice-owner-baseline-open";
+    public const string ReadPermission = "procurement-invoice-owner-baseline-read";
     public const string ReviewPermission = "procurement-invoice-owner-baseline-review";
     private static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web);
 

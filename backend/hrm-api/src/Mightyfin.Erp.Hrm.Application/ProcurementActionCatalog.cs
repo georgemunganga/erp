@@ -10,6 +10,8 @@ public static class ProcurementActionCatalog
         "procurement-vendor-export" or "procurement-item-export"
         or "procurement-vendor-import" or "procurement-item-import"
         or "procurement-sourcing-submit" or "procurement-sourcing-publish"
+        or "procurement-invoice-owner-baseline-open" or "procurement-invoice-owner-baseline-read"
+        or "procurement-invoice-owner-baseline-review"
         or "procurement-return-read" or "procurement-return-create" or "procurement-return-edit";
 
     public static readonly IReadOnlyDictionary<string, string[]> BootstrapGrants =
@@ -96,6 +98,11 @@ public static class ProcurementActionCatalog
             ["procurement-invoice-unit-review-request"] = [],
             ["procurement-invoice-unit-review-read"] = [],
             ["procurement-invoice-unit-review"] = [],
+            // A reviewed historical inventory has its own Core authority. Existing
+            // invoice access and administrator bootstrap confer none of these actions.
+            ["procurement-invoice-owner-baseline-open"] = [],
+            ["procurement-invoice-owner-baseline-read"] = [],
+            ["procurement-invoice-owner-baseline-review"] = [],
             ["procurement-po-read"] = ["procurement_buyer", "procurement_manager"],
             ["procurement-po-create"] = ["procurement_buyer"],
             ["procurement-po-edit"] = ["procurement_buyer"],
