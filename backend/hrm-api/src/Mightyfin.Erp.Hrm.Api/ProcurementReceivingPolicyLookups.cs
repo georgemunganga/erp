@@ -46,10 +46,10 @@ public static partial class ProcurementPolicyDraftRoutes
             {
                 // Schema 2 names Core accounts. HR worker links are optional, and a
                 // directory row never grants a receiving action.
-                var query = ProcurementPrincipalPeople.Candidates(core, scope, DateTimeOffset.UtcNow)
+                var principalQuery = ProcurementPrincipalPeople.Candidates(core, scope, DateTimeOffset.UtcNow)
                     .Where(x => text == "" || x.DisplayName.ToLower().Contains(text));
-                if (selected is not null) query = query.Where(x => selected.Contains(x.Id));
-                var candidates = await query.OrderBy(x => x.DisplayName).ThenBy(x => x.Id)
+                if (selected is not null) principalQuery = principalQuery.Where(x => selected.Contains(x.Id));
+                var candidates = await principalQuery.OrderBy(x => x.DisplayName).ThenBy(x => x.Id)
                     .Select(x => new { x.Id, x.DisplayName }).Take(501).ToArrayAsync(ct);
                 if (candidates.Length > 500)
                     return Problem("receiving-lookup-too-broad", "Narrow the account search before selecting a person.", 422);
@@ -63,7 +63,7 @@ public static partial class ProcurementPolicyDraftRoutes
                         eligible.Add(new ReceivingLookupRow { Id = candidate.Id, PrincipalId = candidate.Id,
                             DisplayName = candidate.DisplayName });
                 }
-                var items = eligible.Skip(skip).Take(take).ToArray();
+                var principalItems = eligible.Skip(skip).Take(take).ToArray();
                 return Results.Ok(new { kind, companyId = scope.LegalEntityId, items, total = eligible.Count,
                     offset = skip, limit = take,
                     nextOffset = items.Length > 0 && skip + items.Length < eligible.Count && skip + items.Length <= 100000
