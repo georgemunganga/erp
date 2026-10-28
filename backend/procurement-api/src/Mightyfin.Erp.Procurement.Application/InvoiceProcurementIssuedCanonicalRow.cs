@@ -51,14 +51,14 @@ public static class InvoiceProcurementIssuedCanonicalRow
             if (newCount == 0 && schema.Name is null) return raw; // Pre-B capture.
             if (effective.Name is null || schema.Name is null)
                 throw new InvalidOperationException("InvoiceOwnerIssuedProjectionInvalid");
-            // Mapping gained its nullable discriminator in B. A retained M6A
-            // baseline must also survive the interval before B2's generated pins.
+            // M6A already stored mapping.source_schema_version. A retained
+            // baseline between M6A and B2 has no generated pins to remove.
             if (!exposureOrResult && legacy.Name is null && principal.Name is null)
             {
-                if (schema.Kind == JsonTokenType.Number && schema.Value == "3") return raw;
-                if (schema.Kind != JsonTokenType.Null)
+                if (schema.Kind != JsonTokenType.Null
+                    && !(schema.Kind == JsonTokenType.Number && schema.Value == "3"))
                     throw new InvalidOperationException("InvoiceOwnerIssuedProjectionInvalid");
-                return Remove(bytes, fields, [Schema]);
+                return raw;
             }
             if (legacy.Name is null || principal.Name is null || exposureOrResult && newCount != 3)
                 throw new InvalidOperationException("InvoiceOwnerIssuedProjectionInvalid");
@@ -74,8 +74,8 @@ public static class InvoiceProcurementIssuedCanonicalRow
             if (schema.Kind != JsonTokenType.Null || legacyId != issued || principalId is not null)
                 throw new InvalidOperationException("InvoiceOwnerIssuedProjectionInvalid");
 
-            // M6A baselines predate the B discriminator on mapping too.
-            return Remove(bytes, fields, [Legacy, Principal, Schema]);
+            return Remove(bytes, fields, exposureOrResult
+                ? [Legacy, Principal, Schema] : [Legacy, Principal]);
         }
         catch (Exception error) when (error is JsonException or OverflowException or FormatException or InvalidOperationException)
         {
