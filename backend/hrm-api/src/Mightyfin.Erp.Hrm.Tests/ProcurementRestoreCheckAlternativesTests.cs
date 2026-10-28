@@ -31,13 +31,40 @@ public sealed class ProcurementRestoreCheckAlternativesTests
         { "procurement.principal_goods_return_drafts.ck_pgret_draft", "faeb8294dd01da3ba71c685aff00fe93a0e01a3426f2a8eb14cf603287f000f6", "d1d66d7fafe6fd66adbea3edd2402303e82ec69f9cc80edaeddcb1d9cdb51948" },
         { "procurement.principal_goods_return_receipts.ck_pgret_receipt", "713a7150dccf60497413782dd810a02d8bdbdd38a89f4a14332d6f7ac79bdf27", "50b2ce5c4d689babd4f5de61101217760c42b9d2404e4107c2a768f0584bcd5f" },
         { "procurement.principal_goods_return_revisions.ck_pgret_revision", "ee287e75f907d7786a0ed5ef3bdfa41ba3cb4d45a84eef8b51ff04ac62e6673b", "b54a3abe12c1041af2cacf9468b988af9dce1900e047519a3362f6b9be634a71" },
+        { "procurement.invoice_unit_review_receipts.ck_inv_unit_receipt", "7723ff9e9241da66d1171ec3c3f1661ba43ba96d2bb74eb6d3f19130086d5852", "db0ba84bd4dd4a48371b90bdecffcc1e80743b9abe7b74401d44883ad2bb876e" },
     };
+
+    [Fact]
+    public void Unit_receipt_restore_preserves_actor_key_fingerprint_payload_and_time_guards()
+    {
+        const string key = "procurement.invoice_unit_review_receipts.ck_inv_unit_receipt";
+        var pair = ProcurementRestoreCheckAlternatives.Definitions[key];
+        Assert.Equal(ProcurementInvoiceUnitReviewSchemaReadiness.CheckDefinitions["ck_inv_unit_receipt"], pair.Canonical);
+        foreach (var (guard, weakened) in new[]
+        {
+            ("'Decision'", "'UnreviewedOperation'"),
+            ("command_key <>", "command_key ="),
+            ("actor_worker_id <>", "actor_worker_id ="),
+            ("actor_principal_id)::text <>", "actor_principal_id)::text ="),
+            ("fingerprint IS NOT NULL", "fingerprint IS NULL"),
+            ("octet_length(response_json) <= 262144", "octet_length(response_json) <= 262145"),
+            ("octet_length(request_json) <= 65536", "octet_length(request_json) <= 65537"),
+            ("isfinite(completed_at)", "TRUE"),
+        })
+        {
+            Assert.Contains(guard, pair.Restored);
+            Assert.False(ExistingComparator(key, pair.Canonical,
+                pair.Restored.Replace(guard, weakened, StringComparison.Ordinal)));
+        }
+        Assert.False(ExistingComparator(key, pair.Canonical.Replace("isfinite(completed_at)", "TRUE", StringComparison.Ordinal), pair.Restored));
+        Assert.False(ProcurementRestoreCheckAlternatives.Matches("procurement.invoice_unit_review_outcomes.ck_inv_unit_receipt", pair.Canonical, pair.Restored));
+    }
 
     [Theory]
     [MemberData(nameof(ExactObservedCases))]
     public void Only_exact_qualified_canonical_and_restored_pair_is_admitted(string key, string canonicalSha256, string restoredSha256)
     {
-        Assert.Equal(23, ProcurementRestoreCheckAlternatives.Definitions.Count);
+        Assert.Equal(24, ProcurementRestoreCheckAlternatives.Definitions.Count);
         var pair = ProcurementRestoreCheckAlternatives.Definitions[key];
         Assert.NotEqual(pair.Canonical, pair.Restored);
         Assert.Equal(canonicalSha256, Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(pair.Canonical))).ToLowerInvariant());
@@ -134,6 +161,9 @@ public sealed class ProcurementRestoreCheckAlternativesTests
                 && (actual == canonical || ProcurementSourcingDraftSchemaReadiness.MatchesRestoredReceipt(key, canonical, actual))
             : key == "procurement.operational_policy_identity_evidence.ck_operational_policy_identity"
                 ? canonical == ProcurementManualPaymentGovernanceReadiness.OperationalCheckDefinition
+                    && (actual == canonical || ProcurementRestoreCheckAlternatives.Matches(key, canonical, actual))
+            : key == "procurement.invoice_unit_review_receipts.ck_inv_unit_receipt"
+                ? canonical == ProcurementInvoiceUnitReviewSchemaReadiness.CheckDefinitions["ck_inv_unit_receipt"]
                     && (actual == canonical || ProcurementRestoreCheckAlternatives.Matches(key, canonical, actual))
             : key.StartsWith("procurement.manual_payment_", StringComparison.Ordinal)
                 ? actual == canonical || ProcurementRestoreCheckAlternatives.Matches(key, canonical, actual)

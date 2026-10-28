@@ -78,7 +78,9 @@ public sealed class ProcurementInvoiceUnitReviewSchemaReadiness : IProcurementIn
                 command.CommandText = CheckSql(table, checks[0].Name!);
                 if (await command.ExecuteScalarAsync(ct) is not string actual
                     || (manualInstalled && checks[0].Name == "ck_inv_unit_outcome"
-                        ? !ProcurementInvoiceManualUnitReviewSchemaCapture.MatchesOutcome(actual) : actual != expected)) return false;
+                        ? !ProcurementInvoiceManualUnitReviewSchemaCapture.MatchesOutcome(actual)
+                        : actual != expected && !ProcurementRestoreCheckAlternatives.Matches(
+                            $"procurement.{table.Name}.{checks[0].Name}", expected, actual))) return false;
                 foreach (var foreign in entity.GetForeignKeys())
                 {
                     var parent = StoreObjectIdentifier.Table(foreign.PrincipalEntityType.GetTableName()!, foreign.PrincipalEntityType.GetSchema());
