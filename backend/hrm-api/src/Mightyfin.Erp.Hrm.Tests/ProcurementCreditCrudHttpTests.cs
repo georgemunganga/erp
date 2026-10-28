@@ -91,7 +91,11 @@ public sealed partial class ProcurementRequestHttpTests
         await using var fixture = await Fixture.Start();
         await fixture.ConfigureCoreRole(fixture.Other, "ap_processor");
         var supplier = await fixture.AddInvoiceSupplier();
-        var invoice = await CaptureCrudInvoice(fixture, supplier, "CREDIT-SCOPE"); var created = await CaptureCredit(fixture, invoice, "SCOPED", "1");
+        // Capture through the real endpoint in a different branch before confining
+        // the account to A1. New invoices always have a selected branch now.
+        var otherBranch = await fixture.AddOtherInvoiceBranch();
+        var invoice = await CaptureCrudInvoice(fixture, supplier, "CREDIT-SCOPE", selectedBranch: otherBranch);
+        var created = await CaptureCredit(fixture, invoice, "SCOPED", "1");
         var id = created.GetProperty("id").GetGuid(); var before = await fixture.CreditFootprint();
         await fixture.ConfigureCoreRole(fixture.Owner, "ap_processor");
         Assert.Equal(HttpStatusCode.NotFound, (await SendJson(fixture.Client, HttpMethod.Put, $"{CreditPath}/{id}", fixture.Owner,
@@ -110,6 +114,10 @@ public sealed partial class ProcurementRequestHttpTests
         Assert.Equal(HttpStatusCode.NotFound, (await SendJson(fixture.Client, HttpMethod.Post, CreditPath, fixture.Other,
             new { supplierInvoiceId = invoice, creditNumber = "NEW", amount = "1", reason = "Hidden bill" }, "ap_processor")).StatusCode);
         Assert.Equal(before, await fixture.CreditFootprint());
+        var ownBranchInvoice = await CaptureCrudInvoice(fixture, supplier, "CREDIT-OWN-BRANCH");
+        var ownBranchCredit = await CaptureCredit(fixture, ownBranchInvoice, "OWN-BRANCH", "1");
+        Assert.Equal(HttpStatusCode.OK, (await Send(fixture.Client, HttpMethod.Get,
+            $"{CreditPath}/{ownBranchCredit.GetProperty("id").GetGuid()}", fixture.Other, role: "ap_processor")).StatusCode);
     }
     [Theory]
     [InlineData("historical-received")]

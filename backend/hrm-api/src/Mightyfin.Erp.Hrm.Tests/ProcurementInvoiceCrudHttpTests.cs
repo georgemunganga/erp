@@ -28,10 +28,11 @@ public sealed partial class ProcurementRequestHttpTests
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         return await response.Content.ReadFromJsonAsync<JsonElement>();
     }
-    private static async Task<Guid> CaptureCrudInvoice(Fixture fixture, Guid supplier, string number, object[]? lines = null)
+    private static async Task<Guid> CaptureCrudInvoice(Fixture fixture, Guid supplier, string number, object[]? lines = null,
+        Guid? selectedBranch = null)
     {
         var response = await SendJson(fixture.Client, HttpMethod.Post, InvoicePath, fixture.Other,
-            InvoiceDraft(supplier, number, lines), "ap_processor", selectedLocation: await fixture.IntakeSelectedBranch());
+            InvoiceDraft(supplier, number, lines), "ap_processor", selectedLocation: selectedBranch ?? await fixture.IntakeSelectedBranch());
         Assert.Equal(HttpStatusCode.Created, response.StatusCode);
         return (await response.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("id").GetGuid();
     }
@@ -218,10 +219,18 @@ public sealed partial class ProcurementRequestHttpTests
         public async Task ConfineInvoiceActor()
         {
             using var scope = InvoiceScope(); var core = scope.ServiceProvider.GetRequiredService<HrmDbContext>();
-            var branch = await core.WorkLocations.SingleAsync(x => x.LegalEntityId == company);
+            var branch = await core.WorkLocations.SingleAsync(x => x.LegalEntityId == company && x.Code == "A1");
             if (!await core.UserBranchAssignments.AnyAsync(x => x.UserId == Other && x.LocationId == branch.Id))
                 core.UserBranchAssignments.Add(new HrUserBranchAssignment { UserId = Other, LocationId = branch.Id });
             await core.SaveChangesAsync();
+        }
+        public async Task<Guid> AddOtherInvoiceBranch()
+        {
+            using var scope = InvoiceScope(); var core = scope.ServiceProvider.GetRequiredService<HrmDbContext>();
+            var branch = new WorkLocation { LegalEntityId = company, Code = "CREDIT-OTHER", Name = "Other credit branch" };
+            core.WorkLocations.Add(branch);
+            await core.SaveChangesAsync();
+            return branch.Id;
         }
     }
 }
