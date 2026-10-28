@@ -22,6 +22,14 @@ public sealed record InvoiceIntakeCancelInput(long Version, string? Reason);
 
 public static partial class ProcurementInvoiceIntakeRoutes
 {
+    internal static bool IntakeWriteContextAllowed(ProcurementRequestScope scope, HttpRequest request) =>
+        scope.OrgUnitId is null && scope.WorkLocationId is { } branch && branch != Guid.Empty
+        && !scope.IsExplicitAllBranches && !request.Headers.ContainsKey("X-Shell-Branch-Scope");
+    private static IResult IntakeBranchRequired() => Results.Json(new {
+        code = "invoice-selected-branch-required",
+        message = "Choose a permitted branch before creating, correcting or cancelling an invoice. Company All is for reading."
+    }, statusCode: StatusCodes.Status422UnprocessableEntity);
+
     private static IQueryable<SupplierInvoice> Visible(ProcurementDbContext db, ProcurementRequestScope scope)
     {
         var query = db.SupplierInvoices.AsNoTracking();
@@ -49,7 +57,7 @@ public static partial class ProcurementInvoiceIntakeRoutes
         input = input with { CurrencyCode = string.IsNullOrWhiteSpace(input.CurrencyCode)
             ? existing?.CurrencyCode ?? await ProcurementCurrencyDefaults.ForSelectedCompanyAsync(core, scope, ct) : input.CurrencyCode };
         var issue = Validate(input); if (issue is not null) throw new IntakeProblem("validation-failed", issue, 422);
-        if (scope.OrgUnitId is not null || scope.IsConfined && scope.WorkLocationId is null)
+        if (scope.OrgUnitId is not null || scope.WorkLocationId is null || scope.WorkLocationId == Guid.Empty || scope.IsExplicitAllBranches)
             throw new IntakeProblem("invoice-scope-unavailable", "Select a company or an authorized branch for invoice intake.", 422);
         decimal net, tax, gross;
         try
@@ -74,7 +82,7 @@ public static partial class ProcurementInvoiceIntakeRoutes
                 || existing is not null && order.BranchRef != existing.BranchRef)
                 throw new IntakeProblem("validation-failed", "Choose an available purchase order for this vendor and the invoice's retained branch.", 422);
         }
-        var branch = existing is null ? scope.WorkLocationId ?? order?.BranchRef : existing.BranchRef;
+        var branch = existing is null ? scope.WorkLocationId : existing.BranchRef;
         if (branch is { } branchId && !await core.WorkLocations.AsNoTracking().AnyAsync(x => x.TenantId == scope.TenantId
             && x.Id == branchId && x.LegalEntityId == scope.LegalEntityId && !x.IsArchived, ct))
             throw new IntakeProblem("validation-failed", "The invoice branch is unavailable in this company.", 422);
@@ -85,9 +93,10 @@ public static partial class ProcurementInvoiceIntakeRoutes
         return new(input, net, tax, gross, branch);
     }
 
-    private static async Task<IResult> Update(Guid id, HttpRequest request, ProcurementDbContext db,
+    internal static async Task<IResult> Update(Guid id, HttpRequest request, ProcurementDbContext db,
         ProcurementRequestScope scope, HrmDbContext core, HttpContext http, CancellationToken ct)
     {
+        if (!IntakeWriteContextAllowed(scope, request)) return IntakeBranchRequired();
         if (!request.HasJsonContentType()) return Results.StatusCode(415);
         InvoiceIntakeUpdateInput? input;
         try { input = await request.ReadFromJsonAsync<InvoiceIntakeUpdateInput>(ct); }
@@ -117,9 +126,10 @@ public static partial class ProcurementInvoiceIntakeRoutes
         await db.SaveChangesAsync(ct); if (transaction is not null) await transaction.CommitAsync(ct);
         return Results.Ok(Summary(invoice));
     }
-    private static async Task<IResult> Cancel(Guid id, InvoiceIntakeCancelInput input, ProcurementDbContext db,
+    internal static async Task<IResult> Cancel(Guid id, InvoiceIntakeCancelInput input, ProcurementDbContext db,
         ProcurementRequestScope scope, HttpContext http, CancellationToken ct)
     {
+        if (!IntakeWriteContextAllowed(scope, http.Request)) return IntakeBranchRequired();
         if (input.Version <= 0 || !ValidReason(input.Reason)) return Invalid("Supply the current version and a cancellation reason of up to 1,000 characters.");
         await using var transaction = db.Database.IsRelational() ? await db.Database.BeginTransactionAsync(System.Data.IsolationLevel.Serializable, ct) : null;
         var visible = await Visible(db, scope).SingleOrDefaultAsync(x => x.Id == id, ct);

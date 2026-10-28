@@ -31,7 +31,7 @@ public sealed partial class ProcurementRequestHttpTests
     private static async Task<Guid> CaptureCrudInvoice(Fixture fixture, Guid supplier, string number, object[]? lines = null)
     {
         var response = await SendJson(fixture.Client, HttpMethod.Post, InvoicePath, fixture.Other,
-            InvoiceDraft(supplier, number, lines), "ap_processor");
+            InvoiceDraft(supplier, number, lines), "ap_processor", selectedLocation: await fixture.IntakeSelectedBranch());
         Assert.Equal(HttpStatusCode.Created, response.StatusCode);
         return (await response.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("id").GetGuid();
     }
@@ -48,7 +48,7 @@ public sealed partial class ProcurementRequestHttpTests
         Assert.Equal(new[] { "Edit", "Cancel" }, original.GetProperty("allowedActions").EnumerateArray().Select(x => x.GetString()).ToArray());
         Assert.Equal("12.3456", original.GetProperty("lines")[0].GetProperty("exactAmounts").GetProperty("unitPrice").GetString());
         var update = await SendJson(fixture.Client, HttpMethod.Put, $"{InvoicePath}/{id}", fixture.Other,
-            new { version = 1, draft = InvoiceDraft(supplier, "CRUD-EXACT", [InvoiceLine("Corrected", "1", "12345678901234.5678")]), reason = "Correct original capture" }, "ap_processor");
+            new { version = 1, draft = InvoiceDraft(supplier, "CRUD-EXACT", [InvoiceLine("Corrected", "1", "12345678901234.5678")]), reason = "Correct original capture" }, "ap_processor", selectedLocation: await fixture.IntakeSelectedBranch());
         Assert.Equal(HttpStatusCode.OK, update.StatusCode);
         var current = await InvoiceDetail(fixture, id);
         Assert.Equal(2, current.GetProperty("version").GetInt64());
@@ -58,9 +58,9 @@ public sealed partial class ProcurementRequestHttpTests
         var audit = await fixture.AuditPayload(id, "InvoiceIntakeCorrected");
         Assert.Equal("Removed", audit.GetProperty("before").GetProperty("lines")[1].GetProperty("Description").GetString());
         Assert.Equal(HttpStatusCode.Conflict, (await SendJson(fixture.Client, HttpMethod.Post, $"{InvoicePath}/{id}/cancel", fixture.Other,
-            new { version = 1, reason = "Stale cancellation" }, "ap_processor")).StatusCode);
+            new { version = 1, reason = "Stale cancellation" }, "ap_processor", selectedLocation: await fixture.IntakeSelectedBranch())).StatusCode);
         var cancelled = await SendJson(fixture.Client, HttpMethod.Post, $"{InvoicePath}/{id}/cancel", fixture.Other,
-            new { version = 2, reason = "No longer payable" }, "ap_processor");
+            new { version = 2, reason = "No longer payable" }, "ap_processor", selectedLocation: await fixture.IntakeSelectedBranch());
         Assert.Equal(HttpStatusCode.OK, cancelled.StatusCode);
         var final = await InvoiceDetail(fixture, id);
         Assert.Equal("Cancelled", final.GetProperty("status").GetString());
@@ -85,10 +85,10 @@ public sealed partial class ProcurementRequestHttpTests
         var before = await fixture.InvoiceFootprint(id);
         var draft = InvoiceDraft(supplier, "CRUD-PRECISION", [InvoiceLine("Invalid", quantity, price, tax)]);
         Assert.Equal(HttpStatusCode.UnprocessableEntity, (await SendJson(fixture.Client, HttpMethod.Put, $"{InvoicePath}/{id}", fixture.Other,
-            new { version = 1, draft, reason = "Invalid amount" }, "ap_processor")).StatusCode);
+            new { version = 1, draft, reason = "Invalid amount" }, "ap_processor", selectedLocation: await fixture.IntakeSelectedBranch())).StatusCode);
         Assert.Equal(before, await fixture.InvoiceFootprint(id));
         Assert.Equal(HttpStatusCode.UnprocessableEntity, (await SendJson(fixture.Client, HttpMethod.Post, InvoicePath, fixture.Other,
-            InvoiceDraft(supplier, "INVALID-CAPTURE", [InvoiceLine("Invalid", quantity, price, tax)]), "ap_processor")).StatusCode);
+            InvoiceDraft(supplier, "INVALID-CAPTURE", [InvoiceLine("Invalid", quantity, price, tax)]), "ap_processor", selectedLocation: await fixture.IntakeSelectedBranch())).StatusCode);
         Assert.Equal(before, await fixture.InvoiceFootprint(id));
     }
 
@@ -106,9 +106,9 @@ public sealed partial class ProcurementRequestHttpTests
         var id = await fixture.SeedProcessedInvoiceOriginal(supplier, blocker); var before = await fixture.InvoiceFootprint(id);
         var detail = await InvoiceDetail(fixture, id); Assert.Empty(detail.GetProperty("allowedActions").EnumerateArray());
         Assert.Equal(HttpStatusCode.Conflict, (await SendJson(fixture.Client, HttpMethod.Put, $"{InvoicePath}/{id}", fixture.Other,
-            new { version = detail.GetProperty("version").GetInt64(), draft = InvoiceDraft(supplier, "CHANGED"), reason = "Must not edit evidence" }, "ap_processor")).StatusCode);
+            new { version = detail.GetProperty("version").GetInt64(), draft = InvoiceDraft(supplier, "CHANGED"), reason = "Must not edit evidence" }, "ap_processor", selectedLocation: await fixture.IntakeSelectedBranch())).StatusCode);
         Assert.Equal(HttpStatusCode.Conflict, (await SendJson(fixture.Client, HttpMethod.Post, $"{InvoicePath}/{id}/cancel", fixture.Other,
-            new { version = detail.GetProperty("version").GetInt64(), reason = "Must not cancel evidence" }, "ap_processor")).StatusCode);
+            new { version = detail.GetProperty("version").GetInt64(), reason = "Must not cancel evidence" }, "ap_processor", selectedLocation: await fixture.IntakeSelectedBranch())).StatusCode);
         Assert.Equal(before, await fixture.InvoiceFootprint(id));
     }
 
@@ -118,14 +118,14 @@ public sealed partial class ProcurementRequestHttpTests
         await using var fixture = await Fixture.Start();
         await fixture.ConfigureCoreRole(fixture.Other, "ap_processor");
         var supplier = await fixture.AddInvoiceSupplier();
-        var id = await CaptureCrudInvoice(fixture, supplier, "CRUD-SCOPE"); var path = $"{InvoicePath}/{id}";
+        var id = await fixture.SeedProcessedInvoiceOriginal(supplier, "legacy-unknown-branch"); var path = $"{InvoicePath}/{id}";
         var before = await fixture.InvoiceFootprint(id);
         await fixture.ConfigureCoreRole(fixture.Owner, "ap_processor");
         Assert.Equal(HttpStatusCode.NotFound, (await SendJson(fixture.Client, HttpMethod.Put, path, fixture.Owner,
-            new { version = 1, draft = InvoiceDraft(supplier, "NO"), reason = "Other author" }, "ap_processor")).StatusCode);
+            new { version = 1, draft = InvoiceDraft(supplier, "NO"), reason = "Other author" }, "ap_processor", selectedLocation: await fixture.IntakeSelectedBranch())).StatusCode);
         await fixture.ConfigureCoreRole(fixture.Other, "employee");
         Assert.Equal(HttpStatusCode.Forbidden, (await SendJson(fixture.Client, HttpMethod.Post, path + "/cancel", fixture.Other,
-            new { version = 1, reason = "No permission" }, "employee")).StatusCode);
+            new { version = 1, reason = "No permission" }, "employee", selectedLocation: await fixture.IntakeSelectedBranch())).StatusCode);
         await fixture.RestrictCoreAccountToCompany(fixture.Other);
         await fixture.ConfigureCoreRole(fixture.Other, "ap_processor");
         Assert.Equal(HttpStatusCode.Forbidden, (await Send(fixture.Client, HttpMethod.Get, path, fixture.Other, company: fixture.OtherCompany, role: "ap_processor")).StatusCode);
@@ -134,7 +134,7 @@ public sealed partial class ProcurementRequestHttpTests
         var list = await Send(fixture.Client, HttpMethod.Get, InvoicePath, fixture.Other, role: "ap_processor");
         Assert.Equal(0, (await list.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("total").GetInt32());
         Assert.Equal(HttpStatusCode.NotFound, (await SendJson(fixture.Client, HttpMethod.Post, path + "/cancel", fixture.Other,
-            new { version = 1, reason = "Unknown site" }, "ap_processor")).StatusCode);
+            new { version = 1, reason = "Unknown site" }, "ap_processor", selectedLocation: await fixture.IntakeSelectedBranch())).StatusCode);
         Assert.Equal(before, await fixture.InvoiceFootprint(id));
     }
 
@@ -147,18 +147,18 @@ public sealed partial class ProcurementRequestHttpTests
         await fixture.ConfineInvoiceActor();
         var draft = new { supplierId = supplier, invoiceNumber = "BRANCH-DEFAULT", invoiceDate = "2026-10-22",
             lines = new[] { InvoiceLine("Default currency", "1", "2") } };
-        var captured = await SendJson(fixture.Client, HttpMethod.Post, InvoicePath, fixture.Other, draft, "ap_processor");
+        var captured = await SendJson(fixture.Client, HttpMethod.Post, InvoicePath, fixture.Other, draft, "ap_processor", selectedLocation: await fixture.IntakeSelectedBranch());
         Assert.Equal(HttpStatusCode.Created, captured.StatusCode);
         var row = await captured.Content.ReadFromJsonAsync<JsonElement>(); var id = row.GetProperty("id").GetGuid();
         Assert.NotEqual(Guid.Empty, row.GetProperty("branchRef").GetGuid()); Assert.Equal("ZMW", row.GetProperty("currencyCode").GetString());
         var original = await InvoiceDetail(fixture, id);
         var before = await fixture.InvoiceFootprint(id);
         Assert.Equal(HttpStatusCode.UnprocessableEntity, (await SendJson(fixture.Client, HttpMethod.Post, $"{InvoicePath}/{id}/cancel", fixture.Other,
-            new { version = 1, reason = new string('x', 1001) }, "ap_processor")).StatusCode);
-        Assert.Equal(HttpStatusCode.Conflict, (await SendJson(fixture.Client, HttpMethod.Post, InvoicePath, fixture.Other, draft, "ap_processor")).StatusCode);
+            new { version = 1, reason = new string('x', 1001) }, "ap_processor", selectedLocation: await fixture.IntakeSelectedBranch())).StatusCode);
+        Assert.Equal(HttpStatusCode.Conflict, (await SendJson(fixture.Client, HttpMethod.Post, InvoicePath, fixture.Other, draft, "ap_processor", selectedLocation: await fixture.IntakeSelectedBranch())).StatusCode);
         Assert.Equal(before, await fixture.InvoiceFootprint(id));
         var updated = await SendJson(fixture.Client, HttpMethod.Put, $"{InvoicePath}/{id}", fixture.Other,
-            new { version = 1, draft = InvoiceDraft(supplier, "BRANCH-DEFAULT"), reason = "Correct quantity" }, "ap_processor");
+            new { version = 1, draft = InvoiceDraft(supplier, "BRANCH-DEFAULT"), reason = "Correct quantity" }, "ap_processor", selectedLocation: await fixture.IntakeSelectedBranch());
         Assert.Equal(HttpStatusCode.OK, updated.StatusCode);
         Assert.Equal(original.GetProperty("branchRef").GetGuid(), (await InvoiceDetail(fixture, id)).GetProperty("branchRef").GetGuid());
     }
@@ -194,8 +194,10 @@ public sealed partial class ProcurementRequestHttpTests
                 NetAmount = 24.6912m, TaxAmount = 1.2345m, GrossAmount = 25.9257m };
             var line = new SupplierInvoiceLine { SupplierInvoiceId = invoice.Id, LineNumber = 1,
                 Description = "Processed original", Quantity = 2m, UnitPrice = 12.3456m, TaxAmount = 1.2345m };
+            if(blocker!="legacy-unknown-branch")invoice.BranchRef=await IntakeSelectedBranch();
             switch (blocker)
             {
+                case "legacy-unknown-branch": break;
                 case "document": invoice.EvidenceDocumentRefId = Guid.NewGuid(); break;
                 case "posting": invoice.FinancePostingRef = "EXTERNAL-POSTING"; break;
                 case "channel": invoice.IntakeChannel = "Electronic"; break;
@@ -206,6 +208,12 @@ public sealed partial class ProcurementRequestHttpTests
             db.AddScoped(invoice); db.AddScoped(line);
             await db.SaveChangesAsync();
             return invoice.Id;
+        }
+        public async Task<Guid> IntakeSelectedBranch()
+        {
+            using var scope=InvoiceScope();
+            return await scope.ServiceProvider.GetRequiredService<HrmDbContext>().WorkLocations
+                .Where(x=>x.LegalEntityId==company && x.Code=="A1").Select(x=>x.Id).SingleAsync();
         }
         public async Task ConfineInvoiceActor()
         {
