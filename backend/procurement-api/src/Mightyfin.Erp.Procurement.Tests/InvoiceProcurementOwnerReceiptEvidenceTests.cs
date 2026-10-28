@@ -15,7 +15,8 @@ public sealed class InvoiceProcurementOwnerReceiptEvidenceTests
         var baseline=new InvoiceProcurementOwnerBaseline
         {
             TenantId="t",LegalEntityId=Guid.NewGuid(),CoreCaseId=Guid.NewGuid(),
-            MakerPrincipalId=Guid.NewGuid().ToString("D"),InventorySetSha256=new string('a',64)
+            MakerPrincipalId=Guid.NewGuid().ToString("D"),InventorySetSha256=new string('a',64),
+            CapturedAtUtc=new DateTimeOffset(2026,10,28,16,0,0,TimeSpan.Zero)
         };
         var response=new InvoiceProcurementOwnerReceiptEvidence.Response(1,baseline.Id,baseline.CoreCaseId,
             decided?Guid.NewGuid():null,operation,Guid.NewGuid(),decided?2:1,state,baseline.InventorySetSha256);
@@ -37,14 +38,17 @@ public sealed class InvoiceProcurementOwnerReceiptEvidenceTests
 
     private static InvoiceProcurementOwnerCommandReceipt Row(InvoiceProcurementOwnerBaseline baseline,
         InvoiceProcurementOwnerReceiptEvidence.Response response,string json,int status)
-        => new()
+    {
+        var actor=response.Operation=="Open"?baseline.MakerPrincipalId:Guid.NewGuid().ToString("D");
+        return new()
         {
             TenantId=baseline.TenantId,LegalEntityId=baseline.LegalEntityId,
             BaselineId=baseline.Id,CoreCaseId=baseline.CoreCaseId,CoreDecisionId=response.CoreDecisionId,
             Operation=response.Operation,CommandKey=response.CommandKey,
-            ActorPrincipalId=response.Operation=="Open"?baseline.MakerPrincipalId:Guid.NewGuid().ToString("D"),
+            ActorPrincipalId=actor,CreatedBy=actor,CreatedAt=baseline.CapturedAtUtc.AddMinutes(1),
             RequestSha256=new string('b',64),
             ResponseJson=json,ResponseSha256=ProcurementEvidenceEncoding.Digest(json),
             ResponseStatus=status,CoreCaseVersion=response.CoreCaseVersion
         };
+    }
 }

@@ -34,6 +34,9 @@ public static class InvoiceProcurementOwnerReceiptEvidence
             || receipt.CoreCaseId!=baseline.CoreCaseId || receipt.CommandKey==Guid.Empty
             || !ProcurementPrincipalEvidence.Canonical(receipt.ActorPrincipalId)
             || !ProcurementPrincipalEvidence.OptionalWorker(receipt.ActorWorkerAliasId)
+            || receipt.Version!=1 || receipt.UpdatedAt is not null || receipt.UpdatedBy is not null
+            || receipt.CreatedBy!=receipt.ActorPrincipalId || receipt.CreatedAt==default
+            || receipt.CreatedAt.Offset!=TimeSpan.Zero || receipt.CreatedAt<baseline.CapturedAtUtc
             || !Sha(receipt.RequestSha256) || !Sha(receipt.ResponseSha256)
             || Encoding.UTF8.GetByteCount(receipt.ResponseJson) is < 2 or > 65_536
             || ProcurementEvidenceEncoding.Digest(receipt.ResponseJson)!=receipt.ResponseSha256)
