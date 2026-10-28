@@ -92,9 +92,11 @@ Selectively adopt held model CHECK outcome evidence schema IN(3,4). Root generat
 
 Retain finite same-database/role/no-owner/Core fences. Add applied-C conditional exact native/restored CHECK admission, leaving older schema3 captures strict; manual mode never requires Core Documents tables.
 
-## 24. Downgrade
+## 24. Downgrade and original-key recovery
 
 First Down must veto any retained source4/request2/outcome4/manual policy2/Core descendant/audit/outbox marker before CHECK restoration. No data deletion/counter reset.
+
+A lost Manual Open response can be recovered directly with GET `/api/procurement/v1/invoices/{invoiceId}/manual-unit-reviews/commands/{key}`; no unknown review ID or current mapping lookup is needed. The route requires current invoice-branch access plus request/read permissions, filters actor+Open+key+invoice before loading the receipt, verifies retained source4/scope and returns the original immutable acknowledgement. Superseded mappings, newer invoice versions and policy changes do not reexecute or block historical acknowledgement. Reads work with manual new-work off. Existing review-ID recovery remains for both operations; document contracts remain unchanged.
 
 ## 25. UI contract
 

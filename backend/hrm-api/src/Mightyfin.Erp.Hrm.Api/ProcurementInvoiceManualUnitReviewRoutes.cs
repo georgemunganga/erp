@@ -20,6 +20,8 @@ public static partial class ProcurementInvoiceUnitReviewRoutes
         var invoices=app.MapGroup("/api/procurement/v1/invoices");
         invoices.MapGet("/{id:guid}/manual-unit-review-readiness",ManualReadiness)
             .RequireAuthorization(InvoiceUnitReviewTransitions.RequestPermission,"procurement-invoice-read");
+        invoices.MapGet("/{id:guid}/manual-unit-reviews/commands/{key:guid}",ManualRecoverOpen)
+            .RequireAuthorization(InvoiceUnitReviewTransitions.RequestPermission,"procurement-invoice-read");
         invoices.MapPost("/{id:guid}/manual-unit-reviews",ManualOpen)
             .RequireAuthorization(InvoiceUnitReviewTransitions.RequestPermission,"procurement-invoice-read");
         var reviews=app.MapGroup("/api/procurement/v1/manual-invoice-unit-reviews");

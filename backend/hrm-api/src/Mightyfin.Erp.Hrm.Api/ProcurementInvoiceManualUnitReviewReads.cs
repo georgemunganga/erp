@@ -150,13 +150,51 @@ public static partial class ProcurementInvoiceUnitReviewRoutes
             var actor = await Actor(core, scope, http, auth, source.BranchRef, [action], token);
             if (receipt.ActorPrincipalId != actor.PrincipalId) throw new UnauthorizedAccessException();
             if (receipt.Operation == "Open" && (!actor.Permissions.Contains("procurement-invoice-read") || !(await auth.AuthorizeAsync(http.User, null, "procurement-invoice-read")).Succeeded)) throw new UnauthorizedAccessException();
-            var request = InvoiceUnitReviewCommands.Read<InvoiceUnitReviewRequest>(receipt.RequestJson);
-            if (request.InvoiceId != invoice.Id || request.Operation == "Decision" && request.ReviewId != id
-                || receipt.Fingerprint != ProcurementEvidenceEncoding.PolicyJsonDigest(receipt.RequestJson)) throw new ReviewProblem("InvoiceUnitReviewReceiptInvalid", 409);
-            // Actor-owned historical acknowledgement only; no fresh decision or authorization is inferred.
-            var response = InvoiceUnitReviewCommands.ReadHistorical(receipt, source);
-            if (response.ReviewId != id || response.InvoiceId != invoice.Id || response.CommandKey != key || !response.RecordedHistoricalResult || response.CanPostToFinance || response.IsInvoiceApproval)
-                throw new ReviewProblem("InvoiceUnitReviewReceiptInvalid", 409);
-            return receipt.ResponseJson;
+            return ManualRecordedValue(receipt,source,invoice,scope,operation,key);
         }, ct);
+
+    // Open recovery cannot require a review ID that was contained only in a lost ACK.
+    // The current invoice branch/action is authorized before loading an actor-owned receipt.
+    private static Task<IResult> ManualRecoverOpen(Guid id,Guid key,HttpContext http,
+        ProcurementRequestScope scope,CancellationToken ct)
+        => RunManual(http,scope,false,async(db,cases,core,auth,token)=>
+        {
+            if(key==Guid.Empty)throw new ReviewProblem("InvoiceUnitReviewCommandKeyRequired",400);
+            var invoice=await Invoice(db,scope,id,token,false);
+            var actor=await Actor(core,scope,http,auth,invoice.BranchRef,
+                [InvoiceUnitReviewTransitions.RequestPermission],token);
+            if(!actor.Permissions.Contains("procurement-invoice-read")
+                || !(await auth.AuthorizeAsync(http.User,null,"procurement-invoice-read")).Succeeded)
+                throw new UnauthorizedAccessException();
+            var receipt=await (from row in db.InvoiceUnitReviewReceipts
+                join source in db.InvoiceUnitReviewSources on row.ReviewSourceId equals source.Id
+                where row.ActorPrincipalId==scope.SubjectId && row.Operation=="Open" && row.CommandKey==key
+                    && source.SupplierInvoiceId==id && source.BranchRef==invoice.BranchRef
+                    && source.TenantId==scope.TenantId && source.LegalEntityId==scope.LegalEntityId
+                select row).SingleOrDefaultAsync(token)??throw new KeyNotFoundException();
+            var retained=await db.InvoiceUnitReviewSources.SingleAsync(x=>x.Id==receipt.ReviewSourceId,token);
+            return ManualRecordedValue(receipt,retained,invoice,scope,"Open",key);
+        },ct);
+
+    internal static string ManualRecordedValue(InvoiceUnitReviewCommandReceipt receipt,
+        InvoiceUnitReviewSource source,SupplierInvoice invoice,ProcurementRequestScope scope,
+        string operation,Guid key)
+    {
+        // These checks deliberately do not use current mapping/policy/version.
+        if(key==Guid.Empty || operation is not ("Open" or "Decision")
+            || receipt.CommandKey!=key || receipt.Operation!=operation
+            || receipt.ActorPrincipalId!=scope.SubjectId || receipt.ReviewSourceId!=source.Id
+            || source.TenantId!=scope.TenantId || source.LegalEntityId!=scope.LegalEntityId
+            || receipt.TenantId!=scope.TenantId || receipt.LegalEntityId!=scope.LegalEntityId
+            || invoice.TenantId!=scope.TenantId || invoice.LegalEntityId!=scope.LegalEntityId
+            || source.SupplierInvoiceId!=invoice.Id || source.BranchRef!=invoice.BranchRef)
+            throw new KeyNotFoundException();
+        RequireManualSource(source);
+        var response=InvoiceUnitReviewCommands.ReadHistorical(receipt,source);
+        if(response.ReviewId!=source.Id || response.InvoiceId!=invoice.Id || response.CommandKey!=key
+            || !response.RecordedHistoricalResult || response.CanPostToFinance || response.IsInvoiceApproval)
+            throw new ReviewProblem("InvoiceUnitReviewReceiptInvalid",409);
+        return receipt.ResponseJson;
+    }
+
 }

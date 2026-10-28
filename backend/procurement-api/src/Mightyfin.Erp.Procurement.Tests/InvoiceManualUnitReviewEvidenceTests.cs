@@ -143,6 +143,26 @@ public sealed class InvoiceManualUnitReviewEvidenceTests
         Assert.Equal(plan.SourceJson, JsonSerializer.Serialize(InvoiceUnitReviewStorage.Read(stored)));
     }
 
+    [Fact]
+    public void Manual_Open_acknowledgement_survives_a_superseded_mapping_without_review_id_discovery()
+    {
+        var f=Manual();var plan=Open(f);var source=InvoiceUnitReviewStorage.Source(plan,f.Issued);var key=Guid.NewGuid();
+        var request=new InvoiceUnitReviewRequest(2,"Open",key,f.Invoice.Id,null,null,f.Invoice.Version,
+            f.Mapping.MappingRevision,null,null,null,plan.Source.ManualReason,null);
+        var response=InvoiceUnitReviewCommands.BindSource(new(1,f.Invoice.Id,source.Id,source.CoreCaseId,key,
+            "Open",f.Invoice.Version,1,"Pending","Pending",null,null,source.OpenedAt,true,false,false),source);
+        var text=InvoiceUnitReviewCommands.Serialize(request);
+        var receipt=new Mightyfin.Erp.Procurement.Domain.InvoiceUnitReviewCommandReceipt {
+            ReviewSourceId=source.Id,Operation="Open",CommandKey=key,ActorPrincipalId=source.MakerPrincipalId,
+            ActorWorkerId=source.MakerWorkerId,RequestJson=text,Fingerprint=ProcurementEvidenceEncoding.PolicyJsonDigest(text),
+            ResponseJson=InvoiceUnitReviewCommands.Serialize(response),CompletedAt=source.OpenedAt};
+        f.Invoice.Version++;f.Invoice.CurrentMappingVersionId=Guid.NewGuid();f.Invoice.MappingRevision++;
+        var recovered=InvoiceUnitReviewCommands.ReadHistorical(receipt,source);
+        Assert.Equal(source.Id,recovered.ReviewId);Assert.Equal(source.InvoiceVersionAtOpen,recovered.InvoiceVersion);
+        Assert.Equal(receipt.ResponseJson,InvoiceUnitReviewCommands.Serialize(recovered));
+        Assert.False(recovered.IsInvoiceApproval);Assert.False(recovered.CanPostToFinance);
+    }
+
     private static InvoiceRetainedUnitReviewAuthority Rehash(
         InvoiceRetainedUnitReviewAuthority authority, InvoiceManualUnitReviewEnvelope envelope,
         JsonSerializerOptions options)

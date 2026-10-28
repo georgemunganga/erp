@@ -40,7 +40,7 @@ public sealed class InvoiceUnitReviewGateHttpTests
     public async Task Manual_routes_are_closed_without_configuration_and_never_require_a_document_provider()
     {
         await using var app=await App();using var client=app.GetTestClient();var id=Guid.NewGuid();
-        foreach(var path in new[]{ $"/invoices/{id}/manual-unit-review-readiness", "/manual-invoice-unit-reviews/tasks",
+        foreach(var path in new[]{ $"/invoices/{id}/manual-unit-review-readiness", $"/invoices/{id}/manual-unit-reviews/commands/{Guid.NewGuid()}", "/manual-invoice-unit-reviews/tasks",
             $"/manual-invoice-unit-reviews/{id}", $"/manual-invoice-unit-reviews/{id}/commands/{Guid.NewGuid()}?operation=Open"})
         {
             using var response=await client.GetAsync("/api/procurement/v1"+path);
@@ -82,6 +82,25 @@ public sealed class InvoiceUnitReviewGateHttpTests
         var noPrincipal=new ProcurementRequestScope();
         noPrincipal.Set("manual-test",Guid.NewGuid(),principal.ToString("D"),branch,null,true,"test");
         Assert.False(ProcurementInvoiceUnitReviewRoutes.ManualWriteContext(noPrincipal,false));
+    }
+    [Theory]
+    [InlineData("actor")][InlineData("key")][InlineData("operation")]
+    [InlineData("tenant")][InlineData("company")][InlineData("branch")][InlineData("invoice")]
+    public void Manual_recorded_value_rejects_foreign_actor_key_operation_and_scope_before_payload(string fault)
+    {
+        var principal=Guid.NewGuid().ToString("D");var company=Guid.NewGuid();var branch=Guid.NewGuid();var key=Guid.NewGuid();
+        var scope=new ProcurementRequestScope();scope.Set("manual-recovery-test",company,principal,branch,null,true,"test");
+        var invoice=new Mightyfin.Erp.Procurement.Domain.SupplierInvoice{
+            TenantId="manual-recovery-test",LegalEntityId=company,BranchRef=branch};
+        var source=new Mightyfin.Erp.Procurement.Domain.InvoiceUnitReviewSource{
+            TenantId=fault=="tenant"?"other":"manual-recovery-test",LegalEntityId=fault=="company"?Guid.NewGuid():company,
+            SupplierInvoiceId=fault=="invoice"?Guid.NewGuid():invoice.Id,BranchRef=fault=="branch"?Guid.NewGuid():branch};
+        var receipt=new Mightyfin.Erp.Procurement.Domain.InvoiceUnitReviewCommandReceipt{
+            TenantId="manual-recovery-test",LegalEntityId=company,ReviewSourceId=source.Id,
+            ActorPrincipalId=fault=="actor"?Guid.NewGuid().ToString("D"):principal,
+            Operation=fault=="operation"?"Decision":"Open",CommandKey=fault=="key"?Guid.NewGuid():key};
+        Assert.Throws<KeyNotFoundException>(()=>ProcurementInvoiceUnitReviewRoutes.ManualRecordedValue(
+            receipt,source,invoice,scope,"Open",key));
     }
     [Fact]
     public void Unknown_native_schema_pins_cannot_admit_any_check()
