@@ -30,6 +30,23 @@ public sealed class InvoiceProcurementBaselineReviewPolicyRulesTests
         Assert.Empty(InvoiceProcurementBaselineReviewPolicyRules.Validate(json));
         Assert.Equal(person,InvoiceProcurementBaselineReviewPolicyRules.Resolve(
             policy,"t",company,maker,null,person,at));
+        var baselineId=Guid.NewGuid();var caseId=Guid.NewGuid();
+        var opened=InvoiceProcurementBaselineOpeningPlan.Prepare(baselineId,caseId,policy,
+            "t",company,maker,null,person,at);
+        Assert.Equal(baselineId,opened.SourceId);
+        Assert.Equal(caseId,opened.Id);
+        Assert.Equal(InvoiceProcurementBaselineEvidence.SourceType,opened.SourceType);
+        Assert.Equal(policy.Id,opened.PolicyVersionId);
+        Assert.Equal("Pending",opened.State);
+        var stage=Assert.Single(opened.Stages);
+        Assert.Equal("Any",stage.Mode);
+        var assignment=Assert.Single(stage.Assignments);
+        Assert.Equal(reviewer,assignment.AssigneeSubjectId);
+        Assert.Equal(InvoiceProcurementBaselineEvidence.ReviewPermission,assignment.PermissionKey);
+        Assert.Throws<InvalidOperationException>(()=>InvoiceProcurementBaselineOpeningPlan.Prepare(
+            baselineId,caseId,policy,"t",Guid.NewGuid(),maker,null,person,at));
+        Assert.Throws<InvalidOperationException>(()=>InvoiceProcurementBaselineOpeningPlan.Prepare(
+            baselineId,caseId,policy,"t",company,maker,null,person,at.ToOffset(TimeSpan.FromHours(2))));
         Assert.Throws<InvalidOperationException>(()=>InvoiceProcurementBaselineReviewPolicyRules.Resolve(
             policy,"t",company,reviewer,null,person,at));
         Assert.Throws<InvalidOperationException>(()=>InvoiceProcurementBaselineReviewPolicyRules.Resolve(
