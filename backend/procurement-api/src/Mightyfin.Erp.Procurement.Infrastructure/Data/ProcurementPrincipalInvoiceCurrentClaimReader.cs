@@ -1,4 +1,5 @@
 using System.Data;
+using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Storage;
 using Mightyfin.Erp.Procurement.Application;
@@ -9,6 +10,7 @@ namespace Mightyfin.Erp.Procurement.Infrastructure.Data;
 /// <summary>Current typed target-PO claims and complete company inventory from one
 /// serializable snapshot. This is evidence for the owner factory, not an owner lease.</summary>
 public sealed record PrincipalInvoiceCurrentClaimRead(
+    InvoiceProcurementInventoryCapture Capture,
     InvoiceProcurementInventorySummary Inventory,
     IReadOnlyList<PrincipalInvoiceAllocationSourceInput> ActiveClaims,
     IReadOnlyList<PrincipalInvoiceAcceptedHistory> RetainedSources);
@@ -136,6 +138,51 @@ public sealed partial class ProcurementDbContext
             active.Add(new(allocation, result, mapping, invoice,
                 lines.Where(x => x.SupplierInvoiceId == invoice.Id).ToArray()));
         }
+        var activeResults = active.Select(x => x.Result).DistinctBy(x => x.Id).ToArray();
+        if (activeResults.Any(x => x.CommandKey is null || x.PolicyVersionId is null))
+            throw new InvalidOperationException("PrincipalInvoiceCompareReservationUnproven");
+        var commandKeys = activeResults.Select(x => x.CommandKey!.Value).ToArray();
+        var receipts = await CommercialCommandReceipts.AsNoTracking()
+            .Where(x => x.Operation == "InvoiceCompare" && commandKeys.Contains(x.CommandKey))
+            .ToArrayAsync(ct);
+        var policyIds = activeResults.Select(x => x.PolicyVersionId!.Value).ToArray();
+        var policies = await PolicyVersions.AsNoTracking()
+            .Where(x => policyIds.Contains(x.Id)).ToArrayAsync(ct);
+        foreach (var result in activeResults)
+        {
+            var receipt = receipts.SingleOrDefault(x => x.CommandKey == result.CommandKey);
+            var policy = policies.SingleOrDefault(x => x.Id == result.PolicyVersionId);
+            if (result.CommandKey is not { } commandKey || commandKey == Guid.Empty
+                || !ProcurementPrincipalEvidence.Canonical(result.ActorPrincipalId)
+                || result.InputFingerprint is not { Length: 64 }
+                || result.EvidenceJson is null || result.EvidenceSha256 is not { Length: 64 }
+                || ProcurementEvidenceEncoding.Digest(result.EvidenceJson) != result.EvidenceSha256
+                || result.MatchedAt == default || policy is null
+                || policy.TenantId != scope.TenantId || policy.LegalEntityId != scope.LegalEntityId
+                || policy.PolicyKey != InvoiceMatchingPolicyRules.PolicyKey
+                || policy.PublishedAt is null || policy.PublishedAt > result.MatchedAt
+                || ProcurementEvidenceEncoding.PolicyJsonDigest(policy.RulesJson) != result.PolicyRulesSha256
+                || receipt is null || receipt.PurchaseOrderId != purchaseOrderId
+                || receipt.ActorPrincipalId != result.ActorPrincipalId
+                || receipt.Fingerprint is not { Length: 64 })
+                throw new InvalidOperationException("PrincipalInvoiceCompareReservationUnproven");
+            try
+            {
+                using var response = JsonDocument.Parse(receipt.ResponseJson);
+                var root = response.RootElement;
+                var recorded = root.GetProperty("result");
+                if (root.GetProperty("invoiceId").GetGuid() != result.SupplierInvoiceId
+                    || root.GetProperty("commandKey").GetGuid() != commandKey
+                    || root.GetProperty("canPostToFinance").GetBoolean()
+                    || recorded.GetProperty("id").GetGuid() != result.Id
+                    || recorded.GetProperty("outcome").GetString() != result.Outcome
+                    || !recorded.GetProperty("hasCapacityClaim").GetBoolean())
+                    throw new InvalidOperationException("PrincipalInvoiceCompareReservationUnproven");
+            }
+            catch (Exception error) when (error is JsonException or KeyNotFoundException
+                or FormatException or InvalidOperationException)
+            { throw new InvalidOperationException("PrincipalInvoiceCompareReservationUnproven", error); }
+        }
         // The Host must reconstruct every target PO M5 source through the retained
         // issued/Core owner in this same transaction. A stored source JSON is not
         // an independent witness. The exact physical source ID set is checked here.
@@ -150,6 +197,6 @@ public sealed partial class ProcurementDbContext
             .Select(x => x.Allocation.PrincipalReceivingSourceStateId!.Value).ToHashSet();
         PrincipalInvoiceAllocationSourceEvidence.VerifySet(active,
             histories.Where(x => selectedIds.Contains(x.SourceStateId)).ToArray());
-        return new(summary, active, histories);
+        return new(capture, summary, active, histories);
     }
 }
