@@ -13,7 +13,7 @@ public sealed class M6bIssuedParentRollbackGuardTests
         var sql = Assert.IsType<string>(type.GetField("BeforeDownSql",
             BindingFlags.Static | BindingFlags.NonPublic)!.GetRawConstantValue());
         Assert.StartsWith("LOCK TABLE procurement.invoice_match_exposure_states IN ACCESS EXCLUSIVE MODE;",
-            sql.TrimStart(), StringComparison.Ordinal);
+            sql.TrimStart());
         Assert.Contains("procurement.invoice_match_mapping_versions", sql);
         Assert.Contains("procurement.invoice_match_allocations", sql);
         Assert.Contains("WHERE source_schema_version=3", sql);
