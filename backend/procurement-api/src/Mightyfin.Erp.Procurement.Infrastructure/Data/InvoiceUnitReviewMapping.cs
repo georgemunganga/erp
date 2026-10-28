@@ -43,7 +43,7 @@ public sealed partial class ProcurementDbContext
         outcome.Property(x => x.State).HasMaxLength(20); outcome.Property(x => x.EvidenceJson).HasColumnType("text"); outcome.Property(x => x.EvidenceSha256).HasMaxLength(64); outcome.Property(x => x.ReviewerPrincipalId).HasMaxLength(200);
         outcome.HasOne<InvoiceUnitReviewSource>().WithMany().HasForeignKey(x => new { x.TenantId, x.LegalEntityId, x.ReviewSourceId, x.CoreCaseId }).HasPrincipalKey(x => new { x.TenantId, x.LegalEntityId, x.Id, x.CoreCaseId }).OnDelete(DeleteBehavior.Restrict).HasConstraintName("fk_inv_unit_outcome_source");
         outcome.HasIndex(x => new { x.TenantId, x.LegalEntityId, x.ReviewSourceId }).IsUnique().HasDatabaseName("ux_inv_unit_outcome_source");
-        outcome.ToTable(t => t.HasCheckConstraint("ck_inv_unit_outcome", "(state IN ('Verified','Returned','Rejected') AND evidence_schema_version=3) AND final_decision_id <> '00000000-0000-0000-0000-000000000000'::uuid AND (reviewer_worker_id IS NULL OR reviewer_worker_id <> '00000000-0000-0000-0000-000000000000'::uuid) AND reviewer_principal_id ~ '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$' AND reviewer_principal_id <> '00000000-0000-0000-0000-000000000000' AND evidence_sha256 IS NOT NULL AND evidence_sha256 ~ '^[0-9a-f]{64}$' AND octet_length(evidence_json) BETWEEN 1 AND 524288 AND isfinite(completed_at)"));
+        outcome.ToTable(t => t.HasCheckConstraint("ck_inv_unit_outcome", "(state IN ('Verified','Returned','Rejected') AND evidence_schema_version IN (3,4)) AND final_decision_id <> '00000000-0000-0000-0000-000000000000'::uuid AND (reviewer_worker_id IS NULL OR reviewer_worker_id <> '00000000-0000-0000-0000-000000000000'::uuid) AND reviewer_principal_id ~ '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$' AND reviewer_principal_id <> '00000000-0000-0000-0000-000000000000' AND evidence_sha256 IS NOT NULL AND evidence_sha256 ~ '^[0-9a-f]{64}$' AND octet_length(evidence_json) BETWEEN 1 AND 524288 AND isfinite(completed_at)"));
         var receipt = model.Entity<InvoiceUnitReviewCommandReceipt>();
         receipt.Property(x => x.RequestJson).HasColumnType("text"); receipt.Property(x => x.Operation).HasMaxLength(20); receipt.Property(x => x.ActorPrincipalId).HasMaxLength(200); receipt.Property(x => x.Fingerprint).HasMaxLength(64); receipt.Property(x => x.ResponseJson).HasColumnType("text");
         receipt.HasOne<InvoiceUnitReviewSource>().WithMany().HasForeignKey(x => new { x.TenantId, x.LegalEntityId, x.ReviewSourceId }).HasPrincipalKey(x => new { x.TenantId, x.LegalEntityId, x.Id }).OnDelete(DeleteBehavior.Restrict).HasConstraintName("fk_inv_unit_receipt_source");
@@ -166,6 +166,10 @@ public sealed partial class ProcurementDbContext
     }
     private void RequireUnitReviewDocumentPins(InvoiceUnitReviewSource source)
     {
+        // A version-4 manual source has no document identities to pin. Its
+        // exact line/unit set and mandatory reasons are verified by the source
+        // and terminal contracts; do not open Core Docs for this mode.
+        if (InvoiceUnitReviewStorage.Read(source).SourceSchemaVersion == 4) return;
         using var documents = new DocumentDbContext(new DbContextOptionsBuilder<DocumentDbContext>()
             .UseNpgsql(Database.GetDbConnection()).Options, new UnitReviewDocumentScope(scope.TenantId, scope.LegalEntityId, scope.SubjectId));
         documents.Database.UseTransaction(Database.CurrentTransaction!.GetDbTransaction());
