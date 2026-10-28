@@ -83,7 +83,12 @@ public static partial class ProcurementInvoiceUnitReviewRoutes
             }
             var total = await query.CountAsync(token);
             var rows = await query.OrderBy(x => x.OpenedAt).ThenBy(x => x.Id).Skip((p - 1) * size).Take(size)
-                .Select(x => new { reviewId = x.Id, invoiceId = x.SupplierInvoiceId, mappingVersionId = x.MappingVersionId, x.MappingRevision,
+                .Select(x => new { reviewId = x.Id, invoiceId = x.SupplierInvoiceId,
+                    invoiceNumber = db.SupplierInvoices.Where(invoice => invoice.TenantId == scope.TenantId
+                        && invoice.LegalEntityId == scope.LegalEntityId && invoice.Id == x.SupplierInvoiceId
+                        && invoice.BranchRef == x.BranchRef && invoice.CurrentMappingVersionId == x.MappingVersionId
+                        && invoice.MappingRevision == x.MappingRevision).Select(invoice => invoice.InvoiceNumber).FirstOrDefault(),
+                    mappingVersionId = x.MappingVersionId, x.MappingRevision,
                     branchId = x.BranchRef, x.OpenedAt, canPostToFinance = false, isInvoiceApproval = false }).ToArrayAsync(token);
             return InvoiceUnitReviewCommands.Serialize(new { items = rows, total, page = p, pageSize = size, availabilityMeaning = "CurrentMappingAssignmentsOnly", canPostToFinance = false });
         }, ct);
