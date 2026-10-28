@@ -28,11 +28,33 @@
     {
       "file": "ef-pending-model.log",
       "sha256": "815c5cd494b61a9d8737ba7653cd05fb05926e7b40a924683fa4eef4ca87566c"
+    },
+    {
+      "file": "m5c-retained-goods.trx",
+      "sha256": "2f6880f6c679235482d22a0f79f4ffd6ab1f446c34968f03e209f61148bce90e"
+    },
+    {
+      "file": "m5c-receiving-http.trx",
+      "sha256": "3050b594b132dba126ca81bcc67a00b7e8453e6e5e3efed1ee643abedd779cbc"
+    },
+    {
+      "file": "compatibility-harness.sha256",
+      "sha256": "30a33970639af9e79380f965b4e578e123e99365a8409d1e1af81fece7c7847d"
     }
   ],
   "uiChanged": false,
   "productionChanged": false,
   "nativeServiceAcceptance": false,
   "wholeModuleUatComplete": false,
-  "independentSourceReview": "No concrete defect found; no actual-payload .NET roundtrip asserted by review."
+  "independentSourceReview": "No concrete defect found; no actual-payload .NET roundtrip asserted by review.",
+  "receivingHttpRegressionTests": {
+    "passed": 4,
+    "failed": 0,
+    "skipped": 0
+  },
+  "actualRetainedGoodsCodecRoundtrip": {
+    "passed": 1,
+    "failed": 0,
+    "description": "New .NET codec read the private native M5b Goods acceptance with its original digest and re-encoded identical bytes. Private supplementary harness; no business commands or database changes."
+  }
 }

@@ -64,3 +64,14 @@ UAT. The private M5b Goods source is classified Goods and must not be relabelled
 or mutated into Service for a test. An end-to-end Service acceptance needs a
 normally created and approved Service demand/order source. Returns/corrections,
 matching, deployment and the wider UAT roadmap remain open.
+
+## Verified result
+
+Committed product `406dd1bd` passed **1,483/1,483** Procurement regression tests,
+**21/21** focused host/Core-date checks and **4/4** receiving HTTP regression
+checks. EF reported no pending model changes. A separate private .NET harness
+passed **1/1** using the actual retained native M5b Goods acceptance: the new
+codec verified its original digest and re-encoded identical bytes. No database
+writes or business-command replays were involved. Independent source review
+found no concrete defect. No real native Service journey or deployment is
+claimed by these results.
