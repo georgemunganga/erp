@@ -75,8 +75,10 @@ public static class InvoiceProcurementHistoricalOwnerContract
             || !Sha(envelope.UnionClaimsSha256)
             || !Sha(envelope.AllocationsSha256))
             throw new InvalidOperationException("InvoiceProcurementOwnerEnvelopeInvalid");
-        var manifest=ProcurementEvidenceEncoding.PolicyJsonDigest(JsonSerializer.Serialize(names,Json));
-        var baseline=ProcurementEvidenceEncoding.PolicyJsonDigest(JsonSerializer.Serialize(tables.OrderBy(x=>x.TableName,StringComparer.Ordinal),Json));
+        var manifest=ProcurementEvidenceEncoding.PolicyJsonDigest(JsonSerializer.Serialize(new
+        { schemaVersion=1, tableNames=names },Json));
+        var baseline=ProcurementEvidenceEncoding.PolicyJsonDigest(JsonSerializer.Serialize(new
+        { schemaVersion=1, tables=tables.OrderBy(x=>x.TableName,StringComparer.Ordinal).ToArray() },Json));
         var union=activeBaselineClaims.Concat(activeLocalClaims).ToArray();
         var allocationTable=tables.SingleOrDefault(x=>x.TableName=="invoice_match_allocations");
         if (union.Any(x => x is null || x.Kind != InvoiceConsumptionKind.Debit

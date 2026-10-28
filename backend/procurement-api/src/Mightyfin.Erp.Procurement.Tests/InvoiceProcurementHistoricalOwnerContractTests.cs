@@ -24,8 +24,8 @@ public sealed class InvoiceProcurementHistoricalOwnerContractTests
         var claims=InvoiceMatchExecutionEvidence.AllocationsDigest([claim]);
         var envelope=new InvoiceProcurementExposureOwnerEnvelope(2,tenant,company,branch,order,issued,supplier,"ZMW",
             policy,"procurement:baseline","sequence:1",Guid.NewGuid(),
-            ProcurementEvidenceEncoding.PolicyJsonDigest(JsonSerializer.Serialize(names,Json)),tables,
-            ProcurementEvidenceEncoding.PolicyJsonDigest(JsonSerializer.Serialize(tables,Json)),
+            ProcurementEvidenceEncoding.PolicyJsonDigest(JsonSerializer.Serialize(new{schemaVersion=1,tableNames=names},Json)),tables,
+            ProcurementEvidenceEncoding.PolicyJsonDigest(JsonSerializer.Serialize(new{schemaVersion=1,tables},Json)),
             new string('d',64),claims,InvoiceMatchExecutionEvidence.AllocationsDigest([]),claims,1,
             At.AddSeconds(-1),At.AddMinutes(1),claims);
         return(envelope,context,exposure,claim,names);
@@ -47,7 +47,7 @@ public sealed class InvoiceProcurementHistoricalOwnerContractTests
         var emptyAllocationTable=f.Envelope.BaselineTables.Select(x=>x with{RowCount=0}).ToArray();
         Assert.Throws<InvalidOperationException>(()=>InvoiceProcurementHistoricalOwnerContract.VerifyPartition(
             f.Envelope with{BaselineTables=emptyAllocationTable,
-                BaselineSetSha256=ProcurementEvidenceEncoding.PolicyJsonDigest(JsonSerializer.Serialize(emptyAllocationTable,Json))},
+                BaselineSetSha256=ProcurementEvidenceEncoding.PolicyJsonDigest(JsonSerializer.Serialize(new{schemaVersion=1,tables=emptyAllocationTable},Json))},
             f.Context,f.Exposure,f.Names,[f.Claim],[]));
     }
 
