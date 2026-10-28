@@ -76,8 +76,8 @@
     }
   },
   "limits": {
-    "completeIntegratedSdkAccepted": false,
-    "integratedSdkStateAtCheckpoint": "SDK05_PASS_RETAINED; COLUMN_READINESS_SUCCESSOR_SDK06_PENDING",
+    "completeIntegratedSdkAccepted": true,
+    "integratedSdkStateAtCheckpoint": "SDK06_PASS_SOURCE_7f44d5f3_NATIVE_API_JOURNEY_PENDING",
     "newPrincipalMappingInsertNativeTested": false,
     "principalCompareNativeTested": false,
     "documentOrManualReviewJourneyAccepted": false,
@@ -119,5 +119,31 @@
     "businessHttpExecuted": false,
     "productionChanged": false,
     "successor": "Reviewed16SELECT6INSERT2tableUPDATEplus9namedcolumnUPDATE; preserveexistingidgrant; actualapplyverificationseparate"
+  },
+  "sdk06Checkpoint": {
+    "sourceCommit": "7f44d5f37be73579b7f5daa63c8e63402869986f",
+    "status": "PASS_M6B_INTEGRATED_BUILD_TESTS_PUBLISH_GUARDED_EF_NO_DATABASE",
+    "resultSha256": "3eb7a06f1e99a1a32df3ad6fda392531dddc70ff0ba6db0fd501d2f90565c939",
+    "publicationManifestSha256": "fe7baea47f0d9f820e1c7838deb31081e7719b499eb4be2c6016e7b454ecb262",
+    "procurementTestsPassed": 1559,
+    "hostTestsPassed": 304,
+    "skipped": 0,
+    "apiPublicationFiles": 150,
+    "hostedCiPassed": false
+  },
+  "privateFixtureRun02": {
+    "setupSqlSha256": "04458b56247bed78f1c1e9ba4e3cee29e8592e137da7d673c24cd805ced3b076",
+    "ownerVerifiedReceiptSha256": "a6744d616e015dfe2eef529ba43d13b0c47bfe812985892e742a7182a04c2cd4",
+    "ownerBeforeSha256": "d9708e40c541db1975467433cf0a1c0a68bab031addbfdb1e9505324ab4065fd",
+    "tableGrantAdditions": 24,
+    "invoiceColumnUpdateAdditions": 9,
+    "broadInvoiceUpdateGranted": false,
+    "temporaryRestoreStillRequired": true
+  },
+  "privateImage05": {
+    "imageId": "sha256:9fa10ccf5d5985b6040e87ce9dd09e427ddaa2d852c2105635409d8b9421ce61",
+    "all150PublicationFilesVerified": true,
+    "receiptSha256": "bca9ce869da03116d3ea662d5cfb9ed88bf818c1999337a473ab1ff481c72f0f",
+    "productionDeployment": false
   }
 }
