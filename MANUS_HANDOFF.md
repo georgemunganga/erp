@@ -1,6 +1,6 @@
 # M5 technical release and current prerequisites — 28 October 2026
 
-Published ERP main: `7a19b7b595806b7fc7181d41908182b094c0bb9f` (through PR131).
+Published ERP main: `7213aff386082140a52c8c44972338d6a6898656` (through PR132).
 Published Procurement UI main: `47cac6a13a24e9db113383f8a9cf5b319494d526`
 (PR92, `georgemunganga/module-connect`). Use current main descendants.
 These include M5b receiving and M5c company-local service-date source fixes.
@@ -22,11 +22,14 @@ The [API-only recovery fix](docs/procurement/gap-closure/M5-RESTORE-READINESS-PR
 preserves schema, settings, permissions, publisher and UI. Authenticated
 production CRUD is not claimed.
 Whole-module UAT is open: actual return approval/dispatch/reversal, qualified
-invoice source/consumption ownership, the original Service UI journey and broader
-scope/concurrency tests remain. A private normal-cookie Service API journey now
-has scoped owner and Core UTC-date acceptance; see the
+invoice source/consumption ownership, and broader scope/concurrency tests remain.
+The original Service UI completed one bounded private real-cookie journey with
+owner reconciliation; see the
+[Service UI acceptance](docs/procurement/gap-closure/M5-SERVICE-ORIGINAL-UI-PRIVATE-ACCEPTANCE-20261028.md).
+The earlier private Service API journey has scoped owner and Core UTC-date
+acceptance; see the
 [Service checkpoint](docs/procurement/gap-closure/M5-SERVICE-RESTORE-READINESS-PRIVATE-CHECKPOINT-20261028.md).
-It does not establish production Service activation or non-UTC/multibranch UAT.
+Neither establishes production Service activation or non-UTC/multibranch UAT.
 Return requests alone change no accepted,
 Inventory, credit or Finance balance. Core retains shared identity/roles/scope,
 organisation/calendar/branding ownership.

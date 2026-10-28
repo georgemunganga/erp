@@ -6,7 +6,7 @@ The audit preserves the imported Procurement UI and shared ERP components. Core 
 
 ## Current release update — 28 October
 
-The [observed restore-readiness API patch](M5-RESTORE-READINESS-PRODUCTION-20261028.md) is also deployed: source6087, 174 focused Host checks, private Service API/owner acceptance and a new read-only canary/public smoke passed. It changed no schema, flags, permissions, publisher or UI. Original Service UI and wider UAT remain open.
+The [observed restore-readiness API patch](M5-RESTORE-READINESS-PRODUCTION-20261028.md) is also deployed: source6087, 174 focused Host checks, private Service API/owner acceptance and a new read-only canary/public smoke passed. It changed no schema, flags, permissions, publisher or UI. A later [bounded private original Service UI journey](M5-SERVICE-ORIGINAL-UI-PRIVATE-ACCEPTANCE-20261028.md) passed real-cookie Create recovery, Revise, independent Certify and owner reconciliation; its first two harness failures remain separate. Wider UAT remains open.
 
 The initial [M5 technical rollout](M5-PRODUCTION-TECHNICAL-RELEASE-20261028.md) deployed API product414 (subsequently updated above), original UI47cac6a, 220 tables, fresh backup/restore/full migration rehearsal and independent production data/permission reconciliation passed. Ten public route checks, five exact UI file hashes and three unauthenticated Playwright renders passed. Existing business flags are preserved; whole-module acceptance and signed-in production CRUD remain open. The 27 October baselines and results below are retained history.
 
@@ -66,7 +66,7 @@ A release preflight must verify **both** Record and Execution database-role cont
 | Standard PO governance | M5a private real-cookie acceptance; technical source deployed in M5 | Native UI/branch/revocation/load acceptance and approved business policy activation |
 | PO amendments | Initial M5a governance exists | Issued commercial revisions, delta approval, immutable sent versions and supplier acknowledgment |
 | Blanket PO and agreement releases | Not established by standard PO support | Limits, validity, releases, consumption, cancellation and concurrency controls |
-| Goods and service receipts | M5b Core-principal adapter merged; private Goods API/native-owner accepted. M5c company-date fix merged with regression/provider evidence | Private Service API with actual UTC date/owner accepted; original Service UI, non-UTC native and multibranch/concurrency acceptance remain |
+| Goods and service receipts | M5b Core-principal adapter merged; private Goods API/native-owner accepted. M5c company-date fix merged with regression/provider evidence | Private Service API and original UI accepted for one UTC, one-branch real-cookie case; non-UTC native and multibranch/concurrency acceptance remain |
 | Receipt corrections and returns | M5d original UI and proposal CRUD published with private normal-cookie/API-owner acceptance, including write-off history; proposal does not alter balances | Native UI/broader scope acceptance; independent execution/consumption/dispatch and negative-fact reconciliation; replacement/credit references |
 | Inventory and Assets | Integration boundaries defined | Idempotent accepted-receipt/return hand-off and reconciliation; their ledgers stay outside Procurement |
 | Invoice intake | Structured invoice CRUD exists | Native/UI validation, duplicate keys, line edits, cancellation and document evidence UAT |
