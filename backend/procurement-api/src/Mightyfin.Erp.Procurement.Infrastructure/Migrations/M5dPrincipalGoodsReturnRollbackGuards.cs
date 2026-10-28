@@ -1,6 +1,6 @@
 namespace Mightyfin.Erp.Procurement.Infrastructure.Migrations;
 
-/// <summary>Uninstalled first-Down guard for the genuine M5d migration.</summary>
+/// <summary>First-Down retained-evidence guard for the genuine M5d migration.</summary>
 internal static class M5dPrincipalGoodsReturnRollbackGuards
 {
     internal const string BeforeDownSql = """

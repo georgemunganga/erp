@@ -1,9 +1,9 @@
 namespace Mightyfin.Erp.Procurement.Infrastructure.Migrations;
 
 /// <summary>
-/// Authored physical owner overlay proposal for the genuine M5d migration.
-/// It is deliberately uninstalled until the genuine EF scaffold, raw catalog capture,
-/// finite ACL and owner negative probes are reviewed. Run AfterUpSql only after EF
+/// Physical ownership overlay for the genuine M5d migration.
+/// Native catalog and finite-role verification are separate release checks.
+/// The migration runs AfterUpSql only after EF
 /// creates all three M5d tables and the mapped exact receipt-to-revision command
 /// and receipt-to-head branch FKs. This overlay complements those modeled FKs;
 /// it must not replace or duplicate them. Run BeforeDropSql only after the first-Down veto.

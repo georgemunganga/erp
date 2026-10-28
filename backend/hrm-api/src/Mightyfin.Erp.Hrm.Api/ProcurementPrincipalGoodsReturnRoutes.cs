@@ -114,25 +114,9 @@ public static partial class ProcurementPrincipalReceivingRoutes
             source.State.PurchaseOrderLineId != head.PurchaseOrderLineId || source.State.IssuedVersionId != head.IssuedVersionId)
             throw new Problem("ReturnOriginalSourceChanged", 409);
         var revisions = await db.PrincipalGoodsReturnRevisions.Where(x => x.DraftId == id).OrderBy(x => x.Revision).ToArrayAsync(ct);
-        if (revisions.Length != head.Revision || revisions[^1].Id != head.CurrentRevisionId ||
-            revisions[^1].State != head.State || revisions.Any(x => x.Revision < 1 ||
-                x.ProposalSha256 != PrincipalGoodsReturnRules.Fingerprint(head.Id, x.Revision,
-                    x.Quantity, x.Reason, x.EvidenceReference, x.State)))
-            throw new Problem("ReturnDraftHistoryInvalid", 409);
-        for (var i = 0; i < revisions.Length; i++)
-        {
-            if (revisions[i].Revision != i + 1 || revisions[i].ActorPrincipalId != head.CreatorPrincipalId ||
-                revisions[i].Quantity > head.AcceptedFactQuantity ||
-                (i < revisions.Length - 1 && revisions[i].State != "Draft"))
-                throw new Problem("ReturnDraftHistoryInvalid", 409);
-            if (revisions[i].State == "Cancelled" &&
-                (i == 0 || !PrincipalGoodsReturnRules.CancellationPreservesPrior(revisions[i - 1], revisions[i])))
-                throw new Problem("ReturnDraftHistoryInvalid", 409);
-        }
         var receipts = await db.PrincipalGoodsReturnCommandReceipts.AsNoTracking()
             .Where(x => x.DraftId == id).ToArrayAsync(ct);
-        if (receipts.Length != revisions.Length || revisions.Any(x => !receipts.Any(r =>
-            PrincipalGoodsReturnRules.MatchesReceipt(head, x, r))))
+        if (!PrincipalGoodsReturnRules.HistoryValid(head, revisions, receipts))
             throw new Problem("ReturnDraftHistoryInvalid", 409);
         return (head, revisions[^1], source.Labels);
     }
@@ -208,7 +192,8 @@ public static partial class ProcurementPrincipalReceivingRoutes
         => ReturnRun(http, scope, ReturnRead, async (db, cases, _, actor, token) =>
         {
             if (offset is < 0 or > 10000) throw new Problem("ReturnDraftPageInvalid", 422);
-            var editAuthorized = (await http.RequestServices.GetRequiredService<IAuthorizationService>()
+            var editAuthorized = http.RequestServices.GetRequiredService<ProcurementPrincipalGoodsReturnOptions>().Enabled
+                && (await http.RequestServices.GetRequiredService<IAuthorizationService>()
                 .AuthorizeAsync(http.User, ReturnEdit)).Succeeded;
             var branches = actor.AllowedBranches.ToArray();
             var ids = await db.PrincipalGoodsReturnDrafts.AsNoTracking().Where(x => branches.Contains(x.BranchId) && x.CreatorPrincipalId==actor.PrincipalId)
@@ -223,7 +208,8 @@ public static partial class ProcurementPrincipalReceivingRoutes
     private static Task<IResult> ReturnDetail(Guid id, HttpContext http, ProcurementRequestScope scope, CancellationToken ct)
         => ReturnRun(http, scope, ReturnRead, async (db, cases, _, actor, token) =>
         { var value = await ReturnHead(db, cases, scope, actor, id, token);
-            var editAuthorized = (await http.RequestServices.GetRequiredService<IAuthorizationService>()
+            var editAuthorized = http.RequestServices.GetRequiredService<ProcurementPrincipalGoodsReturnOptions>().Enabled
+                && (await http.RequestServices.GetRequiredService<IAuthorizationService>()
                 .AuthorizeAsync(http.User, ReturnEdit)).Succeeded;
             return new Reply(200, JsonSerializer.Serialize(ReturnView(value.Head, value.Revision, actor, editAuthorized, value.Labels), Json)); }, ct);
 
