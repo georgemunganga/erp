@@ -189,6 +189,10 @@ public static partial class ProcurementInvoiceMatchingRoutes
                 .Where(x=>policyIds.Contains(x.Id)).Take(2001).ToArrayAsync(token);
             var history=PrincipalInvoiceAcceptedSourceProjection.Verify(expected,state,facts,
                 bindings,receipts,retainedPolicies,invoice.SupplierId);
+            var currentLine=await db.PurchaseOrderLines.AsNoTracking()
+                .SingleAsync(x=>x.Id==lineId && x.PurchaseOrderId==orderId,token);
+            if (currentLine.AcceptedQuantity!=state.AcceptedQuantity)
+                throw new MatchingProblem("InvoiceAcceptanceHistoryUnavailable",409);
             var ledger=PrincipalReceivingStorageCodec.Ledger(state,facts,retainedPolicies);
             var accepted=history.Facts.Select(fact=>new {
                 Fact=fact,Value=ledger.Acceptances.Single(x=>x.Id==fact.FactId)
