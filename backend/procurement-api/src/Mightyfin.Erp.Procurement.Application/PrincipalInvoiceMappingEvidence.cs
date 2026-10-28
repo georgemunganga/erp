@@ -70,6 +70,39 @@ public static class PrincipalInvoiceMappingEvidence
         return snapshot;
     }
 
+    /// <summary>Bind a selected three-way fact to its fully replayed M5 receiving source.
+    /// Histories must have been loaded from the owning store and verified by
+    /// PrincipalInvoiceAcceptedSourceProjection. This establishes source identity,
+    /// never invoice capacity or a qualified exposure claim.</summary>
+    public static void VerifyAcceptedSources(PrincipalInvoiceMappingSnapshot snapshot,
+        IReadOnlyList<PrincipalInvoiceAcceptedHistory> histories)
+    {
+        ArgumentNullException.ThrowIfNull(snapshot);
+        ArgumentNullException.ThrowIfNull(histories);
+        if (snapshot.SchemaVersion != 3 || snapshot.Lines is null || histories.Count > 200
+            || histories.Any(x => x is null || x.SourceStateId == Guid.Empty || x.Facts is null)
+            || histories.Select(x => x.SourceStateId).Distinct().Count() != histories.Count)
+            throw new InvalidOperationException("PrincipalInvoiceReceivingSourceSetInvalid");
+        var selected = snapshot.Lines.Where(x => x.PrincipalReceivingFactId.HasValue).ToArray();
+        if (histories.Count != selected.Select(x => x.PrincipalReceivingSourceStateId).Distinct().Count())
+            throw new InvalidOperationException("PrincipalInvoiceReceivingSourceSetInvalid");
+        foreach (var line in selected)
+        {
+            var history = histories.SingleOrDefault(x => x.SourceStateId == line.PrincipalReceivingSourceStateId);
+            if (history is null || history.SourceSequence < 1 || history.Facts.Count is < 1 or > 2_000
+                || history.Facts.Count(x => x.FactId == line.PrincipalReceivingFactId) != 1)
+                throw new InvalidOperationException("PrincipalInvoiceAcceptedFactUnavailable");
+            var fact = history.Facts.Single(x => x.FactId == line.PrincipalReceivingFactId);
+            if (fact.SourceStateId != history.SourceStateId || fact.SourceSequence > history.SourceSequence
+                || fact.SourceSequence < 1 || fact.PurchaseOrderId != snapshot.PurchaseOrderId
+                || fact.IssuedVersionId != snapshot.IssuedVersionId
+                || fact.PurchaseOrderLineId != line.PurchaseOrderLineId
+                || fact.AcceptedQuantity <= 0 || fact.AcceptedNetAmount < 0
+                || fact.PayloadSha256 is not { Length: 64 })
+                throw new InvalidOperationException("PrincipalInvoiceAcceptedFactBindingChanged");
+        }
+    }
+
     private static void Validate(PrincipalInvoiceMappingSnapshot snapshot,
         SupplierInvoice invoice, IReadOnlyList<SupplierInvoiceLine> originalLines)
     {

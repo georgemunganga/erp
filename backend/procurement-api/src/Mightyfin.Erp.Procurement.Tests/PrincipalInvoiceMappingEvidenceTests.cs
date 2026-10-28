@@ -70,4 +70,22 @@ public sealed class PrincipalInvoiceMappingEvidenceTests
         Assert.Throws<InvalidOperationException>(()=>PrincipalInvoiceMappingEvidence.Verify(unknown,
             ProcurementEvidenceEncoding.PolicyJsonDigest(unknown),invoice,[line],order,issued,1));
     }
+
+    [Fact]
+    public void Three_way_selection_requires_exact_verified_issued_source_fact_and_line()
+    {
+        var (invoice,line)=Original();var order=Guid.NewGuid();var issued=Guid.NewGuid();
+        var source=Guid.NewGuid();var factId=Guid.NewGuid();var orderLine=Guid.NewGuid();
+        var link=new PrincipalInvoiceMappingLine(line.Id,orderLine,source,factId,"EACH",Guid.NewGuid(),"line 1");
+        var payload=PrincipalInvoiceMappingEvidence.Create(invoice,[line],order,issued,[link],Guid.NewGuid().ToString("D"),null);
+        var fact=new PrincipalInvoiceAcceptedFact(factId,source,1,order,issued,orderLine,
+            ReceivingKind.Goods,1m,1m,new string('a',64),DateTimeOffset.UtcNow);
+        var history=new PrincipalInvoiceAcceptedHistory(source,new string('b',64),1,[fact]);
+        PrincipalInvoiceMappingEvidence.VerifyAcceptedSources(payload.Snapshot,[history]);
+        Assert.Throws<InvalidOperationException>(()=>PrincipalInvoiceMappingEvidence.VerifyAcceptedSources(payload.Snapshot,[]));
+        Assert.Throws<InvalidOperationException>(()=>PrincipalInvoiceMappingEvidence.VerifyAcceptedSources(payload.Snapshot,[history,history]));
+        Assert.Throws<InvalidOperationException>(()=>PrincipalInvoiceMappingEvidence.VerifyAcceptedSources(payload.Snapshot,[history with{Facts=[fact with{PurchaseOrderLineId=Guid.NewGuid()}]}]));
+        Assert.Throws<InvalidOperationException>(()=>PrincipalInvoiceMappingEvidence.VerifyAcceptedSources(payload.Snapshot,[history with{Facts=[fact with{IssuedVersionId=Guid.NewGuid()}]}]));
+        Assert.Throws<InvalidOperationException>(()=>PrincipalInvoiceMappingEvidence.VerifyAcceptedSources(payload.Snapshot,[history with{Facts=[fact with{AcceptedQuantity=0}]}]));
+    }
 }
