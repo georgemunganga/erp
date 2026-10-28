@@ -118,6 +118,9 @@ public static partial class ProcurementInvoiceMatchingRoutes
                     throw new MatchingProblem("InvoiceIssuedSourceUnavailable",409);
                 var rule = policy.Rules.SingleOrDefault(x=>x.CategoryCode==line.CategoryCode
                     && x.CurrencyCode==invoice.CurrencyCode);
+                if(state is not null && rule?.AcceptanceKind is { } requiredKind
+                    && owner.Witness.Sources[state.Id].Commercial.Kind.ToString()!=requiredKind.ToString())
+                    throw new MatchingProblem("InvoiceMatchingAcceptanceKindChanged",409);
                 items.Add(PrincipalSourceItem(row.OrderId,row.OrderNumber,row.IssuedId,row.LineId,
                     row.Description,line,rule,invoice.TenantId,invoice.LegalEntityId,
                     owner.Witness.BranchId,state));
@@ -178,6 +181,9 @@ public static partial class ProcurementInvoiceMatchingRoutes
             if (!witness.Sources.TryGetValue(state.Id,out var expected)
                 || state.PurchaseOrderId!=orderId || state.PurchaseOrderLineId!=lineId)
                 throw new MatchingProblem("InvoiceAcceptanceHistoryUnavailable",409);
+            if(rule.AcceptanceKind is { } requiredKind
+                && expected.Commercial.Kind.ToString()!=requiredKind.ToString())
+                throw new MatchingProblem("InvoiceMatchingAcceptanceKindChanged",409);
             var facts=await db.PrincipalReceivingFacts.AsNoTracking()
                 .Where(x=>x.SourceStateId==state.Id).OrderBy(x=>x.Sequence).Take(2001).ToArrayAsync(token);
             if (facts.Length>2000) throw new MatchingProblem("InvoiceAcceptanceHistoryUnavailable",409);
