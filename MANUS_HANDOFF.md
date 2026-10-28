@@ -1,20 +1,27 @@
-# Active return-request work — 28 October 2026
+# Accepted return requests and current prerequisites — 28 October 2026
 
-Published prerequisites: ERP main `c4db6c4c6d16cd9d1cd094e260da8478dd604a57`
-(PR126, including Goods receiving PR125), UI main
-`086ee259c269a46e905bf76532532119609bc1db` (PR91). Use current main descendants.
+Published ERP main: `33f08bf8585b5931fb07be5eb451a9b098a6749f` (PR127).
+Published Procurement UI main: `47cac6a13a24e9db113383f8a9cf5b319494d526`
+(PR92, `georgemunganga/module-connect`). Use current main descendants.
+These include M5b receiving and M5c company-local service-date source fixes.
 
-Root owns M5d on `codex/m5d-receiving-return-drafts-20261028`; original UI work
-is on `codex/m5d-receiving-return-ui-20261028`. This connects verified accepted
-Goods evidence to proposal CRUD/recovery; it does not execute a return or alter
-balances. See [M5d scope and admission checks](docs/procurement/gap-closure/M5D-GOODS-RETURN-PROPOSALS-20261028.md).
-Do not duplicate this work or resume old held P37 migrations. Existing C04
+M5d accepted-Goods return-request CRUD/history now has private normal-cookie
+API and independently replayed native owner acceptance. It preserves the
+original receiving UI and ERP components. Writes-off history/recovery passed;
+all cohort sessions are revoked, temporary role rows restored and private
+API/proxy services stopped. See [M5d scope and evidence](docs/procurement/gap-closure/M5D-GOODS-RETURN-PROPOSALS-20261028.md).
+Do not duplicate M5b/M5c/M5d or resume held P37 migrations.
+
+Production remains M4. Next release work requires current-row compatibility,
+recoverable backup, finite grants, paired publication and authenticated smoke.
+Whole-module UAT is open: actual return approval/dispatch/reversal, qualified
+invoice source/consumption ownership, native Service/UI journeys and broader
+scope/concurrency tests remain. Return requests alone change no accepted,
+Inventory, credit or Finance balance. Core retains shared identity/roles/scope,
+organisation/calendar/branding ownership.
+
+Root owns receiving/matching/release follow-up. Existing independent C04
 ownership is unchanged; no new Manus implementation assignment is made here.
-
-Goods private API acceptance and company-local service-date source checks are
-recorded in M5b/M5c. Production is unchanged; native Service/live UI/return
-execution, matching authority and whole-module UAT remain open. Core retains
-organisation/calendar/identity/access ownership; shared ERP controls/layout stay.
 
 The checkpoints below are historical. Their invitations and baseline claims are
 superseded by this active ownership section.

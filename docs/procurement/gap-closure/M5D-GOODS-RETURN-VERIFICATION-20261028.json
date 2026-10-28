@@ -173,5 +173,11 @@
     }
   ],
   "nativeReturnProposalAccepted": true,
-  "nativeReturnExecutionAccepted": false
+  "nativeReturnExecutionAccepted": false,
+  "publishedBaselines": {
+    "erpMain": "33f08bf8585b5931fb07be5eb451a9b098a6749f",
+    "erpPullRequest": 127,
+    "procurementUiMain": "47cac6a13a24e9db113383f8a9cf5b319494d526",
+    "uiPullRequest": 92
+  }
 }
