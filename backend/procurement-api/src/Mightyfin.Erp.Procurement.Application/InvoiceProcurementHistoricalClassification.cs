@@ -72,6 +72,46 @@ public static class InvoiceProcurementHistoricalClassification
                 classified[("supplier_invoice_lines",line.Id)]=current with{Classification="MutableDraft"};
             }
         }
+        // A retained manual-payment Draft may later gain status and typed
+        // receipts. It has no payment effect at capture only when every old
+        // decision and receipt is a Create/Revise of that same Draft and no
+        // Core/payment-date workflow fact exists. Later changes still require
+        // a typed transition proof before owner qualification.
+        var paymentEffects=new HashSet<Guid>();
+        foreach(var name in new[]{"manual_payment_core_decisions",
+            "manual_payment_date_observations","manual_payment_workflow_cases"})
+            foreach(var row in tables[name].Rows)
+                paymentEffects.Add(RequiredGuid(row.RowJson,"manual_payment_request_id")!.Value);
+        foreach(var name in new[]{"manual_payment_decisions","manual_payment_receipts"})
+            foreach(var row in tables[name].Rows)
+            {
+                var requestId=RequiredGuid(row.RowJson,"manual_payment_request_id")!.Value;
+                using var document=JsonDocument.Parse(row.RowJson);
+                var action=String(document.RootElement,"action");
+                if(action is not ("Create" or "Revise")
+                    || name=="manual_payment_decisions"
+                        && String(document.RootElement,"to_status")!="Draft")
+                    paymentEffects.Add(requestId);
+            }
+        foreach(var payment in tables["manual_payment_requests"].Rows)
+        {
+            if(paymentEffects.Contains(payment.Id))continue;
+            using var document=JsonDocument.Parse(payment.RowJson);
+            var row=document.RootElement;
+            if(String(row,"status")!="Draft"
+                || !Null(row,"approved_amount") || !Null(row,"approved_by_principal_id")
+                || !Null(row,"approved_by_core_linked_worker_id")
+                || !Null(row,"approved_at") || !Null(row,"paid_on")
+                || !Null(row,"external_method") || !Null(row,"external_reference")
+                || !Null(row,"recorded_amount") || !Null(row,"recorded_by_principal_id")
+                || !Null(row,"recorded_by_core_linked_worker_id")
+                || !Null(row,"recorded_at") || !Null(row,"confirmed_by_principal_id")
+                || !Null(row,"confirmed_by_core_linked_worker_id")
+                || !Null(row,"confirmed_at") || !Null(row,"evidence_document_ref_id")
+                || !Null(row,"closure_reason"))continue;
+            var current=classified[("manual_payment_requests",payment.Id)];
+            classified[("manual_payment_requests",payment.Id)]=current with{Classification="MutableDraft"};
+        }
         return capture.Tables.SelectMany(x=>x.Rows.Select(row=>classified[(x.TableName,row.Id)])).ToArray();
     }
 
