@@ -111,7 +111,8 @@ public static class PrincipalInvoiceMappingEvidence
         foreach (var line in selected)
         {
             var history = histories.SingleOrDefault(x => x.SourceStateId == line.PrincipalReceivingSourceStateId);
-            if (history is null || history.SourceSequence < 1 || history.Facts.Count is < 1 or > 2_000
+            if (history is null || history.SourceSequence < 1 || !Sha(history.SourceSha256)
+                || history.Facts.Count is < 1 or > 2_000
                 || history.Facts.Count(x => x.FactId == line.PrincipalReceivingFactId) != 1)
                 throw new InvalidOperationException("PrincipalInvoiceAcceptedFactUnavailable");
             var fact = history.Facts.Single(x => x.FactId == line.PrincipalReceivingFactId);
@@ -120,10 +121,13 @@ public static class PrincipalInvoiceMappingEvidence
                 || fact.IssuedVersionId != snapshot.IssuedVersionId
                 || fact.PurchaseOrderLineId != line.PurchaseOrderLineId
                 || fact.AcceptedQuantity <= 0 || fact.AcceptedNetAmount < 0
-                || fact.PayloadSha256 is not { Length: 64 })
+                || !Sha(fact.PayloadSha256) || fact.AcceptedAt == default)
                 throw new InvalidOperationException("PrincipalInvoiceAcceptedFactBindingChanged");
         }
     }
+
+    private static bool Sha(string? value) => value is { Length: 64 }
+        && value.All(x => x is >= '0' and <= '9' or >= 'a' and <= 'f');
 
     private static void Validate(PrincipalInvoiceMappingSnapshot snapshot,
         SupplierInvoice invoice, IReadOnlyList<SupplierInvoiceLine> originalLines)
