@@ -1761,6 +1761,12 @@ namespace Mightyfin.Erp.Procurement.Infrastructure.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("issued_version_id");
 
+                    b.Property<Guid?>("LegacyIssuedVersionRefId")
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("uuid")
+                        .HasColumnName("legacy_issued_version_ref_id")
+                        .HasComputedColumnSql("CASE WHEN source_schema_version IS NULL THEN issued_version_id ELSE NULL END", true);
+
                     b.Property<Guid>("LegalEntityId")
                         .HasColumnType("uuid")
                         .HasColumnName("legal_entity_id");
@@ -1784,6 +1790,12 @@ namespace Mightyfin.Erp.Procurement.Infrastructure.Migrations
                         .HasColumnType("character varying(500)")
                         .HasColumnName("owner_watermark");
 
+                    b.Property<Guid?>("PrincipalIssuedVersionRefId")
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("uuid")
+                        .HasColumnName("principal_issued_version_ref_id")
+                        .HasComputedColumnSql("CASE WHEN source_schema_version = 3 THEN issued_version_id ELSE NULL END", true);
+
                     b.Property<Guid>("PurchaseOrderId")
                         .HasColumnType("uuid")
                         .HasColumnName("purchase_order_id");
@@ -1791,6 +1803,10 @@ namespace Mightyfin.Erp.Procurement.Infrastructure.Migrations
                     b.Property<long>("Sequence")
                         .HasColumnType("bigint")
                         .HasColumnName("sequence");
+
+                    b.Property<int?>("SourceSchemaVersion")
+                        .HasColumnType("integer")
+                        .HasColumnName("source_schema_version");
 
                     b.Property<Guid>("SupplierId")
                         .HasColumnType("uuid")
@@ -1822,14 +1838,16 @@ namespace Mightyfin.Erp.Procurement.Infrastructure.Migrations
 
                     b.HasIndex("TenantId", "LegalEntityId", "SupplierId");
 
-                    b.HasIndex("TenantId", "LegalEntityId", "IssuedVersionId", "PurchaseOrderId");
+                    b.HasIndex("TenantId", "LegalEntityId", "LegacyIssuedVersionRefId", "PurchaseOrderId");
+
+                    b.HasIndex("TenantId", "LegalEntityId", "PrincipalIssuedVersionRefId", "PurchaseOrderId");
 
                     b.HasIndex("TenantId", "LegalEntityId", "PurchaseOrderId", "IssuedVersionId")
                         .IsUnique();
 
                     b.ToTable("invoice_match_exposure_states", "procurement", t =>
                         {
-                            t.HasCheckConstraint("ck_invoice_exposure_state", "sequence >= 0 AND coverage_state IN ('Unknown','Verified','Stale') AND currency_code ~ '^[A-Z]{3}$' AND (coverage_state <> 'Verified' OR (owner_reference IS NOT NULL AND owner_watermark IS NOT NULL AND owner_evidence_sha256 IS NOT NULL AND owner_evidence_sha256 ~ '^[0-9a-f]{64}$' AND owner_valid_until IS NOT NULL))");
+                            t.HasCheckConstraint("ck_invoice_exposure_state", "sequence >= 0 AND (source_schema_version IS NULL OR source_schema_version=3) AND coverage_state IN ('Unknown','Verified','Stale') AND currency_code ~ '^[A-Z]{3}$' AND (coverage_state <> 'Verified' OR (owner_reference IS NOT NULL AND owner_watermark IS NOT NULL AND owner_evidence_sha256 IS NOT NULL AND owner_evidence_sha256 ~ '^[0-9a-f]{64}$' AND owner_valid_until IS NOT NULL))");
                         });
                 });
 
@@ -1876,6 +1894,12 @@ namespace Mightyfin.Erp.Procurement.Infrastructure.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("issued_version_id");
 
+                    b.Property<Guid?>("LegacyIssuedVersionRefId")
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("uuid")
+                        .HasColumnName("legacy_issued_version_ref_id")
+                        .HasComputedColumnSql("CASE WHEN source_schema_version IS NULL THEN issued_version_id ELSE NULL END", true);
+
                     b.Property<Guid>("LegalEntityId")
                         .HasColumnType("uuid")
                         .HasColumnName("legal_entity_id");
@@ -1894,6 +1918,12 @@ namespace Mightyfin.Erp.Procurement.Infrastructure.Migrations
                         .HasMaxLength(64)
                         .HasColumnType("character varying(64)")
                         .HasColumnName("mapping_sha256");
+
+                    b.Property<Guid?>("PrincipalIssuedVersionRefId")
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("uuid")
+                        .HasColumnName("principal_issued_version_ref_id")
+                        .HasComputedColumnSql("CASE WHEN source_schema_version = 3 THEN issued_version_id ELSE NULL END", true);
 
                     b.Property<Guid>("PurchaseOrderId")
                         .HasColumnType("uuid")
@@ -1949,7 +1979,9 @@ namespace Mightyfin.Erp.Procurement.Infrastructure.Migrations
                     b.HasAlternateKey("TenantId", "LegalEntityId", "Id", "SupplierInvoiceId", "PurchaseOrderId", "IssuedVersionId")
                         .HasName("AK_invoice_match_mapping_versions_tenant_id_legal_entity_id_i~1");
 
-                    b.HasIndex("TenantId", "LegalEntityId", "IssuedVersionId", "PurchaseOrderId");
+                    b.HasIndex("TenantId", "LegalEntityId", "LegacyIssuedVersionRefId", "PurchaseOrderId");
+
+                    b.HasIndex("TenantId", "LegalEntityId", "PrincipalIssuedVersionRefId", "PurchaseOrderId");
 
                     b.HasIndex("TenantId", "LegalEntityId", "SupplierInvoiceId", "MappingRevision")
                         .IsUnique();
@@ -2023,6 +2055,12 @@ namespace Mightyfin.Erp.Procurement.Infrastructure.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("issued_version_id");
 
+                    b.Property<Guid?>("LegacyIssuedVersionRefId")
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("uuid")
+                        .HasColumnName("legacy_issued_version_ref_id")
+                        .HasComputedColumnSql("CASE WHEN source_schema_version IS NULL THEN issued_version_id ELSE NULL END", true);
+
                     b.Property<Guid>("LegalEntityId")
                         .HasColumnType("uuid")
                         .HasColumnName("legal_entity_id");
@@ -2061,6 +2099,12 @@ namespace Mightyfin.Erp.Procurement.Infrastructure.Migrations
                         .HasColumnType("numeric(18,4)")
                         .HasColumnName("price_variance");
 
+                    b.Property<Guid?>("PrincipalIssuedVersionRefId")
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("uuid")
+                        .HasColumnName("principal_issued_version_ref_id")
+                        .HasComputedColumnSql("CASE WHEN source_schema_version = 3 THEN issued_version_id ELSE NULL END", true);
+
                     b.Property<Guid?>("PurchaseOrderId")
                         .HasColumnType("uuid")
                         .HasColumnName("purchase_order_id");
@@ -2069,6 +2113,10 @@ namespace Mightyfin.Erp.Procurement.Infrastructure.Migrations
                         .HasPrecision(18, 4)
                         .HasColumnType("numeric(18,4)")
                         .HasColumnName("quantity_variance");
+
+                    b.Property<int?>("SourceSchemaVersion")
+                        .HasColumnType("integer")
+                        .HasColumnName("source_schema_version");
 
                     b.Property<string>("SourceWatermarksJson")
                         .HasColumnType("text")
@@ -2117,13 +2165,15 @@ namespace Mightyfin.Erp.Procurement.Infrastructure.Migrations
 
                     b.HasIndex("TenantId", "LegalEntityId", "SupplierInvoiceId");
 
-                    b.HasIndex("TenantId", "LegalEntityId", "IssuedVersionId", "PurchaseOrderId");
+                    b.HasIndex("TenantId", "LegalEntityId", "LegacyIssuedVersionRefId", "PurchaseOrderId");
+
+                    b.HasIndex("TenantId", "LegalEntityId", "PrincipalIssuedVersionRefId", "PurchaseOrderId");
 
                     b.HasIndex("TenantId", "LegalEntityId", "MappingVersionId", "SupplierInvoiceId", "PurchaseOrderId", "IssuedVersionId");
 
                     b.ToTable("invoice_match_results", "procurement", t =>
                         {
-                            t.HasCheckConstraint("ck_invoice_match_execution", "execution_version = 0 OR (execution_version IN (1,2) AND mapping_version_id IS NOT NULL AND purchase_order_id IS NOT NULL AND issued_version_id IS NOT NULL AND invoice_version > 0 AND command_key IS NOT NULL AND (execution_version=2 OR actor_worker_id IS NOT NULL) AND (actor_worker_id IS NULL OR actor_worker_id <> '00000000-0000-0000-0000-000000000000'::uuid) AND actor_principal_id IS NOT NULL AND (execution_version=1 OR (actor_principal_id ~ '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$' AND actor_principal_id <> '00000000-0000-0000-0000-000000000000')) AND invoice_original_sha256 IS NOT NULL AND invoice_original_sha256 ~ '^[0-9a-f]{64}$' AND input_fingerprint IS NOT NULL AND input_fingerprint ~ '^[0-9a-f]{64}$' AND evidence_sha256 IS NOT NULL AND evidence_sha256 ~ '^[0-9a-f]{64}$' AND policy_rules_sha256 IS NOT NULL AND policy_rules_sha256 ~ '^[0-9a-f]{64}$' AND evidence_json IS NOT NULL AND source_watermarks_json IS NOT NULL AND outcome IN ('Compared','Blocked'))");
+                            t.HasCheckConstraint("ck_invoice_match_execution", "(source_schema_version IS NULL OR (source_schema_version=3 AND execution_version=2 AND mapping_version_id IS NOT NULL AND purchase_order_id IS NOT NULL AND issued_version_id IS NOT NULL)) AND (execution_version = 0 OR (execution_version IN (1,2) AND mapping_version_id IS NOT NULL AND purchase_order_id IS NOT NULL AND issued_version_id IS NOT NULL AND invoice_version > 0 AND command_key IS NOT NULL AND (execution_version=2 OR actor_worker_id IS NOT NULL) AND (actor_worker_id IS NULL OR actor_worker_id <> '00000000-0000-0000-0000-000000000000'::uuid) AND actor_principal_id IS NOT NULL AND (execution_version=1 OR (actor_principal_id ~ '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$' AND actor_principal_id <> '00000000-0000-0000-0000-000000000000')) AND invoice_original_sha256 IS NOT NULL AND invoice_original_sha256 ~ '^[0-9a-f]{64}$' AND input_fingerprint IS NOT NULL AND input_fingerprint ~ '^[0-9a-f]{64}$' AND evidence_sha256 IS NOT NULL AND evidence_sha256 ~ '^[0-9a-f]{64}$' AND policy_rules_sha256 IS NOT NULL AND policy_rules_sha256 ~ '^[0-9a-f]{64}$' AND evidence_json IS NOT NULL AND source_watermarks_json IS NOT NULL AND outcome IN ('Compared','Blocked')))");
                         });
                 });
 
@@ -5332,6 +5382,9 @@ namespace Mightyfin.Erp.Procurement.Infrastructure.Migrations
                         .HasColumnName("version");
 
                     b.HasKey("Id");
+
+                    b.HasAlternateKey("TenantId", "LegalEntityId", "Id", "PurchaseOrderId")
+                        .HasName("ak_invoice_principal_issued_order_binding");
 
                     b.HasIndex("TenantId", "LegalEntityId", "CommandKey")
                         .IsUnique();
@@ -14887,10 +14940,17 @@ namespace Mightyfin.Erp.Procurement.Infrastructure.Migrations
 
                     b.HasOne("Mightyfin.Erp.Procurement.Domain.PurchaseOrderIssuedVersion", null)
                         .WithMany()
-                        .HasForeignKey("TenantId", "LegalEntityId", "IssuedVersionId", "PurchaseOrderId")
+                        .HasForeignKey("TenantId", "LegalEntityId", "LegacyIssuedVersionRefId", "PurchaseOrderId")
                         .HasPrincipalKey("TenantId", "LegalEntityId", "Id", "PurchaseOrderId")
                         .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
+                        .HasConstraintName("fk_invoicematchexposurestate_legacy_issued_order");
+
+                    b.HasOne("Mightyfin.Erp.Procurement.Domain.PrincipalOrderIssuedVersion", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId", "LegalEntityId", "PrincipalIssuedVersionRefId", "PurchaseOrderId")
+                        .HasPrincipalKey("TenantId", "LegalEntityId", "Id", "PurchaseOrderId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .HasConstraintName("fk_invoicematchexposurestate_principal_issued_order");
                 });
 
             modelBuilder.Entity("Mightyfin.Erp.Procurement.Domain.InvoiceMatchMappingVersion", b =>
@@ -14904,10 +14964,17 @@ namespace Mightyfin.Erp.Procurement.Infrastructure.Migrations
 
                     b.HasOne("Mightyfin.Erp.Procurement.Domain.PurchaseOrderIssuedVersion", null)
                         .WithMany()
-                        .HasForeignKey("TenantId", "LegalEntityId", "IssuedVersionId", "PurchaseOrderId")
+                        .HasForeignKey("TenantId", "LegalEntityId", "LegacyIssuedVersionRefId", "PurchaseOrderId")
                         .HasPrincipalKey("TenantId", "LegalEntityId", "Id", "PurchaseOrderId")
                         .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
+                        .HasConstraintName("fk_invoicematchmappingversion_legacy_issued_order");
+
+                    b.HasOne("Mightyfin.Erp.Procurement.Domain.PrincipalOrderIssuedVersion", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId", "LegalEntityId", "PrincipalIssuedVersionRefId", "PurchaseOrderId")
+                        .HasPrincipalKey("TenantId", "LegalEntityId", "Id", "PurchaseOrderId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .HasConstraintName("fk_invoicematchmappingversion_principal_issued_order");
                 });
 
             modelBuilder.Entity("Mightyfin.Erp.Procurement.Domain.InvoiceMatchResult", b =>
@@ -14927,9 +14994,17 @@ namespace Mightyfin.Erp.Procurement.Infrastructure.Migrations
 
                     b.HasOne("Mightyfin.Erp.Procurement.Domain.PurchaseOrderIssuedVersion", null)
                         .WithMany()
-                        .HasForeignKey("TenantId", "LegalEntityId", "IssuedVersionId", "PurchaseOrderId")
+                        .HasForeignKey("TenantId", "LegalEntityId", "LegacyIssuedVersionRefId", "PurchaseOrderId")
                         .HasPrincipalKey("TenantId", "LegalEntityId", "Id", "PurchaseOrderId")
-                        .OnDelete(DeleteBehavior.Restrict);
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .HasConstraintName("fk_invoicematchresult_legacy_issued_order");
+
+                    b.HasOne("Mightyfin.Erp.Procurement.Domain.PrincipalOrderIssuedVersion", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId", "LegalEntityId", "PrincipalIssuedVersionRefId", "PurchaseOrderId")
+                        .HasPrincipalKey("TenantId", "LegalEntityId", "Id", "PurchaseOrderId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .HasConstraintName("fk_invoicematchresult_principal_issued_order");
 
                     b.HasOne("Mightyfin.Erp.Procurement.Domain.InvoiceMatchMappingVersion", null)
                         .WithMany()

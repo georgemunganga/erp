@@ -72,6 +72,8 @@ internal static class ProcurementPrincipalInvoiceMatchingReadiness
                 || !await ProcurementPrincipalReceivingPhysicalSchema.InspectAsync(
                     db,false,ExecutionRole,ct))
                 return false;
+            if(!await ProcurementPrincipalInvoiceIssuedParentReadiness.RequireIssuedParentsAsync(db,ct))
+                return false;
             var model=db.GetService<IDesignTimeModel>().Model;
             var allocation=model.FindEntityType(typeof(InvoiceMatchAllocation));
             if(allocation is null || allocation.GetSchema()!="procurement"
