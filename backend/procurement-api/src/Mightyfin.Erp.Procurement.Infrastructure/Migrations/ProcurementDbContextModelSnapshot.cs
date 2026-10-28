@@ -1610,6 +1610,14 @@ namespace Mightyfin.Erp.Procurement.Infrastructure.Migrations
                         .HasColumnType("character varying(500)")
                         .HasColumnName("owner_coverage_reference");
 
+                    b.Property<Guid?>("PrincipalReceivingFactId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("principal_receiving_fact_id");
+
+                    b.Property<Guid?>("PrincipalReceivingSourceStateId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("principal_receiving_source_state_id");
+
                     b.Property<Guid>("PurchaseOrderId")
                         .HasColumnType("uuid")
                         .HasColumnName("purchase_order_id");
@@ -1696,6 +1704,8 @@ namespace Mightyfin.Erp.Procurement.Infrastructure.Migrations
                         .IsUnique()
                         .HasDatabaseName("IX_invoice_match_allocations_tenant_id_legal_entity_id_match_~1");
 
+                    b.HasIndex("TenantId", "LegalEntityId", "PrincipalReceivingFactId", "PrincipalReceivingSourceStateId");
+
                     b.HasIndex("TenantId", "LegalEntityId", "PurchaseOrderLineId", "PurchaseOrderId");
 
                     b.HasIndex("TenantId", "LegalEntityId", "SupplierInvoiceLineId", "SupplierInvoiceId")
@@ -1707,11 +1717,14 @@ namespace Mightyfin.Erp.Procurement.Infrastructure.Migrations
                     b.HasIndex("TenantId", "LegalEntityId", "ExposureStateId", "PurchaseOrderId", "IssuedVersionId")
                         .HasDatabaseName("IX_invoice_match_allocations_tenant_id_legal_entity_id_exposu~1");
 
+                    b.HasIndex("TenantId", "LegalEntityId", "PrincipalReceivingSourceStateId", "PurchaseOrderId", "IssuedVersionId", "PurchaseOrderLineId")
+                        .HasDatabaseName("IX_invoice_match_allocations_tenant_id_legal_entity_id_princi~1");
+
                     b.HasIndex("TenantId", "LegalEntityId", "ReceivingSourceStateId", "PurchaseOrderId", "IssuedVersionId", "PurchaseOrderLineId");
 
                     b.ToTable("invoice_match_allocations", "procurement", t =>
                         {
-                            t.HasCheckConstraint("ck_invoice_match_allocation", "kind = 'Debit' AND original_debit_id IS NULL AND quantity > 0 AND net_amount >= 0 AND tax_amount >= 0 AND exposure_sequence > 0 AND (goods_receipt_line_id IS NULL OR service_acceptance_id IS NULL) AND ((goods_receipt_line_id IS NULL AND service_acceptance_id IS NULL AND receiving_source_state_id IS NULL) OR (receiving_source_state_id IS NOT NULL AND (goods_receipt_line_id IS NOT NULL OR service_acceptance_id IS NOT NULL)))");
+                            t.HasCheckConstraint("ck_invoice_match_allocation", "kind = 'Debit' AND original_debit_id IS NULL AND quantity > 0 AND net_amount >= 0 AND tax_amount >= 0 AND exposure_sequence > 0 AND ((principal_receiving_source_state_id IS NULL AND principal_receiving_fact_id IS NULL AND (goods_receipt_line_id IS NULL OR service_acceptance_id IS NULL) AND ((goods_receipt_line_id IS NULL AND service_acceptance_id IS NULL AND receiving_source_state_id IS NULL) OR (receiving_source_state_id IS NOT NULL AND (goods_receipt_line_id IS NOT NULL OR service_acceptance_id IS NOT NULL)))) OR (principal_receiving_source_state_id IS NOT NULL AND principal_receiving_source_state_id <> '00000000-0000-0000-0000-000000000000'::uuid AND principal_receiving_fact_id IS NOT NULL AND principal_receiving_fact_id <> '00000000-0000-0000-0000-000000000000'::uuid AND receiving_source_state_id IS NULL AND goods_receipt_line_id IS NULL AND service_acceptance_id IS NULL))");
                         });
                 });
 
@@ -14821,6 +14834,13 @@ namespace Mightyfin.Erp.Procurement.Infrastructure.Migrations
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
+                    b.HasOne("Mightyfin.Erp.Procurement.Domain.PrincipalReceivingFact", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId", "LegalEntityId", "PrincipalReceivingFactId", "PrincipalReceivingSourceStateId")
+                        .HasPrincipalKey("TenantId", "LegalEntityId", "Id", "SourceStateId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .HasConstraintName("fk_invoice_allocation_principal_fact_source");
+
                     b.HasOne("Mightyfin.Erp.Procurement.Domain.PurchaseOrderLine", null)
                         .WithMany()
                         .HasForeignKey("TenantId", "LegalEntityId", "PurchaseOrderLineId", "PurchaseOrderId")
@@ -14841,6 +14861,13 @@ namespace Mightyfin.Erp.Procurement.Infrastructure.Migrations
                         .HasPrincipalKey("TenantId", "LegalEntityId", "Id", "PurchaseOrderId", "IssuedVersionId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
+
+                    b.HasOne("Mightyfin.Erp.Procurement.Domain.PrincipalReceivingSourceState", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId", "LegalEntityId", "PrincipalReceivingSourceStateId", "PurchaseOrderId", "IssuedVersionId", "PurchaseOrderLineId")
+                        .HasPrincipalKey("TenantId", "LegalEntityId", "Id", "PurchaseOrderId", "IssuedVersionId", "PurchaseOrderLineId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .HasConstraintName("fk_invoice_allocation_principal_source_line");
 
                     b.HasOne("Mightyfin.Erp.Procurement.Domain.ReceivingSourceState", null)
                         .WithMany()
