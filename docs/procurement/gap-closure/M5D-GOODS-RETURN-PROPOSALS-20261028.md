@@ -1,7 +1,7 @@
 # M5d — Accepted Goods return requests
 
-Status: source and private migration verified; native return workflow acceptance
-and deployment remain open. Change owner: Root. Tier3 / GW-ENG-STD-001 applies. This supplements
+Status: private return-proposal and write-off history acceptance verified; actual
+return execution and production deployment remain open. Change owner: Root. Tier3 / GW-ENG-STD-001 applies. This supplements
 PROC-09's 28-section receiving contract and M5b/M5c evidence.
 
 ## Outcome and boundary
@@ -95,5 +95,39 @@ were unchanged. Separate review verified the bound SQL/manifest and receipt
 hashes. This is not a source ACL/schema or finite-role runtime grant proof.
 
 See the [verification manifest](M5D-GOODS-RETURN-VERIFICATION-20261028.json).
-Normal-cookie proposal CRUD, independent native workflow reconciliation and
-production rollout remain explicit admission holds; no Goods balances changed.
+Normal-cookie proposal CRUD and independently replayed native reconciliation
+now pass. Production rollout and wider native UI acceptance remain open; no
+Goods balances changed.
+
+## Accepted native proposal and write-off history
+
+The current API product `414ca94f` passed **148/148** focused host/Core tests,
+no-pending-model and publication checks. A pre-runtime review fixed the final
+receipt factory's missing explicit tenant/company fields; source guards remain
+strict. The generated migration SQL is byte-identical to the accepted SDK02
+rehearsal. No application business request preceded that correction.
+
+Two normal-cookie API phases passed against the isolated native database.
+The first performed Create/Revise/Cancel and original-key recovery, with scoped
+All/other-actor/stale/quantity/key-conflict denials. Independent owner verification
+confirmed one cancelled proposal, three revisions/receipts/outbox events and
+nine audit rows, preserving all accepted Goods/source/PO/PR quantities.
+
+The second used a fresh API with new writes disabled. Existing detail/list and
+all three original command bodies stayed readable; a new Create returned503.
+Independent owner verification confirmed all216 non-auth tables unchanged,
+one revoked creator session and exactly attributed authentication effects.
+All three cohort sessions across the phases are revoked. Both private API/proxy
+pairs stopped, and the complete original role-table fingerprint was restored.
+The limited private ACL additions remain documented in the clone.
+
+The initial native attempt encountered a stopped local test proxy before login.
+Its independent capture proved all220 tables unchanged and no business command.
+The failed result is retained; a new, separately reviewed test run passed. Owner
+comparison exempts only the exact cohort's verified authentication metadata;
+unrelated retained sessions remain unchanged. No business command was replayed
+to obtain owner acceptance.
+
+A separate review agent replayed both owner verifiers and reproduced their
+receipt bytes. This acceptance covers proposals/history, not dispatch, stock,
+credit, Finance posting, full native UI, production or whole-module UAT.
