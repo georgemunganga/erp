@@ -61,7 +61,7 @@ A release preflight must verify **both** Record and Execution database-role cont
 | RFQ internal publication | M4 private Open/Approve/Return acceptance | Enable only after approved policy; prove actual invitation delivery separately |
 | Supplier quotation intake | No current-main complete mapped workflow established | Integrate/review held quotation work; native/API/UI capture, submit, correction, confidentiality and deadline tests |
 | Evaluation and award | No current-main complete approved-award path | Evaluator conflict rules, sealed opening, independent scores, award approval, split lines and M5 PO source adapter |
-| Standard PO governance | M5a private real-cookie acceptance; not deployed | Reviewed M5a release, branch/revocation/load coverage and business policy activation |
+| Standard PO governance | M5a private real-cookie acceptance; technical source deployed in M5 | Native UI/branch/revocation/load acceptance and approved business policy activation |
 | PO amendments | Initial M5a governance exists | Issued commercial revisions, delta approval, immutable sent versions and supplier acknowledgment |
 | Blanket PO and agreement releases | Not established by standard PO support | Limits, validity, releases, consumption, cancellation and concurrency controls |
 | Goods and service receipts | M5b Core-principal adapter merged; private Goods API/native-owner accepted. M5c company-date fix merged with regression/provider evidence | Native Service and full live UI/multibranch acceptance; M5 technical deployment complete |

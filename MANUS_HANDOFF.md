@@ -26,8 +26,8 @@ organisation/calendar/branding ownership.
 
 Root owns release follow-up. Active agent work covers private Service native
 acceptance and M6 principal invoice matching specification/implementation. No
-new Manus implementation assignment is made by these agent scopes. Existing independent C04
-ownership is unchanged; no new Manus implementation assignment is made here.
+new Manus implementation assignment is made by these agent scopes. Existing
+independent C04 ownership is unchanged.
 
 The checkpoints below are historical. Their invitations and baseline claims are
 superseded by this active ownership section.
