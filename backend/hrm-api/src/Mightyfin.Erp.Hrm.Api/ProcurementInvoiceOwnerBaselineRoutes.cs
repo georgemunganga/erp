@@ -304,7 +304,7 @@ public static class ProcurementInvoiceOwnerBaselineRoutes
         ProcurementRequestScope scope, CancellationToken ct) =>
         Run(http, scope, false, async (db, _, core, auth, token) =>
     {
-        _ = await Actor(core, scope, http, auth,
+        await Actor(core, scope, http, auth,
             InvoiceProcurementBaselineEvidence.ReadPermission, token);
         var receipt = await db.RecoverInvoiceOwnerReceiptAsync(key, operation, null, token)
             ?? throw new KeyNotFoundException();
