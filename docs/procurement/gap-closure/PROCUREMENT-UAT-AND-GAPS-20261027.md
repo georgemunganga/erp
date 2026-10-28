@@ -60,8 +60,8 @@ A release preflight must verify **both** Record and Execution database-role cont
 | Standard PO governance | M5a private real-cookie acceptance; not deployed | Reviewed M5a release, branch/revocation/load coverage and business policy activation |
 | PO amendments | Initial M5a governance exists | Issued commercial revisions, delta approval, immutable sent versions and supplier acknowledgment |
 | Blanket PO and agreement releases | Not established by standard PO support | Limits, validity, releases, consumption, cancellation and concurrency controls |
-| Goods and service receipts | Draft and positive command code exists | M5b: Core-user identity and M5 issued-evidence adapter; private complete receipt/inspection/service tests |
-| Receipt corrections and returns | Domain models/rules exist; operational correction route not mapped | Reversal/return API/UI, consumption checks, downstream compensation and replacement/credit references |
+| Goods and service receipts | M5b Core-principal adapter merged; private Goods API/native-owner accepted. M5c company-date fix merged with regression/provider evidence | Native Service and full live UI/multibranch acceptance; reviewed deployment |
+| Receipt corrections and returns | M5d original UI and proposal CRUD published with private normal-cookie/API-owner acceptance, including write-off history; proposal does not alter balances | Native UI/broader scope acceptance; independent execution/consumption/dispatch and negative-fact reconciliation; replacement/credit references |
 | Inventory and Assets | Integration boundaries defined | Idempotent accepted-receipt/return hand-off and reconciliation; their ledgers stay outside Procurement |
 | Invoice intake | Structured invoice CRUD exists | Native/UI validation, duplicate keys, line edits, cancellation and document evidence UAT |
 | Invoice inbox/OCR | Scoped received-invoice list is live; file chooser/drop area currently explains that file intake is unavailable | Controlled intake channels, extraction review, duplicate handling and access-controlled document service |

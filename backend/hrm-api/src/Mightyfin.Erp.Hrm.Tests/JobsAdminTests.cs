@@ -169,7 +169,8 @@ public sealed class JobsAdminTests
         var expectedLegacyAdmin = ProcurementActionCatalog.AdminReadCatalog().Select(action => action.Key)
             .Except(["procurement-vendor-export", "procurement-item-export",
                 "procurement-vendor-import", "procurement-item-import",
-                "procurement-sourcing-submit", "procurement-sourcing-publish"])
+                "procurement-sourcing-submit", "procurement-sourcing-publish",
+                "procurement-return-read", "procurement-return-create", "procurement-return-edit"])
             .Order(StringComparer.Ordinal).ToArray();
         Assert.Equal(expectedLegacyAdmin, admin.EffectiveProcurementPermissions);
         Assert.DoesNotContain("procurement-vendor-export", admin.EffectiveProcurementPermissions);
@@ -179,6 +180,9 @@ public sealed class JobsAdminTests
         Assert.Contains("procurement-payment-confirm", admin.EffectiveProcurementPermissions);
         Assert.DoesNotContain("procurement-sourcing-submit", admin.EffectiveProcurementPermissions);
         Assert.DoesNotContain("procurement-sourcing-publish", admin.EffectiveProcurementPermissions);
+        Assert.DoesNotContain("procurement-return-read", admin.EffectiveProcurementPermissions);
+        Assert.DoesNotContain("procurement-return-create", admin.EffectiveProcurementPermissions);
+        Assert.DoesNotContain("procurement-return-edit", admin.EffectiveProcurementPermissions);
         var disabled = Assert.Single(roles, x => x.RoleKey == "disabled_buyer");
         Assert.Equal(["procurement-access", "procurement-vendor-read"], disabled.Permissions);
         Assert.Empty(disabled.EffectiveProcurementPermissions);

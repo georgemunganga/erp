@@ -80,7 +80,8 @@ public sealed partial class ProcurementDbContext(DbContextOptions<ProcurementDbC
     {
         // Evidence was constructed for a specific source scope. Never relabel it
         // as belonging to another company when attaching it to this context.
-        if ((record is PrincipalReceivingDraftLineBinding or PrincipalReceivingSourceState or PrincipalReceivingFact or PrincipalReceivingDraftHead
+        if ((record is PrincipalGoodsReturnDraft or PrincipalGoodsReturnRevision or PrincipalGoodsReturnCommandReceipt
+                or PrincipalReceivingDraftLineBinding or PrincipalReceivingSourceState or PrincipalReceivingFact or PrincipalReceivingDraftHead
                 or PrincipalReceivingDraftRevision or PrincipalReceivingCommandReceipt
                 or OperationalPolicyIdentityRecord or SpendingAuthorityIdentityRecord or SourcingPolicyIdentityEvidence or PurchaseRequestApprovalSubmission or PurchaseRequestApprovalOutcome
                 or PurchaseRequestFinanceReleaseRequest or PurchaseRequestFinanceReleaseConfirmation
@@ -563,6 +564,7 @@ public sealed partial class ProcurementDbContext(DbContextOptions<ProcurementDbC
         ConfigurePrincipalOrderDraft(modelBuilder);
         ConfigurePrincipalOrderGovernance(modelBuilder);
         ConfigurePrincipalReceiving(modelBuilder);
+        ConfigurePrincipalGoodsReturns(modelBuilder);
         ConfigureSourcingDraftExecution(modelBuilder);
         ConfigureSourcingPolicyIdentity(modelBuilder);
         ConfigureSourcingPublication(modelBuilder);
@@ -761,6 +763,7 @@ public sealed partial class ProcurementDbContext(DbContextOptions<ProcurementDbC
         GuardPrincipalOrderDraft();
         GuardPrincipalOrderGovernance();
         GuardPrincipalReceiving();
+        GuardPrincipalGoodsReturns();
         GuardReceivingExecution();
         GuardInvoiceMatchingExecution();
         GuardSourcingDraftExecution();

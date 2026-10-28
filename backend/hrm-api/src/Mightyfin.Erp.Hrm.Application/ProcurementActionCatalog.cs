@@ -9,7 +9,8 @@ public static class ProcurementActionCatalog
     public static bool RequiresExplicitConfiguredGrant(string action) => action is
         "procurement-vendor-export" or "procurement-item-export"
         or "procurement-vendor-import" or "procurement-item-import"
-        or "procurement-sourcing-submit" or "procurement-sourcing-publish";
+        or "procurement-sourcing-submit" or "procurement-sourcing-publish"
+        or "procurement-return-read" or "procurement-return-create" or "procurement-return-edit";
 
     public static readonly IReadOnlyDictionary<string, string[]> BootstrapGrants =
         new Dictionary<string, string[]>(StringComparer.Ordinal)
@@ -48,6 +49,10 @@ public static class ProcurementActionCatalog
             ["procurement-receipt-inspect"] = [],
             ["procurement-receipt-accept"] = [],
             ["procurement-service-certify"] = [],
+            // Proposal CRUD is not operational return or stock/credit authority.
+            ["procurement-return-read"] = [],
+            ["procurement-return-create"] = [],
+            ["procurement-return-edit"] = [],
             ["procurement-authority-read"] = [],
             ["procurement-authority-configure"] = [],
             ["procurement-authority-review"] = [],
@@ -134,7 +139,7 @@ public static class ProcurementActionCatalog
             "item" or "catalog" => "Items and catalog",
             "request" or "policy" or "budget" => "Requests and policy",
             "plan" => "Plans",
-            "receipt" or "service" => "Receiving and returns",
+            "receipt" or "service" or "return" => "Receiving and returns",
             "authority" or "approval" => "Approvals and authority",
             "configuration" => "Configuration",
             "contract" => "Contracts",

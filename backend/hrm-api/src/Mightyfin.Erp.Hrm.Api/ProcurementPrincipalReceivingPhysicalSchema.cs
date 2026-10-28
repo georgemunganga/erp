@@ -49,6 +49,8 @@ internal static class ProcurementPrincipalReceivingPhysicalSchema
         {
             if (owner.Database.HasPendingModelChanges() || (await owner.Database.GetPendingMigrationsAsync(ct)).Any()
                 || !(await owner.Database.GetAppliedMigrationsAsync(ct)).Contains(MigrationId, StringComparer.Ordinal)) return false;
+            var returnsApplied=(await owner.Database.GetAppliedMigrationsAsync(ct)).Contains(
+                ProcurementPrincipalGoodsReturnSchemaCapture.MigrationId,StringComparer.Ordinal);
             var model = owner.GetService<IDesignTimeModel>().Model;
             var connection = owner.Database.GetDbConnection();
             if (connection.State != ConnectionState.Open) { await owner.Database.OpenConnectionAsync(ct); opened = true; }
@@ -65,7 +67,9 @@ internal static class ProcurementPrincipalReceivingPhysicalSchema
                 var table = StoreObjectIdentifier.Table(name, "procurement");
                 command.CommandText = SelectAllColumnsSql(entity, table);
                 await using (var reader = await command.ExecuteReaderAsync(ct)) { }
-                if (!await True(ColumnsSql(entity, table)) || !await True(ExactShapeSql(entity, table))) return false;
+                if (!await True(ColumnsSql(entity, table)) || !await True(ExactShapeSql(entity, table,returnsApplied))) return false;
+                if(returnsApplied && ReturnOwnerKeys.TryGetValue(name,out var returnKey)
+                    && !await True(KeySql(table,returnKey.Columns,returnKey.Name,false)))return false;
                 foreach (var key in entity.GetKeys())
                     if (!await True(KeySql(table, key.Properties.Select(x => x.GetColumnName(table)!).ToArray(), key.GetName()!, key.IsPrimaryKey()))) return false;
                 foreach (var foreign in entity.GetForeignKeys())
@@ -102,14 +106,23 @@ internal static class ProcurementPrincipalReceivingPhysicalSchema
         finally { if (opened) await owner.Database.CloseConnectionAsync(); }
     }
 
-    internal static string ExactShapeSql(IEntityType entity, StoreObjectIdentifier table)
+    internal static readonly IReadOnlyDictionary<string,(string Name,string[] Columns)> ReturnOwnerKeys =
+        new Dictionary<string,(string,string[])>(StringComparer.Ordinal)
+        {
+            ["principal_receiving_sources"]=("ak_pgret_source_owner",["tenant_id","legal_entity_id","id","branch_id","purchase_order_id","purchase_order_line_id","issued_version_id"]),
+            ["principal_receiving_facts"]=("ak_pgret_fact_owner",["tenant_id","legal_entity_id","id","source_state_id","draft_id","branch_id"]),
+            ["principal_receiving_drafts"]=("ak_pgret_receipt_owner",["tenant_id","legal_entity_id","id","branch_id","purchase_order_id","issued_version_id"]),
+        };
+
+    internal static string ExactShapeSql(IEntityType entity, StoreObjectIdentifier table,bool returnsApplied=false)
     {
         var relation = Literal(table.Schema + "." + table.Name) + "::regclass";
+        var successorKey=returnsApplied && ReturnOwnerKeys.ContainsKey(table.Name)?1:0;
         return "SELECT (SELECT count(*) FROM pg_attribute WHERE attrelid=" + relation + " AND attnum>0 AND NOT attisdropped)=" + entity.GetProperties().Count()
             + " AND NOT EXISTS(SELECT 1 FROM pg_attrdef WHERE adrelid=" + relation + ")"
             + " AND (SELECT count(*) FROM pg_constraint WHERE conrelid=" + relation + " AND contype IN ('p','u','f','c'))="
-            + (entity.GetKeys().Count() + entity.GetForeignKeys().Count() + entity.GetCheckConstraints().Count() + OverlayCounts[table.Name])
-            + " AND (SELECT count(*) FROM pg_index WHERE indrelid=" + relation + ")=" + (entity.GetKeys().Count() + entity.GetIndexes().Count());
+            + (entity.GetKeys().Count() + entity.GetForeignKeys().Count() + entity.GetCheckConstraints().Count() + OverlayCounts[table.Name]+successorKey)
+            + " AND (SELECT count(*) FROM pg_index WHERE indrelid=" + relation + ")=" + (entity.GetKeys().Count() + entity.GetIndexes().Count()+successorKey);
     }
 
     internal static string PrivilegeSql(bool write, string role)

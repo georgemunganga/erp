@@ -78,6 +78,7 @@ public static class ProcurementHostIntegration
             ExecutionDatabaseConfigured = !string.IsNullOrWhiteSpace(executionConnection)
         });
         services.AddScoped<IProcurementPrincipalReceivingReadiness, ProcurementPrincipalReceivingSchemaReadiness>();
+        ProcurementPrincipalGoodsReturnComposition.AddFoundation(services, configuration);
         var matchingOptions = configuration.GetSection("Procurement:InvoiceMatching").Get<ProcurementInvoiceMatchingExecutionOptions>() ?? new();
         matchingOptions.ExecutionDatabaseConfigured = !string.IsNullOrWhiteSpace(executionConnection);
         services.AddSingleton(matchingOptions);
@@ -140,6 +141,7 @@ public static class ProcurementHostIntegration
         ProcurementOrderExecutionRoutes.MapRoutes(app);
         ProcurementReceivingRoutes.MapRoutes(app);
         ProcurementPrincipalReceivingRoutes.MapRoutes(app);
+        ProcurementPrincipalReceivingRoutes.MapReturnRoutes(app);
         MapMetadataRoute(app);
     }
 
@@ -163,6 +165,9 @@ public static class ProcurementHostIntegration
                     services, scope, pending, ct);
                 var principalReceiving = principalReceivingRead
                     && services.GetRequiredService<ProcurementPrincipalReceivingOptions>().Enabled;
+                var principalGoodsReturnDraftsRead = await ProcurementPrincipalGoodsReturnComposition.ReadReadyAsync(services, pending, ct);
+                var principalGoodsReturnDrafts = principalGoodsReturnDraftsRead
+                    && services.GetRequiredService<ProcurementPrincipalGoodsReturnOptions>().Enabled;
                 var originalUnitReview = !pending && await ProcurementInvoiceUnitReviewCapability.ReadyAsync(services, ct);
                 var now = DateTimeOffset.UtcNow;
                 var receivingPolicies = receivingDrafts && receivingOptions.PositiveExecutionEnabled
@@ -282,6 +287,8 @@ public static class ProcurementHostIntegration
                         receiving = false, // Existing UI is not yet a compatible live receiving adapter.
                         principalReceivingRead,
                         principalReceiving,
+                        principalGoodsReturnDraftsRead,
+                        principalGoodsReturnDrafts,
                         receivingDrafts,
                         receivingGoods = receivingPositive && receivingRules!.Rules.Any(x => x.Kind.ToString() == "Goods"),
                         receivingInspection = receivingPositive && receivingRules!.Rules.Any(x => x.InspectionRequired),
@@ -633,7 +640,9 @@ public sealed class ProcurementScopeMiddleware(RequestDelegate next, IWebHostEnv
             || string.Equals(value, "/api/procurement/v1/receiving/principal-worklist", StringComparison.OrdinalIgnoreCase)
             || string.Equals(value, "/api/procurement/v1/receiving/principal-inspection-tasks", StringComparison.OrdinalIgnoreCase)
             || string.Equals(value, "/api/procurement/v1/receiving/principal-acceptance-tasks", StringComparison.OrdinalIgnoreCase)
-            || string.Equals(value, "/api/procurement/v1/receiving/principal-service-tasks", StringComparison.OrdinalIgnoreCase);
+            || string.Equals(value, "/api/procurement/v1/receiving/principal-service-tasks", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(value, "/api/procurement/v1/returns/principal-drafts", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(value, "/api/procurement/v1/returns/principal-drafts/eligible-goods", StringComparison.OrdinalIgnoreCase);
     }
 
     internal static bool RequestWriteRequiresBranch(PathString path, string method) =>

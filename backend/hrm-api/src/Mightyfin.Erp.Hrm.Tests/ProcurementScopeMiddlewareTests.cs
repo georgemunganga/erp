@@ -170,6 +170,11 @@ public sealed class ProcurementScopeMiddlewareTests
     [InlineData("/api/procurement/v1/receiving/principal-service-tasks", true)]
     [InlineData("/api/procurement/v1/receiving/principal-worklist/child", false)]
     [InlineData("/api/procurement/v1/receiving/principal-command-receipts/Record/11111111-1111-4111-8111-111111111111", false)]
+    [InlineData("/api/procurement/v1/returns/principal-drafts", true)]
+    [InlineData("/api/procurement/v1/returns/principal-drafts/eligible-goods", true)]
+    [InlineData("/api/procurement/v1/returns/principal-drafts/11111111-1111-4111-8111-111111111111", false)]
+    [InlineData("/api/procurement/v1/returns/principal-drafts/commands/11111111-1111-4111-8111-111111111111", false)]
+    [InlineData("/api/procurement/v1/returns/principal-drafts/eligible-goods/child", false)]
     public void All_operational_reads_are_exact_collections_not_commands_or_children(string path, bool allowed)
     {
         Assert.Equal(allowed, ProcurementScopeMiddleware.AllOperationalListReadPath(path,"GET"));

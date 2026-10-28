@@ -1,0 +1,177 @@
+{
+  "status": "PRIVATE_RETURN_PROPOSAL_AND_FLAG_OFF_HISTORY_ACCEPTED_NOT_DEPLOYED",
+  "backendProductCommit": "414ca94fe05f222d21d62d069d2428881f68db57",
+  "backendTestOnlySuccessor": "ec6e372520fff10403f583430fc19c792015e136",
+  "uiProductCommit": "1398b6f733554dac37a0947ae3a010b8c2e42689",
+  "verification": {
+    "procurementRegression": {
+      "passed": 1501,
+      "failed": 0,
+      "sourceCommit": "098152395f05c32790bce7f1aacfa2a824d87454",
+      "note": "Procurement source unchanged by later Core catalogue/test corrections."
+    },
+    "focusedHostAndPermissions": {
+      "passed": 148,
+      "failed": 0,
+      "source": "SDK03 includes the nine Core role readback checks"
+    },
+    "coreRoleReadback": {
+      "passed": 9,
+      "failed": 0
+    },
+    "uiUnitContract": {
+      "passed": 622,
+      "failed": 0
+    },
+    "uiActorUtilities": {
+      "passed": 4,
+      "failed": 0
+    },
+    "mockedBrowser": {
+      "initialPassed": 38,
+      "initialFailed": 1,
+      "correctedTargetedPassed": 1,
+      "note": "Company All mock context failed to reflect selected branch; corrected fixture. Separate runs, not single39-green or native API proof."
+    },
+    "efPendingModelChanges": false,
+    "apiPublicationFiles": 150,
+    "uiBuild": {
+      "passed": true,
+      "routes": 112,
+      "files": 3
+    },
+    "nativeMigration": {
+      "passed": true,
+      "retainedTables": 217,
+      "checks": 3,
+      "foreignKeys": 12,
+      "overlayKeys": 4,
+      "modeledKeys": 8,
+      "indexes": 19,
+      "emptyDown": true,
+      "reUp": true,
+      "auditOnlyVeto": true,
+      "sourceRowsUnchanged": true
+    },
+    "normalCookieNativeApi": {
+      "phasesPassed": 2,
+      "primary": "Create201, Revise200, Cancel200; original-key exact bytes, Company All write400, other actor404, changed payload409, overquantity422, stale revision409",
+      "flagOff": "Detail/list200 and all original command bodies unchanged; new Create503",
+      "ownerVerified": true,
+      "retainedReceivingPoPrCountersUnchanged": true,
+      "proposalGraph": {
+        "heads": 1,
+        "revisions": 3,
+        "receipts": 3,
+        "outboxEvents": 3,
+        "auditEvents": 9
+      },
+      "newCohortSessionsRevoked": 3,
+      "activeCohortSessions": 0,
+      "temporaryRolesRestored": 2,
+      "privateApiAndProxyStopped": true
+    }
+  },
+  "retainedFailures": [
+    "SDK01 focused host117/119: return actions absent from Core catalogue; corrected by explicit empty-bootstrap registration, rerun139/139.",
+    "Browser first38/39: stale Company All fixture; corrected targeted1/1.",
+    "First native attempt lost the local test proxy before login; independent capture proved all220 tables unchanged and zero business commands. Retained failed result; corrected proxy process lifetime, then separate successful run02."
+  ],
+  "sourceReview": "Separate agents reviewed source/Core grants, native migration, and independently replayed both offline workflow owner verifiers byte-identically. Human business UAT/sign-off is not claimed.",
+  "releaseHolds": [
+    "Actual native UI forms and broader branch/tenant/concurrent acceptance",
+    "Actual return approval/dispatch/correction and qualified invoice consumption contracts",
+    "Production compatibility/backup/finite-role paired rollout and smoke; whole-module UAT"
+  ],
+  "productionChanged": false,
+  "wholeModuleUatComplete": false,
+  "evidence": [
+    {
+      "file": "m5d-procurement.trx",
+      "evidenceSet": "procurement-m5d-final-sdk-20261028_run01",
+      "sha256": "51013f210ac44ac41b558f74a184007aed59a695eeaf63a50de61a764c31f10a"
+    },
+    {
+      "file": "m5d-host.trx",
+      "evidenceSet": "procurement-m5d-final-sdk-20261028_run02",
+      "sha256": "fef9a0fa1c1b8fd2158ba425c3e71eb3f20c37ab536043b9217644fb0f9167dd"
+    },
+    {
+      "file": "source-manifest.private.json",
+      "evidenceSet": "procurement-m5d-final-sdk-20261028_run02",
+      "sha256": "56bfcb77ea3ff8fc1b573ac036f4c2c3f0a411283618cc927ac2ba92d4fd6b66"
+    },
+    {
+      "file": "publication-manifest.private.json",
+      "evidenceSet": "procurement-m5d-final-sdk-20261028_run02",
+      "sha256": "130b56003b83efd6a2805aaffd81061cae6bd70e1dbe2c686eb671c459ae3ea9"
+    },
+    {
+      "file": "ef-pending-model.log",
+      "evidenceSet": "procurement-m5d-final-sdk-20261028_run02",
+      "sha256": "815c5cd494b61a9d8737ba7653cd05fb05926e7b40a924683fa4eef4ca87566c"
+    },
+    {
+      "file": "roundtrip.private.json",
+      "evidenceSet": "procurement-m5d-native-migration-20261028_run01",
+      "sha256": "b9cbbc85d393c1df2a4f7e7d49649bdc92616be122f2c8acecd8b91601414910"
+    },
+    {
+      "file": "expected.private.json",
+      "evidenceSet": "procurement-m5d-native-migration-20261028_run01",
+      "sha256": "592f77b11bb0debb3bab66802ab05f6e86c4ed4d43f7a13c26f57a26124a010c"
+    },
+    {
+      "file": "m5d-role-readback.trx",
+      "evidenceSet": "procurement-m5d-role-readback-validation-20261028_run01",
+      "sha256": "0bd3dc50e5afe4f460196dbb582c3ce87ea0edeb3eb07d4b3a4caca6075ced84"
+    },
+    {
+      "file": "m5d-host.trx",
+      "evidenceSet": "procurement-m5d-final-sdk-20261028_run03",
+      "sha256": "c636baa8c02ca280324cc29a1510d6196089a8dd94375d47d57cb883f8280622"
+    },
+    {
+      "file": "result.private.json",
+      "evidenceSet": "procurement-m5d-final-sdk-20261028_run03",
+      "sha256": "1e2526cff73ba391760a8077e19c3d9b936bebc096a9fb6eb524dbdc3a2434e2"
+    },
+    {
+      "file": "publication-manifest.private.json",
+      "evidenceSet": "procurement-m5d-final-sdk-20261028_run03",
+      "sha256": "71c668737ad4bdf966e4bb8c78aea9ca922bbede84defde48e4fa708237d874c"
+    },
+    {
+      "file": "result-run02.private.json",
+      "evidenceSet": "procurement-m5d-native-api-prep-20261028_run01",
+      "sha256": "528c046101e69ca5b539d1826cfdc09b47cf0757b30451d4d53fbbb3afdf1bd8"
+    },
+    {
+      "file": "owner-result.private.json",
+      "evidenceSet": "procurement-m5d-native-owner-prep-20261028_run01",
+      "sha256": "e68b1612aa1ac57ab7a954d368ac9abcea71e2642f4f9f0cc05ac390379d434a"
+    },
+    {
+      "file": "flagoff-result.private.json",
+      "evidenceSet": "procurement-m5d-native-api-prep-20261028_run01",
+      "sha256": "e60d89b9ea6b1e84b6204d990bee0d3bf306fc6c29a50e90a34aeb8f9c8b1b43"
+    },
+    {
+      "file": "owner-result.private.json",
+      "evidenceSet": "phase02-write-off",
+      "sha256": "02c408f24a196b4752e73db4c2eaef7b117f3fbc863f5a00e7307c75fcdc09b7"
+    },
+    {
+      "file": "role-restoration.private.json",
+      "evidenceSet": "procurement-m5d-native-api-prep-20261028_run01",
+      "sha256": "ead0557143fab5574b2984869cf181719da28c1dc2cf9cc9d7def81b7d60b81b"
+    },
+    {
+      "file": "final-private-acceptance.private.json",
+      "evidenceSet": "procurement-m5d-native-api-prep-20261028_run01",
+      "sha256": "159b4fa74a63749280d336e78cd76ca00d5a7c1ea1629c2a5209409950914f8c"
+    }
+  ],
+  "nativeReturnProposalAccepted": true,
+  "nativeReturnExecutionAccepted": false
+}

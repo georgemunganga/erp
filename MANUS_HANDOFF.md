@@ -1,20 +1,20 @@
-# Active receiving follow-up — 28 October 2026
+# Active return-request work — 28 October 2026
 
-Published prerequisites: ERP main `3bf6a65443240b68cc5283b178f29050981d9832`
-(PR125), UI main `086ee259c269a46e905bf76532532119609bc1db`
-(PR91, `georgemunganga/module-connect`). Start from their current main descendants.
-The merged M5b remote branches have been deleted; do not resume older tips.
+Published prerequisites: ERP main `c4db6c4c6d16cd9d1cd094e260da8478dd604a57`
+(PR126, including Goods receiving PR125), UI main
+`086ee259c269a46e905bf76532532119609bc1db` (PR91). Use current main descendants.
 
-Root owns M5c on `codex/m5c-receiving-service-date-20261028`: company-local
-service acceptance dates and retained calendar evidence, then receiving return/
-correction gaps. Do not duplicate this work. Existing independent C04 ownership
-remains unchanged. No new Manus implementation milestone is assigned here.
+Root owns M5d on `codex/m5d-receiving-return-drafts-20261028`; original UI work
+is on `codex/m5d-receiving-return-ui-20261028`. This connects verified accepted
+Goods evidence to proposal CRUD/recovery; it does not execute a return or alter
+balances. See [M5d scope and admission checks](docs/procurement/gap-closure/M5D-GOODS-RETURN-PROPOSALS-20261028.md).
+Do not duplicate this work or resume old held P37 migrations. Existing C04
+ownership is unchanged; no new Manus implementation assignment is made here.
 
-Goods receiving passed private normal-cookie API/native-owner acceptance;
-see [current scope and evidence](docs/procurement/gap-closure/M5B-RECEIVING-IMPLEMENTATION-20261028.md).
-Production is unchanged. Service/live UI/return acceptance and whole-module UAT
-remain incomplete. Core owns organisation/calendar/identity/access; receiving
-must not duplicate those masters or create Finance/Inventory ledgers.
+Goods private API acceptance and company-local service-date source checks are
+recorded in M5b/M5c. Production is unchanged; native Service/live UI/return
+execution, matching authority and whole-module UAT remain open. Core retains
+organisation/calendar/identity/access ownership; shared ERP controls/layout stay.
 
 The checkpoints below are historical. Their invitations and baseline claims are
 superseded by this active ownership section.
