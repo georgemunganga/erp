@@ -24,7 +24,7 @@ public static class InvoiceProcurementBaselineOpeningPlan
             SourceModule="procurement",SourceType=InvoiceProcurementBaselineEvidence.SourceType,
             SourceId=baselineId,SourceVersion=1,PolicyVersionId=policy.Id,
             PolicyVersionNumber=policy.PolicyVersionNumber,MakerSubjectId=makerPrincipalId,
-            OpenedAt=capturedAt.Value
+            OpenedAt=capturedAt
         };
         var stage=new ApprovalStage
         {
@@ -44,7 +44,7 @@ public static class InvoiceProcurementBaselineOpeningPlan
             {
                 Id=baselineId,TenantId=tenantId,LegalEntityId=companyId,
                 CoreCaseId=caseId,MakerPrincipalId=makerPrincipalId,
-                MakerWorkerAliasId=makerWorkerAliasId,CapturedAtUtc=capturedAt.Value
+                MakerWorkerAliasId=makerWorkerAliasId,CapturedAtUtc=capturedAt
             },workflow,new Dictionary<string,Guid?> { [reviewer.PrincipalId]=reviewer.WorkerAliasId });
         return workflow;
     }
