@@ -1,0 +1,112 @@
+{
+  "status": "SOURCE_AND_PRIVATE_MIGRATION_VERIFIED_NOT_NATIVE_RETURN_UAT",
+  "backendProductCommit": "2ccdf34c9201d980d1c1da2ffd8f7e8a320aa469",
+  "backendTestOnlySuccessor": "ec6e372520fff10403f583430fc19c792015e136",
+  "uiProductCommit": "1398b6f733554dac37a0947ae3a010b8c2e42689",
+  "verification": {
+    "procurementRegression": {
+      "passed": 1501,
+      "failed": 0,
+      "sourceCommit": "098152395f05c32790bce7f1aacfa2a824d87454",
+      "note": "Procurement source unchanged by later Core catalogue/test corrections."
+    },
+    "focusedHostAndPermissions": {
+      "passed": 139,
+      "failed": 0
+    },
+    "coreRoleReadback": {
+      "passed": 9,
+      "failed": 0
+    },
+    "uiUnitContract": {
+      "passed": 622,
+      "failed": 0
+    },
+    "uiActorUtilities": {
+      "passed": 4,
+      "failed": 0
+    },
+    "mockedBrowser": {
+      "initialPassed": 38,
+      "initialFailed": 1,
+      "correctedTargetedPassed": 1,
+      "note": "Company All mock context failed to reflect selected branch; corrected fixture. Separate runs, not single39-green or native API proof."
+    },
+    "efPendingModelChanges": false,
+    "apiPublicationFiles": 150,
+    "uiBuild": {
+      "passed": true,
+      "routes": 112,
+      "files": 3
+    },
+    "nativeMigration": {
+      "passed": true,
+      "retainedTables": 217,
+      "checks": 3,
+      "foreignKeys": 12,
+      "overlayKeys": 4,
+      "modeledKeys": 8,
+      "indexes": 19,
+      "emptyDown": true,
+      "reUp": true,
+      "auditOnlyVeto": true,
+      "sourceRowsUnchanged": true
+    }
+  },
+  "retainedFailures": [
+    "SDK01 focused host117/119: return actions absent from Core catalogue; corrected by explicit empty-bootstrap registration, rerun139/139.",
+    "Browser first38/39: stale Company All fixture; corrected targeted1/1."
+  ],
+  "sourceReview": "Separate review agents checked Core grants, source/receipt ownership and native receipt. Human business UAT/sign-off is not claimed.",
+  "releaseHolds": [
+    "Native normal-cookie return CRUD and read-off/write-off/recovery/denial tests with finite-role grants",
+    "Independent native workflow owner/counter reconciliation",
+    "Actual return approval/dispatch/correction and qualified invoice consumption contracts",
+    "Production compatibility/backup/finite-role paired rollout and smoke; whole-module UAT"
+  ],
+  "nativeReturnWorkflowAccepted": false,
+  "productionChanged": false,
+  "wholeModuleUatComplete": false,
+  "evidence": [
+    {
+      "file": "m5d-procurement.trx",
+      "evidenceSet": "procurement-m5d-final-sdk-20261028_run01",
+      "sha256": "51013f210ac44ac41b558f74a184007aed59a695eeaf63a50de61a764c31f10a"
+    },
+    {
+      "file": "m5d-host.trx",
+      "evidenceSet": "procurement-m5d-final-sdk-20261028_run02",
+      "sha256": "fef9a0fa1c1b8fd2158ba425c3e71eb3f20c37ab536043b9217644fb0f9167dd"
+    },
+    {
+      "file": "source-manifest.private.json",
+      "evidenceSet": "procurement-m5d-final-sdk-20261028_run02",
+      "sha256": "56bfcb77ea3ff8fc1b573ac036f4c2c3f0a411283618cc927ac2ba92d4fd6b66"
+    },
+    {
+      "file": "publication-manifest.private.json",
+      "evidenceSet": "procurement-m5d-final-sdk-20261028_run02",
+      "sha256": "130b56003b83efd6a2805aaffd81061cae6bd70e1dbe2c686eb671c459ae3ea9"
+    },
+    {
+      "file": "ef-pending-model.log",
+      "evidenceSet": "procurement-m5d-final-sdk-20261028_run02",
+      "sha256": "815c5cd494b61a9d8737ba7653cd05fb05926e7b40a924683fa4eef4ca87566c"
+    },
+    {
+      "file": "roundtrip.private.json",
+      "evidenceSet": "procurement-m5d-native-migration-20261028_run01",
+      "sha256": "b9cbbc85d393c1df2a4f7e7d49649bdc92616be122f2c8acecd8b91601414910"
+    },
+    {
+      "file": "expected.private.json",
+      "evidenceSet": "procurement-m5d-native-migration-20261028_run01",
+      "sha256": "592f77b11bb0debb3bab66802ab05f6e86c4ed4d43f7a13c26f57a26124a010c"
+    },
+    {
+      "file": "m5d-role-readback.trx",
+      "evidenceSet": "procurement-m5d-role-readback-validation-20261028_run01",
+      "sha256": "0bd3dc50e5afe4f460196dbb582c3ce87ea0edeb3eb07d4b3a4caca6075ced84"
+    }
+  ]
+}
