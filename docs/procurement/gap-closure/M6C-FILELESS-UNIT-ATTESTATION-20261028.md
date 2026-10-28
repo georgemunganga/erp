@@ -149,9 +149,10 @@ wrong company/branch, stale versions, expired/superseded policy and key reuse.
 
 ## 26. Byte compatibility
 
-Regression tests compare legacy v1/v2/v3 source/evidence/receipt bytes and
-hashes before and after this change. Optional new properties are omitted from
-legacy serialization; no global null-ignore setting is applied.
+Acceptance must compare legacy v1/v2/v3 source/evidence/receipt bytes and
+hashes before and after this change. The new optional source properties are
+omitted from legacy serialization; no global null-ignore setting is applied.
+That byte comparison has not yet run for this source slice.
 
 ## 27. Native acceptance
 
