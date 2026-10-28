@@ -81,23 +81,29 @@ public sealed partial class ProcurementDbContext
                 || invoice.CurrentMappingVersionId != mapping.Id || invoice.BranchRef != source.BranchRef || mapping.ActorPrincipalId != scope.SubjectId
                 || source.MappingRevision != mapping.MappingRevision || source.MappingSha256 != mapping.MappingSha256 || source.OriginalSha256 != mapping.InvoiceOriginalSha256)
                 throw new InvalidOperationException("InvoiceUnitReviewSourceBindingRequired");
-            var order = PurchaseOrders.Single(x => x.Id == source.PurchaseOrderId);
-            var issuedRow = OrderIssuedVersions.Single(x => x.Id == source.IssuedVersionId);
-            var orderSubmission = OrderSubmissions.Single(x => x.Id == issuedRow.SubmissionId);
-            var orderCase = core.Cases.Single(x => x.Id == orderSubmission.CoreApprovalCaseId);
-            var orderLines = PurchaseOrderLines.Where(x => x.PurchaseOrderId == order.Id && x.IsActive).ToArray();
-            ReceivingIssuedAuthority.Verify(order, orderLines, issuedRow, orderSubmission, orderCase,
-                PolicyVersions.Single(x => x.Id == orderSubmission.PolicyVersionId));
-            var delivery = OrderDeliveryEvidence.Where(x => x.IssuedVersionId == issuedRow.Id).OrderByDescending(x => x.CreatedAt).ThenByDescending(x => x.Id).First();
             var projected = JsonSerializer.Deserialize<InvoiceIssuedOrder>(source.IssuedJson) ?? throw new InvalidOperationException("InvoiceUnitReviewIssuedProofRequired");
-            if (delivery.Outcome != "Delivered" || projected.IssuedAt != delivery.ObservedAt || projected.IssuedReference != issuedRow.CommercialSnapshotSha256
-                || projected.RevisionNumber != issuedRow.RevisionNumber || projected.RevisionState != "Issued"
-                || projected.Id != order.Id || projected.RevisionId != issuedRow.Id || projected.BranchRef != source.BranchRef
-                || projected.TenantId != source.TenantId || projected.LegalEntityId != source.LegalEntityId
-                || projected.CurrencyCode != order.CurrencyCode || projected.SupplierId != order.SupplierId || projected.Lines.Count != orderLines.Length
-                || orderLines.Any(line => !projected.Lines.Any(p => p.Id == line.Id && p.Quantity == line.Quantity && p.UnitPrice == line.UnitPrice && p.TaxAmount == line.TaxAmount && p.UnitCode == line.UnitCode
-                    && p.CategoryCode == PurchaseRequestLines.Where(x => x.Id == line.PurchaseRequestLineId).Select(x => x.CategoryCode).Single())))
-                throw new InvalidOperationException("InvoiceUnitReviewIssuedProjectionMismatch");
+            if (mapping.SourceSchemaVersion == 3)
+                RequirePrincipalUnitReviewIssued(source, projected, core);
+            else if (mapping.SourceSchemaVersion is null)
+            {
+                var order = PurchaseOrders.Single(x => x.Id == source.PurchaseOrderId);
+                var issuedRow = OrderIssuedVersions.Single(x => x.Id == source.IssuedVersionId);
+                var orderSubmission = OrderSubmissions.Single(x => x.Id == issuedRow.SubmissionId);
+                var orderCase = core.Cases.Single(x => x.Id == orderSubmission.CoreApprovalCaseId);
+                var orderLines = PurchaseOrderLines.Where(x => x.PurchaseOrderId == order.Id && x.IsActive).ToArray();
+                ReceivingIssuedAuthority.Verify(order, orderLines, issuedRow, orderSubmission, orderCase,
+                    PolicyVersions.Single(x => x.Id == orderSubmission.PolicyVersionId));
+                var delivery = OrderDeliveryEvidence.Where(x => x.IssuedVersionId == issuedRow.Id).OrderByDescending(x => x.CreatedAt).ThenByDescending(x => x.Id).First();
+                if (delivery.Outcome != "Delivered" || projected.IssuedAt != delivery.ObservedAt || projected.IssuedReference != issuedRow.CommercialSnapshotSha256
+                    || projected.RevisionNumber != issuedRow.RevisionNumber || projected.RevisionState != "Issued"
+                    || projected.Id != order.Id || projected.RevisionId != issuedRow.Id || projected.BranchRef != source.BranchRef
+                    || projected.TenantId != source.TenantId || projected.LegalEntityId != source.LegalEntityId
+                    || projected.CurrencyCode != order.CurrencyCode || projected.SupplierId != order.SupplierId || projected.Lines.Count != orderLines.Length
+                    || orderLines.Any(line => !projected.Lines.Any(p => p.Id == line.Id && p.Quantity == line.Quantity && p.UnitPrice == line.UnitPrice && p.TaxAmount == line.TaxAmount && p.UnitCode == line.UnitCode
+                        && p.CategoryCode == PurchaseRequestLines.Where(x => x.Id == line.PurchaseRequestLineId).Select(x => x.CategoryCode).Single())))
+                    throw new InvalidOperationException("InvoiceUnitReviewIssuedProjectionMismatch");
+            }
+            else throw new InvalidOperationException("InvoiceUnitReviewSourceSchemaUnavailable");
             InvoiceUnitReviewTransitions.VerifyIssuedEvidence(projected, mapping, invoice, originals, source.OpenedAt, typed.IssuedEvidenceSha256);
             var pins = added.Select(x => x.Entity).OfType<InvoiceUnitReviewAssignmentEvidence>().Where(x => x.ReviewSourceId == source.Id).ToArray();
             var workflow = core.Cases.Include(x => x.Stages).ThenInclude(x => x.Assignments).Single(x => x.Id == source.CoreCaseId);
