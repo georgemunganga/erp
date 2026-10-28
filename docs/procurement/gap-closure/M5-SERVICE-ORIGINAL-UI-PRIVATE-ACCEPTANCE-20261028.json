@@ -1,0 +1,52 @@
+{
+  "status": "PASS_PRIVATE_M5_ORIGINAL_SERVICE_UI_AND_OWNER_GRAPH",
+  "dateUtc": "2026-10-28",
+  "backendSourceCommit": "6087f2112fdb3b4eb977a33659ac9522026a1a41",
+  "uiSourceCommit": "47cac6a13a24e9db113383f8a9cf5b319494d526",
+  "uiIndexSha256": "e4c6489a75657140ca72578e10ce34b7d9c953c8e6c49d8f0bab55b5a4b8186c",
+  "scope": "one isolated private Service order, original UI, genuine Core password cookies and read-only owner reconciliation",
+  "results": {
+    "committedCreateStatus": 201,
+    "originalCreateKeyRecoveredByGetInUi": true,
+    "sameDraftReviseStatus": 200,
+    "independentOwnerCertifyStatus": 200,
+    "originalCertifyKeyRecoveredByGet": true,
+    "newAcceptedQuantityExact": "1.0000",
+    "newAcceptedNetExactZmw": "5.12340000",
+    "sourceAcceptedTotalExact": "2.0000",
+    "sourceIssuedQuantityExact": "2.0000",
+    "captureTableCount": 220,
+    "changedTableCount": 14,
+    "unchangedTableDigestCount": 206,
+    "allCapturedOldStableFingerprintsPreserved": true,
+    "capturedFingerprintFamilyCount": 9,
+    "allOldRowsInChangedReceivingAndCounterTablesCompared": false,
+    "temporaryPrivateRolesRestored": true,
+    "activeSyntheticSessions": 0,
+    "ownedPrivateApiAndProxyStopped": true
+  },
+  "historicalHarnessFailuresRetained": [
+    "direct receipt GET used the UI operation label after committed Create 201",
+    "purpose-only owner queue locator expected a deliverable label after committed Revise 200"
+  ],
+  "evidenceSha256": {
+    "realCookiePreflight": "5aa73fd37eb46ff0c69292f2fa5dc04bdb4684867c828ef7d59b8c85ce77a3ff",
+    "firstCommittedCreateFailedHarness": "25cf768bbf6c70379d1ccef677bd0d33d71105f7a2d0353774c2e66dd345ec31",
+    "recoveryAndRevisionFailedQueueLocator": "ac631efbab841dd6c7043b50a9d6c952bfd43945d895967661fb79aa280d3576",
+    "independentUiCertification": "2dd43cc79517d14a917906e7228a498d888819334e8746cf823a2649f810ce5c",
+    "beforeCapture": "69ae4b83458f94e30cd5b1adbe6f3d1503bc6c94ebaa3753bb9c68c00f12d13b",
+    "finalCapture": "3afff1ec05beca2248a5a57998aec6616bf34b35089fc2655e25a2b5fef03da7",
+    "ownerGraph": "a489416998caf8e7d086f27ebc1f211d1ea1c9a6d5f75d08d8a2160b263f1e37",
+    "boundedOwnerAcceptance": "c765a978fa48c2ae109906966119269980788ce9786296d89dc772bd3fca5da4",
+    "ownedRuntimeStop": "7509c146aa502f1fbff2a986b1171f85f6e8ea1303435c767c776115cc6e656e"
+  },
+  "limits": {
+    "nonUtcCompanyDateAccepted": false,
+    "multibranchAccepted": false,
+    "concurrencyAccepted": false,
+    "productionBusinessCrudAccepted": false,
+    "financeOrStockPostingVerified": false,
+    "invoiceMatchingAccepted": false,
+    "wholeProcurementUatComplete": false
+  }
+}

@@ -20,4 +20,4 @@ The two temporary private role changes were restored, all synthetic sessions wer
 
 ## Remaining acceptance
 
-The original Service UI has not been run through this native journey. Non-UTC company dates, multiple branches, production business activation, externally verified Finance, stock posting, supplier delivery, invoice matching and whole-module UAT remain open. The manual Finance record is private synthetic evidence and does not prove Finance ledger integration.
+At the time of this API checkpoint, the original Service UI had not been run through the native journey. A later, separate [private Service UI acceptance](M5-SERVICE-ORIGINAL-UI-PRIVATE-ACCEPTANCE-20261028.md) covers one real-cookie UI case and owner reconciliation. Non-UTC company dates, multiple branches, production business activation, externally verified Finance, stock posting, supplier delivery, invoice matching and whole-module UAT remain open. The manual Finance record is private synthetic evidence and does not prove Finance ledger integration.
