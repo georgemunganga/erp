@@ -31,7 +31,8 @@ public sealed partial class PrincipalControlledReceivingTests
         var at=DateTimeOffset.Parse("2026-10-23T02:30:00Z");
         var witness=BusinessDate(source,at,-300,"America/New_York");
         Assert.Equal(new DateOnly(2026,10,22),witness.CompanyBusinessDate);
-        Assert.Throws<InvalidOperationException>(()=>ServiceAt(source,at,witness,new DateOnly(2026,10,23)));
+        Assert.Equal("PrincipalReceivingServicePeriodInFuture",Assert.Throws<InvalidOperationException>(
+            ()=>ServiceAt(source,at,witness,new DateOnly(2026,10,23))).Message);
     }
 
     [Fact]

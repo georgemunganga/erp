@@ -167,7 +167,7 @@ public static class PrincipalControlledReceiving
                 &&effect.PeriodFrom is {} from&&from!=default&&effect.PeriodTo is {} to&&to>=from
                 &&ledger.Acceptances.Count(value=>value.AcceptanceRecordId==effect.AcceptanceRecordId)==1
                 &&(effect.BusinessDateObservation is {} witnessed
-                    ?BusinessDateValid(ledger.Source,witnessed,effect.AcceptedAt,to,retained:true)
+                    ?BusinessDateValid(ledger.Source,witnessed,effect.AcceptedAt,retained:true)&&to<=witnessed.CompanyBusinessDate
                     :to<=DateOnly.FromDateTime(effect.AcceptedAt.UtcDateTime)),"PrincipalReceivingServiceHistoryInvalid");
         }
         Need(ExactDecimalArithmetic.Sum(ledger.Acceptances.Select(value=>value.Quantity))<=ledger.Source.Commercial.AuthorizedQuantity,"PrincipalReceivingIssuedCapacityExceeded");
@@ -204,8 +204,11 @@ public static class PrincipalControlledReceiving
         =>new PrincipalReceivingAcceptance(Guid.CreateVersion7(),record,ledger.Source,observation,inspection,quantity,ExactDecimalArithmetic.Multiply(quantity,ledger.Source.Commercial.NetUnitPrice),Person(actor),policy.Record.Id,policy.RulesSha256,Evidence(policy.Rule,evidence),deliverable,from,to,key,Next(ledger),Time(at))
         {BusinessDateObservation=businessDate};
     private static void BusinessDate(PrincipalReceivingSource source,PrincipalReceivingBusinessDate witness,DateTimeOffset at,DateOnly to)
-        =>Need(BusinessDateValid(source,witness,at,to,retained:false),"PrincipalReceivingCompanyBusinessDateInvalid");
-    private static bool BusinessDateValid(PrincipalReceivingSource source,PrincipalReceivingBusinessDate? witness,DateTimeOffset at,DateOnly to,bool retained)
+    {
+        Need(BusinessDateValid(source,witness,at,retained:false),"PrincipalReceivingCompanyBusinessDateInvalid");
+        Need(to<=witness.CompanyBusinessDate,"PrincipalReceivingServicePeriodInFuture");
+    }
+    private static bool BusinessDateValid(PrincipalReceivingSource source,PrincipalReceivingBusinessDate? witness,DateTimeOffset at,bool retained)
     {
         if(witness is null || witness.SchemaVersion!=1 || witness.TenantId!=source.Commercial.TenantId
             || witness.LegalEntityId!=source.Commercial.LegalEntityId || witness.CompanyBusinessDate==default
@@ -217,7 +220,7 @@ public static class PrincipalControlledReceiving
         // instant; retained facts compare that canonical instant to AcceptedAt.
         if(retained?Time(witness.ObservedAtUtc)!=at:at!=Time(at)||witness.ObservedAtUtc!=at.ToUniversalTime())return false;
         var local=witness.ObservedAtUtc.ToOffset(TimeSpan.FromMinutes(witness.UtcOffsetMinutes));
-        return DateOnly.FromDateTime(local.DateTime)==witness.CompanyBusinessDate&&to<=witness.CompanyBusinessDate;
+        return DateOnly.FromDateTime(local.DateTime)==witness.CompanyBusinessDate;
     }
     private static void Capacity(PrincipalReceivingLedger ledger,decimal quantity)=>Need(quantity<=ExactDecimalArithmetic.Subtract(ledger.Source.Commercial.AuthorizedQuantity,ExactDecimalArithmetic.Sum(ledger.Acceptances.Select(value=>value.Quantity))),"PrincipalReceivingIssuedCapacityExceeded");
     private static void PinPolicy(Guid id,string sha,PrincipalReceivingPolicy current)=>Need(current.Record.Id==id&&current.RulesSha256==sha,"PrincipalReceivingOriginalPolicyChanged");
