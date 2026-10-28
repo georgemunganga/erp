@@ -72,16 +72,21 @@ public static class InvoiceProcurementBaselineEvidence
             || rows.Select(x=>(x.TableName,x.SourceRowId)).Distinct().Count()!=rows.Count)
             throw new InvalidOperationException("InvoiceOwnerBaselineCaptureChanged");
         var lookup=rows.ToDictionary(x=>(x.TableName,x.SourceRowId));
+        var classes=InvoiceProcurementHistoricalClassification.Classify(capture)
+            .ToDictionary(x=>(x.TableName,x.RowId));
         foreach(var table in capture.Tables)
             foreach(var source in table.Rows)
             {
+                var classified=classes[(table.TableName,source.Id)];
                 if (!lookup.TryGetValue((table.TableName,source.Id),out var row)
                     || row.BaselineId != baseline.Id || row.TenantId != baseline.TenantId
                     || row.LegalEntityId != baseline.LegalEntityId || row.Version != 1
                     || row.SourceRowVersion != source.Version
                     || row.OriginalRowSha256 != source.CanonicalRowSha256
                     || row.ImmutableFieldsSha256 != InvoiceProcurementImmutableFields.Digest(table.TableName,source.RowJson)
-                    || row.InitialClassification is not ("ClaimBearing" or "HistoricalOnly" or "MutableDraft" or "BlockedAmbiguity"))
+                    || row.InitialClassification != classified.Classification
+                    || row.SupplierInvoiceId != classified.SupplierInvoiceId
+                    || row.PurchaseOrderId != classified.PurchaseOrderId)
                     throw new InvalidOperationException("InvoiceOwnerBaselineRowChanged");
             }
     }
@@ -161,5 +166,27 @@ public static class InvoiceProcurementBaselineEvidence
                 || x.LegalEntityId!=baseline.LegalEntityId
                 || x.InitialClassification=="BlockedAmbiguity"))
             throw new InvalidOperationException("InvoiceOwnerHistoricalRowsUnclassified");
+    }
+
+    /// <summary>Do not turn an unrelated company's or another order's old
+    /// ambiguity into a global billing-capacity denial. The caller still has
+    /// to validate all live links, typed transitions and claim sequences.</summary>
+    public static void RequireResolvedClassificationForOrder(
+        InvoiceProcurementOwnerBaseline baseline,
+        IReadOnlyList<InvoiceProcurementOwnerBaselineRow> rows,
+        Guid purchaseOrderId)
+    {
+        ArgumentNullException.ThrowIfNull(baseline);
+        ArgumentNullException.ThrowIfNull(rows);
+        if(purchaseOrderId==Guid.Empty || rows.Count!=baseline.InventoryRowCount
+            || rows.Any(x=>x.BaselineId!=baseline.Id || x.TenantId!=baseline.TenantId
+                || x.LegalEntityId!=baseline.LegalEntityId))
+            throw new InvalidOperationException("InvoiceOwnerHistoricalRowsUnclassified");
+        var linkedInvoices=rows.Where(x=>x.PurchaseOrderId==purchaseOrderId
+            && x.SupplierInvoiceId is not null).Select(x=>x.SupplierInvoiceId!.Value).ToHashSet();
+        if(rows.Any(x=>x.InitialClassification=="BlockedAmbiguity"
+            && (x.PurchaseOrderId==purchaseOrderId
+                || x.SupplierInvoiceId is { } invoiceId && linkedInvoices.Contains(invoiceId))))
+            throw new InvalidOperationException("InvoiceOwnerOrderHistoryUnclassified");
     }
 }

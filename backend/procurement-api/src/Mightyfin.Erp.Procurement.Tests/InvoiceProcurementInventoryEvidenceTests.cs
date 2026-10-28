@@ -23,10 +23,10 @@ public sealed class InvoiceProcurementInventoryEvidenceTests
     }
 
     [Fact]
-    public void Server_read_inventory_requires_exact_twenty_table_manifest_and_row_scope()
+    public void Server_read_inventory_requires_exact_twenty_one_table_manifest_and_row_scope()
     {
         var capture=Capture();var summary=InvoiceProcurementInventoryEvidence.Summarize(capture);
-        Assert.Equal(20,summary.Tables.Count);
+        Assert.Equal(21,summary.Tables.Count);
         Assert.Equal(1,summary.RowCount);
         Assert.Equal(0,summary.Tables.Single(x=>x.TableName=="invoice_match_allocations").RowCount);
         Assert.Equal(1,summary.Tables.Single(x=>x.TableName=="supplier_invoices").RowCount);
@@ -37,6 +37,43 @@ public sealed class InvoiceProcurementInventoryEvidenceTests
         var replaced=invoice with{Rows=[row with{CanonicalRowSha256=new string('a',64)}]};
         Assert.Throws<InvalidOperationException>(()=>InvoiceProcurementInventoryEvidence.Summarize(capture with
         {Tables=capture.Tables.Take(capture.Tables.Count-1).Append(replaced).ToArray()}));
+    }
+
+    [Fact]
+    public void Manual_unprocessed_invoice_is_mutable_only_without_attached_or_payment_evidence()
+    {
+        var original=Capture();
+        var invoice=Assert.Single(original.Tables.Last().Rows);
+        var json=JsonNode.Parse(invoice.RowJson)!.AsObject();
+        json["status"]="Received";json["intake_channel"]="Manual";
+        json["mapping_revision"]=0;json["match_revision"]=0;
+        json["matching_state"]="NotCompared";
+        var current=json.ToJsonString();
+        var draft=invoice with{RowJson=current,CanonicalRowSha256=ProcurementEvidenceEncoding.PolicyJsonDigest(current)};
+        var tables=original.Tables.ToArray();
+        tables[^1]=tables[^1] with{Rows=[draft]};
+        var capture=original with{Tables=tables};
+        Assert.Equal("MutableDraft",InvoiceProcurementHistoricalClassification.Classify(capture)
+            .Single(x=>x.TableName=="supplier_invoices").Classification);
+
+        var attachment=JsonSerializer.Serialize(new{id=Guid.NewGuid(),version=1,
+            tenant_id=original.TenantId,legal_entity_id=original.LegalEntityId,
+            owner_type="SupplierInvoice",owner_id=invoice.Id});
+        tables=original.Tables.ToArray();
+        tables[0]=tables[0] with{Rows=[new(Guid.NewGuid(),1,
+            ProcurementEvidenceEncoding.PolicyJsonDigest(attachment),attachment)]};
+        // A mismatched captured ID is rejected before classification.
+        Assert.Throws<InvalidOperationException>(()=>InvoiceProcurementHistoricalClassification.Classify(
+            original with{Tables=tables}));
+        var attachmentId=Guid.NewGuid();
+        attachment=JsonSerializer.Serialize(new{id=attachmentId,version=1,
+            tenant_id=original.TenantId,legal_entity_id=original.LegalEntityId,
+            owner_type="SupplierInvoice",owner_id=invoice.Id});
+        tables=capture.Tables.ToArray();
+        tables[0]=tables[0] with{Rows=[new(attachmentId,1,
+            ProcurementEvidenceEncoding.PolicyJsonDigest(attachment),attachment)]};
+        Assert.Equal("BlockedAmbiguity",InvoiceProcurementHistoricalClassification.Classify(
+            capture with{Tables=tables}).Single(x=>x.TableName=="supplier_invoices").Classification);
     }
 
     [Fact]
@@ -67,7 +104,7 @@ public sealed class InvoiceProcurementInventoryEvidenceTests
         var refreshed=invoice with{RowJson=refreshedJson,
             CanonicalRowSha256=ProcurementEvidenceEncoding.PolicyJsonDigest(refreshedJson)};
         var refreshedTable=capture.Tables.Last() with{Rows=[refreshed]};
-        var refreshedCapture=capture with{Tables=capture.Tables.Take(19).Append(refreshedTable).ToArray()};
+        var refreshedCapture=capture with{Tables=capture.Tables.Take(capture.Tables.Count-1).Append(refreshedTable).ToArray()};
         mutable["net_amount"]=11m;
         Assert.NotEqual(InvoiceProcurementImmutableFields.Digest("supplier_invoices",invoice.RowJson),
             InvoiceProcurementImmutableFields.Digest("supplier_invoices",mutable.ToJsonString()));
@@ -77,18 +114,30 @@ public sealed class InvoiceProcurementInventoryEvidenceTests
             TableName="supplier_invoices",SourceRowId=invoice.Id,SourceRowVersion=invoice.Version,
             OriginalRowSha256=invoice.CanonicalRowSha256,
             ImmutableFieldsSha256=InvoiceProcurementImmutableFields.Digest("supplier_invoices",invoice.RowJson),
-            InitialClassification="BlockedAmbiguity"
+            InitialClassification="BlockedAmbiguity",SupplierInvoiceId=invoice.Id
         };
         InvoiceProcurementBaselineEvidence.VerifyCapture(baseline,[row],capture);
         Assert.Throws<InvalidOperationException>(()=>InvoiceProcurementBaselineEvidence.VerifyCapture(
             baseline,[row],refreshedCapture));
         Assert.Throws<InvalidOperationException>(()=>InvoiceProcurementBaselineEvidence.RequireResolvedClassification(baseline,[row]));
+        InvoiceProcurementBaselineEvidence.RequireResolvedClassificationForOrder(baseline,[row],Guid.NewGuid());
+        var affectedOrder=Guid.NewGuid();
+        var linkedBlocked=new InvoiceProcurementOwnerBaselineRow
+        {
+            TenantId=row.TenantId,LegalEntityId=row.LegalEntityId,BaselineId=row.BaselineId,
+            TableName=row.TableName,SourceRowId=row.SourceRowId,SourceRowVersion=row.SourceRowVersion,
+            OriginalRowSha256=row.OriginalRowSha256,ImmutableFieldsSha256=row.ImmutableFieldsSha256,
+            InitialClassification=row.InitialClassification,SupplierInvoiceId=invoice.Id,
+            PurchaseOrderId=affectedOrder
+        };
+        Assert.Throws<InvalidOperationException>(()=>InvoiceProcurementBaselineEvidence.RequireResolvedClassificationForOrder(
+            baseline,[linkedBlocked],affectedOrder));
         var tampered=new InvoiceProcurementOwnerBaselineRow
         {
             TenantId=row.TenantId,LegalEntityId=row.LegalEntityId,BaselineId=row.BaselineId,
             TableName=row.TableName,SourceRowId=row.SourceRowId,SourceRowVersion=row.SourceRowVersion,
             OriginalRowSha256=new string('c',64),ImmutableFieldsSha256=row.ImmutableFieldsSha256,
-            InitialClassification=row.InitialClassification
+            InitialClassification=row.InitialClassification,SupplierInvoiceId=row.SupplierInvoiceId
         };
         Assert.Throws<InvalidOperationException>(()=>InvoiceProcurementBaselineEvidence.VerifyCapture(baseline,[tampered],capture));
 

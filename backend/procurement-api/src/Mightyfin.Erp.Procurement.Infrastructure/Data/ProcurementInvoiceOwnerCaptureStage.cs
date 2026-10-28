@@ -33,6 +33,8 @@ public sealed partial class ProcurementDbContext
             ?? throw new InvalidOperationException("InvoiceOwnerCaptureTimeInvalid");
         var capture=await CaptureInvoiceOwnerInventoryAsync(ct);
         var summary=InvoiceProcurementInventoryEvidence.Summarize(capture);
+        var classifications=InvoiceProcurementHistoricalClassification.Classify(capture)
+            .ToDictionary(x=>(x.TableName,x.RowId));
         // Existing claims and exposure checkpoints need a separately reviewed
         // full classifier. Never label them empty from caller input.
         if(capture.Tables.Single(x=>x.TableName=="invoice_match_allocations").Rows.Count!=0
@@ -52,14 +54,19 @@ public sealed partial class ProcurementDbContext
             InitialExposureSequence=0,CreatedAt=capturedAt,CreatedBy=scope.SubjectId
         };
         var rows=capture.Tables.SelectMany(table=>table.Rows.Select(source=>
-            new InvoiceProcurementOwnerBaselineRow
+        {
+            var classified=classifications[(table.TableName,source.Id)];
+            return new InvoiceProcurementOwnerBaselineRow
             {
                 TenantId=scope.TenantId,LegalEntityId=scope.LegalEntityId,
                 BaselineId=baseline.Id,TableName=table.TableName,SourceRowId=source.Id,
                 SourceRowVersion=source.Version,OriginalRowSha256=source.CanonicalRowSha256,
                 ImmutableFieldsSha256=InvoiceProcurementImmutableFields.Digest(table.TableName,source.RowJson),
-                InitialClassification="BlockedAmbiguity",CreatedAt=capturedAt,CreatedBy=scope.SubjectId
-            })).ToArray();
+                InitialClassification=classified.Classification,
+                SupplierInvoiceId=classified.SupplierInvoiceId,PurchaseOrderId=classified.PurchaseOrderId,
+                CreatedAt=capturedAt,CreatedBy=scope.SubjectId
+            };
+        })).ToArray();
         InvoiceProcurementBaselineEvidence.VerifyCapture(baseline,rows,capture);
         InvoiceProcurementBaselineEvidence.VerifyPendingCore(baseline,pendingCoreCase,reviewerWorkerAliases);
         var audit=new AuditEvent

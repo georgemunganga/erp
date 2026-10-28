@@ -6,7 +6,7 @@ public static class InvoiceProcurementOwnerTables
 {
     public static readonly IReadOnlyList<string> Names =
     [
-        "finance_invoice_handoffs", "finance_payment_status_refs", "invoice_exceptions",
+        "attachment_refs", "finance_invoice_handoffs", "finance_payment_status_refs", "invoice_exceptions",
         "invoice_match_allocations", "invoice_match_exposure_states", "invoice_match_mapping_versions",
         "invoice_match_results", "invoice_unit_review_assignments", "invoice_unit_review_outcomes",
         "invoice_unit_review_receipts", "invoice_unit_review_sources", "manual_payment_core_decisions",
