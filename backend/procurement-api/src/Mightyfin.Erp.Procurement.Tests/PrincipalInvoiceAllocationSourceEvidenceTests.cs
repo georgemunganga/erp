@@ -31,6 +31,10 @@ public sealed class PrincipalInvoiceAllocationSourceEvidenceTests
             [f.Input], [f.History with { BranchId = Guid.NewGuid() }]));
         Assert.Throws<InvalidOperationException>(() => PrincipalInvoiceAllocationSourceEvidence.VerifySet(
             [f.Input], [f.History with { CurrencyCode = "USD" }]));
+        f.Input.Invoice.ActiveMatchClaimResultId = null;
+        Assert.Throws<InvalidOperationException>(() => PrincipalInvoiceAllocationSourceEvidence.VerifySet(
+            [f.Input], [f.History]));
+        f.Input.Invoice.ActiveMatchClaimResultId = f.Input.Result.Id;
         Assert.Throws<InvalidOperationException>(() => PrincipalInvoiceAllocationSourceEvidence.VerifySet(
             [f.Input, AdditionalClaim(f.Input, .6m)], [f.History]));
         Assert.Throws<InvalidOperationException>(() => PrincipalInvoiceAllocationSourceEvidence.VerifySet(
@@ -90,8 +94,11 @@ public sealed class PrincipalInvoiceAllocationSourceEvidenceTests
             TenantId = invoice.TenantId, LegalEntityId = invoice.LegalEntityId,
             SupplierInvoiceId = invoice.Id, MappingVersionId = mapping.Id,
             PurchaseOrderId = order, IssuedVersionId = issued,
-            Outcome = "Compared", ExecutionVersion = 2
+            Outcome = "Compared", ExecutionVersion = 2,
+            InvoiceOriginalSha256 = mapping.InvoiceOriginalSha256
         };
+        invoice.CurrentMappingVersionId = mapping.Id;
+        invoice.ActiveMatchClaimResultId = result.Id;
         var claim = new InvoiceMatchAllocation
         {
             TenantId = invoice.TenantId, LegalEntityId = invoice.LegalEntityId,
@@ -174,8 +181,11 @@ public sealed class PrincipalInvoiceAllocationSourceEvidenceTests
             SupplierInvoiceId = invoice.Id, MappingVersionId = mapping.Id,
             PurchaseOrderId = accepted.PurchaseOrderId,
             IssuedVersionId = accepted.IssuedVersionId,
-            Outcome = "Compared", ExecutionVersion = 2
+            Outcome = "Compared", ExecutionVersion = 2,
+            InvoiceOriginalSha256 = mapping.InvoiceOriginalSha256
         };
+        invoice.CurrentMappingVersionId = mapping.Id;
+        invoice.ActiveMatchClaimResultId = result.Id;
         var allocation = new InvoiceMatchAllocation
         {
             TenantId = invoice.TenantId, LegalEntityId = invoice.LegalEntityId,

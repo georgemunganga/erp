@@ -70,7 +70,10 @@ public static class PrincipalInvoiceAllocationSourceEvidence
             || mapping.TenantId != invoice.TenantId || mapping.LegalEntityId != invoice.LegalEntityId
             || claim.SupplierInvoiceId != invoice.Id || claim.SupplierId != invoice.SupplierId
             || claim.CurrencyCode != invoice.CurrencyCode || claim.MatchResultId != result.Id
+            || invoice.ActiveMatchClaimResultId != result.Id
+            || invoice.CurrentMappingVersionId != mapping.Id
             || result.SupplierInvoiceId != invoice.Id || result.MappingVersionId != mapping.Id
+            || result.InvoiceOriginalSha256 != mapping.InvoiceOriginalSha256
             || result.PurchaseOrderId != claim.PurchaseOrderId
             || result.IssuedVersionId != claim.IssuedVersionId
             || result.Outcome != "Compared" || result.ExecutionVersion != 2
