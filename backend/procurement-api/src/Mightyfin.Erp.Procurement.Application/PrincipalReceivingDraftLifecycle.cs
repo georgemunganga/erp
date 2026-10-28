@@ -72,11 +72,12 @@ public static class PrincipalReceivingDraftLifecycle
         return draft with{Version=Next(version),State="Cancelled",CancellationReason=reason.Trim()};
     }
     public static ServiceRecordResult CertifyService(PrincipalServiceDraft draft,PrincipalReceivingActor actor,long version,
-        PrincipalReceivingLedger ledger,PolicyVersion policy,long expectedSequence,Guid key,string evidence,DateTimeOffset at)
+        PrincipalReceivingLedger ledger,PolicyVersion policy,long expectedSequence,Guid key,string evidence,DateTimeOffset at,
+        PrincipalReceivingBusinessDate businessDate)
     {
         VerifyService(draft);Need(draft.State=="Draft"&&draft.Version==version&&draft.Source==ledger.Source,"PrincipalReceivingDraftChanged");
         var accepted=PrincipalControlledReceiving.CertifyService(ledger,policy,actor,draft.Id,key,expectedSequence,
-            draft.Quantity,draft.DeliverableReference,draft.PeriodFrom,draft.PeriodTo,evidence,at);
+            draft.Quantity,draft.DeliverableReference,draft.PeriodFrom,draft.PeriodTo,evidence,at,businessDate);
         return new(draft with{Version=Next(version),State="Certified"},accepted);
     }
     public static void VerifyGoods(PrincipalGoodsDraft draft)

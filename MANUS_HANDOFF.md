@@ -1,8 +1,23 @@
-# Active receiving work — 28 October 2026
+# Active receiving follow-up — 28 October 2026
 
-Root has taken M5b receiving implementation on `codex/m5b-core-receiving-20261028`; do not independently claim or duplicate M5b from the older invitation below. Original UI integration is on `codex/m5b-receiving-ui-20261028`. Both start from the published merged ERP/UI baselines below; these development branches are not new release prerequisites.
+Published prerequisites: ERP main `3bf6a65443240b68cc5283b178f29050981d9832`
+(PR125), UI main `086ee259c269a46e905bf76532532119609bc1db`
+(PR91, `georgemunganga/module-connect`). Start from their current main descendants.
+The merged M5b remote branches have been deleted; do not resume older tips.
 
-See [current implementation and verification holds](docs/procurement/gap-closure/M5B-RECEIVING-IMPLEMENTATION-20261028.md). Production is unchanged; no new Manus milestone is assigned until reviewed prerequisites are merged. Existing independent C04 ownership is unchanged.
+Root owns M5c on `codex/m5c-receiving-service-date-20261028`: company-local
+service acceptance dates and retained calendar evidence, then receiving return/
+correction gaps. Do not duplicate this work. Existing independent C04 ownership
+remains unchanged. No new Manus implementation milestone is assigned here.
+
+Goods receiving passed private normal-cookie API/native-owner acceptance;
+see [current scope and evidence](docs/procurement/gap-closure/M5B-RECEIVING-IMPLEMENTATION-20261028.md).
+Production is unchanged. Service/live UI/return acceptance and whole-module UAT
+remain incomplete. Core owns organisation/calendar/identity/access; receiving
+must not duplicate those masters or create Finance/Inventory ledgers.
+
+The checkpoints below are historical. Their invitations and baseline claims are
+superseded by this active ownership section.
 
 ---
 

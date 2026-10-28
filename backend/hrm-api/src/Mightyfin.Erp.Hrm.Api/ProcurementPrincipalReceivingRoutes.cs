@@ -74,10 +74,14 @@ public static partial class ProcurementPrincipalReceivingRoutes
         {
             var status=error is Problem problem?problem.Status:ProcurementPostgresFailures.IsConcurrency(error)?409:
                 ProcurementPostgresFailures.IsStoreFailure(error)?503:error is UnauthorizedAccessException?403:409;
-            return Error(error is Problem?error.Message:status==503?"PrincipalReceivingSaveUnconfirmed":"PrincipalReceivingNeedsReview",status);
+            var code=error is Problem?error.Message:status==503?"PrincipalReceivingSaveUnconfirmed":
+                error is InvalidOperationException && error.Message=="PrincipalReceivingServicePeriodInFuture"
+                    ?"PrincipalReceivingServicePeriodInFuture":"PrincipalReceivingNeedsReview";
+            return Error(code,status);
         }
     }
-    private static IResult Error(string code,int status)=>Results.Json(new{code,message=status==503?
+    private static IResult Error(string code,int status)=>Results.Json(new{code,message=code=="PrincipalReceivingServicePeriodInFuture"?
+        "Choose a service end date that is today or earlier in your company’s time zone.":status==503?
         "Receiving is unavailable or this save could not be confirmed. Keep the command reference and check again.":
         "Refresh this record and check your access, source versions and remaining quantities."},statusCode:status);
     private static Guid Key(HttpContext http)=>Guid.TryParse(http.Request.Headers["Idempotency-Key"],out var key)&&key!=Guid.Empty?key:throw new Problem("ReceivingCommandKeyRequired",400);

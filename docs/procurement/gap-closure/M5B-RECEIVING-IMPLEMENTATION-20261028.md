@@ -1,51 +1,87 @@
-# M5b receiving implementation — 28 October 2026
+# M5b receiving — verified private Goods slice
 
-Status: implementation and verification in progress; not a production release or whole-module UAT sign-off.
+Status: merged; private Goods API acceptance passed. Not deployed and not whole-module UAT sign-off.
 
-## Scope and ownership
+## Published baseline and ownership
 
-Root owns this milestone. It connects the original receiving UI to Core-principal goods drafts, revisions/cancellation, physical observations, inspection, independent acceptance and service certification, using retained M5 issued-order evidence. Employees are optional aliases; current Core permissions and branch scope are authoritative. The existing PROC-09 28-section specification remains the business reference. Returns, reversals and downstream ledger posting are separate contracts and are not claimed implemented by this slice.
+ERP PR125 merged as `3bf6a65443240b68cc5283b178f29050981d9832`.
+Original UI PR91 merged as `086ee259c269a46e905bf76532532119609bc1db`
+in `georgemunganga/module-connect`. Root owns receiving follow-up. The two
+merged M5b remote branches were removed after exact-tip, ancestry and open-PR
+checks; commits and local history remain available.
 
-ERP baseline: `bbc9404dfdb68ffaa33bd49246b9734b641a4eac`.
-UI baseline: `f1e237713d5f803212ec2ae72773be842ab0e3b6`.
+The existing PROC-09 28-section specification remains the business reference.
+Core owns accounts, permissions, organisational scope and company calendars.
+Employees are optional aliases. Procurement owns receiving evidence and
+acceptance decisions; Inventory, Assets and Finance retain their ledgers.
 
-## Implemented source
+## Implemented behaviour
 
-- Six owning receiving tables, persistence guards and immutable evidence/receipt records; original source graph is reverified, and unexplained legacy receiving history blocks adoption.
-- Genuine EF migration `20261028160000_AddPrincipalReceivingExecution`, generated from the current model. Eleven deferred ownership constraints and supporting indexes preserve source relationships. Down locks and vetoes any retained receiving graph/audit/outbox evidence; no balance reset or history deletion.
-- Dedicated physical/schema/finite-role readiness composes existing M5 read proof. Configured and enlisted connections are checked; new-work shutdown does not strand read/recovery.
-- Principal-scoped API and metadata, Core-principal receiving policy validation/lookup, separate observation/inspection/acceptance, exact-decimal quantity/counter checks, idempotency, audited transitions and explicit Procurement-owned outbox effects.
-- Company All is supported for the five reviewed collections. Writes require a selected branch and current authority. An acknowledgement is supplier-response evidence, not proof of delivery.
-- Original UI receiving adapters retain ERP controls/layout, explicit legacy protocol, branch-aware navigation and a session-scoped uncertain-save journal. Original-command recovery uses GET and never silently reposts a write.
+- Six receiving tables retain sources, facts, drafts, revisions, command receipts
+  and line bindings. Issued-order authority is reverified before adoption.
+- Genuine EF migration `20261028160000_AddPrincipalReceivingExecution` includes
+  eleven deferred ownership constraints and five supporting parent indexes.
+  Down locks and refuses retained graph/audit/outbox evidence; it never resets
+  balances or deletes business history.
+- API commands support draft creation/revision/cancellation, physical receipt,
+  inspection and independent Goods acceptance. Current Core permissions and
+  selected branch, version checks, exact-decimal capacity, audit/outbox and
+  original-key recovery are enforced server-side.
+- Five reviewed collections support Company All. Writes require an explicit
+  permitted branch, including when middleware supplies a default branch.
+- Read/recovery readiness is independent of the new-work switch. Configured
+  and actual enlisted database connections undergo readiness checks.
+- Original receiving screens, settings forms, ERP controls and layouts remain.
+  Core-account schema2 policies coexist with retained schema1 employee policies.
+  The session-scoped uncertain-save journal checks original commands using GET;
+  it never silently reposts a write.
 
-## Verification and release holds
+## Verified evidence
 
-The first source snapshot passed all 26 focused receiving domain tests in an offline, resource-bounded SDK container. Subsequent receipt-privacy and migration integration changes require follow-up tests. UI typecheck/contract/browser verification is underway; an actual UUID journal validation failure was found and is being corrected. Do not count unrun checks as passing.
+Backend source `6b8553afdf4d2a7db22fc763a018012ddb05c61f` passed
+**1,478/1,478** Procurement regression tests, **58/58** focused host tests and
+**27/27** focused receiving tests. EF reported no pending model changes,
+generated official Up/Down SQL and published the API (150 files).
 
-Required before rollout: current host/domain tests, genuine EF pending-model check and migration SQL, native nonempty Up/empty Down/retained-evidence veto rehearsal, fresh physical CHECK capture, finite runtime permission tests, authenticated real API/browser receiving journey and reconciliation, paired deployment/rollback evidence. Production is unchanged. Core company business-date handling for service period end, returns/reversals, Inventory/Assets and Finance posting are not asserted complete.
+On an isolated nonempty clone, Up verified all six table/CHECK shapes, eleven
+ownership bindings and five indexes. Empty Down restored all 211 original
+per-table row fingerprints; re-Up restored the captured receiving footprint.
+An uncommitted audit-only marker produced SQLSTATE55000 and prevented Down;
+disconnecting rolled the marker back. This covers the audit-only veto, not
+every possible retained business-graph veto.
 
-## Verification checkpoint — current source
+UI source `0145bce0828c954d9f035ca706bcb7b3ebf55b8a` passed Node22 TypeScript,
+**607/607** unit/contract tests and the production build. **27/27** mocked
+receiving browser cases passed; settings passed **6/6** after correcting a
+test-only custom-Select assertion. These separate runs are not a single
+33-green invocation or a full444-scenario rerun.
 
-The current API builds successfully. The final focused host run passed **58/58**, and the corrected follow-up receiving domain run passed **27/27**, including receipt privacy and corruption checks. Earlier compiler/test-fixture failures remain in the private evidence and are not counted as passing attempts. EF reports no pending model changes and generated the official Up/Down scripts; the API publication contains 150 files.
+A real normal-cookie API test completed policy create/review/publish and
+Goods Create/Revise/Record/Inspect/Accept, original-key recovery, denied access,
+stale-version and overcapacity checks. Independent read-only reconciliation
+accepted five command receipts, three typed facts, one issued source chain,
+exact counter/net deltas, policy identity lineage and audit/outbox effects.
+Original failure evidence remains: five authentication LastSeenAt audits were
+accepted only by a constrained successor proving exact session identity,
+changed-field scope and the published five-minute refresh behaviour. No
+business commands were replayed to obtain acceptance.
 
-On an isolated, nonempty M5a database clone, official Up passed exact physical verification for all six tables/CHECKs, eleven deferred ownership bindings and five parent indexes. All 211 retained table fingerprints were preserved, allowing only the exact new migration-history row. Empty Down restored all 211 retained fingerprints; re-Up restored the exact captured receiving footprint. An uncommitted audit-only fixture produced the expected SQLSTATE 55000 downgrade veto, and disconnect rollback removed that fixture while preserving the original footprint. This tests the audit-only veto, not every possible retained business-graph marker.
+All five test sessions were logged out, zero active cohort sessions remained,
+the private API/proxy stopped and three temporary role fixtures were restored.
+The complete role-assignment fingerprint matched its original baseline.
+Private clone ACL additions remain recorded for reproducibility. See the
+[verification manifest](M5B-RECEIVING-VERIFICATION-20261028.json).
 
-The original receiving UI transport passed Node22 TypeScript, 99 focused unit/contract checks and 27 mocked browser cases. A subsequent Core-account receiving-policy editor increment is under separate verification; do not apply the earlier UI receipt to untested increments.
+## Remaining work and release boundary
 
-Remaining admission holds: finite runtime grants on the isolated clone, current Core role fixtures for receiving actors, real-cookie positive API/owner reconciliation, final settings UI verification, service business-date handling and subsequent return/reversal integration. Production remains unchanged; no deployment or whole-module acceptance is claimed.
+M5c addresses company-local service-period validation and retained date
+observations. Real Service acceptance, corrections/returns, the complete live
+UI journey, all branch/tenant combinations and downstream integration remain
+separate acceptance work. No Finance/Inventory posting or payment execution is
+implied by a receiving outbox event.
 
-## Receiving settings UI checkpoint
-
-UI PR91 now includes explicit new-draft selection of Core-account receiving policies, named Core-account pickers for inspectors/acceptors/service owners and preserved schema-1 employee-policy editing/history. It uses the original form and ERP controls. Current UI source `0145bce` passed Node22 TypeScript, **607/607** unit/contract tests and the production build. The combined focused browser run passed the 27 receiving scenarios and five settings scenarios; one new settings test used the wrong assertion for the custom Select. After a test-only correction, all **6/6** settings cases passed. This is not represented as a single33-green invocation or a full444-scenario rerun.
-
-On the isolated clone, finite receiving execution grants and three synthetic-only role fixtures have been applied under exact target/CAS guards. Core accounts remain workerless. The genuine normal-cookie API has completed receiving policy creation/review/publication and is waiting for the effective policy window before the Goods workflow. That running test is not acceptance; owner reconciliation and fixture/session cleanup remain required.
-
-## Accepted private Goods workflow and cleanup
-
-The broader Procurement backend suite passed **1,478/1,478**. The normal-cookie Goods API test passed policy create/review/publish, receiving Create/Revise/Record/Inspect/Accept, original-key GET recovery and denied/stale/overcapacity probes. An independent read-only owner verifier accepted the five command receipts, three typed facts, one retained M5 source chain, exact counter/net deltas, policy identity lineage and audit/outbox graph while preserving old rows outside the declared effects and captured schema/table ACLs.
-
-The initial owner verifier rejected five system-auth activity audits. A constrained successor used published authentication/interceptor source plus a read-only key-only supplement: each audit changed only LastSeenAt on one of the five exact owned sessions after the five-minute refresh interval. All other source/quantity/row/ACL checks remained intact. Initial failure evidence is preserved; no business command was replayed.
-
-All five cookies were logged out, zero active cohort sessions were observed, the private API/proxy were stopped and all three synthetic receiving role fixtures were restored. The complete tenant-role-assignment fingerprint matches the pre-fixture baseline. Private clone ACL additions remain documented for reproducibility. Production was not changed.
-
-Acceptance is **Goods API single-source/captured-footprint only**. It does not establish real service/correction/return workflows, end-to-end live UI forms, every branch/tenant scenario, all audit/default/function privileges, Finance/Inventory posting, production readiness or whole Procurement UAT. Service business-date and returns/corrections remain next implementation work.
+This evidence does not establish every function/default/global privilege,
+production readiness or whole Procurement UAT. Production remains M4;
+rollout requires current-row preflight, a recoverable backup, finite grants,
+paired API/UI publication and post-deploy smoke checks. Synthetic test policies
+and roles are not production configuration.

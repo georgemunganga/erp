@@ -14,7 +14,7 @@ public sealed partial class PrincipalControlledReceivingTests
         var first=Source(ReceivingKind.Service,0.5m,100m);
         var second=Source(ReceivingKind.Service,0.5m,100m);second=second with{Commercial=second.Commercial with{PurchaseRequestLineId=first.Commercial.PurchaseRequestLineId}};
         PrincipalReceivingLedger Accepted(PrincipalReceivingSource source,decimal quantity)
-        {var policy=Policy(source);var ledger=Empty(source,policy);return Add(ledger,PrincipalControlledReceiving.CertifyService(ledger,policy,Actor(Inspector),Guid.NewGuid(),Guid.NewGuid(),0,quantity,"Actual milestone",new(2026,10,22),new(2026,10,22),"REC:accepted",At));}
+        {var policy=Policy(source);var ledger=Empty(source,policy);return Add(ledger,PrincipalControlledReceiving.CertifyService(ledger,policy,Actor(Inspector),Guid.NewGuid(),Guid.NewGuid(),0,quantity,"Actual milestone",new(2026,10,22),new(2026,10,22),"REC:accepted",At,BusinessDate(source)));}
         var a=Accepted(first,0.5m);var b=Accepted(second,0.25m);
         var request=new PurchaseRequestLine{Id=first.Commercial.PurchaseRequestLineId,TenantId=first.Commercial.TenantId,LegalEntityId=Company,ApprovedQuantity=1,AcceptedQuantity=0.75m};
         PurchaseOrderLine Line(PrincipalReceivingSource source,decimal accepted)=>new(){Id=source.Commercial.PurchaseOrderLineId,
@@ -91,7 +91,7 @@ public sealed partial class PrincipalControlledReceivingTests
             PurchaseRequestLineId=source.Commercial.PurchaseRequestLineId,Description="Inherited order",UnitCode="each",Quantity=1,AcceptedQuantity=0.25m});
         await db.SaveChangesAsync();var priorAudit=await db.AuditEvents.CountAsync();
         var state=State(source);var fact=PrincipalControlledReceiving.CertifyService(Empty(source,policy),policy,Actor(Inspector),Guid.NewGuid(),Guid.NewGuid(),0,
-            0.1m,"Attempt on changed counter",new(2026,10,22),new(2026,10,22),"REC:changed",At);
+            0.1m,"Attempt on changed counter",new(2026,10,22),new(2026,10,22),"REC:changed",At,BusinessDate(source));
         var error=await Assert.ThrowsAsync<InvalidOperationException>(()=>new PrincipalReceivingStore(db).AppendAsync(state,fact.AcceptanceRecordId,fact,default));
         Assert.Equal("PrincipalReceivingOrderCounterDiverged",error.Message);Assert.Equal(0,state.Sequence);Assert.Equal(0,state.AcceptedQuantity);
         Assert.Empty(db.PrincipalReceivingFacts.Local);Assert.Empty(db.PrincipalReceivingCommandReceipts.Local);Assert.Equal(priorAudit,await db.AuditEvents.CountAsync());

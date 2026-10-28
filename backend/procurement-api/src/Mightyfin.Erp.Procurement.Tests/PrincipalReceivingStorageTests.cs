@@ -47,7 +47,7 @@ public sealed partial class PrincipalControlledReceivingTests
     public void Original_snapshot_roundtrips_optional_alias_and_eight_decimal_value_without_reinterpreting_today()
     {
         var source=Source(ReceivingKind.Service,0.0001m,0.0001m);var policy=Policy(source);var ledger=Empty(source,policy);
-        var draft=Guid.NewGuid();var fact=PrincipalControlledReceiving.CertifyService(ledger,policy,Actor(Inspector),draft,Guid.NewGuid(),0,0.0001m,"Exact small completed deliverable",new(2026,10,22),new(2026,10,22),"REC:exact",At);
+        var draft=Guid.NewGuid();var fact=PrincipalControlledReceiving.CertifyService(ledger,policy,Actor(Inspector),draft,Guid.NewGuid(),0,0.0001m,"Exact small completed deliverable",new(2026,10,22),new(2026,10,22),"REC:exact",At,BusinessDate(source));
         var state=State(source,1,0.0001m,0.00000001m);var json=PrincipalReceivingStorageCodec.Encode(fact);
         var row=new PrincipalReceivingFact{Id=fact.Id,TenantId=state.TenantId,LegalEntityId=state.LegalEntityId,
             SourceStateId=state.Id,DraftId=draft,BranchId=state.BranchId,Kind="Acceptance",Operation="Certify",Sequence=1,CommandKey=fact.CommandKey,
