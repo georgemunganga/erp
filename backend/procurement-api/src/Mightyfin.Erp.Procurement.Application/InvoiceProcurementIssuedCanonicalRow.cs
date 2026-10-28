@@ -12,6 +12,32 @@ public static class InvoiceProcurementIssuedCanonicalRow
     private const string Schema = "source_schema_version";
     private const string Effective = "issued_version_id";
 
+    public static InvoiceProcurementInventoryCapture ProjectCapture(InvoiceProcurementInventoryCapture capture)
+    {
+        ArgumentNullException.ThrowIfNull(capture);
+        if (capture.Tables is null) throw new InvalidOperationException("InvoiceOwnerIssuedProjectionInvalid");
+        return capture with
+        {
+            Tables = capture.Tables.Select(table => table.TableName is not
+                ("invoice_match_mapping_versions" or "invoice_match_exposure_states" or "invoice_match_results")
+                ? table
+                : table with
+                {
+                    Rows = table.Rows.Select(row =>
+                    {
+                        if (ProcurementEvidenceEncoding.PolicyJsonDigest(row.RowJson) != row.CanonicalRowSha256)
+                            throw new InvalidOperationException("InvoiceOwnerIssuedProjectionInvalid");
+                        var projected = Project(table.TableName, row.RowJson);
+                        return projected == row.RowJson ? row : row with
+                        {
+                            RowJson = projected,
+                            CanonicalRowSha256 = ProcurementEvidenceEncoding.PolicyJsonDigest(projected)
+                        };
+                    }).ToArray()
+                }).ToArray()
+        };
+    }
+
     public static string Project(string tableName, string raw)
     {
         var exposureOrResult = tableName is "invoice_match_exposure_states" or "invoice_match_results";

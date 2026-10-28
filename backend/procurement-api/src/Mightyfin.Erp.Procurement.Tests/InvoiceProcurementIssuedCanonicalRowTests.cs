@@ -41,6 +41,23 @@ public sealed class InvoiceProcurementIssuedCanonicalRowTests
             InvoiceProcurementIssuedCanonicalRow.Project("invoice_match_exposure_states", interleaved));
     }
 
+    [Fact]
+    public void Supplied_current_capture_uses_the_same_idempotent_named_projection()
+    {
+        var old = $"{{\"issued_version_id\":\"{Issued:D}\",\"source_schema_version\":null}}";
+        var physical = old[..^1] + $",\"legacy_issued_version_ref_id\":\"{Issued:D}\",\"principal_issued_version_ref_id\":null}}";
+        var row = new InvoiceProcurementCapturedRow(Guid.NewGuid(), 1,
+            ProcurementEvidenceEncoding.PolicyJsonDigest(physical), physical);
+        var capture = new InvoiceProcurementInventoryCapture("tenant", Guid.NewGuid(),
+            [new InvoiceProcurementCapturedTable("invoice_match_mapping_versions", [row])]);
+        var once = InvoiceProcurementIssuedCanonicalRow.ProjectCapture(capture);
+        var twice = InvoiceProcurementIssuedCanonicalRow.ProjectCapture(once);
+        Assert.Equal(old, once.Tables[0].Rows[0].RowJson);
+        Assert.Equal(ProcurementEvidenceEncoding.PolicyJsonDigest(old), once.Tables[0].Rows[0].CanonicalRowSha256);
+        Assert.Equal(once.Tables[0].Rows[0].RowJson, twice.Tables[0].Rows[0].RowJson);
+        Assert.Equal(once.Tables[0].Rows[0].CanonicalRowSha256, twice.Tables[0].Rows[0].CanonicalRowSha256);
+    }
+
     [Theory]
     [InlineData("{\"issued_version_id\":null,\"source_schema_version\":null,\"legacy_issued_version_ref_id\":null}")]
     [InlineData("{\"issued_version_id\":null,\"source_schema_version\":3,\"legacy_issued_version_ref_id\":null,\"principal_issued_version_ref_id\":null}")]
