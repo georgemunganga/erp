@@ -39,11 +39,19 @@ public sealed record InvoiceUnitReviewConsumer(string TenantId, Guid LegalEntity
 internal sealed record InvoiceUnitReviewOwnedProofContext(string TenantId, Guid LegalEntityId, Guid? BranchId,
     DateTimeOffset At, IReadOnlyDictionary<Guid, string> DocumentVersionHashes);
 
+/// <summary>Common actual Core completion facts for document and manual evidence.
+/// This carries no document or manual line payload and grants no authority.</summary>
+internal sealed record InvoiceUnitReviewCoreCompletionFacts(int SchemaVersion, Guid ReviewId,
+    long ReviewSourceVersion, Guid CoreCaseId, Guid ReviewPolicyId, int ReviewPolicyVersion,
+    string MakerPrincipalId, Guid? MakerWorkerId, string ReviewerPrincipalId,
+    Guid? ReviewerWorkerId, Guid FinalDecisionId, DateTimeOffset ReviewedAt,
+    IReadOnlyList<InvoiceUnitReviewAssignmentWorker> AssignmentWorkers);
+
 public static class InvoiceRetainedUnitReview
 {
     public const string ReviewPolicyKey = "INVOICE_UNIT_REVIEW";
     private static bool Independent(int schema, string first, Guid? firstWorker, string second, Guid? secondWorker)
-        => schema == 3 ? ProcurementPrincipalEvidence.Independent(first, firstWorker, second, secondWorker)
+        => schema is 3 or 4 ? ProcurementPrincipalEvidence.Independent(first, firstWorker, second, secondWorker)
             : schema == 2 && !string.IsNullOrWhiteSpace(first) && !string.IsNullOrWhiteSpace(second)
                 && first != second && firstWorker is not null && secondWorker is not null
                 && firstWorker != Guid.Empty && secondWorker != Guid.Empty && firstWorker != secondWorker;
@@ -129,7 +137,11 @@ public static class InvoiceRetainedUnitReview
             && evidence.MatchingPolicySha256 == ProcurementEvidenceEncoding.PolicyJsonDigest(matching.RulesJson)
             && evidence.ReviewPolicyId == review.Id && evidence.ReviewPolicyVersion == review.PolicyVersionNumber
             && evidence.ReviewPolicySha256 == ProcurementEvidenceEncoding.PolicyJsonDigest(review.RulesJson));
-        VerifyCase(authority, evidence, invoice, mapping.ReviewedAt);
+        VerifyCoreCompletion(authority, new(evidence.SchemaVersion, evidence.ReviewId,
+            evidence.ReviewSourceVersion, evidence.CoreCaseId, evidence.ReviewPolicyId,
+            evidence.ReviewPolicyVersion, evidence.MakerPrincipalId, evidence.MakerWorkerId,
+            evidence.ReviewerPrincipalId, evidence.ReviewerWorkerId, evidence.FinalDecisionId,
+            evidence.ReviewedAt, evidence.AssignmentWorkers), invoice, mapping.ReviewedAt);
 
         Need(evidence.Lines is not null && evidence.Lines.Count == snapshot.Lines.Count
             && evidence.Lines.All(x => x is not null) && evidence.Lines.Select(x => x.InvoiceLineId).Distinct().Count() == snapshot.Lines.Count);
@@ -146,7 +158,7 @@ public static class InvoiceRetainedUnitReview
         return new System.Collections.ObjectModel.ReadOnlyDictionary<Guid, string>(units);
     }
 
-    private static void VerifyCase(InvoiceRetainedUnitReviewAuthority authority, InvoiceRetainedUnitReviewEnvelope evidence,
+    internal static void VerifyCoreCompletion(InvoiceRetainedUnitReviewAuthority authority, InvoiceUnitReviewCoreCompletionFacts evidence,
         SupplierInvoice invoice, DateTimeOffset mappingCreatedAt)
     {
         var workflow = authority.Case;
@@ -174,7 +186,7 @@ public static class InvoiceRetainedUnitReview
             && authority.Workers.Count == assignments.Length
             && authority.Workers.All(pin => assignments.Any(x => x.Id == pin.AssignmentId && x.AssigneeSubjectId == pin.PrincipalId)
                 && Independent(evidence.SchemaVersion, pin.PrincipalId, pin.WorkerId, evidence.MakerPrincipalId, evidence.MakerWorkerId)
-                    && (evidence.SchemaVersion == 3 || pin.WorkerId is not null)));
+                    && (evidence.SchemaVersion is 3 or 4 || pin.WorkerId is not null)));
         var priorStageCompletedAt = workflow.OpenedAt;
         foreach (var stage in workflow.Stages.OrderBy(x => x.Sequence))
         {

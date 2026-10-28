@@ -32,6 +32,13 @@ public static class InvoiceUnitReviewStorage
         var source = JsonSerializer.Deserialize<InvoiceUnitReviewTransitions.Source>(row.SourceJson, Json)
             ?? throw new InvalidOperationException("InvoiceUnitReviewStoredSourceInvalid");
         Need(source.IdentitySchemaVersion == 3 && JsonSerializer.Serialize(source) == row.SourceJson && source.ReviewId == row.Id && source.SourceVersion == 1
+            && (source.SourceSchemaVersion is null
+                ? source.ManualReason is null && source.ManualLines is null
+                    && source.ReviewPolicy.SchemaVersion is null && source.ReviewPolicy.EvidenceMode is null
+                : source.SourceSchemaVersion == 4 && source.ManualReason is { Length: > 0 and <= 2000 }
+                    && source.ManualLines is { Count: > 0 and <= 200 }
+                    && source.ReviewPolicy.SchemaVersion == 2
+                    && source.ReviewPolicy.EvidenceMode == "ManualAttestation" && source.Lines.Count == 0)
             && source.TenantId == row.TenantId && source.LegalEntityId == row.LegalEntityId && source.InvoiceId == row.SupplierInvoiceId
             && source.MappingId == row.MappingVersionId && source.MappingRevision == row.MappingRevision
             && source.PurchaseOrderId == row.PurchaseOrderId && source.IssuedVersionId == row.IssuedVersionId

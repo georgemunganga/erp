@@ -24,6 +24,12 @@ public sealed class InvoiceMatchingPersistenceTests
             && fk.Properties.Select(x=>x.Name).SequenceEqual(new[] { "TenantId","LegalEntityId","MappingVersionId","SupplierInvoiceId","PurchaseOrderId","IssuedVersionId" }));
         Assert.Contains(allocation.GetForeignKeys(), fk => fk.PrincipalEntityType.ClrType == typeof(ReceivingSourceState)
             && fk.Properties.Select(x => x.Name).SequenceEqual(new[] { "TenantId","LegalEntityId","ReceivingSourceStateId","PurchaseOrderId","IssuedVersionId","PurchaseOrderLineId" }));
+        Assert.Contains(allocation.GetForeignKeys(), fk => fk.PrincipalEntityType.ClrType == typeof(PrincipalReceivingSourceState)
+            && fk.Properties.Select(x => x.Name).SequenceEqual(new[] { "TenantId","LegalEntityId","PrincipalReceivingSourceStateId","PurchaseOrderId","IssuedVersionId","PurchaseOrderLineId" })
+            && fk.PrincipalKey.Properties.Select(x => x.Name).SequenceEqual(new[] { "TenantId","LegalEntityId","Id","PurchaseOrderId","IssuedVersionId","PurchaseOrderLineId" }));
+        Assert.Contains(allocation.GetForeignKeys(), fk => fk.PrincipalEntityType.ClrType == typeof(PrincipalReceivingFact)
+            && fk.Properties.Select(x => x.Name).SequenceEqual(new[] { "TenantId","LegalEntityId","PrincipalReceivingFactId","PrincipalReceivingSourceStateId" })
+            && fk.PrincipalKey.Properties.Select(x => x.Name).SequenceEqual(new[] { "TenantId","LegalEntityId","Id","SourceStateId" }));
         foreach (var target in new[] { typeof(GoodsReceiptLine),typeof(ServiceAcceptance) })
             Assert.Contains(allocation.GetForeignKeys(), fk => fk.PrincipalEntityType.ClrType == target
                 && fk.Properties.Select(x=>x.Name).SequenceEqual(new[] { "TenantId","LegalEntityId",target==typeof(GoodsReceiptLine)?"GoodsReceiptLineId":"ServiceAcceptanceId" }));
@@ -31,6 +37,12 @@ public sealed class InvoiceMatchingPersistenceTests
         Assert.Equal(8,allocation.FindProperty(nameof(InvoiceMatchAllocation.NetAmount))!.GetScale());
         Assert.Contains(allocation.GetIndexes(), x => x.IsUnique && x.Properties.Select(p => p.Name).SequenceEqual(
             new[] { "TenantId","LegalEntityId","ExposureStateId","ExposureSequence","SupplierInvoiceLineId" }));
+        var constraint = db.GetService<IDesignTimeModel>().Model.FindEntityType(typeof(InvoiceMatchAllocation))!
+            .GetCheckConstraints().Single(x => x.Name == "ck_invoice_match_allocation").Sql;
+        Assert.Contains("principal_receiving_source_state_id IS NULL AND principal_receiving_fact_id IS NULL", constraint);
+        Assert.Contains("principal_receiving_source_state_id IS NOT NULL", constraint);
+        Assert.Contains("principal_receiving_fact_id IS NOT NULL", constraint);
+        Assert.Contains("receiving_source_state_id IS NULL AND goods_receipt_line_id IS NULL AND service_acceptance_id IS NULL", constraint);
         var exception = db.Model.FindEntityType(typeof(InvoiceException))!;
         Assert.Contains(exception.GetForeignKeys(), fk => fk.PrincipalEntityType.ClrType == typeof(InvoiceMatchResult)
             && fk.Properties.Any(x => x.Name == "SupplierInvoiceId") && fk.Properties.Any(x => x.Name == "MatchResultId"));

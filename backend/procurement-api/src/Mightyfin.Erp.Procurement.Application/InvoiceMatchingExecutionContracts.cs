@@ -27,6 +27,8 @@ public sealed record InvoiceMappingReviewContext(string TenantId, Guid LegalEnti
     IReadOnlyDictionary<Guid, string> DocumentVersionHashes);
 public sealed record InvoiceReviewedDocumentLine(Guid InvoiceLineId, Guid DocumentVersionId,
     string DocumentSha256, string DocumentLineReference, string UnitCode);
+/// <summary>Human-entered unit attestation. It has no document identity or hash.</summary>
+public sealed record InvoiceReviewedManualLine(Guid InvoiceLineId, string UnitCode);
 public sealed record InvoiceMappingReviewEnvelope(int SchemaVersion, string TenantId, Guid LegalEntityId,
     Guid? BranchId, Guid InvoiceId, Guid MappingVersionId, string MappingSha256, string InvoiceOriginalSha256,
     Guid PurchaseOrderId, Guid IssuedVersionId, string PrincipalId, Guid WorkerId, Guid PolicyId,

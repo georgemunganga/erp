@@ -82,7 +82,7 @@ public sealed class PrincipalInvoiceMappingEvidenceTests
         var payload=PrincipalInvoiceMappingEvidence.Create(invoice,[line],order,issued,[link],Guid.NewGuid().ToString("D"),null);
         var fact=new PrincipalInvoiceAcceptedFact(factId,source,1,order,issued,orderLine,
             ReceivingKind.Goods,1m,1m,new string('a',64),DateTimeOffset.UtcNow);
-        var history=new PrincipalInvoiceAcceptedHistory(source,new string('b',64),1,[fact]);
+        var history=new PrincipalInvoiceAcceptedHistory(source,new string('b',64),1,"EACH",[fact]);
         PrincipalInvoiceMappingEvidence.VerifyAcceptedSources(payload.Snapshot,[history]);
         Assert.Throws<InvalidOperationException>(()=>PrincipalInvoiceMappingEvidence.VerifyAcceptedSources(payload.Snapshot,[]));
         Assert.Throws<InvalidOperationException>(()=>PrincipalInvoiceMappingEvidence.VerifyAcceptedSources(payload.Snapshot,[history,history]));

@@ -117,6 +117,14 @@ public sealed partial class ProcurementDbContext
             .HasPrincipalKey(x => new { x.TenantId, x.LegalEntityId, x.Id, x.PurchaseOrderId }).OnDelete(DeleteBehavior.Restrict);
         allocation.HasOne<ReceivingSourceState>().WithMany().HasForeignKey(x => new { x.TenantId, x.LegalEntityId, x.ReceivingSourceStateId, x.PurchaseOrderId, x.IssuedVersionId, x.PurchaseOrderLineId })
             .HasPrincipalKey(x => new { x.TenantId, x.LegalEntityId, x.Id, x.PurchaseOrderId, x.IssuedVersionId, x.PurchaseOrderLineId }).OnDelete(DeleteBehavior.Restrict);
+        allocation.HasOne<PrincipalReceivingSourceState>().WithMany().HasForeignKey(x => new
+            { x.TenantId, x.LegalEntityId, x.PrincipalReceivingSourceStateId, x.PurchaseOrderId, x.IssuedVersionId, x.PurchaseOrderLineId })
+            .HasPrincipalKey(x => new { x.TenantId, x.LegalEntityId, x.Id, x.PurchaseOrderId, x.IssuedVersionId, x.PurchaseOrderLineId })
+            .OnDelete(DeleteBehavior.Restrict).HasConstraintName("fk_invoice_allocation_principal_source_line");
+        allocation.HasOne<PrincipalReceivingFact>().WithMany().HasForeignKey(x => new
+            { x.TenantId, x.LegalEntityId, x.PrincipalReceivingFactId, x.PrincipalReceivingSourceStateId })
+            .HasPrincipalKey(x => new { x.TenantId, x.LegalEntityId, x.Id, x.SourceStateId })
+            .OnDelete(DeleteBehavior.Restrict).HasConstraintName("fk_invoice_allocation_principal_fact_source");
         // Mutable receiving completion pins must never become EF principal keys.
         // The migration-owned deferred overlay below binds the exact line/state tuple.
         allocation.HasOne<GoodsReceiptLine>().WithMany().HasForeignKey(x => new { x.TenantId, x.LegalEntityId, x.GoodsReceiptLineId })
@@ -129,7 +137,7 @@ public sealed partial class ProcurementDbContext
             .IsUnique().HasDatabaseName("ux_invoice_service_exact_source_binding");
         Link<InvoiceMatchAllocation, Supplier>(model, nameof(InvoiceMatchAllocation.SupplierId));
         Link<InvoiceMatchAllocation, InvoiceMatchAllocation>(model, nameof(InvoiceMatchAllocation.OriginalDebitId));
-        allocation.ToTable(t => t.HasCheckConstraint("ck_invoice_match_allocation", "kind = 'Debit' AND original_debit_id IS NULL AND quantity > 0 AND net_amount >= 0 AND tax_amount >= 0 AND exposure_sequence > 0 AND (goods_receipt_line_id IS NULL OR service_acceptance_id IS NULL) AND ((goods_receipt_line_id IS NULL AND service_acceptance_id IS NULL AND receiving_source_state_id IS NULL) OR (receiving_source_state_id IS NOT NULL AND (goods_receipt_line_id IS NOT NULL OR service_acceptance_id IS NOT NULL)))"));
+        allocation.ToTable(t => t.HasCheckConstraint("ck_invoice_match_allocation", "kind = 'Debit' AND original_debit_id IS NULL AND quantity > 0 AND net_amount >= 0 AND tax_amount >= 0 AND exposure_sequence > 0 AND ((principal_receiving_source_state_id IS NULL AND principal_receiving_fact_id IS NULL AND (goods_receipt_line_id IS NULL OR service_acceptance_id IS NULL) AND ((goods_receipt_line_id IS NULL AND service_acceptance_id IS NULL AND receiving_source_state_id IS NULL) OR (receiving_source_state_id IS NOT NULL AND (goods_receipt_line_id IS NOT NULL OR service_acceptance_id IS NOT NULL)))) OR (principal_receiving_source_state_id IS NOT NULL AND principal_receiving_source_state_id <> '00000000-0000-0000-0000-000000000000'::uuid AND principal_receiving_fact_id IS NOT NULL AND principal_receiving_fact_id <> '00000000-0000-0000-0000-000000000000'::uuid AND receiving_source_state_id IS NULL AND goods_receipt_line_id IS NULL AND service_acceptance_id IS NULL))"));
         var exception = model.Entity<InvoiceException>();
         foreach (var pointer in new[] { nameof(InvoiceException.MatchResultId), nameof(InvoiceException.ResolvingMatchResultId) })
             exception.HasOne<InvoiceMatchResult>().WithMany().HasForeignKey(nameof(ProcurementRecord.TenantId), nameof(ProcurementRecord.LegalEntityId), pointer, nameof(InvoiceException.SupplierInvoiceId))
@@ -184,6 +192,21 @@ public sealed partial class ProcurementDbContext
                     || row.Quantity <= 0 || !ExactDecimalJsonCodec.IsRepresentable(row.Quantity,18,4)
                     || !ExactDecimalJsonCodec.IsRepresentable(row.NetAmount,38,8) || !ExactDecimalJsonCodec.IsRepresentable(row.TaxAmount,38,8))
                     throw new InvalidOperationException("InvoiceAllocationAuthorityRequired");
+                if (mapping.SourceSchemaVersion == 3)
+                {
+                    var originals = SupplierInvoiceLines.Where(x => x.SupplierInvoiceId == invoice.Id && x.IsActive).ToArray();
+                    var snapshot = PrincipalInvoiceMappingEvidence.VerifyStored(mapping, invoice, originals);
+                    var line = snapshot.Lines.SingleOrDefault(x => x.InvoiceLineId == row.SupplierInvoiceLineId
+                        && x.PurchaseOrderLineId == row.PurchaseOrderLineId);
+                    if (line is null || row.PrincipalReceivingSourceStateId != line.PrincipalReceivingSourceStateId
+                        || row.PrincipalReceivingFactId != line.PrincipalReceivingFactId
+                        || row.ReceivingSourceStateId is not null || row.GoodsReceiptLineId is not null
+                        || row.ServiceAcceptanceId is not null)
+                        throw new InvalidOperationException("PrincipalInvoiceAllocationSourceChanged");
+                }
+                else if (row.PrincipalReceivingSourceStateId is not null
+                    || row.PrincipalReceivingFactId is not null)
+                    throw new InvalidOperationException("LegacyInvoiceAllocationSourceChanged");
             }
         }
         foreach (var entry in ChangeTracker.Entries<InvoiceMatchResult>())

@@ -1,5 +1,6 @@
 using System.Text;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using Mightyfin.Erp.Core.Approvals.Domain;
 using Mightyfin.Erp.Procurement.Domain;
 
@@ -10,7 +11,11 @@ namespace Mightyfin.Erp.Procurement.Application;
 public static class InvoiceUnitReviewPolicyRules
 {
     public sealed record Stage(string Code, string Mode, IReadOnlyList<string> Principals);
-    public sealed record Document(IReadOnlyList<Stage> Stages);
+    public sealed record Document(IReadOnlyList<Stage> Stages)
+    {
+        public int SchemaVersion { get; init; } = 1;
+        public string EvidenceMode { get; init; } = "DocumentReview";
+    }
     // For source 3, WorkerId is optional genuine Core-link alias metadata, not employment.
     public sealed record Person(string TenantId, Guid LegalEntityId, string PrincipalId, Guid? WorkerId,
         bool Active, IReadOnlySet<string> Permissions, bool OrganisationWide, IReadOnlySet<Guid> AllowedBranches);
@@ -19,7 +24,13 @@ public static class InvoiceUnitReviewPolicyRules
         IReadOnlyList<Assignee> Assignees);
     public sealed record Projection(Guid PolicyId, int PolicyVersion, string RulesSha256, string TenantId,
         Guid LegalEntityId, Guid? BranchId, string MakerPrincipalId, Guid? MakerWorkerId,
-        IReadOnlyList<ProjectedStage> Stages);
+        IReadOnlyList<ProjectedStage> Stages)
+    {
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        public int? SchemaVersion { get; init; }
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        public string? EvidenceMode { get; init; }
+    }
 
     public static Document Parse(string json) => ParseMode(json, false);
     public static Document ParseDraft(string json) => ParseMode(json, true);
@@ -50,9 +61,13 @@ public static class InvoiceUnitReviewPolicyRules
         using var document = JsonDocument.Parse(json, new JsonDocumentOptions { MaxDepth = 16 });
         // Shared canonical validation rejects duplicate properties; do not create another JSON codec.
         _ = ProcurementEvidenceEncoding.PolicyJsonDigest(json);
-        var root = document.RootElement; Only(root, "schemaVersion", "transactionType", "stages");
-        Need(root.GetProperty("schemaVersion").GetInt32() == 1
-            && root.GetProperty("transactionType").GetString() == "InvoiceUnitReview");
+        var root = document.RootElement;
+        var schema = root.GetProperty("schemaVersion").GetInt32();
+        if (schema == 1) Only(root, "schemaVersion", "transactionType", "stages");
+        else if (schema == 2) Only(root, "schemaVersion", "transactionType", "evidenceMode", "stages");
+        else Need(false);
+        Need(root.GetProperty("transactionType").GetString() == "InvoiceUnitReview"
+            && (schema == 1 || root.GetProperty("evidenceMode").GetString() == "ManualAttestation"));
         var rows = root.GetProperty("stages"); Need(rows.ValueKind == JsonValueKind.Array && rows.GetArrayLength() <= 16 && (draft || rows.GetArrayLength() > 0));
         var stages = new List<Stage>(); var total = 0;
         foreach (var row in rows.EnumerateArray())
@@ -69,7 +84,8 @@ public static class InvoiceUnitReviewPolicyRules
             stages.Add(new(code!, mode!, Array.AsReadOnly(principals.Order(StringComparer.Ordinal).ToArray())));
         }
         Need(stages.Select(x => x.Code).Distinct(StringComparer.Ordinal).Count() == stages.Count);
-        return new(stages.AsReadOnly()); // Array order is the explicit stage sequence, never a role lookup.
+        return new(stages.AsReadOnly()) { SchemaVersion = schema,
+            EvidenceMode = schema == 1 ? "DocumentReview" : "ManualAttestation" };
     }
 
     public static Projection Resolve(PolicyVersion policy, string tenant, Guid company, Guid? branch,
@@ -99,8 +115,10 @@ public static class InvoiceUnitReviewPolicyRules
             stages.Add(new(stages.Count + 1, stage.Code, stage.Mode == "One" ? "Any" : "All",
                 stage.Mode == "One" ? 1 : members.Count, members.AsReadOnly()));
         }
-        return new(policy.Id, policy.PolicyVersionNumber, ProcurementEvidenceEncoding.PolicyJsonDigest(policy.RulesJson),
-            tenant, company, branch, maker, makerWorker, stages.AsReadOnly());
+        return new Projection(policy.Id, policy.PolicyVersionNumber, ProcurementEvidenceEncoding.PolicyJsonDigest(policy.RulesJson),
+            tenant, company, branch, maker, makerWorker, stages.AsReadOnly())
+            { SchemaVersion = rules.SchemaVersion == 2 ? 2 : null,
+                EvidenceMode = rules.SchemaVersion == 2 ? rules.EvidenceMode : null };
     }
 
     /// <summary>Retained graph is historical. Reparse the actual owned policy without
@@ -112,7 +130,9 @@ public static class InvoiceUnitReviewPolicyRules
         var rules = Parse(policy.RulesJson);
         Need(policy.Id == pinned.PolicyId && policy.PolicyVersionNumber == pinned.PolicyVersion
             && ProcurementEvidenceEncoding.PolicyJsonDigest(policy.RulesJson) == pinned.RulesSha256
-            && pinned.Stages.Count == rules.Stages.Count);
+            && pinned.Stages.Count == rules.Stages.Count
+            && (pinned.SchemaVersion ?? 1) == rules.SchemaVersion
+            && (pinned.EvidenceMode ?? "DocumentReview") == rules.EvidenceMode);
         for (var i = 0; i < rules.Stages.Count; i++)
         {
             var expected = rules.Stages[i]; var retained = pinned.Stages[i];
