@@ -150,7 +150,7 @@ public static class ProcurementHostIntegration
     /// <summary>Maps module availability using the same checks as the complete host.</summary>
     public static void MapMetadataRoute(WebApplication app)
     {
-        app.MapGet("/api/procurement/v1/meta", async (ProcurementRequestScope scope,
+        app.MapGet("/api/procurement/v1/meta", async (HttpContext http,ProcurementRequestScope scope,
             ProcurementDbContext db, IServiceProvider services, CancellationToken ct) =>
         {
             try
@@ -171,6 +171,8 @@ public static class ProcurementHostIntegration
                 var principalGoodsReturnDrafts = principalGoodsReturnDraftsRead
                     && services.GetRequiredService<ProcurementPrincipalGoodsReturnOptions>().Enabled;
                 var originalUnitReview = !pending && await ProcurementInvoiceUnitReviewCapability.ReadyAsync(services, ct);
+                var principalInvoiceComparison = await ProcurementPrincipalInvoiceMatchingCapability.ReadyAsync(
+                    services,scope,http,pending,ct);
                 var now = DateTimeOffset.UtcNow;
                 var receivingPolicies = receivingDrafts && receivingOptions.PositiveExecutionEnabled
                     ? await db.PolicyVersions.AsNoTracking().Where(x => x.PolicyKey == "RECEIVING" && x.State == "Published"
@@ -308,6 +310,8 @@ public static class ProcurementHostIntegration
                             && services.GetRequiredService<ProcurementInvoiceMatchingExecutionOptions>().Enabled
                             && services.GetRequiredService<ProcurementInvoiceMatchingExecutionOptions>().ExecutionDatabaseConfigured
                             && await services.GetRequiredService<IProcurementInvoiceMatchingSchemaReadiness>().IsReadyAsync(ct),
+                        principalInvoiceComparisonRead = principalInvoiceComparison.Read,
+                        principalInvoiceComparison = principalInvoiceComparison.NewWork,
                         invoiceOriginalUnitReview = originalUnitReview, // Configured availability only; per-record policy/actor/document guards still apply.
                         invoiceQualifiedClaims = false, // No authenticated complete Finance history owner is installed.
                         invoiceValidation = false,

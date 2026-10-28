@@ -122,6 +122,8 @@ public sealed class ProcurementOrderCapabilityHttpTests
         var body = await response.Content.ReadFromJsonAsync<JsonElement>();
         Assert.Equal(expected, body.GetProperty("capabilities").GetProperty("orders").GetBoolean());
         Assert.False(body.GetProperty("capabilities").GetProperty("manualPaymentWorkflow").GetBoolean());
+        Assert.False(body.GetProperty("capabilities").GetProperty("principalInvoiceComparisonRead").GetBoolean());
+        Assert.False(body.GetProperty("capabilities").GetProperty("principalInvoiceComparison").GetBoolean());
         Assert.Equal(scenario is not ("pending-procurement-schema" or "pending-model"), body.GetProperty("schemaReady").GetBoolean());
         Assert.Equal(expected || scenario == "schema-not-ready" ? 1 : 0, readiness.Calls);
     }
