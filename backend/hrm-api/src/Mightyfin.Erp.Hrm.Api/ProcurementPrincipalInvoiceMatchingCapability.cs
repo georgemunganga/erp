@@ -54,13 +54,15 @@ internal static class ProcurementPrincipalInvoiceMatchingCapability
                     && !site.IsArchived && (person.OrganisationWide || allowed.Contains(site.Id))
                     && (scope.WorkLocationId==null || site.Id==scope.WorkLocationId),token);
                 if(!activeBranch || !await baseline.CanReadAsync(db,token)
-                    || !await ProcurementPrincipalInvoiceMatchingReadiness.IsReadyAsync(db,cases,false,token))
+                    || !await ProcurementPrincipalInvoiceMatchingReadiness.IsReadyAsync(db,cases,false,
+                        services.GetRequiredService<IConfiguration>(),token))
                     return unavailable;
                 var writeActor=writeConfigured && person.Permissions.Contains("procurement-invoice-capture")
                     && person.Permissions.Contains("procurement-invoice-match")
                     && (person.OrganisationWide || allowed.Contains(scope.WorkLocationId!.Value));
                 var write=writeActor
-                    && await ProcurementPrincipalInvoiceMatchingReadiness.IsReadyAsync(db,cases,true,token);
+                    && await ProcurementPrincipalInvoiceMatchingReadiness.IsReadyAsync(db,cases,true,
+                        services.GetRequiredService<IConfiguration>(),token);
                 return new Availability(true,write);
             },ct);
         }

@@ -3,9 +3,11 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
 using Microsoft.EntityFrameworkCore.Storage;
+using Npgsql;
 using Mightyfin.Erp.Core.Approvals.Infrastructure;
 using Mightyfin.Erp.Procurement.Domain;
 using Mightyfin.Erp.Procurement.Infrastructure.Data;
+using Mightyfin.Erp.Procurement.Infrastructure.Documents;
 using static Mightyfin.Erp.Hrm.Api.ProcurementSchemaInspectionSql;
 
 namespace Mightyfin.Erp.Hrm.Api;
@@ -17,7 +19,6 @@ namespace Mightyfin.Erp.Hrm.Api;
 internal static class ProcurementPrincipalInvoiceMatchingReadiness
 {
     internal const string MigrationId = "20261028184527_M6bPrincipalInvoiceReceivingBindings";
-    internal const string ExecutionRole = "erp_proc_execute_finite_v1";
 
     internal static readonly IReadOnlyDictionary<string,string[]> ParentKeys =
         new Dictionary<string,string[]>(StringComparer.Ordinal)
@@ -54,9 +55,10 @@ internal static class ProcurementPrincipalInvoiceMatchingReadiness
     internal const string CapturedAllocationCheck = "CHECK ((((kind)::text = 'Debit'::text) AND (original_debit_id IS NULL) AND (quantity > (0)::numeric) AND (net_amount >= (0)::numeric) AND (tax_amount >= (0)::numeric) AND (exposure_sequence > 0) AND (((principal_receiving_source_state_id IS NULL) AND (principal_receiving_fact_id IS NULL) AND ((goods_receipt_line_id IS NULL) OR (service_acceptance_id IS NULL)) AND (((goods_receipt_line_id IS NULL) AND (service_acceptance_id IS NULL) AND (receiving_source_state_id IS NULL)) OR ((receiving_source_state_id IS NOT NULL) AND ((goods_receipt_line_id IS NOT NULL) OR (service_acceptance_id IS NOT NULL))))) OR ((principal_receiving_source_state_id IS NOT NULL) AND (principal_receiving_source_state_id <> '00000000-0000-0000-0000-000000000000'::uuid) AND (principal_receiving_fact_id IS NOT NULL) AND (principal_receiving_fact_id <> '00000000-0000-0000-0000-000000000000'::uuid) AND (receiving_source_state_id IS NULL) AND (goods_receipt_line_id IS NULL) AND (service_acceptance_id IS NULL)))))";
 
     internal static async Task<bool> IsReadyAsync(ProcurementDbContext db,
-        ApprovalDbContext cases,bool write,CancellationToken ct)
+        ApprovalDbContext cases,bool write,IConfiguration configuration,CancellationToken ct)
     {
-        if(db is null || cases is null || !db.Database.IsNpgsql() || !cases.Database.IsNpgsql()
+        if(db is null || cases is null || configuration is null
+            || !db.Database.IsNpgsql() || !cases.Database.IsNpgsql()
             || CapturedAllocationCheck.Length==0
             || !ProcurementInvoiceOwnerBaselineSchemaCapture.Populated
             || !ProcurementPrincipalGoodsReturnStoreReadiness.OwnsSerializable(
@@ -67,10 +69,12 @@ internal static class ProcurementPrincipalInvoiceMatchingReadiness
             return false;
         try
         {
+            if(!TryConfiguredExecutionRole(configuration,db.Database.GetDbConnection().ConnectionString,
+                out var executionRole))return false;
             if(db.Database.HasPendingModelChanges() || (await db.Database.GetPendingMigrationsAsync(ct)).Any()
                 || !(await db.Database.GetAppliedMigrationsAsync(ct)).Contains(MigrationId,StringComparer.Ordinal)
                 || !await ProcurementPrincipalReceivingPhysicalSchema.InspectAsync(
-                    db,false,ExecutionRole,ct))
+                    db,false,executionRole,ct))
                 return false;
             if(!await ProcurementPrincipalInvoiceIssuedParentReadiness.RequireIssuedParentsAsync(db,ct))
                 return false;
@@ -90,7 +94,7 @@ internal static class ProcurementPrincipalInvoiceMatchingReadiness
             command.CommandText=SelectAllColumnsSql(allocation,table);
             await using(var reader=await command.ExecuteReaderAsync(ct)){}
             if(!await True(ColumnsSql(allocation,table))
-                || !await True(PrivilegeSql(write))
+                || !await True(PrivilegeSql(write,executionRole))
                 || !await True("SELECT (SELECT count(*) FROM pg_attribute WHERE attrelid='procurement.invoice_match_allocations'::regclass AND attnum>0 AND NOT attisdropped)="
                     +allocation.GetProperties().Count()
                     +" AND NOT EXISTS(SELECT 1 FROM pg_attrdef WHERE adrelid='procurement.invoice_match_allocations'::regclass)"))
@@ -116,11 +120,32 @@ internal static class ProcurementPrincipalInvoiceMatchingReadiness
         catch(Exception error) when(error is not OperationCanceledException){return false;}
     }
 
-    internal static string PrivilegeSql(bool write)
+    internal static bool TryConfiguredExecutionRole(IConfiguration configuration,
+        string actualConnection,out string executionRole)
+    {
+        executionRole=string.Empty;
+        if(!ProcurementPrincipalOrderDraftSchemaReadiness.TryExecutionConnection(configuration,
+                out var configuredRole))return false;
+        var configuredConnection=configuration.GetConnectionString("ProcurementApprovalExecution");
+        try
+        {
+            if(configuredConnection?.StartsWith("postgresql",StringComparison.OrdinalIgnoreCase)==true
+                && configuredConnection.Contains('?'))
+                configuredConnection=NpgsqlConnectionStringNormalizer.Normalize(configuredConnection);
+            if(!InvoiceDocumentStoreBinding.SamePhysicalDatabase(configuredConnection,actualConnection)
+                || !string.Equals(new NpgsqlConnectionStringBuilder(actualConnection).Username,
+                    configuredRole,StringComparison.Ordinal))return false;
+            executionRole=configuredRole;
+            return true;
+        }
+        catch(Exception error)when(error is ArgumentException or FormatException){return false;}
+    }
+
+    internal static string PrivilegeSql(bool write,string executionRole)
     {
         var required=new List<string>
         {
-            ProcurementInvoiceOwnerBaselineReadiness.PrivilegeSql(write,ExecutionRole)[7..],
+            ProcurementInvoiceOwnerBaselineReadiness.PrivilegeSql(write,executionRole)[7..],
             "has_table_privilege(current_user,'procurement.commercial_command_receipts','SELECT')"
         };
         foreach(var table in new[]{"invoice_match_allocations","invoice_match_mapping_versions",

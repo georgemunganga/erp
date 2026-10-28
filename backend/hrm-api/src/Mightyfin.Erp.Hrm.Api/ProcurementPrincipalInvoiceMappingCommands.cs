@@ -39,7 +39,8 @@ public static partial class ProcurementInvoiceMatchingRoutes
             throw new MatchingProblem("InvoiceMatchingSelectedBranchRequired", 422);
         var baseline = http.RequestServices.GetRequiredService<IProcurementInvoiceOwnerBaselineReadiness>();
         if (!await baseline.CanReadAsync(db, ct)
-            || !await ProcurementPrincipalInvoiceMatchingReadiness.IsReadyAsync(db, cases, write, ct))
+            || !await ProcurementPrincipalInvoiceMatchingReadiness.IsReadyAsync(db, cases, write,
+                http.RequestServices.GetRequiredService<IConfiguration>(), ct))
             throw new MatchingProblem("PrincipalInvoiceMatchingSchemaUnavailable", 503);
     }
 
