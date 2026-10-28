@@ -43,14 +43,18 @@ public sealed class ProcurementManualPaymentGovernanceReadiness(
             if (await command.ExecuteScalarAsync(ct) is not true) return false;
             command.CommandText = CoreOwnerSql;
             if (await command.ExecuteScalarAsync(ct) is not true) return false;
+            var ownerBaselineInstalled=(await db.Database.GetAppliedMigrationsAsync(ct))
+                .Contains(ProcurementInvoiceOwnerBaselineSchemaCapture.MigrationId,StringComparer.Ordinal);
+            var expectedFingerprint=ownerBaselineInstalled
+                ? ProcurementInvoiceOwnerBaselineSchemaCapture.ManualPaymentCatalogFingerprint : ExpectedFingerprint;
             command.CommandText = FingerprintSql;
-            if (await command.ExecuteScalarAsync(ct) is string actual && actual == ExpectedFingerprint) return true;
+            if (await command.ExecuteScalarAsync(ct) is string actual && actual == expectedFingerprint) return true;
             // An accepted logical restore can redistribute casts inside the nine
             // observed CHECK definitions. Keep the original full catalog hash:
             // substitute only exact, named restored texts before PostgreSQL hashes
             // the same jsonb manifest. Any other catalog difference still fails.
-            command.CommandText = FingerprintSqlWithObservedRestoreChecks();
-            return await command.ExecuteScalarAsync(ct) is string restored && restored == ExpectedFingerprint;
+            command.CommandText = FingerprintSqlWithObservedRestoreChecks(ownerBaselineInstalled);
+            return await command.ExecuteScalarAsync(ct) is string restored && restored == expectedFingerprint;
         }
         catch (OperationCanceledException) { throw; }
         catch (Exception error)
@@ -155,14 +159,19 @@ public sealed class ProcurementManualPaymentGovernanceReadiness(
         "procurement.operational_policy_identity_evidence.ck_operational_policy_identity"
     ];
 
-    internal static string FingerprintSqlWithObservedRestoreChecks()
+    internal static string FingerprintSqlWithObservedRestoreChecks(bool ownerBaselineInstalled=false)
     {
         static string Literal(string value) => "'" + value.Replace("'", "''", StringComparison.Ordinal) + "'";
         var cases = new List<string>(ObservedRestoreChecks.Length);
         foreach (var key in ObservedRestoreChecks)
         {
             var names = key.Split('.');
-            var pair = ProcurementRestoreCheckAlternatives.Definitions[key];
+            var pair = ownerBaselineInstalled
+                && key=="procurement.operational_policy_identity_evidence.ck_operational_policy_identity"
+                ? (Canonical:ProcurementInvoiceOwnerBaselineSchemaCapture.OperationalCheckDefinition,
+                    Restored:ProcurementInvoiceOwnerBaselineSchemaCapture.RestoredChecks.GetValueOrDefault(key)
+                        ?? ProcurementInvoiceOwnerBaselineSchemaCapture.OperationalCheckDefinition)
+                : ProcurementRestoreCheckAlternatives.Definitions[key];
             cases.Add("WHEN c.contype='c' AND r.nspname=" + Literal(names[0])
                 + " AND r.relname=" + Literal(names[1])
                 + " AND c.conname=" + Literal(names[2])

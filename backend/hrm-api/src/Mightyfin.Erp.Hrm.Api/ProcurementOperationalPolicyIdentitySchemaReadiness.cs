@@ -81,11 +81,15 @@ public sealed class ProcurementOperationalPolicyIdentitySchemaReadiness : IProcu
             if (await command.ExecuteScalarAsync(ct) is not string actual) return false;
             var unitInstalled = unitMigration.Length > 0 && applied.Contains(unitMigration, StringComparer.Ordinal);
             var paymentInstalled = applied.Contains(ProcurementManualPaymentGovernanceReadiness.MigrationId, StringComparer.Ordinal);
-            var expectedCheck = paymentInstalled ? ProcurementManualPaymentGovernanceReadiness.OperationalCheckDefinition
+            var ownerBaselineInstalled = applied.Contains(ProcurementInvoiceOwnerBaselineSchemaCapture.MigrationId,StringComparer.Ordinal);
+            var expectedCheck = ownerBaselineInstalled ? ProcurementInvoiceOwnerBaselineSchemaCapture.OperationalCheckDefinition
+                : paymentInstalled ? ProcurementManualPaymentGovernanceReadiness.OperationalCheckDefinition
                 : unitInstalled ? ProcurementInvoiceUnitReviewSchemaReadiness.OperationalCheckDefinition : CheckDefinition;
             if (unitInstalled && !ProcurementInvoiceUnitReviewSchemaReadiness.ManifestCaptured
-                || actual != expectedCheck && !ProcurementRestoreCheckAlternatives.Matches(
-                    "procurement.operational_policy_identity_evidence.ck_operational_policy_identity", expectedCheck, actual)) return false;
+                || (ownerBaselineInstalled
+                    ? !ProcurementInvoiceOwnerBaselineSchemaCapture.CheckMatches("procurement.operational_policy_identity_evidence.ck_operational_policy_identity",actual)
+                    : actual != expectedCheck && !ProcurementRestoreCheckAlternatives.Matches(
+                        "procurement.operational_policy_identity_evidence.ck_operational_policy_identity", expectedCheck, actual))) return false;
             var foreigns = identity.GetForeignKeys().ToArray();
             if (foreigns.Length != ForeignNames.Count || !foreigns.Select(x => x.GetConstraintName()!).ToHashSet(StringComparer.Ordinal).SetEquals(ForeignNames)) return false;
             foreach (var foreign in foreigns)
