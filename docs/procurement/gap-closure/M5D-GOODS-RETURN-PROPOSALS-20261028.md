@@ -131,3 +131,9 @@ to obtain owner acceptance.
 A separate review agent replayed both owner verifiers and reproduced their
 receipt bytes. This acceptance covers proposals/history, not dispatch, stock,
 credit, Finance posting, full native UI, production or whole-module UAT.
+
+## Published prerequisites
+
+ERP PR127 merged as `33f08bf8585b5931fb07be5eb451a9b098a6749f`;
+Procurement UI PR92 merged as `47cac6a13a24e9db113383f8a9cf5b319494d526`.
+Start collaboration from current main descendants. Production remains unchanged.
