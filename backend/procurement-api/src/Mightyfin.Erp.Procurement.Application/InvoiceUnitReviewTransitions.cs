@@ -1,4 +1,5 @@
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using Mightyfin.Erp.Core.Approvals.Domain;
 using Mightyfin.Erp.Procurement.Domain;
 using Rules = Mightyfin.Erp.Procurement.Application.InvoiceUnitReviewPolicyRules;
@@ -22,6 +23,12 @@ public static class InvoiceUnitReviewTransitions
         Rules.Projection ReviewPolicy, DateTimeOffset OpenedAt, IReadOnlyList<InvoiceReviewedDocumentLine> Lines)
     {
         public int IdentitySchemaVersion { get; init; }
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        public int? SourceSchemaVersion { get; init; }
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        public string? ManualReason { get; init; }
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        public IReadOnlyList<InvoiceReviewedManualLine>? ManualLines { get; init; }
     }
     public sealed record OpeningPlan(Source Source, string SourceJson, string SourceSha256, ApprovalCase Case,
         IReadOnlyList<InvoiceUnitReviewAssignmentWorker> AssignmentWorkers, Guid CommandKey, string? Reason);
@@ -41,13 +48,22 @@ public static class InvoiceUnitReviewTransitions
             mapping.ActorPrincipalId, mapping.ActorWorkerId, reviewers, command.At);
         var matchingSha = MatchingPolicy(matchingPolicy, invoice, command.At);
         Need(matchingPolicy.Id != reviewPolicy.Id);
-        var lines = DocumentLines(mapping, invoice, originalLines, ownedDocumentHashes);
+        var manual = projection.SchemaVersion == 2 && projection.EvidenceMode == "ManualAttestation";
+        var reason = Reason(command.Reason);
+        Need(ownedDocumentHashes is not null && (!manual || reason is not null && ownedDocumentHashes.Count == 0));
+        IReadOnlyList<InvoiceReviewedDocumentLine> lines = manual ? []
+            : DocumentLines(mapping, invoice, originalLines, ownedDocumentHashes);
         var now = ProcurementEvidenceEncoding.DatabaseTimestamp(command.At)!.Value;
         var source = new Source(Guid.CreateVersion7(), 1, Guid.CreateVersion7(), invoice.TenantId, invoice.LegalEntityId, invoice.BranchRef,
             invoice.Id, invoice.Version, mapping.Id, mapping.MappingRevision, mapping.InvoiceOriginalSha256,
             mapping.MappingSha256, mapping.PurchaseOrderId, mapping.IssuedVersionId,
             IssuedFingerprint(issued, mapping, invoice, originalLines, command.At), matchingPolicy.Id,
-            matchingPolicy.PolicyVersionNumber, matchingSha, projection, now, lines) { IdentitySchemaVersion = 3 };
+            matchingPolicy.PolicyVersionNumber, matchingSha, projection, now, lines)
+        {
+            IdentitySchemaVersion = 3, SourceSchemaVersion = manual ? 4 : null,
+            ManualReason = manual ? reason : null,
+            ManualLines = manual ? ManualAttestedLines(mapping, invoice, originalLines) : null
+        };
         var workflow = new ApprovalCase { Id = source.CoreCaseId, TenantId = source.TenantId, LegalEntityId = source.LegalEntityId,
             SourceModule = "procurement", SourceType = InvoiceRetainedUnitReview.ReviewSourceType,
             SourceId = source.ReviewId, SourceVersion = source.SourceVersion, PolicyVersionId = projection.PolicyId,
@@ -69,7 +85,7 @@ public static class InvoiceUnitReviewTransitions
         }
         ApprovalEngine.ValidateNewCase(workflow); Rules.VerifyCaseGraph(projection, workflow, workers);
         var json = JsonSerializer.Serialize(source);
-        return new(source, json, ProcurementEvidenceEncoding.Digest(json), workflow, workers.AsReadOnly(), command.Key, Reason(command.Reason));
+        return new(source, json, ProcurementEvidenceEncoding.Digest(json), workflow, workers.AsReadOnly(), command.Key, reason);
     }
 
     /// <summary>New effects only; recover durable original-key receipts before invoking this.
@@ -91,7 +107,8 @@ public static class InvoiceUnitReviewTransitions
         Need(assignment is not null && assignment.Version == command.ExpectedAssignmentVersion
             && owned.AssignmentWorkers.Any(x => x.AssignmentId == assignmentId && x.PrincipalId == actor.PrincipalId)
             && command.Action is "Approve" or "Reject" or "Return");
-        var reason = Reason(command.Reason); Need(command.Action == "Approve" || reason is not null);
+        var reason = Reason(command.Reason);
+        Need((command.Action == "Approve" && source.SourceSchemaVersion != 4) || reason is not null);
         return ApprovalEngine.Decide(workflow, assignment!, new(actor.PrincipalId, actor.TenantId, actor.LegalEntityId,
             actor.Permissions), command.Action, command.Key.ToString("D"), reason, decisions,
             ProcurementEvidenceEncoding.DatabaseTimestamp(command.At)!.Value);
@@ -117,7 +134,15 @@ public static class InvoiceUnitReviewTransitions
         Rules.VerifyRetainedProjection(source.ReviewPolicy, reviewPolicy, at);
         Need(matchingPolicy.Id == source.MatchingPolicyId && matchingPolicy.PolicyVersionNumber == source.MatchingPolicyVersion
             && MatchingPolicy(matchingPolicy, invoice, at) == source.MatchingPolicySha256
-            && IssuedFingerprint(issued, mapping, invoice, originalLines, at) == source.IssuedEvidenceSha256
+            && IssuedFingerprint(issued, mapping, invoice, originalLines, at) == source.IssuedEvidenceSha256);
+        if (source.SourceSchemaVersion == 4)
+            Need(source.ReviewPolicy.SchemaVersion == 2 && source.ReviewPolicy.EvidenceMode == "ManualAttestation"
+                && Reason(source.ManualReason) == source.ManualReason && source.ManualReason is not null
+                && source.Lines.Count == 0 && ownedDocumentHashes.Count == 0
+                && source.ManualLines is not null
+                && ManualAttestedLines(mapping, invoice, originalLines).SequenceEqual(source.ManualLines));
+        else Need(source.SourceSchemaVersion is null && source.ManualReason is null && source.ManualLines is null
+            && source.ReviewPolicy.SchemaVersion is null && source.ReviewPolicy.EvidenceMode is null
             && DocumentLines(mapping, invoice, originalLines, ownedDocumentHashes).SequenceEqual(source.Lines));
         Rules.VerifyCaseGraph(source.ReviewPolicy, workflow, owned.AssignmentWorkers);
     }
@@ -175,6 +200,23 @@ public static class InvoiceUnitReviewTransitions
                 && sha.All(c => c is >= '0' and <= '9' or >= 'a' and <= 'f'));
             result.Add(new(line.InvoiceLineId, line.DocumentVersionId, hashes![line.DocumentVersionId], line.DocumentLineReference, line.InvoiceUnitCode));
         }
+        return result.AsReadOnly();
+    }
+    private static IReadOnlyList<InvoiceReviewedManualLine> ManualAttestedLines(InvoiceMatchMappingVersion mapping,
+        SupplierInvoice invoice, IReadOnlyList<SupplierInvoiceLine> originals)
+    {
+        var snapshot = InvoiceMappingReviewSourceDispatch.Verify(mapping, invoice, originals);
+        Need(snapshot.Lines.Count == originals.Count(x => x.IsActive));
+        var result = new List<InvoiceReviewedManualLine>();
+        foreach (var line in snapshot.Lines.OrderBy(x => x.InvoiceLineId))
+        {
+            Need(line.DocumentVersionId == Guid.Empty
+                && string.IsNullOrWhiteSpace(line.DocumentLineReference)
+                && line.InvoiceUnitCode is { Length: > 0 and <= 20 }
+                && line.InvoiceUnitCode == line.InvoiceUnitCode.Trim());
+            result.Add(new(line.InvoiceLineId, line.InvoiceUnitCode));
+        }
+        Need(result.Select(x => x.InvoiceLineId).Distinct().Count() == result.Count);
         return result.AsReadOnly();
     }
     private static void PersonScope(Rules.Person person, SupplierInvoice invoice, string action)
