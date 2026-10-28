@@ -220,7 +220,7 @@ public sealed partial class PrincipalControlledReceivingTests
         var recovered = await store.RecoverAsync(key, Receiver, "Record", fingerprint, default);
         Assert.NotNull(recovered); Assert.Equal(response, recovered.ResponseJson);
         await Assert.ThrowsAsync<InvalidOperationException>(() => store.RecoverAsync(key, Receiver, "Record", "changed-body", default));
-        receipt.ResponseSha256 = new string('0',64); await fixture.SaveChangesAsync();
+        fixture.Entry(receipt).Property(x => x.ResponseSha256).CurrentValue = new string('0',64); await fixture.SaveChangesAsync();
         await Assert.ThrowsAsync<InvalidOperationException>(() => store.RecoverAsync(key, Receiver, "Record", null, default));
     }
 }
