@@ -6,7 +6,7 @@ namespace Mightyfin.Erp.Hrm.Api;
 /// Empty pins keep manual execution unavailable; they grant no authority.</summary>
 internal static class ProcurementInvoiceManualUnitReviewSchemaCapture
 {
-    internal const string MigrationId="";
+    internal const string MigrationId="20261028211409_M6cManualInvoiceUnitAttestation";
     internal const string NativeOutcomeCheck="";
     internal const string RestoredOutcomeCheck="";
     internal static bool MatchesOutcome(string actual)=>NativeOutcomeCheck.Length>0
