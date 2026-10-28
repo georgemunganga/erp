@@ -1,6 +1,6 @@
-# Accepted return requests and current prerequisites — 28 October 2026
+# M5 technical release and current prerequisites — 28 October 2026
 
-Published ERP main: `33f08bf8585b5931fb07be5eb451a9b098a6749f` (PR127).
+Published ERP main: `e03ac9735379b35f789d9e900fe849d7ab02f1f1` (through PR128).
 Published Procurement UI main: `47cac6a13a24e9db113383f8a9cf5b319494d526`
 (PR92, `georgemunganga/module-connect`). Use current main descendants.
 These include M5b receiving and M5c company-local service-date source fixes.
@@ -12,16 +12,22 @@ all cohort sessions are revoked, temporary role rows restored and private
 API/proxy services stopped. See [M5d scope and evidence](docs/procurement/gap-closure/M5D-GOODS-RETURN-PROPOSALS-20261028.md).
 Do not duplicate M5b/M5c/M5d or resume held P37 migrations.
 
-Production remains M4. Next release work requires current-row compatibility,
-recoverable backup, finite grants, paired publication and authenticated smoke.
+Production M5 technical rollout is complete: product `414ca94f`, UI `47cac6a1`,
+220 tables, independently preserved original203 rows/sequences, finite grants,
+read-only canary, public route/asset checks and three Playwright renders passed.
+Existing business flags are preserved; new return writes remain off. See the
+[release record](docs/procurement/gap-closure/M5-PRODUCTION-TECHNICAL-RELEASE-20261028.md).
+Authenticated production CRUD is not claimed.
 Whole-module UAT is open: actual return approval/dispatch/reversal, qualified
 invoice source/consumption ownership, native Service/UI journeys and broader
 scope/concurrency tests remain. Return requests alone change no accepted,
 Inventory, credit or Finance balance. Core retains shared identity/roles/scope,
 organisation/calendar/branding ownership.
 
-Root owns receiving/matching/release follow-up. Existing independent C04
-ownership is unchanged; no new Manus implementation assignment is made here.
+Root owns release follow-up. Active agent work covers private Service native
+acceptance and M6 principal invoice matching specification/implementation. No
+new Manus implementation assignment is made by these agent scopes. Existing
+independent C04 ownership is unchanged.
 
 The checkpoints below are historical. Their invitations and baseline claims are
 superseded by this active ownership section.
