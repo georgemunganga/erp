@@ -78,13 +78,15 @@ public static class InvoiceProcurementHistoricalOwnerContract
         var manifest=ProcurementEvidenceEncoding.PolicyJsonDigest(JsonSerializer.Serialize(names,Json));
         var baseline=ProcurementEvidenceEncoding.PolicyJsonDigest(JsonSerializer.Serialize(tables.OrderBy(x=>x.TableName,StringComparer.Ordinal),Json));
         var union=activeBaselineClaims.Concat(activeLocalClaims).ToArray();
+        var allocationTable=tables.SingleOrDefault(x=>x.TableName=="invoice_match_allocations");
         if (union.Any(x => x is null || x.Kind != InvoiceConsumptionKind.Debit
                 || x.TenantId != context.TenantId || x.LegalEntityId != context.LegalEntityId
                 || x.BranchRef != context.BranchId || x.PurchaseOrderId != context.PurchaseOrderId
                 || x.RevisionId != context.IssuedVersionId || x.SupplierId != context.SupplierId
                 || x.CurrencyCode != context.CurrencyCode)
             || union.Select(x=>x.Id).Distinct().Count()!=union.Length
-            || union.Select(x=>(x.InvoiceId,x.InvoiceLineId)).Distinct().Count()!=union.Length)
+            || union.Select(x=>(x.InvoiceId,x.InvoiceLineId)).Distinct().Count()!=union.Length
+            || allocationTable is null || allocationTable.RowCount < activeBaselineClaims.Count)
             throw new InvalidOperationException("InvoiceProcurementOwnerClaimOverlap");
         if (envelope.BaselineManifestSha256 != manifest || envelope.BaselineSetSha256 != baseline
             || envelope.ActiveBaselineClaimsSha256 != InvoiceMatchExecutionEvidence.AllocationsDigest(activeBaselineClaims)

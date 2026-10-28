@@ -20,7 +20,7 @@ public sealed class InvoiceProcurementHistoricalOwnerContractTests
         var claim=new InvoiceMatchConsumption(Guid.NewGuid(),Guid.NewGuid(),Guid.NewGuid(),tenant,company,branch,
             supplier,order,issued,Guid.NewGuid(),null,"ZMW",InvoiceConsumptionKind.Debit,null,1m,1m,0m,"owner:test");
         string[] names=["invoice_match_allocations","supplier_invoices"];
-        var tables=names.Select(x=>new InvoiceProcurementBaselineTable(x,0,new string('b',64),new string('c',64))).ToArray();
+        var tables=names.Select(x=>new InvoiceProcurementBaselineTable(x,x=="invoice_match_allocations"?1:0,new string('b',64),new string('c',64))).ToArray();
         var claims=InvoiceMatchExecutionEvidence.AllocationsDigest([claim]);
         var envelope=new InvoiceProcurementExposureOwnerEnvelope(2,tenant,company,branch,order,issued,supplier,"ZMW",
             policy,"procurement:baseline","sequence:1",Guid.NewGuid(),
@@ -44,6 +44,11 @@ public sealed class InvoiceProcurementHistoricalOwnerContractTests
             f.Envelope with{ExposureSequence=2},f.Context,f.Exposure,f.Names,[f.Claim],[]));
         Assert.Throws<InvalidOperationException>(()=>InvoiceProcurementHistoricalOwnerContract.VerifyPartition(
             f.Envelope with{CurrentCompleteSetSha256=""},f.Context,f.Exposure,f.Names,[f.Claim],[]));
+        var emptyAllocationTable=f.Envelope.BaselineTables.Select(x=>x with{RowCount=0}).ToArray();
+        Assert.Throws<InvalidOperationException>(()=>InvoiceProcurementHistoricalOwnerContract.VerifyPartition(
+            f.Envelope with{BaselineTables=emptyAllocationTable,
+                BaselineSetSha256=ProcurementEvidenceEncoding.PolicyJsonDigest(JsonSerializer.Serialize(emptyAllocationTable,Json))},
+            f.Context,f.Exposure,f.Names,[f.Claim],[]));
     }
 
     [Fact]
