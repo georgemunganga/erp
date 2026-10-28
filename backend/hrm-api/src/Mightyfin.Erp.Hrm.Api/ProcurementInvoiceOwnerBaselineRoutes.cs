@@ -74,13 +74,15 @@ public static class ProcurementInvoiceOwnerBaselineRoutes
             or JsonException or System.Data.Common.DbException or DbUpdateException)
         {
             var status = error is BaselineProblem problem ? problem.Status
+                : error is OperationalPolicyPublicationProblem publication ? publication.Status
                 : error is UnauthorizedAccessException ? 403
                 : error is KeyNotFoundException ? 404
                 : ProcurementPostgresFailures.IsConcurrency(error) ? 409
                 : ProcurementPostgresFailures.IsStoreFailure(error) ? 503 : 409;
             return Results.Json(new
             {
-                code = error is BaselineProblem ? error.Message : "InvoiceOwnerBaselineEvidenceNeedsReview",
+                code = error is BaselineProblem or OperationalPolicyPublicationProblem
+                    ? error.Message : "InvoiceOwnerBaselineEvidenceNeedsReview",
                 message = "Refresh the company invoice history, Core reviewer and current access before continuing. No invoice claim or Finance posting was created."
             }, statusCode: status);
         }
@@ -141,6 +143,14 @@ public static class ProcurementInvoiceOwnerBaselineRoutes
                 && x.SourceId == baseline.Id && x.SourceVersion == 1, ct)
             ?? throw new KeyNotFoundException();
 
+    private static async Task VerifyStored(ProcurementDbContext db,
+        InvoiceProcurementOwnerBaseline baseline, CancellationToken ct)
+    {
+        var rows = await db.InvoiceProcurementOwnerBaselineRows.AsNoTracking()
+            .Where(x => x.BaselineId == baseline.Id).ToArrayAsync(ct);
+        _ = InvoiceProcurementStoredBaselineEvidence.VerifyStored(baseline, rows);
+    }
+
     private static Task<IResult> Open(HttpContext http, ProcurementRequestScope scope,
         CancellationToken ct) => Run(http, scope, true, async (db, cases, core, auth, token) =>
     {
@@ -149,7 +159,12 @@ public static class ProcurementInvoiceOwnerBaselineRoutes
         var key = Key(http);
         var requestSha = Fingerprint("Open", key, null, null, null);
         if (await db.RecoverInvoiceOwnerReceiptAsync(key, "Open", requestSha, token) is { } prior)
+        {
+            var stored = await db.InvoiceProcurementOwnerBaselines.AsNoTracking()
+                .SingleAsync(x => x.Id == prior.BaselineId, token);
+            await VerifyStored(db, stored, token);
             return Results.Content(prior.ResponseJson, "application/json", statusCode: 201);
+        }
         var at = Now();
         var policy = await CurrentPolicy(db, scope, at, token);
         await ProcurementOperationalPolicyCurrentPublication.RequireAsync(
@@ -192,10 +207,14 @@ public static class ProcurementInvoiceOwnerBaselineRoutes
         if (await db.RecoverInvoiceOwnerReceiptAsync(key, "Decide", requestSha, token) is { } prior)
         {
             if (prior.BaselineId != id) throw new BaselineProblem("InvoiceOwnerCommandKeyConflict", 409);
+            var stored = await db.InvoiceProcurementOwnerBaselines.AsNoTracking()
+                .SingleAsync(x => x.Id == id, token);
+            await VerifyStored(db, stored, token);
             return Results.Content(prior.ResponseJson, "application/json");
         }
         var baseline = await db.InvoiceProcurementOwnerBaselines
             .SingleOrDefaultAsync(x => x.Id == id, token) ?? throw new KeyNotFoundException();
+        await VerifyStored(db, baseline, token);
         if (!await ProcurementPrincipalPeople.IndependentNow(core, scope.TenantId,
                 baseline.MakerPrincipalId, baseline.MakerWorkerAliasId,
                 actor.PrincipalId, actor.CoreLinkedWorkerId, token))
@@ -256,6 +275,7 @@ public static class ProcurementInvoiceOwnerBaselineRoutes
             InvoiceProcurementBaselineEvidence.ReadPermission, token);
         var baseline = await db.InvoiceProcurementOwnerBaselines.AsNoTracking()
             .SingleOrDefaultAsync(x => x.Id == id, token) ?? throw new KeyNotFoundException();
+        await VerifyStored(db, baseline, token);
         var workflow = await Workflow(cases, baseline, token);
         if (baseline.MakerPrincipalId != actor.PrincipalId
             && !workflow.Stages.SelectMany(x => x.Assignments)
@@ -282,6 +302,9 @@ public static class ProcurementInvoiceOwnerBaselineRoutes
             InvoiceProcurementBaselineEvidence.ReadPermission, token);
         var receipt = await db.RecoverInvoiceOwnerReceiptAsync(key, operation, null, token)
             ?? throw new KeyNotFoundException();
+        var baseline = await db.InvoiceProcurementOwnerBaselines.AsNoTracking()
+            .SingleAsync(x => x.Id == receipt.BaselineId, token);
+        await VerifyStored(db, baseline, token);
         return Results.Content(receipt.ResponseJson, "application/json");
     }, ct);
 }

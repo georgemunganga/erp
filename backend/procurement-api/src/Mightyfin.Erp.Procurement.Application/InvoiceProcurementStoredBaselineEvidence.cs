@@ -119,6 +119,58 @@ public static class InvoiceProcurementStoredBaselineEvidence
         return new(summary, changed, added);
     }
 
+    /// <summary>Determines only whether the captured old partition can be zero
+    /// for this order. Post-baseline rows and current claims require separate
+    /// typed verification. Unlinked old credits retain their supplier/currency
+    /// reach, so a clean PO is never cleared from IDs alone.</summary>
+    public static bool NoRetainedExposureForOrder(
+        InvoiceProcurementOwnerBaseline baseline,
+        IReadOnlyList<InvoiceProcurementOwnerBaselineRow> rows,
+        InvoiceProcurementInventoryCapture current,
+        Guid purchaseOrderId, Guid supplierId, string currencyCode)
+    {
+        if (purchaseOrderId == Guid.Empty || supplierId == Guid.Empty
+            || currencyCode is not { Length: 3 }
+            || currencyCode.Any(c => c is < 'A' or > 'Z'))
+            throw new InvalidOperationException("InvoiceOwnerOrderScopeInvalid");
+        _ = ReconcileCurrent(baseline, rows, current);
+        InvoiceProcurementBaselineEvidence.RequireResolvedClassificationForOrder(
+            baseline, rows, purchaseOrderId);
+        var linkedInvoices = rows.Where(x => x.PurchaseOrderId == purchaseOrderId
+            && x.SupplierInvoiceId is not null)
+            .Select(x => x.SupplierInvoiceId!.Value).ToHashSet();
+        if (rows.Any(x => x.PurchaseOrderId == purchaseOrderId
+            || x.SupplierInvoiceId is { } invoiceId && linkedInvoices.Contains(invoiceId)))
+            return false;
+        var credits = current.Tables.Single(x => x.TableName == "supplier_credit_note_refs")
+            .Rows.ToDictionary(x => x.Id);
+        foreach (var row in rows.Where(x => x.TableName == "supplier_credit_note_refs"
+            && x.SupplierInvoiceId is null))
+        {
+            if (!credits.TryGetValue(row.SourceRowId, out var credit)
+                || credit.CanonicalRowSha256 != row.OriginalRowSha256
+                || credit.Version != row.SourceRowVersion)
+                throw new InvalidOperationException("InvoiceOwnerHistoricalCreditChanged");
+            using var parsed = JsonDocument.Parse(credit.RowJson);
+            var source = parsed.RootElement;
+            if (!source.TryGetProperty("supplier_id", out var supplier)
+                || !source.TryGetProperty("currency_code", out var currency)
+                || supplier.ValueKind != JsonValueKind.String
+                || currency.ValueKind != JsonValueKind.String
+                || !Guid.TryParse(supplier.GetString(), out var creditSupplier)
+                || creditSupplier == Guid.Empty)
+                throw new InvalidOperationException("InvoiceOwnerHistoricalCreditUnclassifiable");
+            var creditCurrency = currency.GetString();
+            if (creditCurrency is not { Length: 3 }
+                || creditCurrency.Any(c => c is < 'A' or > 'Z'))
+                throw new InvalidOperationException("InvoiceOwnerHistoricalCreditUnclassifiable");
+            if (creditSupplier == supplierId
+                && creditCurrency == currencyCode)
+                return false;
+        }
+        return true;
+    }
+
     private static bool Sha(string? value) => value is { Length: 64 }
         && value.All(x => x is >= '0' and <= '9' or >= 'a' and <= 'f');
 }
