@@ -112,6 +112,7 @@ public static class PrincipalInvoiceMappingEvidence
         {
             var history = histories.SingleOrDefault(x => x.SourceStateId == line.PrincipalReceivingSourceStateId);
             if (history is null || history.Facts is null || history.SourceSequence < 1 || !Sha(history.SourceSha256)
+                || string.IsNullOrWhiteSpace(history.UnitCode)
                 || history.Facts.Count is < 1 or > 2_000
                 || history.Facts.Select(x=>x.FactId).Distinct().Count()!=history.Facts.Count
                 || history.Facts.Any(x=>x.SourceStateId!=history.SourceStateId

@@ -71,10 +71,15 @@ public sealed partial class PrincipalControlledReceivingTests
     public void Principal_fact_projection_requires_full_retained_graph_and_remains_historical_only()
     {
         var f=PrincipalInvoiceServiceFixture();
-        var result=PrincipalInvoiceAcceptedSourceProjection.Verify(f.Source,f.State,[f.Fact],[f.Binding],[f.Receipt],[f.Policy]);
+        var supplierId=Guid.NewGuid();
+        var result=PrincipalInvoiceAcceptedSourceProjection.Verify(f.Source,f.State,[f.Fact],[f.Binding],[f.Receipt],[f.Policy],supplierId);
         var accepted=Assert.Single(result.Facts);
         Assert.Equal(f.State.Id,result.SourceStateId);
         Assert.Equal(f.State.SourceSha256,result.SourceSha256);
+        Assert.Equal(supplierId,result.SupplierId);
+        Assert.Equal(f.Source.Commercial.BranchId,result.BranchId);
+        Assert.Equal(f.Source.Commercial.CurrencyCode,result.CurrencyCode);
+        Assert.Equal(f.Source.Commercial.UnitCode,result.UnitCode);
         Assert.Equal(1,result.SourceSequence);
         Assert.Equal(f.Fact.Id,accepted.FactId);
         Assert.Equal(f.State.PurchaseOrderLineId,accepted.PurchaseOrderLineId);
@@ -88,12 +93,12 @@ public sealed partial class PrincipalControlledReceivingTests
     public void Missing_or_foreign_owner_edges_cannot_become_accepted_invoice_evidence()
     {
         var f=PrincipalInvoiceServiceFixture();
-        Assert.Throws<InvalidOperationException>(()=>PrincipalInvoiceAcceptedSourceProjection.Verify(f.Source,f.State,[f.Fact],[],[f.Receipt],[f.Policy]));
-        Assert.Throws<InvalidOperationException>(()=>PrincipalInvoiceAcceptedSourceProjection.Verify(f.Source,f.State,[f.Fact],[f.Binding],[],[f.Policy]));
-        Assert.Throws<InvalidOperationException>(()=>PrincipalInvoiceAcceptedSourceProjection.Verify(f.Source,f.State,[f.Fact],[f.Binding,f.Binding],[f.Receipt],[f.Policy]));
-        Assert.Throws<InvalidOperationException>(()=>PrincipalInvoiceAcceptedSourceProjection.Verify(f.Source with { SupplierAcknowledgmentId=Guid.NewGuid() },f.State,[f.Fact],[f.Binding],[f.Receipt],[f.Policy]));
-        Assert.Throws<InvalidOperationException>(()=>PrincipalInvoiceAcceptedSourceProjection.Verify(f.Source,f.State,[f.Fact],[f.Binding],[f.Receipt],[]));
+        Assert.Throws<InvalidOperationException>(()=>PrincipalInvoiceAcceptedSourceProjection.Verify(f.Source,f.State,[f.Fact],[],[f.Receipt],[f.Policy],Guid.NewGuid()));
+        Assert.Throws<InvalidOperationException>(()=>PrincipalInvoiceAcceptedSourceProjection.Verify(f.Source,f.State,[f.Fact],[f.Binding],[],[f.Policy],Guid.NewGuid()));
+        Assert.Throws<InvalidOperationException>(()=>PrincipalInvoiceAcceptedSourceProjection.Verify(f.Source,f.State,[f.Fact],[f.Binding,f.Binding],[f.Receipt],[f.Policy],Guid.NewGuid()));
+        Assert.Throws<InvalidOperationException>(()=>PrincipalInvoiceAcceptedSourceProjection.Verify(f.Source with { SupplierAcknowledgmentId=Guid.NewGuid() },f.State,[f.Fact],[f.Binding],[f.Receipt],[f.Policy],Guid.NewGuid()));
+        Assert.Throws<InvalidOperationException>(()=>PrincipalInvoiceAcceptedSourceProjection.Verify(f.Source,f.State,[f.Fact],[f.Binding],[f.Receipt],[],Guid.NewGuid()));
         f.State.AcceptedQuantity=2m;
-        Assert.Throws<InvalidOperationException>(()=>PrincipalInvoiceAcceptedSourceProjection.Verify(f.Source,f.State,[f.Fact],[f.Binding],[f.Receipt],[f.Policy]));
+        Assert.Throws<InvalidOperationException>(()=>PrincipalInvoiceAcceptedSourceProjection.Verify(f.Source,f.State,[f.Fact],[f.Binding],[f.Receipt],[f.Policy],Guid.NewGuid()));
     }
 }
