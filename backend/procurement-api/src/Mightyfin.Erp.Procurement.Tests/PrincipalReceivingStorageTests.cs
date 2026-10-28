@@ -208,6 +208,7 @@ public sealed partial class PrincipalControlledReceivingTests
         var receipt = new PrincipalReceivingCommandReceipt
         {
             TenantId=scope.TenantId, LegalEntityId=scope.LegalEntityId, DraftId=Guid.NewGuid(), BranchId=Guid.NewGuid(),
+            CreatedBy=Receiver, CreatedAt=At, Version=1,
             ActorPrincipalId=Receiver, Operation="Record", CommandKey=key, RequestSha256=fingerprint,
             ResponseJson=response, ResponseSha256=ProcurementEvidenceEncoding.Digest(response), ResponseStatus=200, ResultRevision=2,
         };
