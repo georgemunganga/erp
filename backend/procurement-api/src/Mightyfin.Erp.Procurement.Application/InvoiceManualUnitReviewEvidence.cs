@@ -63,10 +63,21 @@ public static class InvoiceManualUnitReviewEvidence
         try
         {
             if (authority is null || source is null || invoice is null || mapping is null
+                || source.ReviewPolicy is null || source.Lines is null
                 || originals is null || at == default || source.SourceSchemaVersion != 4
+                || source.IdentitySchemaVersion != 3
+                || source.TenantId != invoice.TenantId || source.LegalEntityId != invoice.LegalEntityId
+                || source.BranchId != invoice.BranchRef || source.InvoiceId != invoice.Id
+                || source.MappingId != mapping.Id || source.MappingRevision != mapping.MappingRevision
+                || source.MappingSha256 != mapping.MappingSha256
+                || source.OriginalSha256 != mapping.InvoiceOriginalSha256
+                || source.PurchaseOrderId != mapping.PurchaseOrderId
+                || source.IssuedVersionId != mapping.IssuedVersionId
+                || source.ReviewPolicy.MakerPrincipalId != mapping.ActorPrincipalId
+                || source.ReviewPolicy.MakerWorkerId != mapping.ActorWorkerId
                 || source.ReviewPolicy.SchemaVersion != 2
                 || source.ReviewPolicy.EvidenceMode != "ManualAttestation"
-                || source.ManualReason is not { Length: > 0 and <= 2000 }
+                || !CanonicalReason(source.ManualReason)
                 || source.ManualLines is not { Count: > 0 and <= 200 }
                 || source.ManualLines.Any(x => x is null) || source.Lines.Count != 0
                 || authority.EvidenceJson is not { Length: > 0 and <= 262144 }
@@ -102,7 +113,7 @@ public static class InvoiceManualUnitReviewEvidence
                 || evidence.MakerWorkerId != source.ReviewPolicy.MakerWorkerId
                 || evidence.MakerReason != source.ManualReason
                 || evidence.ReviewedAt > at || evidence.ReviewedAt < source.OpenedAt
-                || evidence.ReviewerReason is not { Length: > 0 and <= 2000 }
+                || !CanonicalReason(evidence.ReviewerReason)
                 || evidence.Lines is null || evidence.Lines.Any(x => x is null)
                 || !evidence.Lines.SequenceEqual(source.ManualLines)
                 || evidence.AssignmentWorkers is not { Count: > 0 and <= 128 }
@@ -168,4 +179,7 @@ public static class InvoiceManualUnitReviewEvidence
             or ArgumentException or FormatException or KeyNotFoundException)
         { throw new InvalidOperationException("InvoiceManualUnitReviewInvalid", error); }
     }
+
+    private static bool CanonicalReason(string? reason) => reason is { Length: > 0 and <= 2000 }
+        && string.Join(" ", reason.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries)) == reason;
 }
