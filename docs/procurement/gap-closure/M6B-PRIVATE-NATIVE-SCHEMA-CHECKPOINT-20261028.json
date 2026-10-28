@@ -1,0 +1,78 @@
+{
+  "schemaVersion": 1,
+  "status": "PRIVATE_SCHEMA_CHECKPOINT_NOT_WORKFLOW_ACCEPTANCE",
+  "date": "2026-10-28",
+  "sourceBaseline": "294fd99d",
+  "productionChanged": false,
+  "production": {
+    "apiProduct": "6087",
+    "uiProduct": "47cac6a",
+    "unchangedByCheckpoint": true
+  },
+  "feature": {
+    "principalSourcesEnabledDefault": false,
+    "financePrerequisite": false,
+    "financePostingClaimed": false
+  },
+  "b1": {
+    "migrationId": "20261028184527_M6bPrincipalInvoiceReceivingBindings",
+    "guardedEfStatus": "PASS_M6B_GUARDED_OFFLINE_INFRA_EF_SQL_NO_DATABASE",
+    "guardedEfReceiptSha256": "6260a3ade70d752ba05bd9b7611f202a50ebb8fb05db169a51862bafab95aebf",
+    "guardedDownSha256": "3b040123cf1b494687a14856ccb124cdeec014ea531bf17ab22ea14e86fa02ca",
+    "nativeUpReceiptSha256": "9196aa0d314fcd5a25bed06d47d8ff98fa101746a4cd8991a94dd24223fa7e3f",
+    "nativeRoundtripReceiptSha256": "6e541d394aaa423b2b8c77be0c882c80fd61c967a67bde64a661defa4db50e62",
+    "tableCount": 223,
+    "oldBusinessRowFingerprintsPreserved": true,
+    "approvedM6ABaselineAllowsB1Down": true,
+    "veto": {
+      "sqlstate": "55000",
+      "syntheticAuditMarkerOnly": true,
+      "transactionRolledBack": true,
+      "allVetoFamiliesTested": false
+    },
+    "retainedControllerFailures": [
+      {
+        "run": "01",
+        "failure": "helper import failure",
+        "databaseCommandsExecuted": false
+      },
+      {
+        "run": "02",
+        "failure": "positional inventory comparison after committed Down",
+        "committedDownRetained": true
+      }
+    ],
+    "recovery": "run03 compared inventory by table name and completed Up plus rollback-only audit veto"
+  },
+  "b2": {
+    "migrationId": "20261028191905_M6bInvoiceIssuedParentBindings",
+    "genuineEfReceiptSha256": "0285191eb0c9a6e389150d04b3c3b7ccc8e1495c634113476a3fd0ac9c9aac3f",
+    "nativeUpReceiptSha256": "15548d77353a896c5691be721310d616ac1f0676ece8c1dfae903fa829182ec0",
+    "upSha256": "0603d52b917dd8e2b9321e4c272cd17428f1f711b6e959910874e61a8822849c",
+    "tableCount": 223,
+    "preexistingSchema3MappingCount": 0,
+    "oldBusinessRowFingerprintsPreserved": true,
+    "newColumns": 8,
+    "storedComputedColumns": 6,
+    "nullableSourceDiscriminators": 2,
+    "oldIssuedForeignKeysRemoved": 3,
+    "scopedDualIssuedForeignKeysAdded": 6,
+    "parentAlternateKeysAdded": 1,
+    "oldIndexesRemoved": 3,
+    "indexesAdded": 6,
+    "changedChecks": 2,
+    "nativeExpressionsAndChecksCaptured": true,
+    "rawDownExecuted": false,
+    "guardedDownNativeAccepted": false
+  },
+  "limits": {
+    "completeIntegratedSdkAccepted": false,
+    "integratedSdkStateAtCheckpoint": "RUNNING_NO_RESULT_CLAIM",
+    "newPrincipalMappingInsertNativeTested": false,
+    "principalCompareNativeTested": false,
+    "documentOrManualReviewJourneyAccepted": false,
+    "fullUatAccepted": false,
+    "productionActivationAuthorizedByCheckpoint": false,
+    "allOldCheckValidRowsUniversallyCompatible": false
+  }
+}
