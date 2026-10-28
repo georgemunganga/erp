@@ -74,6 +74,83 @@ public sealed class InvoiceManualUnitReviewEvidenceTests
             f.Hashes, f.Policy.Now.AddMinutes(1)));
     }
 
+    [Fact]
+    public void Public_manual_proof_rejects_rebound_maker_and_rehashed_blank_reasons()
+    {
+        var f = Manual();
+        var plan = Open(f);
+        var task = Assert.Single(plan.Case.Stages.Single().Assignments);
+        var decisions = new List<ApprovalDecision>();
+        Flow.ApplyNewDecision(plan, f.Invoice, [f.Line], f.Mapping, f.Issued,
+            f.Matching, f.Policy.Policy, Assert.Single(f.Policy.People), f.Hashes,
+            task.Id, new(Guid.NewGuid(), f.Invoice.Version, plan.Case.Version,
+                task.Version, "Approve", "I checked the entered unit",
+                f.Policy.Now.AddMinutes(1)), decisions);
+        var terminal = InvoiceUnitReviewTerminal.Seal(plan, f.Invoice, [f.Line],
+            f.Mapping, f.Issued, f.Matching, f.Policy.Policy, f.Hashes,
+            decisions, decisions.Single().Id, f.Policy.Now.AddMinutes(2));
+        var authority = new InvoiceRetainedUnitReviewAuthority(terminal.ReviewId,
+            terminal.SourceVersion, terminal.EvidenceJson, terminal.EvidenceSha256,
+            plan.Case, decisions, plan.AssignmentWorkers, f.Matching, f.Policy.Policy);
+        var consumer = new InvoiceUnitReviewConsumer(f.Invoice.TenantId,
+            f.Invoice.LegalEntityId, f.Invoice.BranchRef, Guid.NewGuid().ToString("D"), null,
+            new HashSet<string> { "procurement-access", "procurement-invoice-match" },
+            f.Policy.Now.AddMinutes(2), new Dictionary<Guid, string>(), f.Invoice.BranchRef,
+            new HashSet<Guid> { f.Policy.Branch }, false);
+        Assert.Equal("EACH", InvoiceManualUnitReviewEvidence.Verify(authority,
+            plan.Source, f.Invoice, [f.Line], f.Mapping, consumer)[f.Line.Id]);
+
+        var json = new JsonSerializerOptions(JsonSerializerDefaults.Web);
+        var envelope = JsonSerializer.Deserialize<InvoiceManualUnitReviewEnvelope>(terminal.EvidenceJson, json)!;
+        var otherMaker = Guid.NewGuid().ToString("D");
+        var reboundSource = plan.Source with { ReviewPolicy = plan.Source.ReviewPolicy with
+            { MakerPrincipalId = otherMaker } };
+        var reboundAuthority = Rehash(authority, envelope with { MakerPrincipalId = otherMaker }, json);
+        Assert.Throws<InvalidOperationException>(() => InvoiceManualUnitReviewEvidence.Verify(
+            reboundAuthority, reboundSource, f.Invoice, [f.Line], f.Mapping, consumer));
+
+        var otherWorker = Guid.NewGuid();
+        var reboundWorkerSource = plan.Source with { ReviewPolicy = plan.Source.ReviewPolicy with
+            { MakerWorkerId = otherWorker } };
+        var reboundWorkerAuthority = Rehash(authority, envelope with { MakerWorkerId = otherWorker }, json);
+        Assert.Throws<InvalidOperationException>(() => InvoiceManualUnitReviewEvidence.Verify(
+            reboundWorkerAuthority, reboundWorkerSource, f.Invoice, [f.Line], f.Mapping, consumer));
+
+        var blankSource = plan.Source with { ManualReason = "   " };
+        var blankAuthority = Rehash(authority, envelope with { MakerReason = "   " }, json);
+        Assert.Throws<InvalidOperationException>(() => InvoiceManualUnitReviewEvidence.Verify(
+            blankAuthority, blankSource, f.Invoice, [f.Line], f.Mapping, consumer));
+        var blankReviewerAuthority = Rehash(authority, envelope with { ReviewerReason = "   " }, json);
+        Assert.Throws<InvalidOperationException>(() => InvoiceManualUnitReviewEvidence.Verify(
+            blankReviewerAuthority, plan.Source, f.Invoice, [f.Line], f.Mapping, consumer));
+    }
+
+    [Fact]
+    public void Document_policy_source_bytes_remain_unchanged_when_manual_capability_is_absent()
+    {
+        var f = new InvoiceUnitReviewTransitionTests.Fixture();
+        var plan = f.Open();
+        Assert.Null(plan.Source.SourceSchemaVersion);
+        Assert.Null(plan.Source.ManualReason);
+        Assert.Null(plan.Source.ManualLines);
+        Assert.DoesNotContain("SourceSchemaVersion", plan.SourceJson, StringComparison.Ordinal);
+        Assert.DoesNotContain("ManualReason", plan.SourceJson, StringComparison.Ordinal);
+        Assert.DoesNotContain("ManualLines", plan.SourceJson, StringComparison.Ordinal);
+        Assert.Equal(JsonSerializer.Serialize(plan.Source), plan.SourceJson);
+        var stored = InvoiceUnitReviewStorage.Source(plan, f.Issued);
+        Assert.Equal(plan.SourceJson, stored.SourceJson);
+        Assert.Equal(plan.SourceSha256, stored.SourceSha256);
+        Assert.Equal(plan.SourceJson, JsonSerializer.Serialize(InvoiceUnitReviewStorage.Read(stored)));
+    }
+
+    private static InvoiceRetainedUnitReviewAuthority Rehash(
+        InvoiceRetainedUnitReviewAuthority authority, InvoiceManualUnitReviewEnvelope envelope,
+        JsonSerializerOptions options)
+    {
+        var text = JsonSerializer.Serialize(envelope, options);
+        return authority with { EvidenceJson = text, EvidenceSha256 = ProcurementEvidenceEncoding.Digest(text) };
+    }
+
     private static InvoiceUnitReviewTransitionTests.Fixture Manual()
     {
         var f = new InvoiceUnitReviewTransitionTests.Fixture();
