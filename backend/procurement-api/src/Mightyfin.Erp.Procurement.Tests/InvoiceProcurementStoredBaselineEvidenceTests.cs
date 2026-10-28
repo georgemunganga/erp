@@ -273,6 +273,8 @@ public sealed class InvoiceProcurementStoredBaselineEvidenceTests
         var projected = InvoiceProcurementAllocationCanonicalRow.Project(
             "invoice_match_allocations", changedSchemaJson);
         Assert.Equal(oldJson, projected);
+        Assert.NotEqual(ProcurementEvidenceEncoding.PolicyJsonDigest(oldJson),
+            ProcurementEvidenceEncoding.PolicyJsonDigest(changedSchemaJson));
         Assert.Equal(ProcurementEvidenceEncoding.PolicyJsonDigest(oldJson),
             ProcurementEvidenceEncoding.PolicyJsonDigest(projected));
 
@@ -322,6 +324,12 @@ public sealed class InvoiceProcurementStoredBaselineEvidenceTests
         Assert.Equal("{\"a\":1, \"z\":2}", InvoiceProcurementAllocationCanonicalRow.Project(
             "invoice_match_allocations",
             "{\"a\":1, \"principal_receiving_source_state_id\":null, \"principal_receiving_fact_id\":null, \"z\":2}"));
+        Assert.Equal(old, InvoiceProcurementAllocationCanonicalRow.Project(
+            "invoice_match_allocations",
+            "{\"principal_receiving_source_state_id\":null,\"principal_receiving_fact_id\":null,\"a\":1,\"note\":\"field, value\",\"z\":2}"));
+        Assert.Equal("{}", InvoiceProcurementAllocationCanonicalRow.Project(
+            "invoice_match_allocations",
+            "{\"principal_receiving_source_state_id\":null,\"principal_receiving_fact_id\":null}"));
         var source = Guid.NewGuid();
         var fact = Guid.NewGuid();
         var linked = $"{{\"a\":1,\"principal_receiving_source_state_id\":\"{source:D}\",\"principal_receiving_fact_id\":\"{fact:D}\"}}";
@@ -330,6 +338,9 @@ public sealed class InvoiceProcurementStoredBaselineEvidenceTests
         var half = $"{{\"a\":1,\"principal_receiving_source_state_id\":\"{source:D}\",\"principal_receiving_fact_id\":null}}";
         Assert.Throws<InvalidOperationException>(() =>
             InvoiceProcurementAllocationCanonicalRow.Project("invoice_match_allocations", half));
+        Assert.Throws<InvalidOperationException>(() =>
+            InvoiceProcurementAllocationCanonicalRow.Project("invoice_match_allocations",
+                "{\"a\":1,\"principal_receiving_source_state_id\":null}"));
         Assert.Equal(half, InvoiceProcurementAllocationCanonicalRow.Project("supplier_invoices", half));
     }
 
