@@ -56,8 +56,16 @@ public sealed class PrincipalInvoiceAllocationSourceEvidenceTests
             f.Input with { Allocation = Claim(f.Input.Allocation, fact: Guid.NewGuid()) }, []));
     }
 
+    [Fact]
+    public void Principal_claim_rejects_a_result_pinned_to_the_legacy_issued_parent()
+    {
+        var f = Fixture(resultSchema: null);
+        Assert.Throws<InvalidOperationException>(() =>
+            PrincipalInvoiceAllocationSourceEvidence.Verify(f.Input, [f.History]));
+    }
+
     private static (PrincipalInvoiceAllocationSourceInput Input,
-        PrincipalInvoiceAcceptedHistory History) Fixture(bool physical = true)
+        PrincipalInvoiceAcceptedHistory History) Fixture(bool physical = true, int? resultSchema = 3)
     {
         var invoice = new SupplierInvoice
         {
@@ -97,7 +105,7 @@ public sealed class PrincipalInvoiceAllocationSourceEvidenceTests
             TenantId = invoice.TenantId, LegalEntityId = invoice.LegalEntityId,
             SupplierInvoiceId = invoice.Id, MappingVersionId = mapping.Id,
             PurchaseOrderId = order, IssuedVersionId = issued,
-            Outcome = "Compared", ExecutionVersion = 2,
+            Outcome = "Compared", ExecutionVersion = 2, SourceSchemaVersion = resultSchema,
             InvoiceOriginalSha256 = mapping.InvoiceOriginalSha256
         };
         invoice.CurrentMappingVersionId = mapping.Id;
@@ -184,7 +192,7 @@ public sealed class PrincipalInvoiceAllocationSourceEvidenceTests
             SupplierInvoiceId = invoice.Id, MappingVersionId = mapping.Id,
             PurchaseOrderId = accepted.PurchaseOrderId,
             IssuedVersionId = accepted.IssuedVersionId,
-            Outcome = "Compared", ExecutionVersion = 2,
+            Outcome = "Compared", ExecutionVersion = 2, SourceSchemaVersion = 3,
             InvoiceOriginalSha256 = mapping.InvoiceOriginalSha256
         };
         invoice.CurrentMappingVersionId = mapping.Id;
