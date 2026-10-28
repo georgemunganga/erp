@@ -22,8 +22,8 @@ public static partial class ProcurementPolicyDraftRoutes
         ProcurementRequestScope scope, CancellationToken ct)
     {
         http.Response.Headers.CacheControl = "no-store";
-        if (kind is not ("people" or "sites" or "categories"))
-            return Problem("receiving-lookup-invalid", "Choose people, locations or buying categories.", 422);
+        if (kind is not ("people" or "principals" or "sites" or "categories"))
+            return Problem("receiving-lookup-invalid", "Choose people, Core accounts, locations or buying categories.", 422);
         try
         {
             if (!await ReceivingConfigurationActor(core, scope, "procurement-configuration-read", ct))
@@ -41,6 +41,34 @@ public static partial class ProcurementPolicyDraftRoutes
                     || values.Distinct(StringComparer.Ordinal).Count() != values.Length)
                     return Problem("receiving-lookup-invalid", "Choose up to 25 distinct saved selections without a name search or another page.", 422);
                 selected = values.Select(Guid.Parse).ToArray();
+            }
+            if (kind == "principals")
+            {
+                // Schema 2 names Core accounts. HR worker links are optional, and a
+                // directory row never grants a receiving action.
+                var query = ProcurementPrincipalPeople.Candidates(core, scope, DateTimeOffset.UtcNow)
+                    .Where(x => text == "" || x.DisplayName.ToLower().Contains(text));
+                if (selected is not null) query = query.Where(x => selected.Contains(x.Id));
+                var candidates = await query.OrderBy(x => x.DisplayName).ThenBy(x => x.Id)
+                    .Select(x => new { x.Id, x.DisplayName }).Take(501).ToArrayAsync(ct);
+                if (candidates.Length > 500)
+                    return Problem("receiving-lookup-too-broad", "Narrow the account search before selecting a person.", 422);
+                var eligible = new List<ReceivingLookupRow>();
+                foreach (var candidate in candidates)
+                {
+                    var person = await ProcurementPrincipalPeople.Resolve(core, scope.TenantId,
+                        scope.LegalEntityId, candidate.Id.ToString("D"), ct);
+                    if (person is not null && (scope.WorkLocationId is not { } branch
+                            || person.OrganisationWide || person.AllowedBranches.Contains(branch)))
+                        eligible.Add(new ReceivingLookupRow { Id = candidate.Id, PrincipalId = candidate.Id,
+                            DisplayName = candidate.DisplayName });
+                }
+                var items = eligible.Skip(skip).Take(take).ToArray();
+                return Results.Ok(new { kind, companyId = scope.LegalEntityId, items, total = eligible.Count,
+                    offset = skip, limit = take,
+                    nextOffset = items.Length > 0 && skip + items.Length < eligible.Count && skip + items.Length <= 100000
+                        ? (int?)(skip + items.Length) : null,
+                    isAuthority = false, canAcceptDelivery = false });
             }
             var query = ReceivingPolicyLookupQuery(kind, core, db, scope, DateTimeOffset.UtcNow);
             if (selected is not null) query = query.Where(x => selected.Contains(x.Id));
