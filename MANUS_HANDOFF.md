@@ -1,6 +1,6 @@
 # M5 technical release and current prerequisites — 28 October 2026
 
-Published ERP main: `e03ac9735379b35f789d9e900fe849d7ab02f1f1` (through PR128).
+Published ERP main: `7a19b7b595806b7fc7181d41908182b094c0bb9f` (through PR131).
 Published Procurement UI main: `47cac6a13a24e9db113383f8a9cf5b319494d526`
 (PR92, `georgemunganga/module-connect`). Use current main descendants.
 These include M5b receiving and M5c company-local service-date source fixes.
@@ -12,12 +12,15 @@ all cohort sessions are revoked, temporary role rows restored and private
 API/proxy services stopped. See [M5d scope and evidence](docs/procurement/gap-closure/M5D-GOODS-RETURN-PROPOSALS-20261028.md).
 Do not duplicate M5b/M5c/M5d or resume held P37 migrations.
 
-Production M5 technical rollout is complete: product `414ca94f`, UI `47cac6a1`,
+Production M5 technical rollout and observed restore-readiness fix are complete:
+product `6087f211`, UI `47cac6a1`,
 220 tables, independently preserved original203 rows/sequences, finite grants,
 read-only canary, public route/asset checks and three Playwright renders passed.
 Existing business flags are preserved; new return writes remain off. See the
 [release record](docs/procurement/gap-closure/M5-PRODUCTION-TECHNICAL-RELEASE-20261028.md).
-Authenticated production CRUD is not claimed.
+The [API-only recovery fix](docs/procurement/gap-closure/M5-RESTORE-READINESS-PRODUCTION-20261028.md)
+preserves schema, settings, permissions, publisher and UI. Authenticated
+production CRUD is not claimed.
 Whole-module UAT is open: actual return approval/dispatch/reversal, qualified
 invoice source/consumption ownership, the original Service UI journey and broader
 scope/concurrency tests remain. A private normal-cookie Service API journey now
