@@ -41,6 +41,7 @@ public sealed partial class ProcurementDbContext
             || exposure.LegalEntityId != scope.LegalEntityId
             || exposure.PurchaseOrderId != context.PurchaseOrderId
             || exposure.IssuedVersionId != context.IssuedVersionId
+            || exposure.SourceSchemaVersion != 3
             || exposure.SupplierId != context.SupplierId
             || exposure.CurrencyCode != context.CurrencyCode || exposure.Sequence < 0)
             throw new InvalidOperationException("InvoiceOwnerLeaseTransactionRequired");
@@ -97,6 +98,7 @@ public sealed partial class ProcurementDbContext
                 || persistedExposure.LegalEntityId != exposure.LegalEntityId
                 || persistedExposure.PurchaseOrderId != exposure.PurchaseOrderId
                 || persistedExposure.IssuedVersionId != exposure.IssuedVersionId
+                || persistedExposure.SourceSchemaVersion != exposure.SourceSchemaVersion
                 || persistedExposure.SupplierId != exposure.SupplierId
                 || persistedExposure.CurrencyCode != exposure.CurrencyCode)
             throw new InvalidOperationException("InvoiceOwnerCurrentExposureChanged");

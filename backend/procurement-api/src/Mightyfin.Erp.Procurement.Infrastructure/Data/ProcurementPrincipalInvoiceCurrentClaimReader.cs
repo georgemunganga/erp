@@ -94,6 +94,7 @@ public sealed partial class ProcurementDbContext
             var retained = allocations.Where(x => x.ExposureStateId == exposure.Id).ToArray();
             var sequences = retained.Select(x => x.ExposureSequence).Distinct().Order().ToArray();
             if (exposure.IssuedVersionId != issuedVersionId
+                || exposure.SourceSchemaVersion != 3
                 || exposure.SupplierId != supplierId || exposure.CurrencyCode != currencyCode
                 || retained.Any(x => x.PurchaseOrderId != purchaseOrderId
                     || x.IssuedVersionId != issuedVersionId)
@@ -117,12 +118,14 @@ public sealed partial class ProcurementDbContext
                 || line.SupplierInvoiceId != invoice.Id
                 || exposure.PurchaseOrderId != purchaseOrderId
                 || exposure.IssuedVersionId != issuedVersionId
+                || exposure.SourceSchemaVersion != 3
                 || exposure.SupplierId != supplierId || exposure.CurrencyCode != currencyCode)
                 throw new InvalidOperationException("PrincipalInvoiceCurrentClaimUnclassifiable");
             if (invoice.ActiveMatchClaimResultId != result.Id) continue;
             if (allocation.SupplierId != supplierId || allocation.CurrencyCode != currencyCode
                 || invoice.SupplierId != supplierId || invoice.CurrencyCode != currencyCode
                 || mapping.SourceSchemaVersion != 3 || mapping.IdentitySchemaVersion != 2
+                || result.SourceSchemaVersion != 3
                 || allocation.Kind != "Debit" || allocation.OriginalDebitId is not null)
                 throw new InvalidOperationException("PrincipalInvoiceTargetClaimRequiresReconciliation");
             if (!orderLineById.TryGetValue(allocation.PurchaseOrderLineId, out var issuedLine)

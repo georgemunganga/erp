@@ -77,6 +77,7 @@ public static class PrincipalInvoiceAllocationSourceEvidence
             || result.PurchaseOrderId != claim.PurchaseOrderId
             || result.IssuedVersionId != claim.IssuedVersionId
             || result.Outcome != "Compared" || result.ExecutionVersion != 2
+            || result.SourceSchemaVersion != 3
             || mapping.SourceSchemaVersion != 3 || mapping.IdentitySchemaVersion != 2
             || claim.Kind != "Debit" || claim.OriginalDebitId is not null
             || claim.Quantity <= 0 || claim.NetAmount < 0 || claim.TaxAmount < 0
