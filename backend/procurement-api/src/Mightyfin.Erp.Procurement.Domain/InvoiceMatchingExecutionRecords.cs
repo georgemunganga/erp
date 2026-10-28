@@ -58,6 +58,8 @@ public sealed class InvoiceMatchExposureState : ProcurementRecord
 {
     public Guid PurchaseOrderId { get; init; }
     public Guid IssuedVersionId { get; init; }
+    /// <summary>Null for retained legacy exposure; 3 selects the principal issued order.</summary>
+    public int? SourceSchemaVersion { get; init; }
     public Guid SupplierId { get; init; }
     public string CurrencyCode { get; init; } = null!;
     public long Sequence { get; set; }

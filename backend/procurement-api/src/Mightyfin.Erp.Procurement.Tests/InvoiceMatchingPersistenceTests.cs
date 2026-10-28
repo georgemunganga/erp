@@ -14,6 +14,38 @@ public sealed class InvoiceMatchingPersistenceTests
     private static ProcurementDbContext Context() => new(new DbContextOptionsBuilder<ProcurementDbContext>().UseInMemoryDatabase(Guid.NewGuid().ToString()).Options,
         new Scope("invoice-test", Guid.NewGuid(), "matcher"));
     [Fact]
+    public void Three_matching_records_bind_exactly_one_issued_parent_without_replacing_effective_id()
+    {
+        using var db = Context();
+        var legacy = db.Model.FindEntityType(typeof(PurchaseOrderIssuedVersion))!;
+        var principal = db.Model.FindEntityType(typeof(PrincipalOrderIssuedVersion))!;
+        Assert.Contains(principal.GetKeys(), key => key.Properties.Select(x => x.Name).SequenceEqual(
+            new[] { "TenantId", "LegalEntityId", "Id", "PurchaseOrderId" }));
+        foreach (var type in new[] { typeof(InvoiceMatchMappingVersion), typeof(InvoiceMatchExposureState), typeof(InvoiceMatchResult) })
+        {
+            var row = db.Model.FindEntityType(type)!;
+            Assert.Equal(typeof(int?), row.FindProperty("SourceSchemaVersion")!.ClrType);
+            foreach (var (parent, reference) in new[] {
+                (legacy, "LegacyIssuedVersionRefId"), (principal, "PrincipalIssuedVersionRefId") })
+            {
+                Assert.Contains(row.GetForeignKeys(), fk => fk.PrincipalEntityType == parent
+                    && fk.Properties.Select(x => x.Name).SequenceEqual(
+                        new[] { "TenantId", "LegalEntityId", reference, "PurchaseOrderId" }));
+                var property = row.FindProperty(reference)!;
+                Assert.True(property.IsShadowProperty());
+                Assert.Equal(ValueGenerated.OnAddOrUpdate, property.ValueGenerated);
+                Assert.Contains(reference == "LegacyIssuedVersionRefId" ? "source_schema_version IS NULL" : "source_schema_version = 3",
+                    property.GetComputedColumnSql()!);
+            }
+            Assert.DoesNotContain(row.GetForeignKeys(), fk => fk.PrincipalEntityType == legacy
+                && fk.Properties.Any(x => x.Name == "IssuedVersionId"));
+        }
+        var model = db.GetService<IDesignTimeModel>().Model;
+        var result = model.FindEntityType(typeof(InvoiceMatchResult))!;
+        var check = result.GetCheckConstraints().Single(x => x.Name == "ck_invoice_match_execution").Sql;
+        Assert.Contains("source_schema_version=3 AND execution_version=2", check);
+    }
+    [Fact]
     public void Claims_bind_exact_invoice_line_result_exposure_issued_line_and_receiving_source_state()
     {
         using var db = Context(); var allocation = db.Model.FindEntityType(typeof(InvoiceMatchAllocation))!;

@@ -345,6 +345,8 @@ public sealed class InvoiceMatchResult : ProcurementRecord
     public Guid? MappingVersionId { get; init; }
     public Guid? PurchaseOrderId { get; init; }
     public Guid? IssuedVersionId { get; init; }
+    /// <summary>Null for retained legacy results; 3 selects the principal issued order.</summary>
+    public int? SourceSchemaVersion { get; init; }
     public long InvoiceVersion { get; init; }
     public string? InvoiceOriginalSha256 { get; init; }
     public string? ActorPrincipalId { get; init; }
