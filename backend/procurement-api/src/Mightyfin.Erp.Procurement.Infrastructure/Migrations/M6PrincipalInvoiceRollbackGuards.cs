@@ -1,7 +1,7 @@
 namespace Mightyfin.Erp.Procurement.Infrastructure.Migrations;
 
-/// <summary>First-Down veto for the pending genuine M6 migration. This source
-/// is not wired into a migration until EF scaffolding and native review.</summary>
+/// <summary>First-Down veto for the genuine M6 migration. Retained owner and
+/// source evidence prevents destructive rollback before any table is dropped.</summary>
 internal static class M6PrincipalInvoiceRollbackGuards
 {
     internal const string BeforeDownSql = """
