@@ -40,9 +40,10 @@ public static class InvoiceMatchExecutionEvidence
                     .Order(StringComparer.Ordinal).ToArray();
                 if(!fields.SequenceEqual(new[]{"allocationsSha256","baselineId","baselineSetSha256",
                     "branchId","catalogManifestSha256","coreCaseId","currencyCode",
-                    "currentSetSha256","historicalClaimsSha256","issuedVersionId",
-                    "legalEntityId","ownerReference","policyRulesSha256","purchaseOrderId",
-                    "schemaVersion","supplierId","tenantId","validUntil","watermark"}))return false;
+                    "currentSetSha256","exposureSequence","historicalClaimsSha256","issuedVersionId",
+                    "legalEntityId","localClaimsSha256","ownerReference","policyRulesSha256",
+                    "purchaseOrderId","schemaVersion","supplierId","tenantId",
+                    "unionClaimsSha256","validUntil","watermark"}))return false;
                 var current=JsonSerializer.Deserialize<InvoiceProcurementOwnerExposureEnvelope>(owner.EvidenceJson,Json);
                 static bool Sha(string? value)=>value is {Length:64}
                     && value.All(x=>x is >= '0' and <= '9' or >= 'a' and <= 'f');
@@ -57,7 +58,10 @@ public static class InvoiceMatchExecutionEvidence
                     && current.BaselineId!=Guid.Empty && current.CoreCaseId!=Guid.Empty
                     && current.BaselineId!=current.CoreCaseId
                     && Sha(current.CatalogManifestSha256) && Sha(current.BaselineSetSha256)
-                    && Sha(current.CurrentSetSha256) && Sha(current.HistoricalClaimsSha256);
+                    && Sha(current.CurrentSetSha256)
+                    && current.HistoricalClaimsSha256==AllocationsDigest(owner.Allocations)
+                    && Sha(current.LocalClaimsSha256) && Sha(current.UnionClaimsSha256)
+                    && current.ExposureSequence>=0;
             }
             var evidence = JsonSerializer.Deserialize<InvoiceOwnerExposureEnvelope>(owner.EvidenceJson, Json);
             return evidence is not null && evidence.SchemaVersion == 1 && evidence.TenantId == context.TenantId
@@ -97,6 +101,19 @@ public static class InvoiceMatchExecutionEvidence
         // This slice has no reconciled owner/local deduplication protocol. Ambiguous overlap blocks capacity.
         Need(all.Select(x => x.Id).Distinct().Count() == all.Length
             && all.Select(x => (x.InvoiceId, x.InvoiceLineId)).Distinct().Count() == all.Length, "InvoiceExposureOverlapRequiresReconciliation");
+        if(owner.EvidenceJson is { } ownerJson)
+        {
+            using var ownerDocument=JsonDocument.Parse(ownerJson);
+            if(ownerDocument.RootElement.TryGetProperty("schemaVersion",out var schema)
+                && schema.GetInt32()==2)
+            {
+                var checkpoint=JsonSerializer.Deserialize<InvoiceProcurementOwnerExposureEnvelope>(ownerJson,Json);
+                Need(checkpoint is not null && checkpoint.ExposureSequence==exposure.Sequence
+                    && checkpoint.LocalClaimsSha256==AllocationsDigest(local)
+                    && checkpoint.UnionClaimsSha256==AllocationsDigest(all),
+                    "InvoiceOwnerPartitionChanged");
+            }
+        }
         var watermark = ProcurementEvidenceEncoding.PolicyJsonDigest(JsonSerializer.Serialize(new
         { schemaVersion = 1, owner.OwnerReference, owner.Watermark, exposure.Id, exposure.Sequence, allocationsSha256 = AllocationsDigest(all) }, Json));
         return new(watermark, true, all);

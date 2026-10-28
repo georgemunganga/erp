@@ -69,13 +69,23 @@ public sealed class InvoiceMatchExecutionEvidenceTests
             old.BranchId,old.PurchaseOrderId,old.IssuedVersionId,old.SupplierId,
             old.CurrencyCode,old.PolicyRulesSha256,old.OwnerReference,old.Watermark,
             old.ValidUntil,old.AllocationsSha256,Guid.NewGuid(),Guid.NewGuid(),
-            new string('a',64),new string('b',64),new string('c',64),new string('d',64));
+            new string('a',64),new string('b',64),new string('c',64),
+            InvoiceMatchExecutionEvidence.AllocationsDigest(f.Owner.Allocations),
+            InvoiceMatchExecutionEvidence.AllocationsDigest([]),
+            InvoiceMatchExecutionEvidence.AllocationsDigest([]),f.Exposure.Sequence);
         var json=Serialize(current);
         var owner=f.Owner with{EvidenceJson=json,EvidenceSha256=Digest(json)};
         Assert.True(InvoiceMatchExecutionEvidence.OwnerCovers(owner,f.OwnerContext));
+        Assert.True(InvoiceMatchExecutionEvidence.CompleteHistory(owner,f.OwnerContext,f.Exposure,[]).Complete);
+        var wrongPartition=Serialize(current with{LocalClaimsSha256=new string('e',64)});
+        var otherwiseBound=owner with{EvidenceJson=wrongPartition,EvidenceSha256=Digest(wrongPartition)};
+        Assert.True(InvoiceMatchExecutionEvidence.OwnerCovers(otherwiseBound,f.OwnerContext));
+        Assert.Throws<InvalidOperationException>(()=>InvoiceMatchExecutionEvidence.CompleteHistory(
+            otherwiseBound,f.OwnerContext,f.Exposure,[]));
         foreach(var malformed in new[]{
             Serialize(current with{CoreCaseId=Guid.Empty}),
             Serialize(current with{CurrentSetSha256=""}),
+            Serialize(current with{HistoricalClaimsSha256=new string('e',64)}),
             json[..^1]+",\"unknown\":1}",
             json[..^1]+",\"baselineId\":\""+current.BaselineId+"\"}"
         })

@@ -44,7 +44,8 @@ public sealed record InvoiceProcurementOwnerExposureEnvelope(int SchemaVersion, 
     Guid SupplierId, string CurrencyCode, string PolicyRulesSha256, string OwnerReference,
     string Watermark, DateTimeOffset ValidUntil, string AllocationsSha256,
     Guid BaselineId, Guid CoreCaseId, string CatalogManifestSha256,
-    string BaselineSetSha256, string CurrentSetSha256, string HistoricalClaimsSha256);
+    string BaselineSetSha256, string CurrentSetSha256, string HistoricalClaimsSha256,
+    string LocalClaimsSha256, string UnionClaimsSha256, long ExposureSequence);
 public sealed record InvoiceActiveLocalClaim(InvoiceMatchAllocation Allocation, SupplierInvoice Invoice);
 public sealed record InvoiceExposureReadContext(string TenantId, Guid LegalEntityId, Guid? BranchId,
     Guid PurchaseOrderId, Guid IssuedVersionId, Guid SupplierId, string CurrencyCode,
