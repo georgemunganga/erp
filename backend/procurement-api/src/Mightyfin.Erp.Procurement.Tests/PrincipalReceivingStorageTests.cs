@@ -81,7 +81,12 @@ public sealed partial class PrincipalReceivingPersistenceModelTests
     [Fact]
     public void Cursor_revision_and_balances_are_never_EF_keys_and_owned_names_are_bounded()
     {
-        using var db=Context();var model=db.GetService<IDesignTimeModel>().Model;
+        // PostgreSQL applies the actual 63-character identifier convention.
+        // InMemory has different naming limits; no connection is opened here.
+        using var db=new ProcurementDbContext(new DbContextOptionsBuilder<ProcurementDbContext>()
+            .UseNpgsql("Host=127.0.0.1;Database=model_not_opened;Username=model_only").Options,
+            new Scope("test",Guid.NewGuid(),Guid.NewGuid().ToString("D")));
+        var model=db.GetService<IDesignTimeModel>().Model;
         foreach(var type in new[]{typeof(PrincipalReceivingDraftLineBinding),typeof(PrincipalReceivingSourceState),typeof(PrincipalReceivingFact),typeof(PrincipalReceivingDraftHead),typeof(PrincipalReceivingDraftRevision),typeof(PrincipalReceivingCommandReceipt)})
         {
             var entity=model.FindEntityType(type)!;Assert.Equal(ValueGenerated.Never,entity.FindProperty("Id")!.ValueGenerated);

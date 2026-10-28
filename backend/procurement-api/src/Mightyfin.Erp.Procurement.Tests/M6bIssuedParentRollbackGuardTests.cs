@@ -17,8 +17,8 @@ public sealed class M6bIssuedParentRollbackGuardTests
         Assert.Contains("procurement.invoice_match_mapping_versions", sql);
         Assert.Contains("procurement.invoice_match_allocations", sql);
         Assert.Contains("WHERE source_schema_version=3", sql);
-        Assert.Contains("FROM procurement.invoice_match_exposure_states\n                     WHERE source_schema_version=3", sql);
-        Assert.Contains("FROM procurement.invoice_match_results\n                       WHERE source_schema_version=3", sql);
+        Assert.Matches(@"FROM procurement\.invoice_match_exposure_states\s+WHERE source_schema_version=3", sql);
+        Assert.Matches(@"FROM procurement\.invoice_match_results\s+WHERE source_schema_version=3", sql);
         Assert.Contains("ERRCODE='55000'", sql);
         Assert.DoesNotContain("EXISTS (SELECT 1 FROM procurement.invoice_owner_baselines)", sql);
     }
