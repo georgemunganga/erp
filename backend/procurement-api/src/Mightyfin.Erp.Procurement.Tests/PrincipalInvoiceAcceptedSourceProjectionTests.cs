@@ -19,7 +19,7 @@ public sealed partial class PrincipalControlledReceivingTests
         var acceptance=PrincipalControlledReceiving.CertifyService(Empty(source,policy),policy,
             Actor(Inspector),draftId,Guid.NewGuid(),0,1m,"Completed service",
             new DateOnly(2026,10,23),new DateOnly(2026,10,23),"REC:service",At,BusinessDate(source));
-        var state=State(source,1,acceptance.Quantity,acceptance.NetAmount);
+        var state=InvoiceState(source,1,acceptance.Quantity,acceptance.NetAmount);
         var bindingId=Guid.NewGuid();
         var payload=PrincipalReceivingStorageCodec.Encode(acceptance);
         var row=new PrincipalReceivingFact
@@ -54,6 +54,17 @@ public sealed partial class PrincipalControlledReceivingTests
             ResponseStatus=200,ResultRevision=1
         };
         return new(source,policy,state,row,binding,receipt);
+    }
+
+    private static PrincipalReceivingSourceState InvoiceState(PrincipalReceivingSource source,long sequence,decimal quantity,decimal net)
+    {
+        var json=PrincipalReceivingStorageCodec.Encode(source);var pin=source.Commercial;
+        return new(){TenantId=pin.TenantId,LegalEntityId=pin.LegalEntityId,BranchId=pin.BranchId!.Value,
+            PurchaseOrderId=pin.PurchaseOrderId,PurchaseOrderLineId=pin.PurchaseOrderLineId,PurchaseRequestLineId=pin.PurchaseRequestLineId,
+            IssuedVersionId=pin.IssuedVersionId,SubmissionId=source.SubmissionId,FundingEvidenceId=source.FundingEvidenceId,
+            AcknowledgmentId=source.SupplierAcknowledgmentId,SourceBindingId=source.SourceBindingId,OriginalSourceSha256=source.OriginalDirectSourceSha256,
+            IssuedSnapshotSha256=pin.IssuedSnapshotSha256,CategoryCode=pin.CategoryCode,PurchaseType=pin.PurchaseType,Kind=pin.Kind.ToString(),CurrencyCode=pin.CurrencyCode,SourceJson=json,SourceSha256=ProcurementEvidenceEncoding.Digest(json),
+            Sequence=sequence,AcceptedQuantity=quantity,AcceptedNetAmount=net};
     }
 
     [Fact]
