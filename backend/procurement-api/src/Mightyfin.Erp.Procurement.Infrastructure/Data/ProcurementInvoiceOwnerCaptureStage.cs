@@ -51,7 +51,8 @@ public sealed partial class ProcurementDbContext
             InventoryRowCount=summary.RowCount,CoreCaseId=pendingCoreCase.Id,
             MakerPrincipalId=scope.SubjectId,MakerWorkerAliasId=scope.CoreLinkedWorkerId,
             InitialActiveClaimsSha256=InvoiceMatchExecutionEvidence.AllocationsDigest([]),
-            InitialExposureSequence=0,CreatedAt=capturedAt,CreatedBy=scope.SubjectId
+            InitialExposureSetSha256=InvoiceProcurementInitialExposureEvidence.Digest(capture),
+            CreatedAt=capturedAt,CreatedBy=scope.SubjectId
         };
         var rows=capture.Tables.SelectMany(table=>table.Rows.Select(source=>
         {

@@ -67,7 +67,7 @@ public static class InvoiceProcurementBaselineEvidence
             || baseline.InventorySetSha256 != summary.CompleteSetSha256
             || baseline.InitialActiveClaimsSha256 is not {Length:64}
             || !baseline.InitialActiveClaimsSha256.All(c=>c is >= '0' and <= '9' or >= 'a' and <= 'f')
-            || baseline.InitialExposureSequence < 0
+            || baseline.InitialExposureSetSha256 != InvoiceProcurementInitialExposureEvidence.Digest(capture)
             || rows.Count != summary.RowCount
             || rows.Select(x=>(x.TableName,x.SourceRowId)).Distinct().Count()!=rows.Count)
             throw new InvalidOperationException("InvoiceOwnerBaselineCaptureChanged");
@@ -180,8 +180,15 @@ public static class InvoiceProcurementBaselineEvidence
         ArgumentNullException.ThrowIfNull(rows);
         if(purchaseOrderId==Guid.Empty || rows.Count!=baseline.InventoryRowCount
             || rows.Any(x=>x.BaselineId!=baseline.Id || x.TenantId!=baseline.TenantId
-                || x.LegalEntityId!=baseline.LegalEntityId))
+                || x.LegalEntityId!=baseline.LegalEntityId
+                || !InvoiceProcurementOwnerTables.Names.Contains(x.TableName,StringComparer.Ordinal))
+            || rows.Select(x=>(x.TableName,x.SourceRowId)).Distinct().Count()!=rows.Count)
             throw new InvalidOperationException("InvoiceOwnerHistoricalRowsUnclassified");
+        var knownInvoices=rows.Where(x=>x.TableName=="supplier_invoices")
+            .Select(x=>x.SourceRowId).ToHashSet();
+        if(rows.Any(x=>x.SupplierInvoiceId is { } invoiceId
+            && !knownInvoices.Contains(invoiceId)))
+            throw new InvalidOperationException("InvoiceOwnerOrphanHistoricalRow");
         var linkedInvoices=rows.Where(x=>x.PurchaseOrderId==purchaseOrderId
             && x.SupplierInvoiceId is not null).Select(x=>x.SupplierInvoiceId!.Value).ToHashSet();
         if(rows.Any(x=>x.InitialClassification=="BlockedAmbiguity"

@@ -11,7 +11,7 @@ public sealed class InvoiceProcurementOwnerBaseline : ProcurementRecord
     public string CatalogManifestSha256 { get; init; } = "";
     public string InventorySetSha256 { get; init; } = "";
     public string InitialActiveClaimsSha256 { get; init; } = "";
-    public long InitialExposureSequence { get; init; }
+    public string InitialExposureSetSha256 { get; init; } = "";
     public int InventoryRowCount { get; init; }
     public Guid CoreCaseId { get; init; }
     public string MakerPrincipalId { get; init; } = "";

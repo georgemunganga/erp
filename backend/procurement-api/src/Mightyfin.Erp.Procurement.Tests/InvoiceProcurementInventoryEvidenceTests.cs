@@ -74,6 +74,18 @@ public sealed class InvoiceProcurementInventoryEvidenceTests
             ProcurementEvidenceEncoding.PolicyJsonDigest(attachment),attachment)]};
         Assert.Equal("BlockedAmbiguity",InvoiceProcurementHistoricalClassification.Classify(
             capture with{Tables=tables}).Single(x=>x.TableName=="supplier_invoices").Classification);
+        var orphanId=Guid.NewGuid();
+        var orphan=JsonSerializer.Serialize(new{id=Guid.NewGuid(),version=1,
+            tenant_id=original.TenantId,legal_entity_id=original.LegalEntityId,
+            supplier_invoice_id=orphanId});
+        using var orphanDoc=JsonDocument.Parse(orphan);
+        var lineId=orphanDoc.RootElement.GetProperty("id").GetGuid();
+        tables=capture.Tables.ToArray();
+        var lineIndex=Array.FindIndex(tables,x=>x.TableName=="supplier_invoice_lines");
+        tables[lineIndex]=tables[lineIndex] with{Rows=[new(lineId,1,
+            ProcurementEvidenceEncoding.PolicyJsonDigest(orphan),orphan)]};
+        Assert.Throws<InvalidOperationException>(()=>InvoiceProcurementHistoricalClassification.Classify(
+            capture with{Tables=tables}));
     }
 
     [Fact]
@@ -92,7 +104,8 @@ public sealed class InvoiceProcurementInventoryEvidenceTests
             CatalogManifestJson=JsonSerializer.Serialize(new{schemaVersion=1,tableNames=InvoiceProcurementOwnerTables.Names},
                 new JsonSerializerOptions(JsonSerializerDefaults.Web)),
             CatalogManifestSha256=summary.ManifestSha256,InventorySetSha256=summary.CompleteSetSha256,
-            InventoryRowCount=summary.RowCount,InitialActiveClaimsSha256=new string('a',64)
+            InventoryRowCount=summary.RowCount,InitialActiveClaimsSha256=new string('a',64),
+            InitialExposureSetSha256=InvoiceProcurementInitialExposureEvidence.Digest(capture)
         };
         var invoice=Assert.Single(capture.Tables.Last().Rows);
         var mutable=JsonNode.Parse(invoice.RowJson)!.AsObject();

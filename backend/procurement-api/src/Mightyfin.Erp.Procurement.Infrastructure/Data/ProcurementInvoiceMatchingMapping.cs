@@ -28,14 +28,14 @@ public sealed partial class ProcurementDbContext
         ownerBaseline.Property(x=>x.CapturedThroughMigration).HasMaxLength(150);
         ownerBaseline.Property(x=>x.CatalogManifestJson).HasColumnType("text");
         ownerBaseline.Property(x=>x.MakerPrincipalId).HasMaxLength(200);
-        foreach(var name in new[]{nameof(InvoiceProcurementOwnerBaseline.CatalogManifestSha256),nameof(InvoiceProcurementOwnerBaseline.InventorySetSha256),nameof(InvoiceProcurementOwnerBaseline.InitialActiveClaimsSha256)})
+        foreach(var name in new[]{nameof(InvoiceProcurementOwnerBaseline.CatalogManifestSha256),nameof(InvoiceProcurementOwnerBaseline.InventorySetSha256),nameof(InvoiceProcurementOwnerBaseline.InitialActiveClaimsSha256),nameof(InvoiceProcurementOwnerBaseline.InitialExposureSetSha256)})
             ownerBaseline.Property(name).HasMaxLength(64);
         // Retain rejected/stale captures. The qualified owner must choose one
         // approved current capture under the serializable exposure lock.
         ownerBaseline.HasIndex(x=>new{x.TenantId,x.LegalEntityId,x.CapturedAtUtc});
         ownerBaseline.HasIndex(x=>new{x.TenantId,x.LegalEntityId,x.CoreCaseId}).IsUnique().HasDatabaseName("ux_invoice_owner_baseline_case");
         ownerBaseline.ToTable(t=>t.HasCheckConstraint("ck_invoice_owner_baseline",
-            "schema_version=2 AND initial_exposure_sequence>=0 AND inventory_row_count>=0 AND core_case_id <> '00000000-0000-0000-0000-000000000000'::uuid AND catalog_manifest_sha256 ~ '^[0-9a-f]{64}$' AND inventory_set_sha256 ~ '^[0-9a-f]{64}$' AND initial_active_claims_sha256 ~ '^[0-9a-f]{64}$' AND octet_length(catalog_manifest_json) BETWEEN 1 AND 262144 AND maker_principal_id ~ '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$' AND isfinite(captured_at_utc)"));
+            "schema_version=2 AND inventory_row_count>=0 AND core_case_id <> '00000000-0000-0000-0000-000000000000'::uuid AND catalog_manifest_sha256 ~ '^[0-9a-f]{64}$' AND inventory_set_sha256 ~ '^[0-9a-f]{64}$' AND initial_active_claims_sha256 ~ '^[0-9a-f]{64}$' AND initial_exposure_set_sha256 ~ '^[0-9a-f]{64}$' AND octet_length(catalog_manifest_json) BETWEEN 1 AND 262144 AND maker_principal_id ~ '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$' AND isfinite(captured_at_utc)"));
         var ownerRow=model.Entity<InvoiceProcurementOwnerBaselineRow>();
         ownerRow.Property(x=>x.TableName).HasMaxLength(100);
         ownerRow.Property(x=>x.InitialClassification).HasMaxLength(50);

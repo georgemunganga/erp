@@ -15,6 +15,25 @@ public static class InvoiceProcurementHistoricalClassification
     {
         InvoiceProcurementInventoryEvidence.Summarize(capture);
         var tables=capture.Tables.ToDictionary(x=>x.TableName,StringComparer.Ordinal);
+        var invoiceIds=tables["supplier_invoices"].Rows.Select(x=>x.Id).ToHashSet();
+        foreach(var table in capture.Tables)
+            foreach(var row in table.Rows)
+                if(InvoiceId(table.TableName,row.RowJson) is { } linkedInvoice
+                    && !invoiceIds.Contains(linkedInvoice))
+                    throw new InvalidOperationException("InvoiceOwnerHistoricalInvoiceOrphan");
+        var reviewSourceIds=tables["invoice_unit_review_sources"].Rows.Select(x=>x.Id).ToHashSet();
+        foreach(var name in new[]{"invoice_unit_review_assignments","invoice_unit_review_outcomes","invoice_unit_review_receipts"})
+            foreach(var row in tables[name].Rows)
+                if(RequiredGuid(row.RowJson,"review_source_id") is not { } reviewId
+                    || !reviewSourceIds.Contains(reviewId))
+                    throw new InvalidOperationException("InvoiceOwnerHistoricalReviewOrphan");
+        var paymentRequestIds=tables["manual_payment_requests"].Rows.Select(x=>x.Id).ToHashSet();
+        foreach(var name in new[]{"manual_payment_core_decisions","manual_payment_date_observations",
+            "manual_payment_decisions","manual_payment_receipts","manual_payment_workflow_cases"})
+            foreach(var row in tables[name].Rows)
+                if(RequiredGuid(row.RowJson,"manual_payment_request_id") is not { } requestId
+                    || !paymentRequestIds.Contains(requestId))
+                    throw new InvalidOperationException("InvoiceOwnerHistoricalPaymentOrphan");
         var classified=new Dictionary<(string,Guid),InvoiceProcurementClassifiedRow>();
         foreach(var table in capture.Tables)
             foreach(var row in table.Rows)
@@ -72,6 +91,11 @@ public static class InvoiceProcurementHistoricalClassification
     {
         using var doc=JsonDocument.Parse(json);
         return GuidOf(doc.RootElement,"owner_id");
+    }
+    private static Guid? RequiredGuid(string json,string name)
+    {
+        using var doc=JsonDocument.Parse(json);
+        return GuidOf(doc.RootElement,name);
     }
     private static bool UnlinkedLine(string json)
     {
