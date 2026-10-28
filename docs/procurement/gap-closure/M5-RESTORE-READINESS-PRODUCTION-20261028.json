@@ -1,0 +1,50 @@
+{
+  "status": "PRODUCTION_OBSERVED_RESTORE_READINESS_FIX_VERIFIED_NOT_WHOLE_MODULE_UAT",
+  "recordedAtUtc": "2026-10-28T17:13:45.166018+00:00",
+  "backendProductCommit": "6087f2112fdb3b4eb977a33659ac9522026a1a41",
+  "backendPublishedMain": "7a19b7b595806b7fc7181d41908182b094c0bb9f",
+  "uiPublishedMain": "47cac6a13a24e9db113383f8a9cf5b319494d526",
+  "apiImageId": "sha256:c3c41b6970fb9b64e42981a834f46287d61eb769cdc0c6938214dea93b6f461a",
+  "genuineFocusedHostTests": 174,
+  "apiPublicationFiles": 150,
+  "exactCentralCheckAlternatives": 23,
+  "existingM4AlternativesRetained": 3,
+  "schemaMigrationsApplied": false,
+  "productionSchemaTableCountUnchanged": 220,
+  "businessFlagsChanged": false,
+  "roleGrantsChanged": false,
+  "uiChanged": false,
+  "publisherRestarted": false,
+  "wholeProcurementUatComplete": false,
+  "authenticatedProductionCrudTested": false,
+  "evidence": {
+    "sdk": {
+      "status": "PASS_RESTORE_READINESS_HOST_EF_NO_PENDING_API150",
+      "sha256": "6f0df8bee4b474cbfc8e101df863ef90bf95a6d543fd044b05193736912ab810"
+    },
+    "all150ImageFiles": {
+      "status": "PASS_RESTORE_READINESS_IMAGE_ALL150_PUBLICATION_FILES",
+      "sha256": "c9831cf6f5194147267232988b6d5bae2805fcc58d9a66d7b95b67119d45e31f"
+    },
+    "privateServiceAcceptance": {
+      "status": "PASS_PRIVATE_M5_SERVICE_API_NATIVE_SCOPED_UAT_WITH_OWNER_AND_RESTORATION",
+      "sha256": "5b135b26785d8eedf788f2de3c796fc351bcc64e5d4fc4e84de366c0725daf37"
+    },
+    "readOnlyCanary": {
+      "status": "PASS_RESTORE_READINESS_READONLY_CANARY",
+      "sha256": "3a094cb3e8040efefa285e5be03606b710455edce8753f8185f0a24235e1b8c3"
+    },
+    "apiOnlySwitch": {
+      "status": "PASS_API_ONLY_RESTORE_READINESS_SWITCH",
+      "sha256": "10fd97f9e4a1c248c87cfaafaac4954a6500b6110c6a40d86fd1bfc98a477e9c"
+    },
+    "publicRoutesAndAssets": {
+      "status": "PASS_RESTORE_READINESS_PRODUCTION_PUBLIC_READONLY_SMOKE",
+      "sha256": "105c86fb3e3df3ba7992bb6f28b6fd0893a4816dbb101ae9692628fb7743ac7c"
+    },
+    "publicPlaywright": {
+      "status": "PASS_PUBLIC_PLAYWRIGHT_UNAUTHENTICATED_RENDER_SMOKE",
+      "sha256": "7f01627454ff75b49a6aaeada9ada626ec529a3d028c0f55ecff59c771e41109"
+    }
+  }
+}
