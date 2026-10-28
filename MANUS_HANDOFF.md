@@ -19,13 +19,17 @@ Existing business flags are preserved; new return writes remain off. See the
 [release record](docs/procurement/gap-closure/M5-PRODUCTION-TECHNICAL-RELEASE-20261028.md).
 Authenticated production CRUD is not claimed.
 Whole-module UAT is open: actual return approval/dispatch/reversal, qualified
-invoice source/consumption ownership, native Service/UI journeys and broader
-scope/concurrency tests remain. Return requests alone change no accepted,
+invoice source/consumption ownership, the original Service UI journey and broader
+scope/concurrency tests remain. A private normal-cookie Service API journey now
+has scoped owner and Core UTC-date acceptance; see the
+[Service checkpoint](docs/procurement/gap-closure/M5-SERVICE-RESTORE-READINESS-PRIVATE-CHECKPOINT-20261028.md).
+It does not establish production Service activation or non-UTC/multibranch UAT.
+Return requests alone change no accepted,
 Inventory, credit or Finance balance. Core retains shared identity/roles/scope,
 organisation/calendar/branding ownership.
 
-Root owns release follow-up. Active agent work covers private Service native
-acceptance and M6 principal invoice matching specification/implementation. No
+Root owns release follow-up. Active agent work covers the Service restore-readiness
+release review and M6 principal invoice matching specification/implementation. No
 new Manus implementation assignment is made by these agent scopes. Existing
 independent C04 ownership is unchanged.
 
