@@ -167,9 +167,9 @@ public sealed class PrincipalReceivingStore(ProcurementDbContext db)
     public async Task<PrincipalReceivingCommandReceipt?> RecoverAsync(Guid key,string actor,string operation,
         string? fingerprint,CancellationToken ct)
     {
-        var receipt=await db.PrincipalReceivingCommandReceipts.AsNoTracking().SingleOrDefaultAsync(x=>x.CommandKey==key,ct);
+        var receipt=await db.PrincipalReceivingCommandReceipts.AsNoTracking().SingleOrDefaultAsync(x=>x.CommandKey==key&&x.ActorPrincipalId==actor&&x.Operation==operation,ct);
         if(receipt is null)return null;
-        if(receipt.ActorPrincipalId!=actor || receipt.Operation!=operation || fingerprint is not null&&fingerprint!=receipt.RequestSha256
+        if(fingerprint is not null&&fingerprint!=receipt.RequestSha256
             || receipt.ResponseSha256!=ProcurementEvidenceEncoding.Digest(receipt.ResponseJson))
             throw new InvalidOperationException("PrincipalReceivingCommandKeyReused");
         return receipt;

@@ -185,3 +185,42 @@ public sealed partial class PrincipalReceivingPersistenceModelTests
         Assert.DoesNotContain(line.GetKeys().SelectMany(x=>x.Properties),p=>p.Name is nameof(PurchaseOrderLine.AcceptedQuantity) or nameof(PurchaseOrderLine.Quantity));
     }
 }
+
+public sealed partial class PrincipalControlledReceivingTests
+{
+    // Seed a retained receipt through an isolated fixture context. Production save
+    // guards are deliberately not bypassed by the command/store under test.
+    private sealed class ReceiptFixtureContext(DbContextOptions<ReceiptFixtureContext> options) : DbContext(options)
+    {
+        protected override void OnModelCreating(ModelBuilder model) => model.Entity<PrincipalReceivingCommandReceipt>().HasKey(x => x.Id);
+    }
+
+    [Fact]
+    public async Task Receipt_recovery_hides_other_actor_and_operation_but_rejects_changed_body_and_corrupt_response()
+    {
+        var name = Guid.NewGuid().ToString();
+        var root = new Microsoft.EntityFrameworkCore.Storage.InMemoryDatabaseRoot();
+        var scope = new ReceivingStoreScope("receiving-recovery", Guid.NewGuid(), Receiver);
+        var key = Guid.NewGuid();
+        const string response = "{\"status\":\"Recorded\"}";
+        const string fingerprint = "retained-body-digest";
+        await using var fixture = new ReceiptFixtureContext(new DbContextOptionsBuilder<ReceiptFixtureContext>().UseInMemoryDatabase(name, root).Options);
+        var receipt = new PrincipalReceivingCommandReceipt
+        {
+            TenantId=scope.TenantId, LegalEntityId=scope.LegalEntityId, DraftId=Guid.NewGuid(), BranchId=Guid.NewGuid(),
+            ActorPrincipalId=Receiver, Operation="Record", CommandKey=key, RequestSha256=fingerprint,
+            ResponseJson=response, ResponseSha256=ProcurementEvidenceEncoding.Digest(response), ResponseStatus=200, ResultRevision=2,
+        };
+        fixture.Add(receipt); await fixture.SaveChangesAsync();
+        await using var db = new ProcurementDbContext(new DbContextOptionsBuilder<ProcurementDbContext>().UseInMemoryDatabase(name, root).Options, scope);
+        var store = new PrincipalReceivingStore(db);
+        Assert.Null(await store.RecoverAsync(key, Inspector, "Record", null, default));
+        Assert.Null(await store.RecoverAsync(key, Receiver, "Inspect", null, default));
+        Assert.Null(await store.RecoverAsync(Guid.NewGuid(), Receiver, "Record", null, default));
+        var recovered = await store.RecoverAsync(key, Receiver, "Record", fingerprint, default);
+        Assert.NotNull(recovered); Assert.Equal(response, recovered.ResponseJson);
+        await Assert.ThrowsAsync<InvalidOperationException>(() => store.RecoverAsync(key, Receiver, "Record", "changed-body", default));
+        receipt.ResponseSha256 = new string('0',64); await fixture.SaveChangesAsync();
+        await Assert.ThrowsAsync<InvalidOperationException>(() => store.RecoverAsync(key, Receiver, "Record", null, default));
+    }
+}
