@@ -61,6 +61,28 @@ public sealed class InvoiceMatchExecutionEvidenceTests
         Assert.False(InvoiceMatchExecutionEvidence.OwnerCovers(owner, f.OwnerContext));
     }
 
+    [Fact]
+    public void Procurement_owned_v2_checkpoint_requires_exact_reviewed_baseline_and_current_set_fields()
+    {
+        var f=new Fixture();var old=f.OwnerEnvelope;
+        var current=new InvoiceProcurementOwnerExposureEnvelope(2,old.TenantId,old.LegalEntityId,
+            old.BranchId,old.PurchaseOrderId,old.IssuedVersionId,old.SupplierId,
+            old.CurrencyCode,old.PolicyRulesSha256,old.OwnerReference,old.Watermark,
+            old.ValidUntil,old.AllocationsSha256,Guid.NewGuid(),Guid.NewGuid(),
+            new string('a',64),new string('b',64),new string('c',64),new string('d',64));
+        var json=Serialize(current);
+        var owner=f.Owner with{EvidenceJson=json,EvidenceSha256=Digest(json)};
+        Assert.True(InvoiceMatchExecutionEvidence.OwnerCovers(owner,f.OwnerContext));
+        foreach(var malformed in new[]{
+            Serialize(current with{CoreCaseId=Guid.Empty}),
+            Serialize(current with{CurrentSetSha256=""}),
+            json[..^1]+",\"unknown\":1}",
+            json[..^1]+",\"baselineId\":\""+current.BaselineId+"\"}"
+        })
+            Assert.False(InvoiceMatchExecutionEvidence.OwnerCovers(owner with
+                {EvidenceJson=malformed,EvidenceSha256=Digest(malformed)},f.OwnerContext));
+    }
+
     [Theory]
     [InlineData("input")][InlineData("invoiceVersion")][InlineData("resultScope")][InlineData("currentMapping")]
     [InlineData("original")][InlineData("history")][InlineData("watermark")]
