@@ -1,3 +1,11 @@
+# Active receiving work — 28 October 2026
+
+Root has taken M5b receiving implementation on `codex/m5b-core-receiving-20261028`; do not independently claim or duplicate M5b from the older invitation below. Original UI integration is on `codex/m5b-receiving-ui-20261028`. Both start from the published merged ERP/UI baselines below; these development branches are not new release prerequisites.
+
+See [current implementation and verification holds](docs/procurement/gap-closure/M5B-RECEIVING-IMPLEMENTATION-20261028.md). Production is unchanged; no new Manus milestone is assigned until reviewed prerequisites are merged. Existing independent C04 ownership is unchanged.
+
+---
+
 # Published Procurement UAT checkpoint — 27 October 2026
 
 Audited ERP backend baseline: `fcdafac34351b3e0d312b4e49ff949dc2d1c0ede`
