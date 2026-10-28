@@ -29,7 +29,11 @@ public static class InvoiceProcurementStoredBaselineEvidence
             || string.IsNullOrWhiteSpace(baseline.CapturedThroughMigration)
             || !ProcurementPrincipalEvidence.Canonical(baseline.MakerPrincipalId)
             || !ProcurementPrincipalEvidence.OptionalWorker(baseline.MakerWorkerAliasId)
-            || baseline.CreatedAt != baseline.CapturedAtUtc
+            // CapturedAtUtc is the business snapshot instant. The shared audit
+            // pipeline stamps CreatedAt when the batch is saved, which may be later.
+            || baseline.CreatedAt == default || baseline.CreatedAt.Offset != TimeSpan.Zero
+            || baseline.CapturedAtUtc.Offset != TimeSpan.Zero
+            || baseline.CreatedAt < baseline.CapturedAtUtc
             || baseline.CreatedBy != baseline.MakerPrincipalId
             || baseline.UpdatedAt is not null || baseline.UpdatedBy is not null
             || !Sha(baseline.InitialActiveClaimsSha256)
@@ -40,7 +44,7 @@ public static class InvoiceProcurementStoredBaselineEvidence
                 || x.TenantId != baseline.TenantId || x.LegalEntityId != baseline.LegalEntityId
                 || !names.Contains(x.TableName, StringComparer.Ordinal)
                 || x.SourceRowId == Guid.Empty || x.SourceRowVersion < 1
-                || x.Version != 1 || x.CreatedAt != baseline.CapturedAtUtc
+                || x.Version != 1 || x.CreatedAt != baseline.CreatedAt
                 || x.CreatedBy != baseline.MakerPrincipalId
                 || x.UpdatedAt is not null || x.UpdatedBy is not null
                 || x.InitialClassification is not ("ClaimBearing" or "HistoricalOnly" or "MutableDraft" or "BlockedAmbiguity")

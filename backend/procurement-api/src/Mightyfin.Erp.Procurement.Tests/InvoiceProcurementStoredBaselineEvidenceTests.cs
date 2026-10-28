@@ -7,6 +7,32 @@ namespace Mightyfin.Erp.Procurement.Tests;
 public sealed class InvoiceProcurementStoredBaselineEvidenceTests
 {
     [Fact]
+    public void Shared_save_time_can_follow_capture_but_every_inventory_row_keeps_the_same_audit_batch()
+    {
+        var id=Guid.NewGuid();var company=Guid.NewGuid();var supplier=Guid.NewGuid();
+        var json=InvoiceJson(id,company,supplier,1,"Received",null,10m);
+        var capture=Capture(new InvoiceProcurementCapturedRow(id,1,
+            ProcurementEvidenceEncoding.PolicyJsonDigest(json),json),company);
+        var baseline=Baseline(capture);
+        baseline.CreatedAt=baseline.CapturedAtUtc.AddSeconds(1);
+        var row=new InvoiceProcurementOwnerBaselineRow
+        {
+            TenantId=baseline.TenantId,LegalEntityId=baseline.LegalEntityId,
+            BaselineId=baseline.Id,TableName="supplier_invoices",SourceRowId=id,
+            SourceRowVersion=1,OriginalRowSha256=ProcurementEvidenceEncoding.PolicyJsonDigest(json),
+            ImmutableFieldsSha256=InvoiceProcurementImmutableFields.Digest("supplier_invoices",json),
+            InitialClassification="MutableDraft",SupplierInvoiceId=id,
+            CreatedAt=baseline.CreatedAt,CreatedBy=baseline.MakerPrincipalId
+        };
+        Assert.Equal(1,InvoiceProcurementStoredBaselineEvidence.VerifyStored(baseline,[row]).RowCount);
+        row.CreatedAt=row.CreatedAt.AddTicks(10);
+        Assert.Throws<InvalidOperationException>(()=>InvoiceProcurementStoredBaselineEvidence.VerifyStored(baseline,[row]));
+        row.CreatedAt=baseline.CreatedAt;
+        baseline.CreatedAt=baseline.CapturedAtUtc.AddTicks(-10);
+        row.CreatedAt=baseline.CreatedAt;
+        Assert.Throws<InvalidOperationException>(()=>InvoiceProcurementStoredBaselineEvidence.VerifyStored(baseline,[row]));
+    }
+    [Fact]
     public void Stored_zero_is_a_recomputed_captured_fact_not_an_empty_table_assumption()
     {
         var capture = Capture();
