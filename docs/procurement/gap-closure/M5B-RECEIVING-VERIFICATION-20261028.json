@@ -1,0 +1,21 @@
+{
+  "status": "IMPLEMENTED_PARTIALLY_VERIFIED_NOT_RELEASED",
+  "date": "2026-10-28",
+  "backendSourceCommit": "6b8553afdf4d2a7db22fc763a018012ddb05c61f",
+  "hostPassed": 58,
+  "receivingDomainPassed": 27,
+  "migrationId": "20261028160000_AddPrincipalReceivingExecution",
+  "efNoPendingModelChanges": true,
+  "publicationFiles": 150,
+  "sdkResultSha256": "6e4cd2551490b7f8d36b81029bf8ffc9e8098d600051f6651a8013f0c935969d",
+  "publicationManifestSha256": "90752c5054ee89a1918f8b252363cb69fc1fc069514cdab16b1fc78f956144e1",
+  "nativeResultSha256": "3a1f285913d24de925f8fe2eb519472ca824b77929686110e99ae49bbbdaa497",
+  "nativeScope": "PASS_PRIVATE_M5B_NONEMPTY_UP_EMPTY_DOWN_REUP_AND_AUDIT_ONLY_VETO",
+  "retainedTableFingerprintsPreserved": 211,
+  "initialReceivingUiSource": "213e899a594df5c17d3bc9cdb186e6ead23e298f",
+  "initialUiFocusedUnitPassed": 99,
+  "initialUiMockedBrowserPassed": 27,
+  "settingsUiIncrement": "verification in progress; not covered by initial UI receipt",
+  "productionChanged": false,
+  "wholeModuleUatComplete": false
+}

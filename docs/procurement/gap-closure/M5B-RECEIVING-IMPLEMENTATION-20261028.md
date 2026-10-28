@@ -23,3 +23,13 @@ UI baseline: `f1e237713d5f803212ec2ae72773be842ab0e3b6`.
 The first source snapshot passed all 26 focused receiving domain tests in an offline, resource-bounded SDK container. Subsequent receipt-privacy and migration integration changes require follow-up tests. UI typecheck/contract/browser verification is underway; an actual UUID journal validation failure was found and is being corrected. Do not count unrun checks as passing.
 
 Required before rollout: current host/domain tests, genuine EF pending-model check and migration SQL, native nonempty Up/empty Down/retained-evidence veto rehearsal, fresh physical CHECK capture, finite runtime permission tests, authenticated real API/browser receiving journey and reconciliation, paired deployment/rollback evidence. Production is unchanged. Core company business-date handling for service period end, returns/reversals, Inventory/Assets and Finance posting are not asserted complete.
+
+## Verification checkpoint — current source
+
+The current API builds successfully. The final focused host run passed **58/58**, and the corrected follow-up receiving domain run passed **27/27**, including receipt privacy and corruption checks. Earlier compiler/test-fixture failures remain in the private evidence and are not counted as passing attempts. EF reports no pending model changes and generated the official Up/Down scripts; the API publication contains 150 files.
+
+On an isolated, nonempty M5a database clone, official Up passed exact physical verification for all six tables/CHECKs, eleven deferred ownership bindings and five parent indexes. All 211 retained table fingerprints were preserved, allowing only the exact new migration-history row. Empty Down restored all 211 retained fingerprints; re-Up restored the exact captured receiving footprint. An uncommitted audit-only fixture produced the expected SQLSTATE 55000 downgrade veto, and disconnect rollback removed that fixture while preserving the original footprint. This tests the audit-only veto, not every possible retained business-graph marker.
+
+The original receiving UI transport passed Node22 TypeScript, 99 focused unit/contract checks and 27 mocked browser cases. A subsequent Core-account receiving-policy editor increment is under separate verification; do not apply the earlier UI receipt to untested increments.
+
+Remaining admission holds: finite runtime grants on the isolated clone, current Core role fixtures for receiving actors, real-cookie positive API/owner reconciliation, final settings UI verification, service business-date handling and subsequent return/reversal integration. Production remains unchanged; no deployment or whole-module acceptance is claimed.
