@@ -14,14 +14,15 @@ public sealed class ProcurementPrincipalInvoiceMatchingSelectorShapeTests
         var line=new InvoiceIssuedOrderLine(lineId,1,"GOODS","EACH",2.5m,10.25m,1.125m);
         using var json=JsonDocument.Parse(JsonSerializer.Serialize(
             ProcurementInvoiceMatchingRoutes.PrincipalSourceItem(Guid.NewGuid(),"PO-1",
-                Guid.NewGuid(),lineId,"Line",line,null,null),
+                Guid.NewGuid(),lineId,"Line",line,null,"tenant",Guid.NewGuid(),Guid.NewGuid(),null),
             new JsonSerializerOptions(JsonSerializerDefaults.Web)));
         var row=json.RootElement;
         Assert.Equal(3,row.GetProperty("sourceSchemaVersion").GetInt32());
         Assert.Equal(lineId,row.GetProperty("purchaseOrderLineId").GetGuid());
         Assert.Equal("2.5",row.GetProperty("quantity").GetString());
         Assert.Equal("10.25",row.GetProperty("unitPrice").GetString());
-        Assert.Equal(JsonValueKind.Null,row.GetProperty("principalSourceStateId").ValueKind);
+        Assert.Equal(JsonValueKind.Null,row.GetProperty("principalReceivingSourceStateId").ValueKind);
+        Assert.Equal(1,row.GetProperty("issuedLineVersion").GetInt64());
         Assert.Equal("VerifiedIssued",row.GetProperty("sourceState").GetString());
         Assert.False(row.GetProperty("canAllocate").GetBoolean());
         Assert.False(row.GetProperty("canPostToFinance").GetBoolean());
@@ -45,8 +46,9 @@ public sealed class ProcurementPrincipalInvoiceMatchingSelectorShapeTests
             new JsonSerializerOptions(JsonSerializerDefaults.Web)));
         var row=json.RootElement;
         Assert.Equal(3,row.GetProperty("sourceSchemaVersion").GetInt32());
-        Assert.Equal(sourceId,row.GetProperty("principalSourceStateId").GetGuid());
+        Assert.Equal(sourceId,row.GetProperty("principalReceivingSourceStateId").GetGuid());
         Assert.Equal(factId,row.GetProperty("principalReceivingFactId").GetGuid());
+        Assert.Equal(new string('a',64),row.GetProperty("factPayloadSha256").GetString());
         Assert.Equal(JsonValueKind.Null,row.GetProperty("goodsReceiptLineId").ValueKind);
         Assert.Equal(JsonValueKind.Null,row.GetProperty("serviceAcceptanceId").ValueKind);
         Assert.Equal("2",row.GetProperty("acceptedQuantity").GetString());

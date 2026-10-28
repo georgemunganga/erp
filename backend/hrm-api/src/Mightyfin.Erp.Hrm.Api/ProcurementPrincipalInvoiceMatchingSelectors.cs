@@ -13,15 +13,17 @@ public static partial class ProcurementInvoiceMatchingRoutes
     // payment, or posting authority and never manufacture a legacy receipt ID.
     internal static object PrincipalSourceItem(Guid orderId, string orderNumber, Guid issuedId,
         Guid lineId, string description, InvoiceIssuedOrderLine line, InvoiceCategoryMatchRule? rule,
-        Guid? sourceStateId)
+        string tenantId, Guid companyId, Guid branchId, PrincipalReceivingSourceState? state)
         => new
         {
             orderId, orderNumber, issuedVersionId = issuedId, purchaseOrderLineId = lineId,
-            Description = description, line.UnitCode,
-            quantity = Exact(line.Quantity), unitPrice = Exact(line.UnitPrice),
+            Description = description, tenantId, companyId, branchId,
+            issuedLineVersion = line.Version, line.UnitCode,
+            authorizedQuantity = Exact(line.Quantity), quantity = Exact(line.Quantity), unitPrice = Exact(line.UnitPrice),
             taxAmount = Exact(line.TaxAmount), line.CategoryCode,
             method = rule?.Method.ToString(), acceptanceKind = rule?.AcceptanceKind?.ToString(),
-            sourceSchemaVersion = 3, principalSourceStateId = sourceStateId,
+            sourceSchemaVersion = 3, principalReceivingSourceStateId = state?.Id,
+            principalSourceVersion = state?.Sequence, principalSourceSha256 = state?.SourceSha256,
             sourceState = "VerifiedIssued", blocker = rule is null ? "MatchingCategoryUnavailable" : null,
             canAllocate = false, canPostToFinance = false
         };
@@ -33,8 +35,8 @@ public static partial class ProcurementInvoiceMatchingRoutes
             id = fact.FactId, reference = accepted.EvidenceReference,
             kind = fact.Kind.ToString(), sourceVersion = fact.SourceSequence,
             goodsReceiptLineId = (Guid?)null, serviceAcceptanceId = (Guid?)null,
-            sourceSchemaVersion = 3, principalSourceStateId = fact.SourceStateId,
-            principalReceivingFactId = fact.FactId,
+            sourceSchemaVersion = 3, principalReceivingSourceStateId = fact.SourceStateId,
+            principalReceivingFactId = fact.FactId, factPayloadSha256 = fact.PayloadSha256,
             acceptedQuantity = Exact(fact.AcceptedQuantity),
             acceptedNetAmount = Exact(fact.AcceptedNetAmount), fact.AcceptedAt,
             returnProposalHasNoCapacityEffect = true,
@@ -117,7 +119,8 @@ public static partial class ProcurementInvoiceMatchingRoutes
                 var rule = policy.Rules.SingleOrDefault(x=>x.CategoryCode==line.CategoryCode
                     && x.CurrencyCode==invoice.CurrencyCode);
                 items.Add(PrincipalSourceItem(row.OrderId,row.OrderNumber,row.IssuedId,row.LineId,
-                    row.Description,line,rule,state?.Id));
+                    row.Description,line,rule,invoice.TenantId,invoice.LegalEntityId,
+                    owner.Witness.BranchId,state));
             }
             return JsonSerializer.Serialize(new { invoiceId=id,invoiceVersion=invoice.Version,
                 policyVersionId=policy.Id,items,total,page=paging.Page,pageSize=paging.Size,
