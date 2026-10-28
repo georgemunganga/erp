@@ -13,14 +13,12 @@ public sealed class InvoiceProcurementIssuedCanonicalRowTests
     [InlineData("invoice_match_results")]
     public void Legacy_derived_columns_preserve_original_row_bytes(string table)
     {
-        var old = $"{{\"issued_version_id\":\"{Issued:D}\",\"note\":\"a, b\"}}";
+        var old = $"{{\"issued_version_id\":\"{Issued:D}\",\"note\":\"a, b\""
+            + (table == "invoice_match_mapping_versions" ? ",\"source_schema_version\":null" : "") + "}";
         var appended = old[..^1] + $",\"legacy_issued_version_ref_id\":\"{Issued:D}\",\"principal_issued_version_ref_id\":null"
-            + ",\"source_schema_version\":null}";
+            + (table == "invoice_match_mapping_versions" ? "" : ",\"source_schema_version\":null") + "}";
         Assert.Equal(old, InvoiceProcurementIssuedCanonicalRow.Project(table, appended));
         Assert.Equal(old, InvoiceProcurementIssuedCanonicalRow.Project(table, old));
-        if (table == "invoice_match_mapping_versions")
-            Assert.Equal(old, InvoiceProcurementIssuedCanonicalRow.Project(table,
-                old[..^1] + ",\"source_schema_version\":null}"));
     }
 
     [Fact]
