@@ -130,7 +130,8 @@ public static class InvoiceProcurementStoredBaselineEvidence
         Guid purchaseOrderId, Guid supplierId, string currencyCode)
     {
         if (purchaseOrderId == Guid.Empty || supplierId == Guid.Empty
-            || string.IsNullOrWhiteSpace(currencyCode))
+            || currencyCode is not { Length: 3 }
+            || currencyCode.Any(c => c is < 'A' or > 'Z'))
             throw new InvalidOperationException("InvoiceOwnerOrderScopeInvalid");
         _ = ReconcileCurrent(baseline, rows, current);
         InvoiceProcurementBaselineEvidence.RequireResolvedClassificationForOrder(
@@ -159,8 +160,12 @@ public static class InvoiceProcurementStoredBaselineEvidence
                 || !Guid.TryParse(supplier.GetString(), out var creditSupplier)
                 || creditSupplier == Guid.Empty)
                 throw new InvalidOperationException("InvoiceOwnerHistoricalCreditUnclassifiable");
+            var creditCurrency = currency.GetString();
+            if (creditCurrency is not { Length: 3 }
+                || creditCurrency.Any(c => c is < 'A' or > 'Z'))
+                throw new InvalidOperationException("InvoiceOwnerHistoricalCreditUnclassifiable");
             if (creditSupplier == supplierId
-                && string.Equals(currency.GetString(), currencyCode, StringComparison.Ordinal))
+                && creditCurrency == currencyCode)
                 return false;
         }
         return true;

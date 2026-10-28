@@ -114,6 +114,9 @@ public sealed class InvoiceProcurementStoredBaselineEvidenceTests
             baseline, [row], opening, order, Guid.NewGuid(), "ZMW"));
         Assert.True(InvoiceProcurementStoredBaselineEvidence.NoRetainedExposureForOrder(
             baseline, [row], opening, order, supplier, "USD"));
+        Assert.Throws<InvalidOperationException>(() =>
+            InvoiceProcurementStoredBaselineEvidence.NoRetainedExposureForOrder(
+                baseline, [row], opening, order, supplier, "zmw"));
 
         var changed = CreditJson(creditId, company, supplier, "ZMW", 2);
         var changedRow = new InvoiceProcurementCapturedRow(creditId, 2,
