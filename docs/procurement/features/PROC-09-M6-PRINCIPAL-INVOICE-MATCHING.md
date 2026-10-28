@@ -18,7 +18,7 @@ The invoice intake owns `SupplierInvoice` and original lines. M5a owns the issue
 
 ## 5. Actors & Participants
 
-Invoice capturer proposes mappings; an independent unit reviewer verifies original document units; an invoice matcher performs comparison. All are current Core principals, with optional worker aliases. A historical exposure owner supplies a complete authenticated checkpoint; it cannot be impersonated by client JSON or inferred from an empty local table.
+Invoice capturer proposes mappings; an independent unit reviewer verifies original document units; an invoice matcher performs comparison. All are current Core principals, with optional worker aliases. A Procurement historical exposure owner supplies a complete authenticated checkpoint from its persisted invoice/claim history; it cannot be impersonated by client JSON or inferred from an empty local table. Finance remains the future posting owner.
 
 ## 6. Entry Points & Triggers
 
@@ -70,7 +70,7 @@ Block for stale invoice/mapping/issued revision, missing principal fact, changed
 
 ## 18. Integrations / APIs / Events / Sandbox
 
-The source adapter reads the retained M5a issued graph and M5b/c receiving graph in the same execution database transaction. The owner adapter must return an authenticated, lease-bound complete exposure envelope without network calls while locks are held. Private acceptance uses finite Core/Record/Execution roles, normal cookies and a restored nonproduction database.
+The source adapter reads the retained M5a issued graph and M5b/c receiving graph in the same execution database transaction. A Procurement-owned exposure reader runs in that transaction, from an explicit reviewed baseline plus all later invoice, claim, credit/handoff and manual-payment records. It returns a lease-bound complete-set envelope with an exact row-set digest and sequence; no network call occurs while locks are held. Private acceptance uses finite Core/Record/Execution roles, normal cookies and a restored nonproduction database.
 
 ## 19. Audit / Security / Privacy
 
@@ -106,8 +106,8 @@ Exercise workerless Core actors, wrong tenant/company/branch, All-write denial, 
 
 ## 27. Ownership / Dependencies
 
-Procurement Domain/Application own typed mapping, pure comparison and claim validation. Procurement Infrastructure owns new FK/check/index constraints and retained v1 compatibility. Host routes own current Core authorization and transactional source loading. The historical exposure owner is a required independent contract; its verified implementation and authority evidence must be accepted before qualified claims are enabled.
+Procurement Domain/Application own typed mapping, pure comparison and claim validation. Procurement Infrastructure owns new FK/check/index constraints and retained v1 compatibility. Host routes own current Core authorization and transactional source loading. A separate Procurement owner component owns the complete historical exposure baseline and current-set reconciliation; it is required before qualified claims are enabled. Finance posting remains a separate future integration.
 
 ## 28. Open Decisions / Assumptions
 
-The release needs a named Finance/AP historical exposure owner and a reconciliation protocol for pre-existing allocations before it can claim complete billing capacity. The current default adapter returns unavailable. The exact authorized return-effect source is also pending; M5d drafts alone do not change accepted history. Until those owners are resolved, implementation may safely deliver mapping, verification and blocked comparison, but must not label M6 complete or enable qualified claims.
+The owner baseline must classify every retained v1/v2 matching allocation and supplier invoice linked to an issued PO, every credit reference, Finance handoff/status reference and manual-payment record, including their active pointers and immutable IDs. An unknown or contradictory row blocks the baseline; a zero-row result without a captured, approved baseline is not completeness. The current default adapter returns unavailable. A credit text reference or M5d return draft is not an approved capacity-release effect. Finance posting may be added later without changing this Procurement claim owner.
