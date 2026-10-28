@@ -8,6 +8,8 @@ internal static class M6PrincipalInvoiceRollbackGuards
         LOCK TABLE procurement.invoice_owner_baselines,
           procurement.invoice_owner_baseline_rows,
           procurement.invoice_owner_command_receipts,
+          procurement.policy_versions,
+          procurement.operational_policy_identity_evidence,
           procurement.invoice_match_mapping_versions,
           procurement.invoice_match_results,
           procurement.invoice_match_allocations,
@@ -21,6 +23,10 @@ internal static class M6PrincipalInvoiceRollbackGuards
           IF EXISTS (SELECT 1 FROM procurement.invoice_owner_baselines)
             OR EXISTS (SELECT 1 FROM procurement.invoice_owner_baseline_rows)
             OR EXISTS (SELECT 1 FROM procurement.invoice_owner_command_receipts)
+            OR EXISTS (SELECT 1 FROM procurement.policy_versions
+                       WHERE policy_key='INVOICE_OWNER_BASELINE_REVIEW')
+            OR EXISTS (SELECT 1 FROM procurement.operational_policy_identity_evidence
+                       WHERE policy_key='INVOICE_OWNER_BASELINE_REVIEW')
             OR EXISTS (SELECT 1 FROM procurement.invoice_match_mapping_versions
                        WHERE source_schema_version=3)
             OR EXISTS (SELECT 1 FROM procurement.invoice_match_results r
