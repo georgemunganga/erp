@@ -85,7 +85,8 @@ internal static class ProcurementPrincipalReceivingPhysicalSchema
                     var qualified = "procurement." + name + "." + check.Name;
                     if (!checkedNames.Add(qualified) || !ExpectedChecks.TryGetValue(qualified, out var expected)) return false;
                     command.CommandText = CheckSql(table, check.Name);
-                    if (await command.ExecuteScalarAsync(ct) is not string actual || actual != expected) return false;
+                    if (await command.ExecuteScalarAsync(ct) is not string actual
+                        || !MatchesCapturedCheck(qualified, expected, actual)) return false;
                 }
             }
             // Verify the five extra parent unique indexes as physical indexes too;
@@ -105,6 +106,12 @@ internal static class ProcurementPrincipalReceivingPhysicalSchema
         catch (Exception error) when (error is not OperationCanceledException) { return false; }
         finally { if (opened) await owner.Database.CloseConnectionAsync(); }
     }
+
+    internal static bool MatchesCapturedCheck(string qualifiedName, string expected, string actual) =>
+        ExpectedChecks.TryGetValue(qualifiedName, out var captured)
+        && string.Equals(expected, captured, StringComparison.Ordinal)
+        && (string.Equals(actual, captured, StringComparison.Ordinal)
+            || ProcurementRestoreCheckAlternatives.Matches(qualifiedName, captured, actual));
 
     internal static readonly IReadOnlyDictionary<string,(string Name,string[] Columns)> ReturnOwnerKeys =
         new Dictionary<string,(string,string[])>(StringComparer.Ordinal)

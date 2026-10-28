@@ -96,7 +96,9 @@ public sealed class ProcurementInvoiceUnitReviewSchemaReadiness : IProcurementIn
             var paymentInstalled = (await owner.Database.GetAppliedMigrationsAsync(ct))
                 .Contains(ProcurementManualPaymentGovernanceReadiness.MigrationId, StringComparer.Ordinal);
             var expectedOperational = paymentInstalled ? ProcurementManualPaymentGovernanceReadiness.OperationalCheckDefinition : OperationalCheckDefinition;
-            if (await command.ExecuteScalarAsync(ct) is not string operational || operational != expectedOperational) return false;
+            if (await command.ExecuteScalarAsync(ct) is not string operational
+                || operational != expectedOperational && !ProcurementRestoreCheckAlternatives.Matches(
+                    "procurement.operational_policy_identity_evidence.ck_operational_policy_identity",expectedOperational,operational)) return false;
             if (!await True("SELECT " + ProcurementSpendingAuthorityIdentitySchemaReadiness.NoCoreIdentityWritesSql)
                 || !await True("SELECT " + ProcurementSpendingAuthorityIdentitySchemaReadiness.NoOwnershipSql)
                 || !await True(CoreReadBoundarySql)) return false;
