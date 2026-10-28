@@ -79,6 +79,27 @@ public sealed partial class ProcurementDbContext
         }
 
         var current = await ReadPrincipalInvoiceCurrentClaimsAsync(issuedWitness, ct);
+        // A new, tracked zero-sequence exposure is permitted for the first
+        // comparison. Every later lease must use the unchanged stored row from
+        // this same transaction; a request-shaped exposure cannot set a sequence.
+        var persistedExposure = await InvoiceMatchExposureStates.AsNoTracking()
+            .SingleOrDefaultAsync(x => x.PurchaseOrderId == context.PurchaseOrderId
+                && x.IssuedVersionId == context.IssuedVersionId, ct);
+        var exposureState = Entry(exposure).State;
+        if (persistedExposure is null
+            ? exposureState != EntityState.Added || exposure.Sequence != 0
+                || current.ActiveClaims.Count != 0
+            : exposureState != EntityState.Unchanged
+                || persistedExposure.Id != exposure.Id
+                || persistedExposure.Version != exposure.Version
+                || persistedExposure.Sequence != exposure.Sequence
+                || persistedExposure.TenantId != exposure.TenantId
+                || persistedExposure.LegalEntityId != exposure.LegalEntityId
+                || persistedExposure.PurchaseOrderId != exposure.PurchaseOrderId
+                || persistedExposure.IssuedVersionId != exposure.IssuedVersionId
+                || persistedExposure.SupplierId != exposure.SupplierId
+                || persistedExposure.CurrencyCode != exposure.CurrencyCode)
+            throw new InvalidOperationException("InvoiceOwnerCurrentExposureChanged");
         if (!InvoiceProcurementStoredBaselineEvidence.NoRetainedExposureForOrder(
                 baseline, rows, current.Capture, context.PurchaseOrderId,
                 context.SupplierId, context.CurrencyCode))

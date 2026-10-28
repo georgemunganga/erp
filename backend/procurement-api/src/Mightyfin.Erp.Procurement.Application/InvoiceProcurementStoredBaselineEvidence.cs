@@ -139,8 +139,14 @@ public static class InvoiceProcurementStoredBaselineEvidence
         var linkedInvoices = rows.Where(x => x.PurchaseOrderId == purchaseOrderId
             && x.SupplierInvoiceId is not null)
             .Select(x => x.SupplierInvoiceId!.Value).ToHashSet();
-        if (rows.Any(x => x.PurchaseOrderId == purchaseOrderId
-            || x.SupplierInvoiceId is { } invoiceId && linkedInvoices.Contains(invoiceId)))
+        // A captured, unprocessed invoice and its original lines have no
+        // capacity claim. Their MutableDraft classification was established
+        // from the complete opening set; current pointers and reservations
+        // still require separate typed replay in the owner factory.
+        if (rows.Any(x => (x.PurchaseOrderId == purchaseOrderId
+            || x.SupplierInvoiceId is { } invoiceId && linkedInvoices.Contains(invoiceId))
+            && !(x.InitialClassification == "MutableDraft"
+                && x.TableName is "supplier_invoices" or "supplier_invoice_lines")))
             return false;
         var credits = current.Tables.Single(x => x.TableName == "supplier_credit_note_refs")
             .Rows.ToDictionary(x => x.Id);

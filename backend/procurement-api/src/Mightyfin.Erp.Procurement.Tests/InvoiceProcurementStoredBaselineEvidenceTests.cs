@@ -84,6 +84,55 @@ public sealed class InvoiceProcurementStoredBaselineEvidenceTests
     }
 
     [Fact]
+    public void Captured_unprocessed_invoice_can_later_reserve_its_order_without_reclassifying_old_evidence()
+    {
+        var company = Guid.NewGuid();
+        var supplier = Guid.NewGuid();
+        var order = Guid.NewGuid();
+        var invoiceId = Guid.NewGuid();
+        var original = Captured(invoiceId, 1,
+            InvoiceJson(invoiceId, company, supplier, 1, "Received", null, 10m, order));
+        var opening = Capture(original, company);
+        var classified = Assert.Single(InvoiceProcurementHistoricalClassification.Classify(opening));
+        Assert.Equal("MutableDraft", classified.Classification);
+        var baseline = Baseline(opening);
+        var stored = new InvoiceProcurementOwnerBaselineRow
+        {
+            TenantId = baseline.TenantId, LegalEntityId = baseline.LegalEntityId,
+            BaselineId = baseline.Id, TableName = "supplier_invoices", SourceRowId = invoiceId,
+            SourceRowVersion = 1, OriginalRowSha256 = original.CanonicalRowSha256,
+            ImmutableFieldsSha256 = InvoiceProcurementImmutableFields.Digest(
+                "supplier_invoices", original.RowJson),
+            InitialClassification = classified.Classification,
+            SupplierInvoiceId = invoiceId, PurchaseOrderId = order,
+            CreatedAt = baseline.CapturedAtUtc, CreatedBy = baseline.MakerPrincipalId
+        };
+        var changed = Captured(invoiceId, 2,
+            InvoiceJson(invoiceId, company, supplier, 2, "MatchPending", Guid.NewGuid(), 10m, order));
+        var current = Capture(changed, company);
+        Assert.True(InvoiceProcurementStoredBaselineEvidence.NoRetainedExposureForOrder(
+            baseline, [stored], current, order, supplier, "ZMW"));
+        var tampered = Capture(Captured(invoiceId, 2,
+            InvoiceJson(invoiceId, company, supplier, 2, "MatchPending", Guid.NewGuid(), 11m, order)), company);
+        Assert.Throws<InvalidOperationException>(() =>
+            InvoiceProcurementStoredBaselineEvidence.NoRetainedExposureForOrder(
+                baseline, [stored], tampered, order, supplier, "ZMW"));
+        var oldClaim = new InvoiceProcurementOwnerBaselineRow
+        {
+            TenantId = stored.TenantId, LegalEntityId = stored.LegalEntityId,
+            BaselineId = stored.BaselineId, TableName = stored.TableName,
+            SourceRowId = stored.SourceRowId, SourceRowVersion = stored.SourceRowVersion,
+            OriginalRowSha256 = stored.OriginalRowSha256,
+            ImmutableFieldsSha256 = stored.ImmutableFieldsSha256,
+            InitialClassification = "ClaimBearing",
+            SupplierInvoiceId = stored.SupplierInvoiceId, PurchaseOrderId = stored.PurchaseOrderId,
+            CreatedAt = stored.CreatedAt, CreatedBy = stored.CreatedBy
+        };
+        Assert.False(InvoiceProcurementStoredBaselineEvidence.NoRetainedExposureForOrder(
+            baseline, [oldClaim], opening, order, supplier, "ZMW"));
+    }
+
+    [Fact]
     public void Unlinked_retained_credit_blocks_only_its_supplier_and_currency()
     {
         var company = Guid.NewGuid();
@@ -211,12 +260,12 @@ public sealed class InvoiceProcurementStoredBaselineEvidenceTests
     }
 
     private static string InvoiceJson(Guid id, Guid company, Guid supplier, long version,
-        string status, Guid? mapping, decimal net)
+        string status, Guid? mapping, decimal net, Guid? purchaseOrderId = null)
     {
         return JsonSerializer.Serialize(new
         {
             id, version, tenant_id = "tenant-a", legal_entity_id = company,
-            supplier_id = supplier, invoice_number = "INV-1",
+            supplier_id = supplier, purchase_order_id = purchaseOrderId, invoice_number = "INV-1",
             normalized_invoice_number = "INV1", currency_code = "ZMW",
             net_amount = net, tax_amount = 0m, gross_amount = net,
             invoice_date = "2026-10-28", status, intake_channel = "Manual",
