@@ -83,7 +83,9 @@ public sealed class ProcurementOperationalPolicyIdentitySchemaReadiness : IProcu
             var paymentInstalled = applied.Contains(ProcurementManualPaymentGovernanceReadiness.MigrationId, StringComparer.Ordinal);
             var expectedCheck = paymentInstalled ? ProcurementManualPaymentGovernanceReadiness.OperationalCheckDefinition
                 : unitInstalled ? ProcurementInvoiceUnitReviewSchemaReadiness.OperationalCheckDefinition : CheckDefinition;
-            if (unitInstalled && !ProcurementInvoiceUnitReviewSchemaReadiness.ManifestCaptured || actual != expectedCheck) return false;
+            if (unitInstalled && !ProcurementInvoiceUnitReviewSchemaReadiness.ManifestCaptured
+                || actual != expectedCheck && !ProcurementRestoreCheckAlternatives.Matches(
+                    "procurement.operational_policy_identity_evidence.ck_operational_policy_identity", expectedCheck, actual)) return false;
             var foreigns = identity.GetForeignKeys().ToArray();
             if (foreigns.Length != ForeignNames.Count || !foreigns.Select(x => x.GetConstraintName()!).ToHashSet(StringComparer.Ordinal).SetEquals(ForeignNames)) return false;
             foreach (var foreign in foreigns)

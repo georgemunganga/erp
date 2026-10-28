@@ -9,6 +9,7 @@ public sealed class ProcurementRestoreCheckAlternativesTests
     public static TheoryData<string, string, string> ExactObservedCases => new()
     {
         { "procurement.assignment_authority_evidence.ck_pr_assignment_authority_identity", "c696e8448b5ef3278ab815ff0df14a7dcd7d2377934b02cefcf65d4abb1620dd", "fcc6bff108627dc856af0b803cc168ea8d1e611473386ce162d6f6b296dde27a" },
+        { "procurement.operational_policy_identity_evidence.ck_operational_policy_identity", "ded52b79a382969e0700bd1ab54647a94175c8d1079016c46accfe8f063a1ee0", "3d2d7eefc14608797486bb0b21dbf1d8e4e18da9f86381915f72b4537f3ef612" },
         { "procurement.principal_order_acknowledgments.ck_principal_order_acknowledgment", "85fa005c094631b53ba23d12f74a7ca531ccbc7d20ffd4ab964dcecfa5cd1b96", "66d5d16d454f1de72a8736f36834081b188caf9f1b79ea8562dcd17c27b3148a" },
         { "procurement.principal_order_decisions.ck_principal_order_decision", "b372e4bff233f0f5a64709122e693e893bfe00764e2dae2cf85a6192377dbefe", "c3bf0a11ed9af06e5aed8e1319e587b50032bf782682e40f79754db961d9790d" },
         { "procurement.principal_order_draft_receipts.ck_po_principal_receipt", "7c0fcde85a740950334d3fbc0e3ee3128f0a51262fa5c0385b39b908cad3070e", "8fd542ee485e9b0069ba13c93bfa52017356facf67f2072cfe381d47dc78fc72" },
@@ -25,7 +26,7 @@ public sealed class ProcurementRestoreCheckAlternativesTests
     [MemberData(nameof(ExactObservedCases))]
     public void Only_exact_qualified_canonical_and_restored_pair_is_admitted(string key, string canonicalSha256, string restoredSha256)
     {
-        Assert.Equal(11, ProcurementRestoreCheckAlternatives.Definitions.Count);
+        Assert.Equal(12, ProcurementRestoreCheckAlternatives.Definitions.Count);
         var pair = ProcurementRestoreCheckAlternatives.Definitions[key];
         Assert.NotEqual(pair.Canonical, pair.Restored);
         Assert.Equal(canonicalSha256, Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(pair.Canonical))).ToLowerInvariant());
@@ -68,12 +69,33 @@ public sealed class ProcurementRestoreCheckAlternativesTests
             Assert.False(ExistingComparator("procurement.sourcing_command_receipts.ck_rfq_receipt_identity",
                 receipt.Canonical, receipt.Restored.Replace(guard, weakened, StringComparison.Ordinal)));
         }
+        var operational = ProcurementRestoreCheckAlternatives.Definitions[
+            "procurement.operational_policy_identity_evidence.ck_operational_policy_identity"];
+        foreach (var (guard, weakened) in new[]
+        {
+            ("'MANUAL_PAYMENT_REVIEW'", "'UNREVIEWED_POLICY'"),
+            ("((policy_key)::text <> 'MANUAL_PAYMENT_REVIEW'::text) OR (schema_version = 2)",
+             "((policy_key)::text <> 'MANUAL_PAYMENT_REVIEW'::text) OR (schema_version = 1)"),
+            ("created_evidence_id <> id", "created_evidence_id = id"),
+            ("policy_record_version_at_action > 2", "policy_record_version_at_action >= 2"),
+            ("updated_at IS NULL", "updated_at IS NOT NULL"),
+            ("actor_worker_id <> '00000000-0000-0000-0000-000000000000'::uuid",
+             "actor_worker_id = '00000000-0000-0000-0000-000000000000'::uuid"),
+        })
+        {
+            Assert.Contains(guard, operational.Restored);
+            Assert.False(ExistingComparator("procurement.operational_policy_identity_evidence.ck_operational_policy_identity",
+                operational.Canonical, operational.Restored.Replace(guard, weakened, StringComparison.Ordinal)));
+        }
     }
 
     private static bool ExistingComparator(string key, string canonical, string actual) =>
         key == "procurement.sourcing_command_receipts.ck_rfq_receipt_identity"
             ? canonical == ProcurementSourcingDraftSchemaReadiness.CheckDefinitions["ck_rfq_receipt_identity"]
                 && (actual == canonical || ProcurementSourcingDraftSchemaReadiness.MatchesRestoredReceipt(key, canonical, actual))
+            : key == "procurement.operational_policy_identity_evidence.ck_operational_policy_identity"
+                ? canonical == ProcurementManualPaymentGovernanceReadiness.OperationalCheckDefinition
+                    && (actual == canonical || ProcurementRestoreCheckAlternatives.Matches(key, canonical, actual))
             : key.StartsWith("procurement.assignment_authority_evidence.", StringComparison.Ordinal)
                 ? ProcurementPrincipalApprovalStoreReadiness.MatchesCapturedCheck(key, canonical, actual)
             : key.StartsWith("procurement.principal_receiving_", StringComparison.Ordinal)
