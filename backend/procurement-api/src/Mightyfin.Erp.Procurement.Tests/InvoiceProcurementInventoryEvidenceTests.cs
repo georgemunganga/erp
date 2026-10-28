@@ -208,6 +208,13 @@ public sealed class InvoiceProcurementInventoryEvidenceTests
         pending.Stages.Add(pendingStage);
         InvoiceProcurementBaselineEvidence.VerifyPendingCore(baseline,pending,
             new Dictionary<string,Guid?>{{reviewer,null}});
+        var extraStage=new ApprovalStage{TenantId="tenant-a",LegalEntityId=company,
+            CaseId=baseline.CoreCaseId,Sequence=2,Code="UnreviewedLaterStage",Mode="Any",
+            RequiredApprovals=1,State="Waiting"};
+        pending.Stages.Add(extraStage);
+        Assert.Throws<InvalidOperationException>(()=>InvoiceProcurementBaselineEvidence.VerifyPendingCore(
+            baseline,pending,new Dictionary<string,Guid?>{{reviewer,null}}));
+        pending.Stages.Remove(extraStage);
         Assert.Throws<InvalidOperationException>(()=>InvoiceProcurementBaselineEvidence.VerifyPendingCore(
             baseline,pending,new Dictionary<string,Guid?>{{maker,null}}));
         InvoiceProcurementBaselineEvidence.VerifyCoreReview(baseline,workflow,[decision],approvalAudit,reviewer,null,decided);

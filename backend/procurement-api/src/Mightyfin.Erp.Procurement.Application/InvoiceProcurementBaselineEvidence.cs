@@ -39,6 +39,8 @@ public static class InvoiceProcurementBaselineEvidence
             || workflow.SourceVersion != baseline.Version || workflow.MakerSubjectId != baseline.MakerPrincipalId
             || workflow.State != "Pending" || workflow.OpenedAt != baseline.CapturedAtUtc
             || workflow.CompletedAt is not null || workflow.CompletionKey is not null
+            || workflow.Stages.Count!=1 || workflow.Stages[0].Sequence!=1
+            || workflow.Stages[0].RequiredApprovals!=1 || assignments.Length!=1
             || assignments.Length != reviewerWorkerAliases.Count
             || assignments.Any(x=>x.PermissionKey!=ReviewPermission
                 || !reviewerWorkerAliases.TryGetValue(x.AssigneeSubjectId,out var worker)
