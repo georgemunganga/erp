@@ -20,6 +20,8 @@ public sealed record InvoiceMappingReview(bool Verified, string State, string Ev
     // Owning typed-v2 proof is distinct from legacy caller-bound JSON; never synthesize a v1 signer.
     public InvoiceRetainedUnitReviewAuthority? RetainedAuthority { get; init; }
     public InvoiceUnitReviewConsumer? CurrentConsumer { get; init; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public InvoiceUnitReviewTransitions.Source? ManualSource { get; init; }
     public static InvoiceMappingReview Unavailable(string reason) => new(false, reason, "{}", new Dictionary<Guid, string>());
 }
 public sealed record InvoiceMappingReviewContext(string TenantId, Guid LegalEntityId, Guid? BranchId,

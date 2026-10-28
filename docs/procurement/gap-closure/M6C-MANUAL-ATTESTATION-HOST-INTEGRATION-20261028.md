@@ -112,3 +112,7 @@ Require genuine empty Up/Down/Up, retained rollback-only veto and full old-row/s
 
 Source only and default off. No production migration/deploy/flag change, invoice approval, supplier payment, OCR/document scan, AP posting or full UAT sign-off. Core Documents remains the independent real owner for document review.
 
+
+Implementation handoff (source only): the Host adds `invoiceManualUnitReviewRead` and `invoiceManualUnitReview`; manual read availability is independent of `CoreDocuments` and the new-work switch. `Procurement:InvoiceUnitReview:ManualAttestationEnabled` defaults false. Manual routes live under `invoices/{id}/manual-unit-review-readiness`, `invoices/{id}/manual-unit-reviews` and `manual-invoice-unit-reviews`; original-key recovery requires an explicit `operation=Open|Decision`. The stored request uses schema 2; source/evidence use schema 4. Existing document endpoints filter/reject source 4.
+
+The source capture helper intentionally has empty migration/native/restored pins. Root must generate the official EF migration for the outcome CHECK, add a first-Down retained-evidence veto for manual source4/request2/outcome4 and explicit manual policy2/audit/outbox markers, rehearse/capture native and logical-restored definitions, then fill those exact pins. No migration or database repair is represented by this branch. Focused tests are written but have not been run independently; official SDK and native/UI acceptance remain outstanding.

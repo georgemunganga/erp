@@ -21,6 +21,7 @@ public static partial class ProcurementInvoiceUnitReviewRoutes
             var mapping = await Mapping(db, invoice, token); var originals = await Originals(db, id, token);
             var matching = await Policy(db, scope, http, InvoiceMatchingPolicyRules.PolicyKey, token);
             var review = await Policy(db, scope, http, InvoiceRetainedUnitReview.ReviewPolicyKey, token);
+            if (IsManualPolicy(InvoiceUnitReviewPolicyRules.Parse(review.RulesJson))) throw new ReviewProblem("InvoiceDocumentReviewPolicyRequired", 409);
             var people = new List<InvoiceUnitReviewPolicyRules.Person>();
             foreach (var principal in InvoiceUnitReviewPolicyRules.Parse(review.RulesJson).Stages.SelectMany(x => x.Principals).Distinct(StringComparer.Ordinal))
                 people.Add(await ProcurementInvoiceUnitReviewPeople.Resolve(core, scope.TenantId, scope.LegalEntityId, principal, token) ?? throw new ReviewProblem("InvoiceUnitReviewerUnavailable", 409));
@@ -52,6 +53,7 @@ public static partial class ProcurementInvoiceUnitReviewRoutes
         => Run(http, scope, true, async (db, cases, core, auth, documents, token) =>
         {
             var (source, invoice) = await Source(db, scope, id, true, token);
+            if (InvoiceUnitReviewStorage.Read(source).SourceSchemaVersion == 4) throw new KeyNotFoundException();
             var actor = await Actor(core, scope, http, auth, source.BranchRef, [InvoiceRetainedUnitReview.ReviewPermission], token);
             if (input.Action is not ("Approve" or "Return" or "Reject") || input.Action == "Approve" && input.Attestation != InvoiceUnitReviewCommands.OriginalUnitAttestation)
                 throw new ReviewProblem("InvoiceOriginalUnitAttestationRequired", 422);

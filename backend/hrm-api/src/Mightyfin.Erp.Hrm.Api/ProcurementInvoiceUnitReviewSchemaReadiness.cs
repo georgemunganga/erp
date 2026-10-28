@@ -10,6 +10,7 @@ namespace Mightyfin.Erp.Hrm.Api;
 public sealed class ProcurementInvoiceUnitReviewOptions
 {
     public bool Enabled { get; set; }
+    public bool ManualAttestationEnabled { get; set; }
     public bool ExecutionDatabaseConfigured { get; set; }
 }
 public interface IProcurementInvoiceUnitReviewSchemaReadiness
@@ -61,6 +62,9 @@ public sealed class ProcurementInvoiceUnitReviewSchemaReadiness : IProcurementIn
             if (owner.Database.GetDbConnection().State != ConnectionState.Open) { await owner.Database.OpenConnectionAsync(ct); opened = true; }
             await using var command = owner.Database.GetDbConnection().CreateCommand(); command.Transaction = owner.Database.CurrentTransaction?.GetDbTransaction(); command.CommandTimeout = 10;
             async Task<bool> True(string sql) { command.CommandText = sql; return await command.ExecuteScalarAsync(ct) is true; }
+            var applied = (await owner.Database.GetAppliedMigrationsAsync(ct)).ToArray();
+            var manualInstalled = ProcurementInvoiceManualUnitReviewSchemaCapture.MigrationId.Length > 0
+                && applied.Contains(ProcurementInvoiceManualUnitReviewSchemaCapture.MigrationId, StringComparer.Ordinal);
             var model = owner.GetService<IDesignTimeModel>().Model;
             foreach (var type in Types)
             {
@@ -71,7 +75,10 @@ public sealed class ProcurementInvoiceUnitReviewSchemaReadiness : IProcurementIn
                 if (!await True(ColumnsSql(entity, table))) return false;
                 var checks = entity.GetCheckConstraints().ToArray();
                 if (checks.Length != 1 || !CheckDefinitions.TryGetValue(checks[0].Name!, out var expected)) return false;
-                command.CommandText = CheckSql(table, checks[0].Name!); if (await command.ExecuteScalarAsync(ct) is not string actual || actual != expected) return false;
+                command.CommandText = CheckSql(table, checks[0].Name!);
+                if (await command.ExecuteScalarAsync(ct) is not string actual
+                    || (manualInstalled && checks[0].Name == "ck_inv_unit_outcome"
+                        ? !ProcurementInvoiceManualUnitReviewSchemaCapture.MatchesOutcome(actual) : actual != expected)) return false;
                 foreach (var foreign in entity.GetForeignKeys())
                 {
                     var parent = StoreObjectIdentifier.Table(foreign.PrincipalEntityType.GetTableName()!, foreign.PrincipalEntityType.GetSchema());
@@ -87,7 +94,6 @@ public sealed class ProcurementInvoiceUnitReviewSchemaReadiness : IProcurementIn
                 // reader cannot use evidence it could have rewritten itself.
                 if (!await True(AppendPrivilegesSql(relation, write))) return false;
             }
-            var applied = (await owner.Database.GetAppliedMigrationsAsync(ct)).ToArray();
             var ownerBaselineInstalled = applied.Contains(ProcurementInvoiceOwnerBaselineSchemaCapture.MigrationId,StringComparer.Ordinal);
             var issuedParentsInstalled = ProcurementPrincipalInvoiceIssuedParentReadiness.MigrationId.Length > 0
                 && applied.Contains(ProcurementPrincipalInvoiceIssuedParentReadiness.MigrationId, StringComparer.Ordinal);
