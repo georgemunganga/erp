@@ -83,6 +83,51 @@ public sealed class InvoiceProcurementStoredBaselineEvidenceTests
             InvoiceProcurementStoredBaselineEvidence.ReconcileCurrent(baseline, [blocked], current));
     }
 
+    [Fact]
+    public void Unlinked_retained_credit_blocks_only_its_supplier_and_currency()
+    {
+        var company = Guid.NewGuid();
+        var supplier = Guid.NewGuid();
+        var creditId = Guid.NewGuid();
+        var credit = CreditJson(creditId, company, supplier, "ZMW", 1);
+        var captured = new InvoiceProcurementCapturedRow(creditId, 1,
+            ProcurementEvidenceEncoding.PolicyJsonDigest(credit), credit);
+        var opening = new InvoiceProcurementInventoryCapture("tenant-a", company,
+            InvoiceProcurementOwnerTables.Names.Select(name => new InvoiceProcurementCapturedTable(
+                name, name == "supplier_credit_note_refs" ? [captured] : [])).ToArray());
+        var baseline = Baseline(opening);
+        var row = new InvoiceProcurementOwnerBaselineRow
+        {
+            TenantId = baseline.TenantId, LegalEntityId = baseline.LegalEntityId,
+            BaselineId = baseline.Id, TableName = "supplier_credit_note_refs",
+            SourceRowId = creditId, SourceRowVersion = 1,
+            OriginalRowSha256 = captured.CanonicalRowSha256,
+            ImmutableFieldsSha256 = InvoiceProcurementImmutableFields.Digest(
+                "supplier_credit_note_refs", credit),
+            InitialClassification = "BlockedAmbiguity",
+            CreatedAt = baseline.CapturedAtUtc, CreatedBy = baseline.MakerPrincipalId
+        };
+        var order = Guid.NewGuid();
+        Assert.False(InvoiceProcurementStoredBaselineEvidence.NoRetainedExposureForOrder(
+            baseline, [row], opening, order, supplier, "ZMW"));
+        Assert.True(InvoiceProcurementStoredBaselineEvidence.NoRetainedExposureForOrder(
+            baseline, [row], opening, order, Guid.NewGuid(), "ZMW"));
+        Assert.True(InvoiceProcurementStoredBaselineEvidence.NoRetainedExposureForOrder(
+            baseline, [row], opening, order, supplier, "USD"));
+
+        var changed = CreditJson(creditId, company, supplier, "ZMW", 2);
+        var changedRow = new InvoiceProcurementCapturedRow(creditId, 2,
+            ProcurementEvidenceEncoding.PolicyJsonDigest(changed), changed);
+        var current = opening with
+        {
+            Tables = opening.Tables.Select(table => table.TableName == "supplier_credit_note_refs"
+                ? table with { Rows = [changedRow] } : table).ToArray()
+        };
+        Assert.Throws<InvalidOperationException>(() =>
+            InvoiceProcurementStoredBaselineEvidence.NoRetainedExposureForOrder(
+                baseline, [row], current, order, Guid.NewGuid(), "ZMW"));
+    }
+
     private static InvoiceProcurementInventoryCapture Capture(InvoiceProcurementCapturedRow? invoice = null,
         Guid? company = null)
     {
@@ -123,4 +168,12 @@ public sealed class InvoiceProcurementStoredBaselineEvidenceTests
             invoice_date = "2026-10-28", status, current_mapping_version_id = mapping
         });
     }
+
+    private static string CreditJson(Guid id, Guid company, Guid supplier,
+        string currency, long version) => JsonSerializer.Serialize(new
+    {
+        id, version, tenant_id = "tenant-a", legal_entity_id = company,
+        supplier_invoice_id = (Guid?)null, supplier_id = supplier,
+        currency_code = currency
+    });
 }
