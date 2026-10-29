@@ -269,6 +269,48 @@ public sealed class InvoiceProcurementInventoryEvidenceTests
         Assert.Throws<InvalidOperationException>(()=>InvoiceProcurementBaselineEvidence.VerifyPendingCore(
             baseline,pending,new Dictionary<string,Guid?>{{maker,null}}));
         InvoiceProcurementBaselineEvidence.VerifyCoreReview(baseline,workflow,[decision],approvalAudit,reviewer,null,decided);
+        var authoredAudit=approvalAudit.ChangedFieldsJson;
+        approvalAudit.ChangedFieldsJson=JsonSerializer.Serialize(new
+        {
+            inventorySetSha256=baseline.InventorySetSha256,
+            idempotencyKey=decision.IdempotencyKey,
+            decisionId=decision.Id,
+            coreCaseId=baseline.CoreCaseId,
+            baselineId=baseline.Id
+        },new JsonSerializerOptions{WriteIndented=true});
+        InvoiceProcurementBaselineEvidence.VerifyCoreReview(baseline,workflow,[decision],approvalAudit,reviewer,null,decided);
+        approvalAudit.ChangedFieldsJson=JsonSerializer.Serialize(new
+        {
+            inventorySetSha256=baseline.InventorySetSha256,
+            idempotencyKey=decision.IdempotencyKey,
+            decisionId=decision.Id,
+            coreCaseId=baseline.CoreCaseId,
+            baselineId=baseline.Id,
+            extra="unreviewed"
+        });
+        Assert.Throws<InvalidOperationException>(()=>InvoiceProcurementBaselineEvidence.VerifyCoreReview(
+            baseline,workflow,[decision],approvalAudit,reviewer,null,decided));
+        approvalAudit.ChangedFieldsJson=JsonSerializer.Serialize(new
+        {
+            inventorySetSha256=baseline.InventorySetSha256,
+            idempotencyKey=decision.IdempotencyKey,
+            alteredDecisionId=decision.Id,
+            coreCaseId=baseline.CoreCaseId,
+            baselineId=baseline.Id
+        });
+        Assert.Throws<InvalidOperationException>(()=>InvoiceProcurementBaselineEvidence.VerifyCoreReview(
+            baseline,workflow,[decision],approvalAudit,reviewer,null,decided));
+        approvalAudit.ChangedFieldsJson=JsonSerializer.Serialize(new
+        {
+            inventorySetSha256=baseline.InventorySetSha256,
+            idempotencyKey=decision.IdempotencyKey,
+            decisionId=decision.Id,
+            coreCaseId=baseline.CoreCaseId,
+            baselineId=7
+        });
+        Assert.Throws<InvalidOperationException>(()=>InvoiceProcurementBaselineEvidence.VerifyCoreReview(
+            baseline,workflow,[decision],approvalAudit,reviewer,null,decided));
+        approvalAudit.ChangedFieldsJson=authoredAudit;
         Assert.Throws<InvalidOperationException>(()=>InvoiceProcurementBaselineEvidence.VerifyCoreReview(
             baseline,workflow,[decision],approvalAudit,maker,null,decided));
         approvalAudit.ActorSubjectId=maker;

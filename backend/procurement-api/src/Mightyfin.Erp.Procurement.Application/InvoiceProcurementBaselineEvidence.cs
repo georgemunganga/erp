@@ -28,6 +28,17 @@ public static class InvoiceProcurementBaselineEvidence
         {baselineId=baseline.Id,baseline.CoreCaseId,decisionId=decision.Id,
             decision.IdempotencyKey,baseline.InventorySetSha256},Json);
 
+    private static bool SameDecisionAuditJson(InvoiceProcurementOwnerBaseline baseline,
+        ApprovalDecision decision, string? retainedJson)
+    {
+        // AuditEvent.ChangedFieldsJson is stored as jsonb. PostgreSQL can change
+        // whitespace and member order without changing the recorded decision.
+        // The canonical digest still rejects missing, extra, duplicate or mistyped fields.
+        var expected=ProcurementEvidenceEncoding.PolicyJsonDigest(DecisionAuditJson(baseline,decision));
+        return expected.Length==64
+            && expected==ProcurementEvidenceEncoding.PolicyJsonDigest(retainedJson);
+    }
+
     public static void VerifyPendingCore(InvoiceProcurementOwnerBaseline baseline,
         ApprovalCase workflow, IReadOnlyDictionary<string,Guid?> reviewerWorkerAliases)
     {
@@ -148,7 +159,7 @@ public static class InvoiceProcurementBaselineEvidence
             || approvalAudit.Action!="InvoiceOwnerBaselineApproved"
             || approvalAudit.ActorSubjectId!=reviewerPrincipalId
             || approvalAudit.CorrelationId!=workflow.CompletionKey
-            || approvalAudit.ChangedFieldsJson!=DecisionAuditJson(baseline,final)
+            || !SameDecisionAuditJson(baseline,final,approvalAudit.ChangedFieldsJson)
             || !assignments.Any(x=>x.Id==final.AssignmentId && x.CaseId==workflow.Id
                 && x.StageId==final.StageId && x.AssigneeSubjectId==reviewerPrincipalId
                 && x.PermissionKey==ReviewPermission && x.State=="Approved")
