@@ -176,7 +176,10 @@ public static class PrincipalInvoiceBlockedNoClaimEvidence
             && Hex(reviewOutcome.EvidenceSha256)
             && ProcurementEvidenceEncoding.Digest(reviewOutcome.EvidenceJson) == reviewOutcome.EvidenceSha256
             && Hex(ProcurementEvidenceEncoding.PolicyJsonDigest(reviewOutcome.EvidenceJson)));
-        _ = PrincipalInvoiceMappingEvidence.VerifyStored(mapping, invoice, originalLines);
+        // The immutable invoice line retains its original nullable legacy source
+        // columns. Principal comparison projects the selected PO line and M5 fact
+        // into a transient document; it never writes them back to that old row.
+        var mappingSnapshot = PrincipalInvoiceMappingEvidence.VerifyStored(mapping, invoice, originalLines);
         try
         {
             using var evidence = JsonDocument.Parse(result.EvidenceJson!);
@@ -198,17 +201,42 @@ public static class PrincipalInvoiceBlockedNoClaimEvidence
                 && issues[0].GetProperty("code").GetString() == Discrepancy);
             var source = e.GetProperty("source");
             var original = source.GetProperty("invoice").GetProperty("lines");
+            var acceptedFacts = source.GetProperty("acceptances");
             Need(original.GetArrayLength() == originalLines.Count(x => x.IsActive));
             foreach (var line in originalLines.Where(x => x.IsActive))
             {
                 var recorded = original.EnumerateArray().Single(x => x.GetProperty("id").GetGuid() == line.Id);
+                var selected = mappingSnapshot.Lines.Single(x => x.InvoiceLineId == line.Id);
+                Guid? goodsFact = null, serviceFact = null;
+                if (selected.PrincipalReceivingFactId is { } factId)
+                {
+                    if (selected.PrincipalReceivingSourceStateId is not { } sourceId)
+                        throw new InvalidOperationException("PrincipalInvoiceBlockedNoClaimUnproven");
+                    var fact = acceptedFacts.EnumerateArray().Single(x => x.GetProperty("id").GetGuid() == factId);
+                    var kind = fact.GetProperty("kind").GetString();
+                    Need(kind is "Goods" or "Service"
+                        && fact.GetProperty("tenantId").GetString() == invoice.TenantId
+                        && fact.GetProperty("legalEntityId").GetGuid() == invoice.LegalEntityId
+                        && fact.GetProperty("branchRef").GetGuid() == invoice.BranchRef
+                        && fact.GetProperty("purchaseOrderId").GetGuid() == mapping.PurchaseOrderId
+                        && fact.GetProperty("revisionId").GetGuid() == mapping.IssuedVersionId
+                        && fact.GetProperty("purchaseOrderLineId").GetGuid() == selected.PurchaseOrderLineId
+                        && fact.GetProperty("state").GetString() == "Accepted"
+                        && fact.GetProperty("reversed").ValueKind == JsonValueKind.False
+                        && fact.GetProperty("currencyCode").GetString() == invoice.CurrencyCode
+                        && fact.GetProperty("unitCode").GetString() == selected.InvoiceUnitCode
+                        && fact.GetProperty("acceptanceReference").GetString()
+                            == $"PrincipalReceiving:{sourceId:D}:{factId:D}");
+                    if (kind == "Goods") goodsFact = factId; else serviceFact = factId;
+                }
                 Need(recorded.GetProperty("version").GetInt64() == line.Version
                     && recorded.GetProperty("supplierInvoiceId").GetGuid() == invoice.Id
                     && recorded.GetProperty("tenantId").GetString() == invoice.TenantId
                     && recorded.GetProperty("legalEntityId").GetGuid() == invoice.LegalEntityId
-                    && OptionalGuid(recorded.GetProperty("purchaseOrderLineId")) == line.PurchaseOrderLineId
-                    && OptionalGuid(recorded.GetProperty("goodsReceiptLineId")) == line.GoodsReceiptLineId
-                    && OptionalGuid(recorded.GetProperty("serviceAcceptanceId")) == line.ServiceAcceptanceId
+                    && OptionalGuid(recorded.GetProperty("purchaseOrderLineId")) == selected.PurchaseOrderLineId
+                    && OptionalGuid(recorded.GetProperty("goodsReceiptLineId")) == goodsFact
+                    && OptionalGuid(recorded.GetProperty("serviceAcceptanceId")) == serviceFact
+                    && recorded.GetProperty("unitCode").GetString() == selected.InvoiceUnitCode
                     && recorded.GetProperty("quantity").GetString() == ProcurementEvidenceEncoding.Decimal(line.Quantity)
                     && recorded.GetProperty("unitPrice").GetString() == ProcurementEvidenceEncoding.Decimal(line.UnitPrice)
                     && recorded.GetProperty("taxAmount").GetString() == ProcurementEvidenceEncoding.Decimal(line.TaxAmount)

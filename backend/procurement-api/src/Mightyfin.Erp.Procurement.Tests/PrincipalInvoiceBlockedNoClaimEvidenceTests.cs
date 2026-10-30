@@ -51,6 +51,11 @@ public sealed class PrincipalInvoiceBlockedNoClaimEvidenceTests
         Assert.Throws<InvalidOperationException>(() => Verify(f));
         f = Fixture(duplicateAcceptanceCheckpoint: true);
         Assert.Throws<InvalidOperationException>(() => Verify(f));
+        foreach (var mutation in new[] { "line", "fact", "kind", "source", "currency", "omitted" })
+        {
+            f = Fixture(projectionMutation: mutation);
+            Assert.Throws<InvalidOperationException>(() => Verify(f));
+        }
     }
 
     private static void Verify(FixtureState f) => PrincipalInvoiceBlockedNoClaimEvidence.Verify(
@@ -65,7 +70,8 @@ public sealed class PrincipalInvoiceBlockedNoClaimEvidenceTests
 
     private static FixtureState Fixture(decimal? unexpectedVariance = null,
         bool badWatermark = false, bool forgedSourceSupplier = false,
-        bool duplicateOrderCheckpoint = false, bool duplicateAcceptanceCheckpoint = false)
+        bool duplicateOrderCheckpoint = false, bool duplicateAcceptanceCheckpoint = false,
+        string? projectionMutation = null)
     {
         var tenant = "blocked-no-claim-test";
         var company = Guid.NewGuid(); var branch = Guid.NewGuid();
@@ -79,8 +85,8 @@ public sealed class PrincipalInvoiceBlockedNoClaimEvidenceTests
             CurrencyCode = "ZMW", IntakeChannel = "Manual", InvoiceDate = new DateOnly(2026, 10, 30),
             NetAmount = 5.1234m, GrossAmount = 5.1234m, Status = "Received", Version = 3 };
         var line = new SupplierInvoiceLine { TenantId = tenant, LegalEntityId = company,
-            SupplierInvoiceId = invoice.Id, LineNumber = 1, PurchaseOrderLineId = orderLine,
-            GoodsReceiptLineId = factId, Description = "Original", Quantity = 1,
+            SupplierInvoiceId = invoice.Id, LineNumber = 1,
+            Description = "Original", Quantity = 1,
             UnitPrice = 5.1234m, TaxAmount = 0 };
         var payload = PrincipalInvoiceMappingEvidence.Create(invoice, [line], order, issued,
             [new PrincipalInvoiceMappingLine(line.Id, orderLine, sourceId, factId,
@@ -110,12 +116,24 @@ public sealed class PrincipalInvoiceBlockedNoClaimEvidenceTests
         var checkpointOrderLines = duplicateOrderCheckpoint
             ? new[] { new { id = orderLine, version = 1 }, new { id = orderLine, version = 1 } }
             : sourceOrderLines;
-        var sourceAcceptances = duplicateAcceptanceCheckpoint
-            ? new[] { new { id = factId, version = 3 }, new { id = secondFact, version = 2 } }
-            : new[] { new { id = factId, version = 3 } };
+        object AcceptedFact(Guid id, Guid poLine, int version) => new {
+            id, version, tenantId = tenant, legalEntityId = company, branchRef = branch,
+            purchaseOrderId = order, revisionId = issued, purchaseOrderLineId = poLine,
+            currencyCode = projectionMutation == "currency" ? "USD" : "ZMW", unitCode = "EA",
+            kind = projectionMutation == "kind" ? "Service" : "Goods", state = "Accepted",
+            acceptanceReference = $"PrincipalReceiving:{(projectionMutation == "source" ? Guid.NewGuid() : sourceId):D}:{id:D}",
+            acceptedAt = matched.AddMinutes(-1), reversed = false,
+            acceptedQuantity = "1", returnedQuantity = "0",
+            acceptedNetAmount = "5.1234", returnedNetAmount = "0" };
+        var sourceAcceptances = projectionMutation == "omitted" ? Array.Empty<object>() : duplicateAcceptanceCheckpoint
+            ? new[] { AcceptedFact(factId, orderLine, 3), AcceptedFact(secondFact, secondOrderLine, 2) }
+            : new[] { AcceptedFact(factId, orderLine, 3) };
+        var acceptanceVersions = projectionMutation == "omitted" ? Array.Empty<object>() : duplicateAcceptanceCheckpoint
+            ? new object[] { new { id = factId, version = 3 }, new { id = secondFact, version = 2 } }
+            : new object[] { new { id = factId, version = 3 } };
         var checkpointAcceptances = duplicateAcceptanceCheckpoint
             ? new[] { new { id = factId, version = 3 }, new { id = factId, version = 3 } }
-            : sourceAcceptances;
+            : acceptanceVersions;
         var reviewSource = new InvoiceUnitReviewSource { TenantId = tenant, LegalEntityId = company,
             SupplierInvoiceId = invoice.Id, MappingVersionId = mapping.Id, PurchaseOrderId = order,
             IssuedVersionId = issued, OriginalSha256 = mapping.InvoiceOriginalSha256,
@@ -135,8 +153,10 @@ public sealed class PrincipalInvoiceBlockedNoClaimEvidenceTests
                 invoice.NormalizedInvoiceNumber, invoice.InvoiceDate, invoice.DueDate,
                 invoice.EvidenceDocumentRefId, invoice.CreditForInvoiceRef, invoice.FinancePostingRef,
                 lines = new[] { new { line.Id, line.Version, line.SupplierInvoiceId,
-                    tenantId = tenant, legalEntityId = company, line.PurchaseOrderLineId,
-                    line.GoodsReceiptLineId, line.ServiceAcceptanceId,
+                    tenantId = tenant, legalEntityId = company,
+                    purchaseOrderLineId = (Guid?)(projectionMutation == "line" ? Guid.NewGuid() : orderLine),
+                    goodsReceiptLineId = (Guid?)(projectionMutation == "fact" ? Guid.NewGuid() : factId),
+                    serviceAcceptanceId = (Guid?)null, unitCode = "EA",
                     quantity = "1", unitPrice = "5.1234", taxAmount = "0", line.Description,
                     line.TaxCodeRef, line.CostCenterRef } } },
             order = new { id = order, revisionId = issued, version = 1,
