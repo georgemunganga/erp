@@ -1,4 +1,5 @@
 using System.Data;
+using System.Text;
 using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Storage;
@@ -48,7 +49,7 @@ public static partial class ProcurementInvoiceIntakeRoutes
     {
         if (!IntakeWriteContextAllowed(scope, request)) return IntakeBranchRequired();
         if (id == Guid.Empty || input.CorrectedInvoice is null || input.SourceVersion <= 0
-            || string.IsNullOrWhiteSpace(input.Reason) || input.Reason.Trim().Length > 1000)
+            || string.IsNullOrWhiteSpace(input.Reason) || Encoding.UTF8.GetByteCount(input.Reason.Trim()) > 1000)
             return Invalid("Supply the source version, corrected invoice and replacement reason.");
         if (!ExplicitReplacementCurrency(input.CorrectedInvoice.CurrencyCode))
             return Invalid("Enter the original invoice's currency explicitly on the corrected invoice.");

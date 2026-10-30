@@ -171,7 +171,7 @@ public static class InvoiceReplacementEvidence
             && link.CommandKey != Guid.Empty && link.CaptureCommandKey != link.CommandKey
             && Hex64(link.SourceOriginalSha256) && Hex64(link.NoClaimProofSha256)
             && !string.IsNullOrWhiteSpace(link.Reason) && link.Reason == link.Reason.Trim()
-            && link.Reason.Length <= 1000 && link.RecordedAtUtc.Offset == TimeSpan.Zero
+            && Encoding.UTF8.GetByteCount(link.Reason) <= 1000 && link.RecordedAtUtc.Offset == TimeSpan.Zero
             && link.CreatedAt >= link.RecordedAtUtc && link.CreatedBy == link.MakerPrincipalId,
             "InvoiceReplacementLinkInvalid");
         Need(receipt.Id != Guid.Empty && receipt.Version == 1 && receipt.UpdatedAt is null

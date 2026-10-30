@@ -31,6 +31,26 @@ public sealed class InvoiceReplacementCurrencyContractTests
         Assert.Contains("currency explicitly", body.GetProperty("message").GetString());
     }
 
+    [Theory]
+    [InlineData("é", 501)]
+    [InlineData("😀", 251)]
+    [InlineData("a", 1001)]
+    public async Task Replacement_reason_over_utf8_storage_limit_is_rejected_before_storage(string character, int count)
+    {
+        var http = new DefaultHttpContext();
+        var scope = new ProcurementRequestScope();
+        scope.Set("replacement-reason-test", Guid.NewGuid(), Guid.NewGuid().ToString("D"),
+            Guid.NewGuid(), null, false, "test");
+        var corrected = new InvoiceIntakeInput(Guid.NewGuid(), null, "SUPPLIER-CORRECTED-2",
+            new DateOnly(2026, 10, 30), null, "ZMW",
+            [new InvoiceIntakeLineInput("Corrected supplier line", 1m, 5.1234m, 0m, null, null)],
+            IntakeSchemaVersion: 2);
+        var reason = string.Concat(Enumerable.Repeat(character, count));
+        var response = await ProcurementInvoiceIntakeRoutes.ReplaceCurrencyInvoice(Guid.NewGuid(),
+            new InvoiceReplacementInput(4, reason, corrected), http.Request, null!, scope, default);
+        Assert.Equal(422, Assert.IsAssignableFrom<IStatusCodeHttpResult>(response).StatusCode);
+    }
+
     [Fact]
     public void Replacement_retains_source_currency_even_if_company_default_changes()
     {
