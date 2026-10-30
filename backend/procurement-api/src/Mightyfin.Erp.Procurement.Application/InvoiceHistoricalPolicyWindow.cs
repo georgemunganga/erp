@@ -18,13 +18,15 @@ public sealed record ScopedHistoricalPolicyPublication(PolicyVersion Policy,
 public sealed class ScopedHistoricalPolicyWitness
 {
     internal ScopedHistoricalPolicyWitness(PolicyVersion policy, DateTimeOffset observedAt,
-        DateTimeOffset? originalEnd, Guid publicationAuditId, Guid publicationIdentityId)
+        DateTimeOffset? originalEnd, Guid publicationAuditId, Guid publicationIdentityId,
+        DateTimeOffset? supersededEnd, DateTimeOffset? supersessionAuditAt)
     {
         TenantId=policy.TenantId; LegalEntityId=policy.LegalEntityId; PolicyId=policy.Id;
         PolicyKey=policy.PolicyKey; PolicyVersionNumber=policy.PolicyVersionNumber;
         RulesJson=policy.RulesJson; RulesSha256=ProcurementEvidenceEncoding.PolicyJsonDigest(RulesJson);
         EffectiveFrom=policy.EffectiveFrom; OriginalEffectiveUntil=originalEnd; ObservedAt=observedAt;
         PublicationAuditId=publicationAuditId; PublicationIdentityId=publicationIdentityId;
+        SupersededEffectiveUntil=supersededEnd; SupersessionAuditAt=supersessionAuditAt;
     }
     public string TenantId { get; }
     public Guid LegalEntityId { get; }
@@ -38,6 +40,8 @@ public sealed class ScopedHistoricalPolicyWitness
     public DateTimeOffset ObservedAt { get; }
     public Guid PublicationAuditId { get; }
     public Guid PublicationIdentityId { get; }
+    public DateTimeOffset? SupersededEffectiveUntil { get; }
+    public DateTimeOffset? SupersessionAuditAt { get; }
 }
 
 /// <summary>Reconstructs the original declared window from the actual policy Published audit.
@@ -59,6 +63,7 @@ public static class InvoiceHistoricalPolicyWindow
                 && (original.End is null || observedAt<original.End)
                 && (policy.EffectiveTo is null || observedAt<policy.EffectiveTo), "HistoricalPolicyObservationOutsideWindow");
             Need(supersededAudits.Count<=1,"HistoricalPolicySupersessionAmbiguous");
+            DateTimeOffset? supersededEnd=null, supersessionAuditAt=null;
             if(policy.EffectiveTo==original.End)
                 Need(supersededAudits.Count==0 && supersedingPublication is null,"HistoricalPolicyUnexpectedSupersession");
             else
@@ -79,8 +84,10 @@ public static class InvoiceHistoricalPolicyWindow
                     && audit.CreatedAt==nextOriginal.Audit.CreatedAt
                     && audit.CreatedAt>=original.Audit.CreatedAt
                     && audit.CreatedAt>=next.PublishedAt, "HistoricalPolicySupersessionAuditMismatch");
+                supersededEnd=policy.EffectiveTo; supersessionAuditAt=audit.CreatedAt;
             }
-            return new(policy,observedAt,original.End,original.Audit.Id,publication.Published.Id);
+            return new(policy,observedAt,original.End,original.Audit.Id,publication.Published.Id,
+                supersededEnd,supersessionAuditAt);
         }
         catch(Exception error) when(error is JsonException or KeyNotFoundException or FormatException
             or OverflowException or ArgumentException)
@@ -94,6 +101,27 @@ public static class InvoiceHistoricalPolicyWindow
         return new(witness.PolicyId,witness.PolicyVersionNumber,witness.TenantId,witness.LegalEntityId,null,
             "Published",$"INVOICE_MATCHING:{witness.PolicyId:D}:{witness.PolicyVersionNumber}",
             witness.EffectiveFrom,witness.OriginalEffectiveUntil,rules.MoneyScale,rules.Rounding,rules.Rules);
+    }
+
+    /// <summary>Admit only the complete recorded policy projection from an
+    /// authenticated publication window. A comparison can retain the original
+    /// open window in a long-running Serializable snapshot, or observe the
+    /// genuinely published finite successor boundary. Time never selects one.
+    /// The existing strict observation-before-current-end gate in Verify remains
+    /// fail-closed; snapshots observed across that cutoff are not admitted here.</summary>
+    public static bool MatchesRecordedMatchingPolicy(ScopedHistoricalPolicyWitness witness,
+        string? recordedPolicyJson)
+    {
+        var recordedSha=ProcurementEvidenceEncoding.PolicyJsonDigest(recordedPolicyJson);
+        if(recordedSha.Length!=64)return false;
+        var original=ProjectMatching(witness);
+        string Digest(InvoiceMatchingPolicy candidate) => ProcurementEvidenceEncoding.PolicyJsonDigest(
+            InvoiceMatchingFoundation.SerializePolicyEvidence(candidate));
+        if(recordedSha==Digest(original))return true;
+        return witness.SupersededEffectiveUntil is { } end
+            && witness.SupersessionAuditAt is { } auditAt && auditAt<=witness.ObservedAt
+            && witness.ObservedAt<end
+            && recordedSha==Digest(original with { EffectiveUntil=end });
     }
 
     private static (AuditEvent Audit, DateTimeOffset? End) Publication(ScopedHistoricalPolicyPublication evidence)

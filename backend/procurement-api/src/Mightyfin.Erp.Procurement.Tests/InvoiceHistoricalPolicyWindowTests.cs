@@ -123,6 +123,79 @@ public sealed class InvoiceHistoricalPolicyWindowTests
         Assert.Null(w.OriginalEffectiveUntil);
     }
 
+    [Theory]
+    [InlineData(-1, false)]
+    [InlineData(0, true)]
+    [InlineData(1, true)]
+    [InlineData(3600000000L, true)]
+    public void Recorded_snapshot_selects_original_or_finite_window_without_inferring_transaction_order(
+        long microsecondsAfterAudit, bool finiteAdmitted)
+    {
+        var f=Superseded();var observed=f.Audit.CreatedAt.AddTicks(microsecondsAfterAudit*10);
+        var witness=InvoiceHistoricalPolicyWindow.Verify(f.Old,observed,[f.Audit],f.Next);
+        var original=InvoiceHistoricalPolicyWindow.ProjectMatching(witness);
+        var finite=InvoiceMatchingPolicyRules.Project(f.Old.Policy);
+        Assert.True(InvoiceHistoricalPolicyWindow.MatchesRecordedMatchingPolicy(witness,
+            InvoiceMatchingFoundation.SerializePolicyEvidence(original)));
+        Assert.Equal(finiteAdmitted,InvoiceHistoricalPolicyWindow.MatchesRecordedMatchingPolicy(witness,
+            InvoiceMatchingFoundation.SerializePolicyEvidence(finite)));
+        Assert.Equal(f.Old.Policy.EffectiveTo,witness.SupersededEffectiveUntil);
+        Assert.Equal(f.Audit.CreatedAt,witness.SupersessionAuditAt);
+    }
+
+    [Theory]
+    [InlineData("thirdEnd")][InlineData("rules")][InlineData("tenant")]
+    [InlineData("company")][InlineData("version")][InlineData("unknownField")]
+    [InlineData("duplicateField")][InlineData("malformed")][InlineData("empty")]
+    public void Retained_window_match_rejects_changed_full_policy_even_with_a_plausible_end(string fault)
+    {
+        var f=Superseded();var witness=InvoiceHistoricalPolicyWindow.Verify(f.Old,
+            f.Audit.CreatedAt.AddMinutes(1),[f.Audit],f.Next);
+        var policy=InvoiceMatchingPolicyRules.Project(f.Old.Policy);
+        policy=fault switch {
+            "thirdEnd" => policy with { EffectiveUntil=f.Old.Policy.EffectiveTo!.Value.AddHours(-1) },
+            "rules" => policy with { Rules=[policy.Rules[0] with { CategoryCode="FORGED" }] },
+            "tenant" => policy with { TenantId="other-tenant" },
+            "company" => policy with { LegalEntityId=Guid.NewGuid() },
+            "version" => policy with { Version=policy.Version+1 },
+            _ => policy
+        };
+        var json=InvoiceMatchingFoundation.SerializePolicyEvidence(policy);
+        if(fault=="unknownField")json=json.Insert(1,"\"unexpected\":true,");
+        if(fault=="duplicateField")json=json.Insert(1,"\"version\":1,");
+        if(fault=="malformed")json="{";
+        if(fault=="empty")json="";
+        Assert.False(InvoiceHistoricalPolicyWindow.MatchesRecordedMatchingPolicy(witness,json));
+    }
+
+    [Fact]
+    public void Recorded_window_match_keeps_jsonb_object_normalization_and_original_codec()
+    {
+        var f=Superseded();var witness=InvoiceHistoricalPolicyWindow.Verify(f.Old,
+            f.Audit.CreatedAt.AddMinutes(1),[f.Audit],f.Next);
+        var policy=InvoiceMatchingPolicyRules.Project(f.Old.Policy);
+        var exact=InvoiceMatchingFoundation.SerializePolicyEvidence(policy);
+        using var parsed=JsonDocument.Parse(exact);
+        var reversed=JsonSerializer.Serialize(parsed.RootElement.EnumerateObject().Reverse()
+            .ToDictionary(x=>x.Name,x=>x.Value));
+        Assert.True(InvoiceHistoricalPolicyWindow.MatchesRecordedMatchingPolicy(witness,reversed));
+        Assert.False(InvoiceHistoricalPolicyWindow.MatchesRecordedMatchingPolicy(witness,
+            JsonSerializer.Serialize(policy,new JsonSerializerOptions(JsonSerializerDefaults.Web))));
+        f.Old.Policy.EffectiveTo=At;f.Audit.CreatedAt=At;
+        Assert.True(InvoiceHistoricalPolicyWindow.MatchesRecordedMatchingPolicy(witness,exact));
+    }
+
+    [Fact]
+    public void Original_window_cannot_be_arbitrarily_removed_from_a_bounded_publication()
+    {
+        var p=Publication(1,At,At.AddDays(1),At.AddDays(4));
+        var witness=InvoiceHistoricalPolicyWindow.Verify(p,At.AddDays(2),[]);
+        var original=InvoiceHistoricalPolicyWindow.ProjectMatching(witness);
+        Assert.False(InvoiceHistoricalPolicyWindow.MatchesRecordedMatchingPolicy(witness,
+            InvoiceMatchingFoundation.SerializePolicyEvidence(original with { EffectiveUntil=null })));
+        Assert.Null(witness.SupersededEffectiveUntil);Assert.Null(witness.SupersessionAuditAt);
+    }
+
     private static (ScopedHistoricalPolicyPublication Old,ScopedHistoricalPolicyPublication Next,AuditEvent Audit) Superseded()
     {
         var old=Publication(1,At,At.AddDays(1));var next=Publication(2,At.AddDays(3),At.AddDays(4));
