@@ -98,10 +98,24 @@ public sealed class ProcurementInvoiceReplacementPresentationTests
     {
         var displayed = Invoice();Assert.Null(displayed.PurchaseOrderId);
         var witness = Witness(displayed);
-        var context = ProcurementInvoiceIntakeRoutes.ReplacementDisplayedContext(displayed, witness);
+        var context = ProcurementInvoiceIntakeRoutes.ReplacementDisplayedContext(displayed, witness, "PO-2026-001");
         Assert.NotNull(context);Assert.Equal(displayed.Id, context.SourceInvoiceId);
         Assert.Equal(displayed.Version, context.SourceVersion);
         Assert.Equal(witness.Mapping.PurchaseOrderId, context.PurchaseOrderId);
+        Assert.Equal("PO-2026-001", context.PurchaseOrderNumber);
+        var wire = System.Text.Json.JsonSerializer.SerializeToElement(context,
+            new System.Text.Json.JsonSerializerOptions(System.Text.Json.JsonSerializerDefaults.Web));
+        Assert.Equal(4, wire.EnumerateObject().Count());
+        Assert.Equal("PO-2026-001", wire.GetProperty("purchaseOrderNumber").GetString());
+    }
+
+    [Theory]
+    [InlineData(null)][InlineData("")][InlineData(" ")][InlineData(" PO-2026-001 ")]
+    public void Missing_or_noncanonical_human_PO_reference_never_enables_context(string? number)
+    {
+        var displayed = Invoice();
+        Assert.Null(ProcurementInvoiceIntakeRoutes.ReplacementDisplayedContext(displayed, Witness(displayed), number));
+        Assert.Null(ProcurementInvoiceIntakeRoutes.ReplacementDisplayedContext(displayed, Witness(displayed), new string('a',81)));
     }
 
     [Theory]
@@ -111,7 +125,7 @@ public sealed class ProcurementInvoiceReplacementPresentationTests
     public void Stale_display_or_unverified_source_shape_cannot_form_context(string fault)
     {
         var displayed = Invoice();
-        Assert.Null(ProcurementInvoiceIntakeRoutes.ReplacementDisplayedContext(displayed, Witness(displayed, fault)));
+        Assert.Null(ProcurementInvoiceIntakeRoutes.ReplacementDisplayedContext(displayed, Witness(displayed, fault), "PO-2026-001"));
     }
 
     private sealed class ReadOnlyProfile : IProcurementInvoiceReplacementSchemaReadiness

@@ -15,24 +15,26 @@ namespace Mightyfin.Erp.Hrm.Api;
 /// This helper neither admits an invoice owner nor enables claims or posting.</summary>
 internal static class ProcurementPrincipalInvoiceIssuedWitness
 {
-    internal static Task<PrincipalInvoiceIssuedWitness> LoadAsync(
+    internal sealed record PresentationIssued(PrincipalInvoiceIssuedWitness Witness, string PurchaseOrderNumber);
+
+    internal static async Task<PrincipalInvoiceIssuedWitness> LoadAsync(
         ProcurementDbContext db, ApprovalDbContext cases, ProcurementRequestScope scope,
         IReadOnlySet<Guid> currentCoreAllowedBranches, Guid orderId,
         Guid issuedVersionId, CancellationToken ct)
-        => LoadOwnedAsync(db, cases, scope, currentCoreAllowedBranches, orderId,
-            issuedVersionId, lockSources: true, ct: ct);
+        => (await LoadOwnedAsync(db, cases, scope, currentCoreAllowedBranches, orderId,
+            issuedVersionId, lockSources: true, ct: ct)).Witness;
 
     /// <summary>Read-only UI eligibility hint in one Serializable snapshot. This
     /// does not lock source rows or admit a new command; commands keep LoadAsync
     /// and revalidate its locked authority before committing any effects.</summary>
-    internal static Task<PrincipalInvoiceIssuedWitness> ReadForPresentationAsync(
+    internal static Task<PresentationIssued> ReadForPresentationAsync(
         ProcurementDbContext db, ApprovalDbContext cases, ProcurementRequestScope scope,
         IReadOnlySet<Guid> currentCoreAllowedBranches, Guid orderId,
         Guid issuedVersionId, CancellationToken ct)
         => LoadOwnedAsync(db, cases, scope, currentCoreAllowedBranches, orderId,
             issuedVersionId, lockSources: false, ct: ct);
 
-    private static async Task<PrincipalInvoiceIssuedWitness> LoadOwnedAsync(
+    private static async Task<PresentationIssued> LoadOwnedAsync(
         ProcurementDbContext db, ApprovalDbContext cases, ProcurementRequestScope scope,
         IReadOnlySet<Guid> currentCoreAllowedBranches, Guid orderId,
         Guid issuedVersionId, bool lockSources, CancellationToken ct)
@@ -88,9 +90,9 @@ internal static class ProcurementPrincipalInvoiceIssuedWitness
                 retained with { SelectedLine = original }, kind);
             sources.Add(state.Id, expected);
         }
-        return new(scope.TenantId, scope.LegalEntityId, branch, order.Id,
+        return new(new(scope.TenantId, scope.LegalEntityId, branch, order.Id,
             retained.Issued.Id, retained.CoreCase.Id, order.SupplierId, order.CurrencyCode,
-            new ReadOnlyDictionary<Guid, PrincipalReceivingSource>(sources));
+            new ReadOnlyDictionary<Guid, PrincipalReceivingSource>(sources)), order.Number);
     }
 
     /// <summary>Read-only retained commercial projection for original-unit review.

@@ -9,7 +9,7 @@ using Mightyfin.Erp.Procurement.Infrastructure.Data;
 
 namespace Mightyfin.Erp.Hrm.Api;
 
-public sealed record InvoiceReplacementContext(Guid SourceInvoiceId, long SourceVersion, Guid PurchaseOrderId);
+public sealed record InvoiceReplacementContext(Guid SourceInvoiceId, long SourceVersion, Guid PurchaseOrderId, string PurchaseOrderNumber);
 
 public static partial class ProcurementInvoiceIntakeRoutes
 {
@@ -36,8 +36,9 @@ public static partial class ProcurementInvoiceIntakeRoutes
     // This formats an already verified owning-server witness. It cannot create
     // eligibility from a client status, a header PO, or an unverified object ID.
     internal static InvoiceReplacementContext? ReplacementDisplayedContext(SupplierInvoice displayed,
-        InvoiceReplacementSourceWitness witness)
-        => ReplacementSourceCandidate(displayed) && ReplacementSourceCandidate(witness.Invoice)
+        InvoiceReplacementSourceWitness witness, string? purchaseOrderNumber)
+        => !string.IsNullOrWhiteSpace(purchaseOrderNumber) && purchaseOrderNumber == purchaseOrderNumber.Trim()
+            && purchaseOrderNumber.Length <= 80 && ReplacementSourceCandidate(displayed) && ReplacementSourceCandidate(witness.Invoice)
             && displayed.Id == witness.Invoice.Id
             && displayed.Version == witness.Invoice.Version
             && displayed.TenantId == witness.Invoice.TenantId
@@ -54,7 +55,7 @@ public static partial class ProcurementInvoiceIntakeRoutes
             && witness.Mapping.PurchaseOrderId != Guid.Empty
             && witness.BlockedResult.PurchaseOrderId == witness.Mapping.PurchaseOrderId
             && witness.BlockedResult.IssuedVersionId == witness.Mapping.IssuedVersionId
-                ? new(displayed.Id, displayed.Version, witness.Mapping.PurchaseOrderId) : null;
+                ? new(displayed.Id, displayed.Version, witness.Mapping.PurchaseOrderId, purchaseOrderNumber) : null;
 
     internal static string? ReplacementReviewIssue(InvoiceReplacementSourceWitness witness, DateTimeOffset now)
     {
@@ -139,13 +140,14 @@ public static partial class ProcurementInvoiceIntakeRoutes
         {
             var witness = await db.ReadReplacementSourceAsync(displayed.Id,
                 (requirement, token) => RetainedReplacementReference(db, scope, requirement, token), ct);
-            var context = ReplacementDisplayedContext(displayed, witness);
-            if (context is null || !ReplacementMakerContext(witness.Invoice, scope, http.Request, actor)
+            if (!ReplacementMakerContext(witness.Invoice, scope, http.Request, actor)
                 || ReplacementReviewIssue(witness, CalculationNow(http)) is not null) return null;
             _ = await ResolveCalculationPrecision(db, scope, witness.Invoice.CurrencyCode, CalculationNow(http), ct);
-            var issued = await ProcurementPrincipalInvoiceIssuedWitness.ReadForPresentationAsync(db, cases,
+            var presentationIssued = await ProcurementPrincipalInvoiceIssuedWitness.ReadForPresentationAsync(db, cases,
                 scope, allowed, witness.Mapping.PurchaseOrderId, witness.Mapping.IssuedVersionId, ct);
-            if (issued.SupplierId != witness.Invoice.SupplierId || issued.CurrencyCode != witness.Invoice.CurrencyCode
+            var issued = presentationIssued.Witness;
+            var context = ReplacementDisplayedContext(displayed, witness, presentationIssued.PurchaseOrderNumber);
+            if (context is null || issued.SupplierId != witness.Invoice.SupplierId || issued.CurrencyCode != witness.Invoice.CurrencyCode
                 || issued.BranchId != displayed.BranchRef || issued.PurchaseOrderId != context.PurchaseOrderId
                 || issued.IssuedVersionId != witness.Mapping.IssuedVersionId) return null;
             var review = await ReadRetainedReplacementReview(db, cases, scope, http,
