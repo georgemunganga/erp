@@ -140,10 +140,19 @@ public static partial class ProcurementSourcingExecutionRoutes
         Mightyfin.Erp.Core.Approvals.Domain.ApprovalCase Case,
         IReadOnlyList<PublishedLine> Lines, IReadOnlyList<SourcingInvitation> Invitations);
 
-    private static async Task<PublishedEvidence> PrincipalPublicationEvidence(ProcurementDbContext db,
-        ApprovalDbContext cases, SourcingEvent ev, CancellationToken ct)
+    private static Task<PublishedEvidence> PrincipalPublicationEvidence(ProcurementDbContext db,
+        ApprovalDbContext cases, SourcingEvent ev, CancellationToken ct) =>
+        PrincipalPublicationEvidenceCore(db, cases, ev, retained: false, ct);
+
+    private static Task<PublishedEvidence> PrincipalRetainedPublicationEvidence(ProcurementDbContext db,
+        ApprovalDbContext cases, SourcingEvent ev, CancellationToken ct) =>
+        PrincipalPublicationEvidenceCore(db, cases, ev, retained: true, ct);
+
+    private static async Task<PublishedEvidence> PrincipalPublicationEvidenceCore(ProcurementDbContext db,
+        ApprovalDbContext cases, SourcingEvent ev, bool retained, CancellationToken ct)
     {
-        if (ev.Status is not ("PublicationReview" or "Published")
+        if ((!retained && ev.Status is not ("PublicationReview" or "Published")
+                || retained && ev.Status is not ("Published" or "Cancelled"))
             || !Guid.TryParseExact(ev.ApprovalInstanceRef, "D", out var caseId)
             || caseId == Guid.Empty || ev.OriginalDraftFingerprint is null)
             throw new Problem("SourcingPublicationEvidenceNeedsReview", 409);
@@ -170,7 +179,7 @@ public static partial class ProcurementSourcingExecutionRoutes
         var policy = await db.PolicyVersions.AsNoTracking().SingleOrDefaultAsync(x => x.Id == opening.PolicyVersionId, ct);
         var published = await db.SourcingPolicyIdentityEvidenceRecords.AsNoTracking()
             .SingleOrDefaultAsync(x => x.Id == opening.PublishedPolicyEvidenceId, ct);
-        if (policy is null || published is null || policy.State != "Published"
+        if (policy is null || published is null || !retained && policy.State != "Published"
             || policy.PolicyKey != SourcingPublicationPolicyRules.PolicyKey
             || policy.TenantId != ev.TenantId || policy.LegalEntityId != ev.LegalEntityId
             || policy.PolicyVersionNumber != opening.PolicyVersionNumber
@@ -213,11 +222,12 @@ public static partial class ProcurementSourcingExecutionRoutes
             var allocation = allocations.SingleOrDefault(x => x.Id == binding.AllocationId);
             if (line is null || allocation is null)
                 throw new Problem("SourcingPublicationEvidenceNeedsReview", 409);
-            PrincipalRfqPublicationReadInvariants.VerifyActiveHold(ev, binding, line, allocation);
+            if (retained) PrincipalRfqPublicationReadInvariants.VerifyRetainedLine(ev, binding, line, allocation);
+            else PrincipalRfqPublicationReadInvariants.VerifyActiveHold(ev, binding, line, allocation);
             verifiedLines.Add(new(binding, line, allocation));
         }
         SourcingInvitation[] invitations = [];
-        if (ev.Status == "Published")
+        if (ev.Status == "Published" || retained)
         {
             var approved = await db.SourcingPublicationDecisions.AsNoTracking().SingleOrDefaultAsync(x =>
                 x.OpeningId == opening.Id && x.CaseState == "Approved", ct)
@@ -226,15 +236,30 @@ public static partial class ProcurementSourcingExecutionRoutes
                 x.Id == approved.CoreApprovalDecisionId && x.CaseId == caseId, ct);
             if (decision is null || decision.Action != "Approve"
                 || decision.ActorSubjectId != approved.ActorPrincipalId
-                || ev.Version != approved.EventVersionAtDecision)
+                || (retained ? ev.Version < approved.EventVersionAtDecision : ev.Version != approved.EventVersionAtDecision))
                 throw new Problem("SourcingPublicationEvidenceNeedsReview", 409);
             invitations = await db.SourcingInvitations.AsNoTracking()
                 .Where(x => x.SourcingEventId == ev.Id).Take(101).ToArrayAsync(ct);
             if (invitations.Length != supplierIds.Length
                 || !invitations.Select(x => x.SupplierId).ToHashSet().SetEquals(supplierIds)
-                || invitations.Any(x => x.Status != "ReadyForManualDelivery"
-                    || x.SentAt is not null || x.ViewedAt is not null || x.DeliveryRef is not null))
+                || invitations.Any(x => x.SentAt is not null || x.ViewedAt is not null || x.DeliveryRef is not null))
                 throw new Problem("SourcingPublicationEvidenceNeedsReview", 409);
+            // Existing M4 publications do not depend on the new M7 tables until
+            // an invitation actually claims the new, receipt-backed transition.
+            SourcingManualContact[] contacts = invitations.Any(x => x.Status != "ReadyForManualDelivery")
+                ? await db.SourcingManualContacts.AsNoTracking()
+                    .Where(x => x.SourcingEventId == ev.Id).Take(101).ToArrayAsync(ct) : [];
+            var receipt = await db.SourcingPublicationReceipts.AsNoTracking()
+                .SingleOrDefaultAsync(x => x.DecisionId == approved.Id, ct)
+                ?? throw new Problem("SourcingPublicationEvidenceNeedsReview", 409);
+            if (contacts.Any(x => !invitations.Any(i => i.Id == x.InvitationId)))
+                throw new Problem("SourcingPublicationEvidenceNeedsReview", 409);
+            foreach (var invitation in invitations)
+            {
+                var contact = contacts.SingleOrDefault(x => x.InvitationId == invitation.Id);
+                if (retained) PrincipalManualQuotationEvidence.VerifyRetainedInvitation(ev, invitation, opening, approved, receipt, contact);
+                else PrincipalManualQuotationEvidence.VerifyPublishedInvitation(ev, invitation, opening, approved, receipt, contact);
+            }
         }
         else if (await db.SourcingInvitations.AsNoTracking().AnyAsync(x => x.SourcingEventId == ev.Id, ct))
             throw new Problem("SourcingPublicationEvidenceNeedsReview", 409);

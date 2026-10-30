@@ -570,6 +570,7 @@ public sealed partial class ProcurementDbContext(DbContextOptions<ProcurementDbC
         ConfigureSourcingDraftExecution(modelBuilder);
         ConfigureSourcingPolicyIdentity(modelBuilder);
         ConfigureSourcingPublication(modelBuilder);
+        ConfigureManualQuotations(modelBuilder);
         ConfigureOperationalPolicyIdentity(modelBuilder);
         ConfigureInvoiceUnitReview(modelBuilder);
         ConfigureRecurringPurchaseCommitments(modelBuilder);
@@ -834,6 +835,7 @@ public sealed partial class ProcurementDbContext(DbContextOptions<ProcurementDbC
         GuardInvoiceAmountCalculations();
         GuardInvoiceIntakeCommandReceipts();
         GuardInvoiceReplacement();
+        GuardManualQuotations();
     }
 
     private void GuardMasterImportChanges()
