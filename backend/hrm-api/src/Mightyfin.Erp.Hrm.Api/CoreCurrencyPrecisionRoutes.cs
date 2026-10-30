@@ -111,7 +111,7 @@ public static class CoreCurrencyPrecisionRoutes
             x.TenantId == actor.TenantId && x.ActorPrincipalId == actor.PrincipalId &&
             x.Operation == "Publish" && x.CommandKey == key, ct);
         if (prior is not null)
-            return Saved(prior, fingerprint, actor.CompanyId);
+            return await SavedAsync(prior, fingerprint, actor.CompanyId, db, ct);
         if (!CoreCurrencyPrecisionRules.ValidPublish(input.CurrencyCode, input.ExpectedRevision,
                 input.MinorUnits, input.Rounding, input.SourceReference, input.Reason))
             return Error("CoreCurrencyPrecisionInvalid", 422);
@@ -164,7 +164,7 @@ public static class CoreCurrencyPrecisionRoutes
         var prior = await db.CurrencyPrecisionCommandReceipts.AsNoTracking().SingleOrDefaultAsync(x =>
             x.TenantId == actor.TenantId && x.ActorPrincipalId == actor.PrincipalId &&
             x.Operation == "Retire" && x.CommandKey == key, ct);
-        if (prior is not null) return Saved(prior, fingerprint, actor.CompanyId);
+        if (prior is not null) return await SavedAsync(prior, fingerprint, actor.CompanyId, db, ct);
         if (input.ExpectedRevision < 1 || !CoreCurrencyPrecisionRules.NonBlank(input.Reason, 500))
             return Error("CoreCurrencyPrecisionInvalid", 422);
         var row = await db.CurrencyPrecisionVersions.SingleOrDefaultAsync(x =>
@@ -201,9 +201,7 @@ public static class CoreCurrencyPrecisionRoutes
             x.TenantId == actor.TenantId && x.ActorPrincipalId == actor.PrincipalId &&
             x.CompanyId == companyId && x.Operation == operation && x.CommandKey == key, ct);
         if (receipt is null) return Results.NotFound();
-        if (Digest(receipt.ResponseJson) != receipt.ResponseSha256)
-            return Error("CoreCurrencyReceiptInvalid", 503);
-        return Results.Content(receipt.ResponseJson, "application/json", statusCode: receipt.ResponseStatus);
+        return await SavedAsync(receipt, receipt.RequestSha256, actor.CompanyId, db, ct);
     }
 
     private static async Task<Actor?> CurrentActor(HttpContext http, HrmDbContext db,
@@ -247,12 +245,44 @@ public static class CoreCurrencyPrecisionRoutes
             RequestSha256 = fingerprint, ResponseJson = response, ResponseSha256 = Digest(response),
             ResponseStatus = status, CompletedAtUtc = now, CreatedAt = now,
             CreatedBy = actor.PrincipalId.ToString("D") };
-    private static IResult Saved(CoreCurrencyPrecisionCommandReceipt receipt, string fingerprint, Guid companyId)
-        => receipt.RequestSha256 != fingerprint || receipt.CompanyId != companyId
-            ? Error("CoreCurrencyCommandKeyConflict", 409)
-            : Digest(receipt.ResponseJson) != receipt.ResponseSha256
-                ? Error("CoreCurrencyReceiptInvalid", 503)
-                : Results.Content(receipt.ResponseJson, "application/json", statusCode: receipt.ResponseStatus);
+    private static async Task<IResult> SavedAsync(CoreCurrencyPrecisionCommandReceipt receipt,
+        string fingerprint, Guid companyId, HrmDbContext db, CancellationToken ct)
+    {
+        if (receipt.RequestSha256 != fingerprint || receipt.CompanyId != companyId)
+            return Error("CoreCurrencyCommandKeyConflict", 409);
+        var version = await db.CurrencyPrecisionVersions.AsNoTracking().SingleOrDefaultAsync(x =>
+            x.Id == receipt.VersionId && x.TenantId == receipt.TenantId && !x.IsArchived, ct);
+        return RetainedResponseMatches(receipt, version, companyId)
+            ? Results.Content(receipt.ResponseJson, "application/json", statusCode: receipt.ResponseStatus)
+            : Error("CoreCurrencyReceiptInvalid", 503);
+    }
+
+    internal static bool RetainedResponseMatches(CoreCurrencyPrecisionCommandReceipt receipt,
+        CoreCurrencyPrecisionVersion? version, Guid companyId)
+    {
+        if (version is null || receipt.VersionId != version.Id || receipt.TenantId != version.TenantId
+            || receipt.CompanyId != companyId || receipt.CommandKey == Guid.Empty
+            || receipt.Operation is not ("Publish" or "Retire")
+            || receipt.ResponseStatus != (receipt.Operation == "Publish" ? 201 : 200)
+            || receipt.ResponseJson is null || receipt.ResponseSha256 != Digest(receipt.ResponseJson)
+            || receipt.RequestSha256 is not { Length: 64 }
+            || !receipt.RequestSha256.All(c => c is >= '0' and <= '9' or >= 'a' and <= 'f')) return false;
+        var payload = JsonSerializer.Serialize(new { version.CurrencyCode, version.Revision,
+            version.MinorUnits, version.Rounding, version.SourceReference,
+            version.PublicationReason, version.PublishedAtUtc }, Wire);
+        if (version.PayloadSha256 != Digest(payload)) return false;
+        var published = receipt.Operation == "Publish";
+        if (!published && (version.RetiredAtUtc is null || string.IsNullOrWhiteSpace(version.RetirementReason)))
+            return false;
+        // Publication's original response remains current=true even if the
+        // immutable version was retired later. Retirement has its own saved 200.
+        var response = new VersionView(version.Id, version.CurrencyCode, version.Revision,
+            version.MinorUnits, version.Rounding, version.SourceReference,
+            version.PublishedAtUtc, published ? null : version.RetiredAtUtc,
+            version.PayloadSha256, published, published ? null : version.RetirementReason,
+            receipt.CommandKey, receipt.Operation);
+        return receipt.ResponseJson == JsonSerializer.Serialize(response, Wire);
+    }
     private static VersionView View(CoreCurrencyPrecisionVersion row, bool current,
         Guid? key = null, string? operation = null)
         => new(row.Id, row.CurrencyCode, row.Revision, row.MinorUnits, row.Rounding,

@@ -17,6 +17,26 @@ public sealed record CoreCurrencyPrecisionSnapshot(
 /// </summary>
 public static class CoreCurrencyPrecisionReader
 {
+    /// <summary>Checks the selected Core branch in the same snapshot as the
+    /// Procurement invoice and currency reference. This is a scoped existence
+    /// check, not a replacement for the authenticated shell branch grant.</summary>
+    public static async Task<bool> BranchAvailableForCompanyAsync(DbConnection connection,
+        DbTransaction transaction, string tenantId, Guid companyId, Guid branchId,
+        DateTimeOffset observedAtUtc, CancellationToken ct)
+    {
+        RequireBoundary(connection, transaction, tenantId, companyId, observedAtUtc);
+        if (branchId == Guid.Empty) throw new InvalidOperationException("CoreCurrencyBranchBoundaryInvalid");
+        await using var command = Command(connection, transaction,
+            "SELECT EXISTS(SELECT 1 FROM hrm.work_locations WHERE tenant_id=@tenant " +
+            "AND legal_entity_id=@company AND id=@branch AND NOT is_archived)",
+            ("tenant", tenantId), ("company", companyId), ("branch", branchId));
+        await using var row = await command.ExecuteReaderAsync(ct);
+        if (!await row.ReadAsync(ct)) return false;
+        var available = row.GetBoolean(0);
+        if (await row.ReadAsync(ct)) throw new InvalidOperationException("CoreCurrencyBranchAmbiguous");
+        return available;
+    }
+
     public static async Task<CoreCurrencyPrecisionSnapshot> ResolveForCompanyAsync(
         DbConnection connection, DbTransaction transaction, string tenantId, Guid companyId,
         string? requestedCurrencyCode, DateTimeOffset observedAtUtc, CancellationToken ct)

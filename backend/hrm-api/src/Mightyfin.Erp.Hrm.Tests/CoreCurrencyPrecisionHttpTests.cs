@@ -101,6 +101,48 @@ public sealed class CoreCurrencyPrecisionHttpTests
     }
 
     [Fact]
+    public async Task Retained_publish_response_remains_exact_after_retirement_but_rehashed_wrong_body_is_denied()
+    {
+        await using var f = await Fixture.Start();
+        var request = new CoreCurrencyPrecisionRoutes.PublishInput(f.CompanyA, "ZMW", 1, 2,
+            "ToEven", "reviewed-ZMW-precision", "New reviewed revision");
+        using var first = await f.Publish(f.Editor, request);
+        Assert.Equal(HttpStatusCode.Created, first.StatusCode);
+        var original = await first.Content.ReadAsStringAsync();
+        var id = (await first.Content.ReadFromJsonAsync<System.Text.Json.JsonElement>()).GetProperty("id").GetGuid();
+        using var retired = await f.Retire(f.Editor, id, f.CompanyA, expectedRevision: 2,
+            differentKey: true);
+        Assert.Equal(HttpStatusCode.OK, retired.StatusCode);
+        var originalRetire = await retired.Content.ReadAsStringAsync();
+        using var retiredReplay = await f.Retire(f.Editor, id, f.CompanyA, expectedRevision: 2,
+            differentKey: true);
+        Assert.Equal(originalRetire, await retiredReplay.Content.ReadAsStringAsync());
+        using var retiredRecovery = await f.Recover(f.Editor, f.CompanyA,
+            operation: "Retire", key: Guid.Parse("33333333-3333-4333-8333-333333333333"));
+        Assert.Equal(originalRetire, await retiredRecovery.Content.ReadAsStringAsync());
+        using var replay = await f.Publish(f.Editor, request);
+        Assert.Equal(original, await replay.Content.ReadAsStringAsync());
+        using var recovered = await f.Recover(f.Editor, f.CompanyA);
+        Assert.Equal(original, await recovered.Content.ReadAsStringAsync());
+
+        await using var db = f.Context();
+        var receipt = await db.CurrencyPrecisionCommandReceipts.SingleAsync(x => x.VersionId == id
+            && x.Operation == "Publish");
+        var version = await db.CurrencyPrecisionVersions.SingleAsync(x => x.Id == id);
+        var wrong = original.Replace("\"current\":true", "\"current\":false", StringComparison.Ordinal);
+        Assert.NotEqual(original, wrong);
+        receipt.ResponseJson = wrong;
+        receipt.ResponseSha256 = Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(
+            System.Text.Encoding.UTF8.GetBytes(wrong))).ToLowerInvariant();
+        Assert.False(CoreCurrencyPrecisionRoutes.RetainedResponseMatches(receipt, version, f.CompanyA));
+        receipt.ResponseJson = original;
+        receipt.ResponseSha256 = Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(
+            System.Text.Encoding.UTF8.GetBytes(original))).ToLowerInvariant();
+        receipt.VersionId = f.UsdVersion;
+        Assert.False(CoreCurrencyPrecisionRoutes.RetainedResponseMatches(receipt, version, f.CompanyA));
+    }
+
+    [Fact]
     public async Task Disabled_publication_preserves_history_and_original_key_reads()
     {
         await using var f = await Fixture.Start(publishEnabled: false);
@@ -144,9 +186,10 @@ public sealed class CoreCurrencyPrecisionHttpTests
             => Send(HttpMethod.Get, $"/api/core/v1/currency-precisions?companyId={company:D}", actor);
         internal Task<HttpResponseMessage> GetDetail(Guid actor, Guid company, Guid id)
             => Send(HttpMethod.Get, $"/api/core/v1/currency-precisions/{id:D}?companyId={company:D}", actor);
-        internal Task<HttpResponseMessage> Recover(Guid actor, Guid company, bool seeded = false)
+        internal Task<HttpResponseMessage> Recover(Guid actor, Guid company, bool seeded = false,
+            string operation = "Publish", Guid? key = null)
             => Send(HttpMethod.Get,
-                $"/api/core/v1/currency-precisions/commands/Publish/{(seeded ? SeedKey : Key):D}?companyId={company:D}", actor);
+                $"/api/core/v1/currency-precisions/commands/{operation}/{(key ?? (seeded ? SeedKey : Key)):D}?companyId={company:D}", actor);
         internal Task<HttpResponseMessage> Publish(Guid actor, CoreCurrencyPrecisionRoutes.PublishInput input)
             => Send(HttpMethod.Post, "/api/core/v1/currency-precisions", actor, input);
         internal Task<HttpResponseMessage> Retire(Guid actor, Guid id, Guid company,
@@ -181,7 +224,11 @@ public sealed class CoreCurrencyPrecisionHttpTests
             var editor = Account("editor", "currency_editor");
             var other = Account("other", "currency_editor");
             var zmw = Version("ZMW"); var usd = Version("USD");
-            var response = "{\"operation\":\"Publish\",\"commandKey\":\"" + SeedKey.ToString("D") + "\"}";
+            var response = System.Text.Json.JsonSerializer.Serialize(new CoreCurrencyPrecisionRoutes.VersionView(
+                zmw.Id, zmw.CurrencyCode, zmw.Revision, zmw.MinorUnits, zmw.Rounding,
+                zmw.SourceReference, zmw.PublishedAtUtc, null, zmw.PayloadSha256, true,
+                null, SeedKey, "Publish"), new System.Text.Json.JsonSerializerOptions(
+                System.Text.Json.JsonSerializerDefaults.Web));
             anchor.LegalEntities.AddRange(a, b); anchor.WorkLocations.Add(branch);
             anchor.LocalUsers.AddRange(reader, editor, other);
             anchor.UserBranchAssignments.Add(new HrUserBranchAssignment {
@@ -227,10 +274,20 @@ public sealed class CoreCurrencyPrecisionHttpTests
             NormalizedEmail = name.ToUpperInvariant() + "@EXAMPLE.INVALID",
             DisplayName = name, PasswordHash = "synthetic-not-a-password", RolesCsv = role,
             IsActive = true };
-        private static CoreCurrencyPrecisionVersion Version(string code) => new() {
-            TenantId = "tenant-a", CurrencyCode = code, Revision = 1, MinorUnits = 2,
-            Rounding = "ToEven", SourceReference = "reviewed", PublicationReason = "initial",
-            PublishedAtUtc = DateTimeOffset.UtcNow.AddDays(-1), PayloadSha256 = new string('a', 64) };
+        private static CoreCurrencyPrecisionVersion Version(string code)
+        {
+            var row = new CoreCurrencyPrecisionVersion {
+                TenantId = "tenant-a", CurrencyCode = code, Revision = 1, MinorUnits = 2,
+                Rounding = "ToEven", SourceReference = "reviewed", PublicationReason = "initial",
+                PublishedAtUtc = DateTimeOffset.UtcNow.AddDays(-1) };
+            var payload = System.Text.Json.JsonSerializer.Serialize(new { row.CurrencyCode, row.Revision,
+                row.MinorUnits, row.Rounding, row.SourceReference, row.PublicationReason,
+                row.PublishedAtUtc }, new System.Text.Json.JsonSerializerOptions(
+                System.Text.Json.JsonSerializerDefaults.Web));
+            row.PayloadSha256 = Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(
+                System.Text.Encoding.UTF8.GetBytes(payload))).ToLowerInvariant();
+            return row;
+        }
         public async ValueTask DisposeAsync() { client.Dispose(); await app.DisposeAsync(); await anchor.DisposeAsync(); }
     }
 

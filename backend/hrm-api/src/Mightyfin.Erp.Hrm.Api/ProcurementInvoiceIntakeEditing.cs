@@ -53,7 +53,7 @@ public static partial class ProcurementInvoiceIntakeRoutes
 
     private static async Task<Prepared> Prepare(InvoiceIntakeInput input, ProcurementDbContext db,
         HrmDbContext core, ProcurementRequestScope scope, SupplierInvoice? existing, CancellationToken ct,
-        InvoiceCurrencyCalculationResult? currencyCalculation = null)
+        InvoiceCurrencyCalculationResult? currencyCalculation = null, Guid? sameTransactionValidatedBranch = null)
     {
         input = input with { CurrencyCode = string.IsNullOrWhiteSpace(input.CurrencyCode)
             ? existing?.CurrencyCode ?? await ProcurementCurrencyDefaults.ForSelectedCompanyAsync(core, scope, ct) : input.CurrencyCode };
@@ -86,8 +86,11 @@ public static partial class ProcurementInvoiceIntakeRoutes
                 throw new IntakeProblem("validation-failed", "Choose an available purchase order for this vendor and the invoice's retained branch.", 422);
         }
         var branch = existing is null ? scope.WorkLocationId : existing.BranchRef;
-        if (branch is { } branchId && !await core.WorkLocations.AsNoTracking().AnyAsync(x => x.TenantId == scope.TenantId
-            && x.Id == branchId && x.LegalEntityId == scope.LegalEntityId && !x.IsArchived, ct))
+        if (sameTransactionValidatedBranch is not null && sameTransactionValidatedBranch != branch)
+            throw new IntakeProblem("validation-failed", "The invoice branch is unavailable in this company.", 422);
+        if (branch is { } branchId && sameTransactionValidatedBranch is null
+            && !await core.WorkLocations.AsNoTracking().AnyAsync(x => x.TenantId == scope.TenantId
+                && x.Id == branchId && x.LegalEntityId == scope.LegalEntityId && !x.IsArchived, ct))
             throw new IntakeProblem("validation-failed", "The invoice branch is unavailable in this company.", 422);
         var normalized = input.InvoiceNumber!.Trim().ToUpperInvariant(); var currency = input.CurrencyCode!.Trim().ToUpperInvariant();
         if (await db.SupplierInvoices.AnyAsync(x => (existing == null || x.Id != existing.Id)

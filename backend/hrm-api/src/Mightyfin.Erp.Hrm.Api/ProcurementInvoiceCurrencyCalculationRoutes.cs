@@ -88,7 +88,12 @@ public static partial class ProcurementInvoiceIntakeRoutes
                 || input.ExpectedCalculationSha256 != PreviewDigest(input, precision))
                 return Results.Conflict(new { code = "invoice-calculation-changed", message = "Invoice details or currency settings changed. Review the updated calculation before saving." });
             var result = CalculateInput(input, precision);
-            var prepared = await Prepare(input, db, core, scope, null, ct, result);
+            var selectedBranch = scope.WorkLocationId;
+            if (selectedBranch is not { } branch || !await CoreCurrencyPrecisionReader.BranchAvailableForCompanyAsync(
+                    db.Database.GetDbConnection(), transaction.GetDbTransaction(), scope.TenantId,
+                    scope.LegalEntityId, branch, precision.ObservedAtUtc, ct))
+                return Invalid("The invoice branch is unavailable in this company.");
+            var prepared = await Prepare(input, db, core, scope, null, ct, result, branch);
             var invoice = new SupplierInvoice { BranchRef = prepared.Branch, IntakeChannel = "Manual",
                 Status = "Received", CreatedBy = scope.SubjectId };
             Apply(invoice, prepared); db.AddScoped(invoice);

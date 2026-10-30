@@ -23,3 +23,9 @@ Private evidence roots: `procurement-m6d-final-sdk-20261030_run01` through `run0
 4. Review and merge the stacked changes, deploy the accepted artifacts, and smoke-test the production release.
 
 Controlled correction/replacement of a previously mapped or processed invoice remains a separate explicitly open workflow. M6D creates new invoices and must not rewrite the old blocked invoice or relax its matching policy. Finance posting/payment execution are not inferred from invoice capture.
+
+## Independent review correction
+
+The retained Core response is now reconstructed against its typed receipt and immutable version before either POST replay or GET recovery returns the original bytes. Publication recovery retains its original current-at-publication response even after retirement. New invoice branch existence is checked by Core on the owning Procurement connection and Serializable transaction; legacy v1 retains its existing path. Twenty focused Host tests passed on the corrected source, including rehashed wrong-response denial, historical response recovery and tenant/company/branch transaction checks. The successor 150-file publication was independently hash verified. Earlier failed compile/provider attempts remain separate evidence.
+
+This successor changes API/test source only; the verified Core and Procurement UI builds remain unchanged. The real-cookie browser and native reconciliation remain outstanding.
