@@ -57,6 +57,7 @@ public static class ProcurementHostIntegration
         sourcingOptions.ExecutionDatabaseConfigured = !string.IsNullOrWhiteSpace(executionConnection);
         services.AddSingleton(sourcingOptions);
         services.AddScoped<IProcurementSourcingDraftSchemaReadiness, ProcurementSourcingDraftSchemaReadiness>();
+        services.AddScoped<IProcurementManualQuotationReadiness, UnavailableProcurementManualQuotationReadiness>();
         services.AddSingleton(configuration.GetSection("Procurement:SourcingPublication")
             .Get<ProcurementPrincipalSourcingPublicationOptions>() ?? new());
         services.AddScoped<IProcurementPrincipalSourcingPublicationReadiness,
