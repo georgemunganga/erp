@@ -10,6 +10,7 @@ public static class CoreRolePermissionCatalogRoutes
         => app.MapGet("/api/core/v1/role-permissions", (HttpContext http) =>
         {
             http.Response.Headers.CacheControl = "no-store";
-            return Results.Ok(new { schemaVersion = 1, procurement = ProcurementActionCatalog.AdminReadCatalog() });
+            return Results.Ok(new { schemaVersion = 1, procurement = ProcurementActionCatalog.AdminReadCatalog(),
+                coreCurrency = CoreCurrencyPrecisionPermissions.All });
         }).RequireAuthorization("hrm-admin");
 }

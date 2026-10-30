@@ -80,6 +80,7 @@ public static partial class ProcurementInvoiceMatchingRoutes
             .Take(2).ToArrayAsync(token);
         if (policies.Length!=1) throw new MatchingProblem("InvoicePublishedMatchingPolicyUnavailable",409);
         var policy=policies[0];
+        var matchingPolicy = InvoiceMatchingPolicyRules.Project(policy);
         await ProcurementOperationalPolicyCurrentPublication.RequireAsync(db,scope,http.RequestServices,policy,token);
         var policySha=ProcurementEvidenceEncoding.PolicyJsonDigest(policy.RulesJson);
         var hashes=await DocumentHashes(db,scope,http,id,reviewMapping,token);
@@ -92,11 +93,19 @@ public static partial class ProcurementInvoiceMatchingRoutes
         var approvedBaseline=await ApprovedPrincipalInvoiceBaseline(db,cases,scope,now,token);
         var ownerContext=new InvoiceExposureReadContext(scope.TenantId,scope.LegalEntityId,invoice.BranchRef,
             issued.Id,issued.RevisionId,invoice.SupplierId,invoice.CurrencyCode,policySha,now);
-        var owner=await db.BuildPrincipalInvoiceOwnerLeaseAsync(ownerContext,issuedWitness,approvedBaseline,exposure,token);
+        async Task<bool> VerifyCalculation(InvoiceAmountCoreReferenceRequirement requirement, CancellationToken cancellationToken)
+        {
+            if (requirement.InvoiceId == invoice.Id && (requirement.MinorUnits != matchingPolicy.MoneyScale
+                || requirement.Rounding != matchingPolicy.Rounding))
+                throw new MatchingProblem("InvoiceCurrencyPolicyConflict", 409);
+            return await ProcurementInvoiceIntakeRoutes.VerifyRetainedCurrencyRequirement(db, scope, requirement,
+                http.RequestServices.GetRequiredService<IConfiguration>(), cancellationToken);
+        }
+        var owner=await db.BuildPrincipalInvoiceOwnerLeaseAsync(ownerContext,issuedWitness,approvedBaseline,exposure,token,VerifyCalculation);
         // The factory itself checks this current graph while building its lease.
         // Reload the typed evidence in the SAME snapshot for CompleteHistory/Claims;
         // do not replace it with a client completeness flag or detached owner result.
-        var current=await db.ReadPrincipalInvoiceCurrentClaimsAsync(issuedWitness,token);
+        var current=await db.ReadPrincipalInvoiceCurrentClaimsAsync(issuedWitness,token,VerifyCalculation);
         var locals=current.ActiveClaims.Select(x=>new InvoiceActiveLocalClaim(x.Allocation,x.Invoice)).ToArray();
         var history=InvoiceMatchExecutionEvidence.CompleteHistory(owner,ownerContext,exposure,locals);
         var projected=PrincipalInvoiceMatchingBridge.Project(mapping,invoice,originals,review,reviewContext,current.RetainedSources);
@@ -107,7 +116,7 @@ public static partial class ProcurementInvoiceMatchingRoutes
             .ToArrayAsync(token);
         var duplicateWatermark=Fingerprint(new{schemaVersion=3,identities=duplicates.OrderBy(x=>x.InvoiceId).ToArray()});
         var command=new InvoiceMatchCommand(key,input.Version,now,input.Reason?.Trim());
-        var comparisonInput=new InvoiceMatchingInput(projected,issued,accepted,InvoiceMatchingPolicyRules.Project(policy),
+        var comparisonInput=new InvoiceMatchingInput(projected,issued,accepted,matchingPolicy,
             history,new(duplicateWatermark,true,duplicates));
         var comparison=InvoiceMatchingFoundation.Evaluate(command,scope,comparisonInput);
         var result=new InvoiceMatchResult{SupplierInvoiceId=id,MatchType=comparison.Lines.Count==0?"Unresolved":

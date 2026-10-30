@@ -146,13 +146,16 @@ public sealed class JobsAdminServiceImpl(IConfigRepository repo, IAuthzService a
     }
 
     public static string[] PermissionKeys = HrmStaffAccess.Roles
-        .Concat(ProcurementActionCatalog.BootstrapGrants.Keys).ToArray();
+        .Concat(ProcurementActionCatalog.BootstrapGrants.Keys)
+        .Concat(CoreCurrencyPrecisionPermissions.All).ToArray();
 
     private static TenantRoleDto ToRoleDto(TenantRoleAssignment row)
     {
         var stored = ParseCsv(row.PermissionsCsv);
         var permissions = row.Category == "procurement"
             ? ProcurementActionCatalog.ResolveConfiguredActionsForRole(row.RoleKey, row.PermissionsCsv)
+                .Concat(stored.Where(CoreCurrencyPrecisionPermissions.All.Contains))
+                .Distinct(StringComparer.OrdinalIgnoreCase).ToArray()
             : stored.DefaultIfEmpty(row.RoleKey).ToArray(); // Keep HRM/payroll/system edit projection.
         var effectiveProcurement = row.Active && !row.IsArchived
             ? ProcurementActionCatalog.ResolveConfiguredActionsForRole(row.RoleKey, row.PermissionsCsv) : [];
@@ -175,9 +178,10 @@ public sealed class JobsAdminServiceImpl(IConfigRepository repo, IAuthzService a
 
     private static string[] NormalizePermissions(string category, IEnumerable<string> permissions)
     {
-        var allowed = new HashSet<string>(category == "procurement"
+        var allowed = new HashSet<string>((category == "procurement"
             ? ProcurementActionCatalog.BootstrapGrants.Keys
-            : HrmStaffAccess.Roles, StringComparer.OrdinalIgnoreCase);
+            : HrmStaffAccess.Roles).Concat(CoreCurrencyPrecisionPermissions.All),
+            StringComparer.OrdinalIgnoreCase);
         var values = permissions.SelectMany(p => ParseCsv(p))
             .Select(p => p.Trim().ToLowerInvariant())
             .Distinct(StringComparer.OrdinalIgnoreCase)

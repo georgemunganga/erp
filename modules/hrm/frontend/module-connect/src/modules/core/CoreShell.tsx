@@ -1,10 +1,13 @@
-import { useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { Building2, ChevronDown, ChevronRight, FileText, Menu, Settings2, UsersRound, X } from "lucide-react";
 import { ErpTopNav } from "@/platform/components/ErpTopNav";
 import { ErpAccountMenu } from "@/platform/components/ErpAccountMenu";
 import { ErpSidebarHeader, useErpSidebar } from "@/platform/components/ErpSidebar";
 import { useApp } from "@/platform/app-context";
 import { realApi, useApi } from "@/platform/use-api";
+import { useAuth } from "@/platform/auth";
+import { canManageCore } from "@/platform/entry-route";
+import { selectedCoreCompanyId } from "./core-workspace-context";
 import { coreSettingGroups, settingPath } from "./settings";
 
 type Entity = { id: string; name: string };
@@ -14,7 +17,9 @@ const asRows = (value: unknown): Record<string, unknown>[] => {
   return Array.isArray(list) ? list as Record<string, unknown>[] : [];
 };
 
-export function CoreShell({ children }: { children: ReactNode }) {
+export function CoreShell({ children, currencyContext = false }: { children: ReactNode; currencyContext?: boolean }) {
+  const { user, coreWorkspace } = useAuth();
+  const currencyOnly = currencyContext && !canManageCore(user?.roles ?? []);
   const { entityId, setEntityId, branch, setBranch } = useApp();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [contextOpen, setContextOpen] = useState(false);
@@ -25,6 +30,13 @@ export function CoreShell({ children }: { children: ReactNode }) {
   const groupIcons = [Building2, UsersRound, Settings2, FileText];
   const [openGroups, setOpenGroups] = useState<string[]>(() => coreSettingGroups.filter((group) => group.items.some((item) => activeSetting(settingPath(item)))).map((group) => group.title));
   const context = useApi(async () => {
+    if (currencyContext) {
+      if (import.meta.env.VITE_USE_REAL_API !== "true") return { entities: [] as Entity[], branches: [] as Branch[], defaultCompanyId: "" };
+      const choices = coreWorkspace;
+      if (!choices) return { entities: [] as Entity[], branches: [] as Branch[], defaultCompanyId: "" };
+      return { entities: choices.companies.map((company) => ({ id: company.id, name: company.name })),
+        branches: choices.branches, defaultCompanyId: selectedCoreCompanyId(choices, entityId) };
+    }
     const [entityResult, locationResult, shell] = await Promise.all([
       realApi.legalEntities(),
       realApi.locations(),
@@ -34,15 +46,21 @@ export function CoreShell({ children }: { children: ReactNode }) {
     const allowed = new Set(shell?.assignedLocationIds ?? []);
     const branches: Branch[] = asRows(locationResult).map((row) => ({ id: String(row.id ?? ""), name: String(row.name ?? "Branch"), legalEntityId: String(row.legalEntityId ?? "") }))
       .filter((row) => row.id && (!shell?.confined || allowed.has(row.id)));
-    return { entities, branches };
-  });
+    return { entities, branches, defaultCompanyId: "" };
+  }, [currencyContext, coreWorkspace]);
   const entities = context.data?.entities ?? [];
   const branches = context.data?.branches ?? [];
+  useEffect(() => {
+    if (!currencyContext || !context.data) return;
+    const chosen = context.data.defaultCompanyId;
+    if (chosen && !entities.some((item) => item.id === entityId)) setEntityId(chosen);
+    else if (branch && !branches.some((item) => item.id === branch && item.legalEntityId === entityId)) setBranch("");
+  }, [currencyContext, context.data, entities, branches, entityId, branch, setEntityId, setBranch]);
   const activeEntity = entities.find((item) => item.id === entityId) ?? entities[0];
   const activeBranch = branches.find((item) => item.id === branch);
   const navigation = <>
-    <a href="/core/workspace/settings" title="Core settings" onClick={() => setMobileOpen(false)} className={`mb-3 flex items-center gap-2 rounded-md px-3 py-2 text-sm font-semibold text-rail-foreground ${collapsed ? "lg:justify-center lg:px-2" : ""} ${currentPath.startsWith("/core/workspace/settings") ? "bg-rail-active" : "hover:bg-rail-active"}`}><Settings2 className="size-4 shrink-0" /><span className={collapsed ? "lg:sr-only" : ""}>Core settings</span></a>
-    {coreSettingGroups.map((group, index) => {
+    <a href={currencyOnly ? "/core/workspace/settings/currencies" : "/core/workspace/settings"} title="Core settings" onClick={() => setMobileOpen(false)} className={`mb-3 flex items-center gap-2 rounded-md px-3 py-2 text-sm font-semibold text-rail-foreground ${collapsed ? "lg:justify-center lg:px-2" : ""} ${currentPath.startsWith("/core/workspace/settings") ? "bg-rail-active" : "hover:bg-rail-active"}`}><Settings2 className="size-4 shrink-0" /><span className={collapsed ? "lg:sr-only" : ""}>Core settings</span></a>
+    {coreSettingGroups.map((group, index) => ({ group, index })).filter(({ group }) => !currencyOnly || group.items.some(item => item.label === "Currencies")).map(({ group, index }) => {
       const Icon = groupIcons[index];
       const open = openGroups.includes(group.title);
       return <div key={group.title} className="mb-1">
@@ -50,7 +68,7 @@ export function CoreShell({ children }: { children: ReactNode }) {
           <Icon className="size-4 shrink-0" aria-hidden /><span className={`min-w-0 flex-1 ${collapsed ? "lg:sr-only" : ""}`}>{group.title}</span><span className={collapsed ? "lg:sr-only" : ""}>{open ? <ChevronDown className="size-3.5" /> : <ChevronRight className="size-3.5" />}</span>
         </button>
         {open && <div className={`ml-5 border-l border-rail-active pl-2 ${collapsed ? "lg:hidden" : ""}`}>
-          {group.items.filter((item) => item.owner === "ERP Core").map((item) => <a key={item.label} href={settingPath(item)} onClick={() => setMobileOpen(false)} aria-current={activeSetting(settingPath(item)) ? "page" : undefined} className={`block rounded-md px-3 py-1.5 text-xs hover:bg-rail-active hover:text-rail-foreground ${activeSetting(settingPath(item)) ? "bg-rail-active text-rail-foreground" : "text-rail-muted"}`}>{item.label}</a>)}
+          {group.items.filter((item) => item.owner === "ERP Core" && (!currencyOnly || item.label === "Currencies")).map((item) => <a key={item.label} href={settingPath(item)} onClick={() => setMobileOpen(false)} aria-current={activeSetting(settingPath(item)) ? "page" : undefined} className={`block rounded-md px-3 py-1.5 text-xs hover:bg-rail-active hover:text-rail-foreground ${activeSetting(settingPath(item)) ? "bg-rail-active text-rail-foreground" : "text-rail-muted"}`}>{item.label}</a>)}
         </div>}
       </div>;
     })}
@@ -67,7 +85,7 @@ export function CoreShell({ children }: { children: ReactNode }) {
             {branches.filter((item) => item.legalEntityId === entity.id).map((item) => <button key={item.id} type="button" className={`block w-full rounded px-6 py-1.5 text-left text-xs hover:bg-secondary ${branch === item.id ? "bg-primary-soft font-semibold text-primary" : "text-muted-foreground"}`} onClick={() => { setEntityId(entity.id); setBranch(item.id); }}>{item.name}</button>)}
           </div>) : <p className="px-2 py-2 text-xs text-muted-foreground">No organization context is available for this account.</p>}
         </div>}
-      </div>} actions={<ErpAccountMenu settingsHref="/core/workspace/settings" />} />
+      </div>} actions={<ErpAccountMenu settingsHref={currencyOnly ? "/core/workspace/settings/currencies" : "/core/workspace/settings"} />} />
     {mobileOpen && <button type="button" aria-label="Close Core navigation" onClick={() => setMobileOpen(false)} className="fixed inset-0 z-30 bg-black/40 lg:hidden" />}
     <aside aria-label="Core navigation" className={`fixed bottom-0 top-14 z-40 w-64 overflow-y-auto bg-rail text-rail-foreground transition-[width] duration-200 lg:translate-x-0 ${collapsed ? "lg:w-16" : "lg:w-64"} ${mobileOpen ? "translate-x-0" : "-translate-x-full"}`}>
       <div className="mb-3 flex justify-end lg:hidden"><button type="button" aria-label="Close Core navigation" onClick={() => setMobileOpen(false)}><X className="size-5" /></button></div>

@@ -20,10 +20,11 @@ export const modules: ErpModule[] = [
 ];
 
 /** Only workspaces assigned to the signed-in identity belong in a switcher. */
-export function assignedModules(roles: string[]): ErpModule[] {
+export function assignedModules(roles: string[], coreActions: readonly string[] = []): ErpModule[] {
   const grants = new Set(roles.map((role) => role.toLowerCase()));
   const admin = grants.has("erp_admin");
   const hrm = ["employee", "manager", "hr_ops", "payroll", "finance_approver", "hr_admin", "investigator", "timesheet_operator"].some((role) => grants.has(role));
   const procurement = admin || ["employee", "manager", "procurement_requester", "procurement_buyer", "procurement_manager", "supplier_admin", "ap_processor"].some((role) => grants.has(role));
-  return modules.filter((module) => module.available && (module.id === "core" ? admin || grants.has("hr_admin") : module.id === "hrm" ? hrm : module.id === "procurement" ? procurement : false));
+  return modules.filter((module) => module.available && (module.id === "core" ? admin || grants.has("hr_admin")
+    || coreActions.includes("core-currency-precision-read") : module.id === "hrm" ? hrm : module.id === "procurement" ? procurement : false));
 }

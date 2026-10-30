@@ -11,7 +11,9 @@ public sealed partial class ProcurementDbContext
     /// <summary>Complete company inventory in the already-owned serializable
     /// transaction. No table name or completeness assertion comes from HTTP.
     /// This read alone does not classify rows or admit an owner baseline.</summary>
-    public async Task<InvoiceProcurementInventoryCapture> CaptureInvoiceOwnerInventoryAsync(CancellationToken ct)
+    public async Task<InvoiceProcurementInventoryCapture> CaptureInvoiceOwnerInventoryAsync(CancellationToken ct,
+        Func<InvoiceAmountCoreReferenceRequirement, CancellationToken, Task<bool>>? verifyCalculationReference = null,
+        bool openingNewBaseline = true)
     {
         if (!Database.IsNpgsql() || Database.CurrentTransaction is null
             || Database.CurrentTransaction.GetDbTransaction().IsolationLevel != IsolationLevel.Serializable
@@ -50,6 +52,8 @@ public sealed partial class ProcurementDbContext
             }
             tables.Add(new(table,rows));
         }
-        return new(scope.TenantId,scope.LegalEntityId,tables);
+        var capture = new InvoiceProcurementInventoryCapture(scope.TenantId,scope.LegalEntityId,tables);
+        _ = await VerifyInvoiceAmountInventoryAsync(capture, openingNewBaseline, verifyCalculationReference, ct);
+        return capture;
     }
 }

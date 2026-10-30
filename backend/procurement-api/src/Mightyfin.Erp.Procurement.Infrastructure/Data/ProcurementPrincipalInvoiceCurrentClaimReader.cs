@@ -18,7 +18,8 @@ public sealed record PrincipalInvoiceCurrentClaimRead(
 public sealed partial class ProcurementDbContext
 {
     public async Task<PrincipalInvoiceCurrentClaimRead> ReadPrincipalInvoiceCurrentClaimsAsync(
-        PrincipalInvoiceIssuedWitness witness, CancellationToken ct)
+        PrincipalInvoiceIssuedWitness witness, CancellationToken ct,
+        Func<InvoiceAmountCoreReferenceRequirement, CancellationToken, Task<bool>>? verifyCalculationReference = null)
     {
         if (!Database.IsNpgsql() || Database.CurrentTransaction is null
             || Database.CurrentTransaction.GetDbTransaction().IsolationLevel != IsolationLevel.Serializable
@@ -44,7 +45,7 @@ public sealed partial class ProcurementDbContext
 
         // CaptureInventory sets row_security=off on this transaction. Any RLS policy
         // that could hide rows then raises an error instead of reducing this set.
-        var capture = await CaptureInvoiceOwnerInventoryAsync(ct);
+        var capture = await CaptureInvoiceOwnerInventoryAsync(ct, verifyCalculationReference, openingNewBaseline: false);
         var summary = InvoiceProcurementInventoryEvidence.Summarize(capture);
         var invoices = await SupplierInvoices.AsNoTracking().ToArrayAsync(ct);
         var lines = await SupplierInvoiceLines.AsNoTracking().ToArrayAsync(ct);

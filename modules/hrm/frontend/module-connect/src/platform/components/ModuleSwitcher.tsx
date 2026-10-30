@@ -5,9 +5,9 @@ import { useAuth } from "@/platform/auth";
 import { assignedModules, modules } from "@/platform/modules";
 
 export function ModuleSwitcher({ current }: { current: "core" | "hrm" | "procurement" }) {
-  const { user } = useAuth();
+  const { user, coreActions } = useAuth();
   const real = import.meta.env.VITE_USE_REAL_API === "true";
-  const visible = real ? assignedModules(user?.roles ?? []) : modules.filter((module) => module.available);
+  const visible = real ? assignedModules(user?.roles ?? [], coreActions) : modules.filter((module) => module.available);
   const active = modules.find((module) => module.id === current);
 
   return <DropdownMenu>

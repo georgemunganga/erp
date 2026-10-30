@@ -80,7 +80,7 @@ public sealed partial class ProcurementDbContext(DbContextOptions<ProcurementDbC
     {
         // Evidence was constructed for a specific source scope. Never relabel it
         // as belonging to another company when attaching it to this context.
-        if ((record is InvoiceProcurementOwnerBaseline or InvoiceProcurementOwnerBaselineRow or InvoiceProcurementOwnerCommandReceipt
+        if ((record is InvoiceIntakeCommandReceipt or InvoiceAmountCalculation or InvoiceProcurementOwnerBaseline or InvoiceProcurementOwnerBaselineRow or InvoiceProcurementOwnerCommandReceipt
                 or PrincipalGoodsReturnDraft or PrincipalGoodsReturnRevision or PrincipalGoodsReturnCommandReceipt
                 or PrincipalReceivingDraftLineBinding or PrincipalReceivingSourceState or PrincipalReceivingFact or PrincipalReceivingDraftHead
                 or PrincipalReceivingDraftRevision or PrincipalReceivingCommandReceipt
@@ -577,6 +577,8 @@ public sealed partial class ProcurementDbContext(DbContextOptions<ProcurementDbC
         ConfigureReceivingExecution(modelBuilder);
         ConfigureInvoiceMatchingExecution(modelBuilder);
         ConfigureFinanceCheckerIdentity(modelBuilder);
+        ConfigureInvoiceAmountCalculations(modelBuilder);
+        ConfigureInvoiceIntakeCommandReceipts(modelBuilder);
 
         foreach (var entity in modelBuilder.Model.GetEntityTypes())
             foreach (var property in entity.GetProperties())
@@ -827,6 +829,8 @@ public sealed partial class ProcurementDbContext(DbContextOptions<ProcurementDbC
                 CreatedBy = scope.SubjectId,
             });
         }
+        GuardInvoiceAmountCalculations();
+        GuardInvoiceIntakeCommandReceipts();
     }
 
     private void GuardMasterImportChanges()

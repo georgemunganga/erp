@@ -4,7 +4,7 @@ Proposed child-feature specification using the mandated 28-section framework. Ex
 
 ## 1. Feature Identification
 
-Feature reference: M6D. Procurement owns invoice calculation evidence; Core owns precision. Discovery baseline: ERP 0f656d6316e39063eb09da45210db4b142717ecf and original UI 56fbd3b. Status: initial pure calculator implemented and tested; Core reference, persistence and UI/API integration remain proposed. See the [bounded arithmetic checkpoint](M6D-PURE-CALCULATION-CHECKPOINT-20261029.md).
+Feature reference: M6D. Procurement owns invoice calculation evidence; Core owns precision. Discovery baseline: ERP 0f656d6316e39063eb09da45210db4b142717ecf and original UI 56fbd3b. Status: Core reference, persistence, invoice v2 API and original-layout UI integration are implemented on the M6D development branch. Automated and isolated native checks passed; real-cookie workflow UAT and release review remain open. See the [bounded arithmetic checkpoint](M6D-PURE-CALCULATION-CHECKPOINT-20261029.md).
 
 ## 2. Purpose & Business Outcome
 
@@ -285,3 +285,27 @@ separates high-precision rates from ordinary totals; its [taxes/total controller
 keeps rounding explicit. These are references, not a dependency or code transplant.
 
 Implementation remains part of the already authorized programme. This design record creates no new permission gate and asserts no implementation, acceptance or rollout result.
+
+### M6D v2 capture recovery appendix
+
+`ProcurementCommercialCommandReceipt` has a purchase-order foreign key and cannot
+represent a new invoice without a PO. New v2 capture therefore owns one scoped
+`invoice_intake_command_receipts` row in the same transaction as the invoice,
+original lines, amount calculation, audit and outbox. Its fixed operation is
+`InvoiceCaptureV2`. The caller supplies a UUID command key; the server binds the
+current principal, tenant/company and canonical request SHA-256 before mutation.
+One actor/key identifies at most one stored 201 response. Reusing it with changed
+request bytes returns 409. Recovery rechecks current actor and invoice scope and
+returns the exact retained response bytes; a foreign or missing key returns 404.
+Lost or unknown POST transport outcomes are reconciled through that GET before
+any further write. There is no automatic replay with a new key.
+
+The receipt stores the invoice/calculation IDs, exact response JSON and SHA-256,
+status 201 and completion time. Two scoped foreign keys, an actor/key unique index,
+and an immutable save guard require exactly one receipt for each new v2 calculation
+and the converse. The guard verifies response IDs, header and arithmetic against
+the server-owned invoice/calculation graph. Retained owner inventory also requires
+complete receipt/calculation set parity, so a missing receipt cannot qualify an
+otherwise intact calculation. Existing v1 intake and PO receipts keep their old
+contracts. Generate a separate additive EF migration for this fourth table; do not
+rewrite the already generated three-table M6D migrations or use raw Down on data.

@@ -1,10 +1,16 @@
 # Core currency precision: M6D shared prerequisite
 
+## Implementation contract (2026-10-30)
+
+Core persists `hrm.currency_precision_versions` and `hrm.currency_precision_command_receipts` in its existing `HrmDbContext`. A version is scoped by tenant and currency code; `(tenant_id, currency_code, revision)` and the current unretired code are unique. Publish requires an exact expected current revision (zero for a new code), records a new immutable calculation payload, and retires the former current revision atomically. Retire requires the current revision and only closes that revision for new use. Resolution examines the latest revision first and never revives an older retired revision. Historical lookup by version ID remains available. The receipt stores actor, operation, command key, request hash, response bytes/hash and target ID in the same transaction. Original-key recovery is restricted to that actor and current tenant. `IntegrationOperation` remains outbound delivery tracking.
+
+The configuration routes are `/api/core/v1/currency-precisions` (list, publish), `/api/core/v1/currency-precisions/{id}` (historical read), `/api/core/v1/currency-precisions/{id}/retire`, and `/api/core/v1/currency-precisions/commands/{operation}/{key}` (original response). Core read/configure grants come from current active local accounts and tenant role assignments; no role name supplies a default grant. Configuring requires the explicit configure grant and unconfined tenant/company scope. Business consumption separately proves the selected permitted company and its existing `LegalEntity.Currency`. These routes do not grant invoice writes. Genuine EF migration and private native proof precede activation.
+
 Proposed child-feature specification using the mandated 28-section framework. Existing M6C product source remains frozen.
 
 ## 1. Feature Identification
 
-Feature reference: CORE-CURRENCY-PRECISION, shared prerequisite for M6D. Owner: ERP Core. Discovery baseline: ERP 0f656d6316e39063eb09da45210db4b142717ecf and Procurement UI 56fbd3b. Status: proposed design; implementation is not claimed.
+Feature reference: CORE-CURRENCY-PRECISION, shared prerequisite for M6D. Owner: ERP Core. Discovery baseline: ERP 0f656d6316e39063eb09da45210db4b142717ecf and Procurement UI 56fbd3b. Status: implemented on the M6D development branch; isolated native migration and automated checks passed. Real-cookie integration UAT and release review remain required before activation.
 
 ## 2. Purpose & Business Outcome
 

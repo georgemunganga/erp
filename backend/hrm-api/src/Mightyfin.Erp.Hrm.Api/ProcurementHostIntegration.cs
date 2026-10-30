@@ -174,6 +174,8 @@ public static class ProcurementHostIntegration
                 var manualUnitReview = await ProcurementInvoiceManualUnitReviewCapability.ReadyAsync(services, scope, http, pending, ct);
                 var principalInvoiceComparison = await ProcurementPrincipalInvoiceMatchingCapability.ReadyAsync(
                     services,scope,http,pending,ct);
+                var currencyCalculations = !pending && await ProcurementInvoiceIntakeRoutes.CurrencyCalculationReady(
+                    db, app.Configuration, ct);
                 var now = DateTimeOffset.UtcNow;
                 var receivingPolicies = receivingDrafts && receivingOptions.PositiveExecutionEnabled
                     ? await db.PolicyVersions.AsNoTracking().Where(x => x.PolicyKey == "RECEIVING" && x.State == "Published"
@@ -300,6 +302,10 @@ public static class ProcurementHostIntegration
                         receivingServices = receivingPositive && receivingRules!.Rules.Any(x => x.Kind.ToString() == "Service"),
                         receivingCorrections = false,
                         invoiceIntake = !pending,
+                        invoiceCurrencyCalculationRead = currencyCalculations,
+                        invoiceCurrencyCalculationV2 = currencyCalculations
+                            && app.Configuration.GetValue<bool>("Procurement:InvoiceCurrencyCalculation:CaptureEnabled")
+                            && await ProcurementInvoiceIntakeRoutes.CurrencyCalculationReady(db, app.Configuration, ct, capture: true),
                         vendorCreditDraft = !pending,
                         manualPaymentWorkflow = !pending
                             && services.GetRequiredService<ProcurementManualPaymentOptions>().Enabled

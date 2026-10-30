@@ -40,7 +40,7 @@ public static partial class ProcurementInvoiceIntakeRoutes
     private static bool IsMakerOrManager(SupplierInvoice invoice, ProcurementRequestScope scope, HttpContext http)
         => invoice.CreatedBy == scope.SubjectId || http.User.IsInRole("erp_admin") || http.User.IsInRole("procurement_manager");
     private static Task<bool> Unprocessed(ProcurementDbContext db, SupplierInvoice invoice, CancellationToken ct)
-        => db.ManualInvoiceDrafts().AnyAsync(row => row.Id == invoice.Id, ct);
+        => UnprocessedWithCalculationHistory(db, invoice, ct);
     private static async Task<string[]> Actions(ProcurementDbContext db, SupplierInvoice invoice,
         ProcurementRequestScope scope, HttpContext http, IAuthorizationService authorization, CancellationToken ct)
         => IsMakerOrManager(invoice, scope, http)
@@ -52,7 +52,8 @@ public static partial class ProcurementInvoiceIntakeRoutes
     { internal string Code => code; internal int Status => status; }
 
     private static async Task<Prepared> Prepare(InvoiceIntakeInput input, ProcurementDbContext db,
-        HrmDbContext core, ProcurementRequestScope scope, SupplierInvoice? existing, CancellationToken ct)
+        HrmDbContext core, ProcurementRequestScope scope, SupplierInvoice? existing, CancellationToken ct,
+        InvoiceCurrencyCalculationResult? currencyCalculation = null)
     {
         input = input with { CurrencyCode = string.IsNullOrWhiteSpace(input.CurrencyCode)
             ? existing?.CurrencyCode ?? await ProcurementCurrencyDefaults.ForSelectedCompanyAsync(core, scope, ct) : input.CurrencyCode };
@@ -62,8 +63,10 @@ public static partial class ProcurementInvoiceIntakeRoutes
         decimal net, tax, gross;
         try
         {
-            net = ExactDecimalArithmetic.Sum(input.Lines!.Select(x => ExactDecimalArithmetic.Multiply(x.Quantity, x.UnitPrice)));
-            tax = ExactDecimalArithmetic.Sum(input.Lines!.Select(x => x.TaxAmount)); gross = ExactDecimalArithmetic.Add(net, tax);
+            net = currencyCalculation?.RoundedNet
+                ?? ExactDecimalArithmetic.Sum(input.Lines!.Select(x => ExactDecimalArithmetic.Multiply(x.Quantity, x.UnitPrice)));
+            tax = currencyCalculation?.Tax ?? ExactDecimalArithmetic.Sum(input.Lines!.Select(x => x.TaxAmount));
+            gross = currencyCalculation?.Gross ?? ExactDecimalArithmetic.Add(net, tax);
         }
         catch (InvalidOperationException)
         { throw new IntakeProblem("validation-failed", "Invoice totals cannot be represented exactly. Check quantities, prices and tax; nothing was rounded.", 422); }
@@ -102,6 +105,7 @@ public static partial class ProcurementInvoiceIntakeRoutes
         try { input = await request.ReadFromJsonAsync<InvoiceIntakeUpdateInput>(ct); }
         catch (Exception error) when (error is JsonException or BadHttpRequestException) { return Invalid("Enter valid exact invoice amounts with up to four decimal places."); }
         if (input?.Draft is null || input.Version <= 0 || !ValidReason(input.Reason)) return Invalid("Supply the current version, invoice details and a correction reason of up to 1,000 characters.");
+        if (input.Draft.IntakeSchemaVersion != 1) return Invalid("This calculation version requires a new invoice; existing calculation history is retained.");
         await using var transaction = db.Database.IsRelational() ? await db.Database.BeginTransactionAsync(System.Data.IsolationLevel.Serializable, ct) : null;
         var visible = await Visible(db, scope).SingleOrDefaultAsync(x => x.Id == id, ct);
         if (visible is null || !IsMakerOrManager(visible, scope, http)) return Missing();

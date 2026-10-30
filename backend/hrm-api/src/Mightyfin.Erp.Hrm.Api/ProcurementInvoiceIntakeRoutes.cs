@@ -29,6 +29,9 @@ public static partial class ProcurementInvoiceIntakeRoutes
         group.MapGet("", List).RequireAuthorization("procurement-invoice-read");
         group.MapGet("/{id:guid}", Get).RequireAuthorization("procurement-invoice-read");
         group.MapPost("", Capture).Accepts<InvoiceIntakeInput>("application/json").RequireAuthorization("procurement-invoice-capture");
+        group.MapPost("/calculation-preview", PreviewCurrencyCalculation).RequireAuthorization("procurement-invoice-capture");
+        group.MapGet("/{id:guid}/amount-calculation", ReadCurrencyCalculation).RequireAuthorization("procurement-invoice-read");
+        group.MapGet("/capture-commands/{key:guid}", RecoverCurrencyCapture).RequireAuthorization("procurement-invoice-read");
         group.MapPut("/{id:guid}", Update).Accepts<InvoiceIntakeUpdateInput>("application/json").RequireAuthorization("procurement-invoice-read", "procurement-invoice-capture");
         group.MapPost("/{id:guid}/cancel", Cancel).RequireAuthorization("procurement-invoice-read", "procurement-invoice-capture");
         ProcurementInvoiceFinanceReadinessRoutes.MapRoutes(app);
@@ -86,6 +89,11 @@ public static partial class ProcurementInvoiceIntakeRoutes
         catch (Exception error) when (error is JsonException or BadHttpRequestException)
         { return Invalid("Enter exact invoice amounts with up to four decimal places."); }
         if (input is null) return Invalid("Enter the invoice details.");
+        if (input.IntakeSchemaVersion == 2)
+            return await CaptureCurrencyRounded(input, request, db, core, scope, ct);
+        if (input.IntakeSchemaVersion != 1 || input.ExpectedCurrencyReferenceId is not null
+            || input.ExpectedCurrencyRevision is not null || input.ExpectedCalculationSha256 is not null)
+            return Invalid("Choose a supported invoice calculation version.");
         var prepared = await Prepare(input, db, core, scope, null, ct);
         var invoice = new SupplierInvoice { BranchRef = prepared.Branch, IntakeChannel = "Manual", Status = "Received" };
         Apply(invoice, prepared); db.AddScoped(invoice);
@@ -98,13 +106,14 @@ public static partial class ProcurementInvoiceIntakeRoutes
         return Results.Created($"/api/procurement/v1/invoices/{invoice.Id}", Summary(invoice));
     }
 
-    private static string? Validate(InvoiceIntakeInput input)
+    private static string? Validate(InvoiceIntakeInput input, bool allowDefaultCurrency = false)
     {
         if (input.SupplierId == Guid.Empty) return "Choose a vendor.";
         if (string.IsNullOrWhiteSpace(input.InvoiceNumber) || input.InvoiceNumber.Trim().Length > 80)
             return "Enter an invoice number of up to 80 characters.";
-        if (input.CurrencyCode is null || input.CurrencyCode.Trim().Length != 3 ||
-            !input.CurrencyCode.Trim().All(char.IsAsciiLetter))
+        if (!(allowDefaultCurrency && string.IsNullOrWhiteSpace(input.CurrencyCode))
+            && (input.CurrencyCode is null || input.CurrencyCode.Trim().Length != 3 ||
+                !input.CurrencyCode.Trim().All(char.IsAsciiLetter)))
             return "Choose a three-letter currency code.";
         if (input.InvoiceDate == default) return "Enter an invoice date.";
         if (input.DueDate.HasValue && input.DueDate < input.InvoiceDate)
@@ -129,7 +138,9 @@ public static partial class ProcurementInvoiceIntakeRoutes
 
 public sealed record InvoiceIntakeInput(Guid SupplierId, Guid? PurchaseOrderId,
     string? InvoiceNumber, DateOnly InvoiceDate, DateOnly? DueDate, string? CurrencyCode,
-    List<InvoiceIntakeLineInput>? Lines);
+    List<InvoiceIntakeLineInput>? Lines, int IntakeSchemaVersion = 1,
+    Guid? ExpectedCurrencyReferenceId = null, int? ExpectedCurrencyRevision = null,
+    string? ExpectedCalculationSha256 = null);
 public sealed record InvoiceIntakeLineInput(string? Description,
     [property: JsonConverter(typeof(InvoiceIntakeDecimalJsonConverter))] decimal Quantity,
     [property: JsonConverter(typeof(InvoiceIntakeDecimalJsonConverter))] decimal UnitPrice,

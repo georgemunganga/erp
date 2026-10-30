@@ -17,7 +17,8 @@ public sealed partial class ProcurementDbContext
     public async Task<InvoiceHistoricalExposure> BuildPrincipalInvoiceOwnerLeaseAsync(
         InvoiceExposureReadContext context, PrincipalInvoiceIssuedWitness issuedWitness,
         InvoiceProcurementApprovedBaselineWitness approvedBaseline,
-        InvoiceMatchExposureState exposure, CancellationToken ct)
+        InvoiceMatchExposureState exposure, CancellationToken ct,
+        Func<InvoiceAmountCoreReferenceRequirement, CancellationToken, Task<bool>>? verifyCalculationReference = null)
     {
         if (!Database.IsNpgsql() || Database.CurrentTransaction is null
             || Database.CurrentTransaction.GetDbTransaction().IsolationLevel != IsolationLevel.Serializable
@@ -79,7 +80,7 @@ public sealed partial class ProcurementDbContext
                 throw new InvalidOperationException("InvoiceOwnerBaselineDecisionReceiptChanged");
         }
 
-        var current = await ReadPrincipalInvoiceCurrentClaimsAsync(issuedWitness, ct);
+        var current = await ReadPrincipalInvoiceCurrentClaimsAsync(issuedWitness, ct, verifyCalculationReference);
         // A new, tracked zero-sequence exposure is permitted for the first
         // comparison. Every later lease must use the unchanged stored row from
         // this same transaction; a request-shaped exposure cannot set a sequence.

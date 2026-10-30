@@ -49,14 +49,24 @@ public sealed class HrmDbContext(DbContextOptions<HrmDbContext> options, ITenant
             {
                 if (!string.Equals(entry.Entity.TenantId, tenantId, StringComparison.Ordinal))
                     throw new DomainException("cross-tenant-write", "A record from another tenant cannot be changed.");
-                if (entry.Entity is AuditEntry or PrivilegedActionEvent or Mightyfin.Erp.Hrm.Domain.Entities.ComplianceEvidence or GoLiveSignoff)
+                if (entry.Entity is AuditEntry or PrivilegedActionEvent or CoreCurrencyPrecisionCommandReceipt or Mightyfin.Erp.Hrm.Domain.Entities.ComplianceEvidence or GoLiveSignoff)
                     throw new DomainException("audit-immutable", "Compliance and audit evidence is append-only.");
+                if (entry.Entity is CoreCurrencyPrecisionVersion version)
+                {
+                    if (entry.State == EntityState.Deleted || version.RetiredAtUtc is null
+                        || entry.OriginalValues[nameof(version.RetiredAtUtc)] is not null
+                        || entry.Properties.Any(p => p.IsModified && p.Metadata.Name is not
+                            (nameof(version.RetiredAtUtc) or nameof(version.RetirementReason) or nameof(version.UpdatedAt) or nameof(version.UpdatedBy))))
+                        throw new DomainException("currency-reference-immutable", "A published currency reference cannot be changed.");
+                }
             }
         }
     }
 
     // Organization
     public DbSet<LegalEntity> LegalEntities => Set<LegalEntity>();
+    public DbSet<CoreCurrencyPrecisionVersion> CurrencyPrecisionVersions => Set<CoreCurrencyPrecisionVersion>();
+    public DbSet<CoreCurrencyPrecisionCommandReceipt> CurrencyPrecisionCommandReceipts => Set<CoreCurrencyPrecisionCommandReceipt>();
     public DbSet<WorkLocation> WorkLocations => Set<WorkLocation>();
     public DbSet<OrgUnit> OrgUnits => Set<OrgUnit>();
     public DbSet<WorkCalendar> WorkCalendars => Set<WorkCalendar>();
@@ -185,6 +195,41 @@ public sealed class HrmDbContext(DbContextOptions<HrmDbContext> options, ITenant
         {
             e.HasKey(x => x.Id);
             e.Property(x => x.TimeZoneId).HasMaxLength(100).HasDefaultValue("UTC");
+        });
+        ConfigureEntity<CoreCurrencyPrecisionVersion>(modelBuilder, "currency_precision_versions", e =>
+        {
+            e.Property(x => x.CurrencyCode).HasMaxLength(3);
+            e.Property(x => x.Rounding).HasMaxLength(20);
+            e.Property(x => x.SourceReference).HasMaxLength(200);
+            e.Property(x => x.PublicationReason).HasMaxLength(500);
+            e.Property(x => x.RetirementReason).HasMaxLength(500);
+            e.Property(x => x.PayloadSha256).HasMaxLength(64);
+            e.HasAlternateKey(x => new { x.TenantId, x.Id });
+            e.HasIndex(x => new { x.TenantId, x.CurrencyCode, x.Revision }).IsUnique();
+            e.HasIndex(x => new { x.TenantId, x.CurrencyCode }).IsUnique()
+                .HasFilter("retired_at_utc IS NULL");
+            e.ToTable("currency_precision_versions", "hrm", t =>
+            {
+                if (Database.IsNpgsql()) t.HasCheckConstraint("ck_core_currency_precision_version",
+                    "revision > 0 AND minor_units BETWEEN 0 AND 4 AND rounding IN ('ToEven','AwayFromZero') AND currency_code ~ '^[A-Z]{3}$' AND payload_sha256 ~ '^[0-9a-f]{64}$' AND (retired_at_utc IS NULL OR retired_at_utc >= published_at_utc)");
+            });
+        });
+        ConfigureEntity<CoreCurrencyPrecisionCommandReceipt>(modelBuilder, "currency_precision_command_receipts", e =>
+        {
+            e.Property(x => x.Operation).HasMaxLength(10);
+            e.Property(x => x.RequestSha256).HasMaxLength(64);
+            e.Property(x => x.ResponseSha256).HasMaxLength(64);
+            e.Property(x => x.ResponseJson).HasColumnType("text");
+            e.HasIndex(x => new { x.TenantId, x.ActorPrincipalId, x.Operation, x.CommandKey }).IsUnique();
+            e.HasOne<CoreCurrencyPrecisionVersion>().WithMany()
+                .HasForeignKey(x => new { x.TenantId, x.VersionId })
+                .HasPrincipalKey(x => new { x.TenantId, x.Id })
+                .OnDelete(DeleteBehavior.Restrict);
+            e.ToTable("currency_precision_command_receipts", "hrm", t =>
+            {
+                if (Database.IsNpgsql()) t.HasCheckConstraint("ck_core_currency_precision_receipt",
+                    "operation IN ('Publish','Retire') AND command_key <> '00000000-0000-0000-0000-000000000000'::uuid AND response_status IN (200,201) AND request_sha256 ~ '^[0-9a-f]{64}$' AND response_sha256 ~ '^[0-9a-f]{64}$'");
+            });
         });
         ConfigureEntity<WorkLocation>(modelBuilder, "work_locations");
         ConfigureEntity<OrgUnit>(modelBuilder, "org_units");
