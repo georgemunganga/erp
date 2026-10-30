@@ -142,6 +142,7 @@ public static partial class ProcurementInvoiceIntakeRoutes
             var context = ReplacementDisplayedContext(displayed, witness);
             if (context is null || !ReplacementMakerContext(witness.Invoice, scope, http.Request, actor)
                 || ReplacementReviewIssue(witness, CalculationNow(http)) is not null) return null;
+            _ = await ResolveCalculationPrecision(db, scope, witness.Invoice.CurrencyCode, CalculationNow(http), ct);
             var issued = await ProcurementPrincipalInvoiceIssuedWitness.ReadForPresentationAsync(db, cases,
                 scope, allowed, witness.Mapping.PurchaseOrderId, witness.Mapping.IssuedVersionId, ct);
             if (issued.SupplierId != witness.Invoice.SupplierId || issued.CurrencyCode != witness.Invoice.CurrencyCode
