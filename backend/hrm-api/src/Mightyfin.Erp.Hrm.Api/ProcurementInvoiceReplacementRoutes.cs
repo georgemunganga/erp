@@ -218,23 +218,8 @@ public static partial class ProcurementInvoiceIntakeRoutes
         var at = CalculationNow(request.HttpContext);
         var staged = await StageCurrencyCaptureAsync(corrected, db, core, scope, precision,
             amounts, captureKey, CaptureRequestDigest(corrected), at, ct);
-        var link = new InvoiceReplacementLink {
-            SourceInvoiceId = id, SuccessorInvoiceId = staged.Invoice.Id,
-            SourceInvoiceVersion = source.Version,
-            SourceOriginalSha256 = witness.Mapping.InvoiceOriginalSha256,
-            SourceMappingVersionId = witness.Mapping.Id,
-            SourceMappingRevision = witness.Mapping.MappingRevision,
-            BlockedResultId = witness.BlockedResult.Id,
-            ReviewSourceId = witness.ReviewSource.Id,
-            ReviewOutcomeId = witness.ReviewOutcome.Id,
-            NoClaimProofSha256 = witness.NoClaimProofSha256,
-            SupplierId = source.SupplierId, CurrencyCode = source.CurrencyCode,
-            PurchaseOrderId = orderId, IssuedVersionId = issuedId,
-            BranchId = branch, CalculationId = staged.Calculation.Id,
-            CaptureReceiptId = staged.Receipt.Id, CaptureCommandKey = captureKey,
-            MakerPrincipalId = scope.SubjectId, Reason = input.Reason.Trim(),
-            CommandKey = key, RecordedAtUtc = at, CreatedAt = at, CreatedBy = scope.SubjectId
-        };
+        var link = CreateReplacementLink(witness, staged.Invoice, staged.Calculation,
+            staged.Receipt, key, input.Reason.Trim(), at);
         db.AddScoped(link);
         db.AddScoped(InvoiceReplacementEvidence.CreateReceipt(link, staged.Invoice, requestSha, at));
         var marker = InvoiceReplacementEvidence.MarkerJson(link);
@@ -252,6 +237,37 @@ public static partial class ProcurementInvoiceIntakeRoutes
         catch (InvalidOperationException)
         { return Results.Conflict(new { code = "invoice-replacement-evidence-changed",
             message = "The corrected invoice or retained source evidence changed. Review it before replacing the invoice." }); }
+    }
+
+    // The verified source owns this evidence's scope. AddScoped must still
+    // reject it if that source belongs to another authenticated context.
+    internal static InvoiceReplacementLink CreateReplacementLink(
+        InvoiceReplacementSourceWitness witness, SupplierInvoice successor,
+        InvoiceAmountCalculation calculation, InvoiceIntakeCommandReceipt capture,
+        Guid commandKey, string reason, DateTimeOffset at)
+    {
+        var source = witness.Invoice;
+        return new InvoiceReplacementLink {
+            TenantId = source.TenantId, LegalEntityId = source.LegalEntityId,
+            SourceInvoiceId = source.Id, SuccessorInvoiceId = successor.Id,
+            SourceInvoiceVersion = source.Version,
+            SourceOriginalSha256 = witness.Mapping.InvoiceOriginalSha256,
+            SourceMappingVersionId = witness.Mapping.Id,
+            SourceMappingRevision = witness.Mapping.MappingRevision,
+            BlockedResultId = witness.BlockedResult.Id,
+            ReviewSourceId = witness.ReviewSource.Id,
+            ReviewOutcomeId = witness.ReviewOutcome.Id,
+            NoClaimProofSha256 = witness.NoClaimProofSha256,
+            SupplierId = source.SupplierId, CurrencyCode = source.CurrencyCode,
+            PurchaseOrderId = witness.Mapping.PurchaseOrderId,
+            IssuedVersionId = witness.Mapping.IssuedVersionId,
+            BranchId = source.BranchRef
+                ?? throw new InvalidOperationException("InvoiceReplacementSourceBranchRequired"),
+            CalculationId = calculation.Id, CaptureReceiptId = capture.Id,
+            CaptureCommandKey = capture.CommandKey, MakerPrincipalId = source.CreatedBy,
+            Reason = reason, CommandKey = commandKey, RecordedAtUtc = at,
+            CreatedAt = at, CreatedBy = source.CreatedBy
+        };
     }
 
     internal static async Task<bool> RetainedReplacementReference(ProcurementDbContext db,
