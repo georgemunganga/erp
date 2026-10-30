@@ -1,6 +1,6 @@
 # M6D private currency and invoice capture checkpoint — 30 October 2026
 
-**Bounded result: Core publication and invoice capture/recovery verified. Matching and whole-module UAT remain open. No M6D production deployment is claimed.**
+**Bounded result: Core publication, invoice capture/recovery, one qualified comparison, feature-off history and private cleanup verified. Whole-module UAT and M6D production release remain open.**
 
 Product source was ERP `8013252d` and original Procurement UI `fe425ed`. The subsequent source-picker correction has separate checks and must not inherit a completed matching claim from this checkpoint.
 
@@ -57,8 +57,20 @@ Both official populated downgrade scripts were then attempted against the stoppe
 
 Controlled invoice replacement is under implementation on a separate M6E branch. Its source is not yet a migration, operational feature, completed browser acceptance or production release. Same-number correction and wider invoice exceptions remain separate gaps.
 
+## Feature-off history and private cleanup completed
+
+The continuation completed 19 normal-cookie history reads and the two previously unsent disabled-feature commands. Manual Open and Core Publish returned their expected 503 responses; all three actors signed out. The original failed harness and its three consumed keys were preserved without replay. API receipt SHA: `3b689bf17ef9933a5fab2f3dd74a67228d83bdac5fc0e63cb18931cbc6e627d4`.
+
+The original UI then showed invoice, comparison, manual-review, amount-calculation and Core currency history while hiding disabled new-work controls. It made zero Procurement or Core currency writes; both users signed out. UI receipt SHA: `cbc9ce9660cc46295c65dbca1b85b643735b71c7918585cd8110d2bcc53f11b1`. All owned API, Core SSR, static-proxy and watchdog processes stopped.
+
+Final native verification confirmed the exact five new revoked sessions and their typed authentication records, with all other business rows, 227 table shapes, security, SourceC and production unchanged. SHA: `aba9d103c36ec0341828748d6d3ea11614d8c67c639edf22e1983aeeefd4892f`. The initial verifier stopped on a redundant MD5 inventory that also contained the known authentication changes. A separately reviewed offline successor applied the identical exact authentication cohort to both SHA-256 and MD5 inventories over the pinned repeatable-read snapshots; it did not recapture the database or waive unrelated changes. The failed verifier remains retained.
+
+Temporary permissions were restored in order, each SQL stage once with fresh native before/after checks: vendor addon first (`25d12bc64ea4cb91264721632ab3a944ec07dd13fd9cf0a22911b32ece17b226`), then the original 46 table and 14 column privilege edges and three role rows (`ee820d1d3668742e25ea037ffaa047be355c94a151678c67482dab3d0cd92632`). Original security is restored; accepted synthetic business and authentication history remains intact. Final closeout SHA: `505e3e2127832eca3177fd3e1847e8bcb600e4ea3dafffa746e636c6d04177e0`. This is private acceptance and cleanup, not a production deployment.
+
+Capture denial reused an old preview digest with a changed number, so it proves the early feature gate rather than a fully validated fresh capture. Compare/Open denials refer to an already-compared invoice. Actual Core retirement, source-policy supersession and complete correction/Finance workflows remain separate acceptance work.
+
 ## Operational incident and active obligations
 
 The production PostgreSQL service had stopped during an earlier disk-full event. It was restarted using the same container, image and volume after cache reclamation. Read-only checks confirmed its existing system identifier, 220 tables and healthy API. No deployment, migration, role grant or logical database restore occurred. The separate approved recovery receipt is `production-db-diskfull-recovery-20261030.private.json`, SHA `e0a30081f279d71ff4912a7640acc7fa0e2bfac663edcd0e4ff9b4f1c5b43f64`; historical pre-recovery guards were preserved rather than silently refreshed. Whole-data integrity or business UAT is not inferred from a health check.
 
-Private test grants remain temporary during continuation. After tests, stop the exact private processes and revoke all cohort sessions, restore the supplier-read addon first, then restore the original 60 permission edges and three role rows, and verify exact security restoration while retaining the tested business history. Posted-history correction/replacement, the remaining feature-off history checks, fixture restoration, reviewed release and the wider Procurement gap register remain open.
+Private test grants are restored and the owned runtime is stopped, as recorded above. Controlled correction/replacement, actual Core retirement and policy-supersession acceptance, current production-row migration/backup/finite-role preflight, reviewed paired release and the wider Procurement gap register remain open.
