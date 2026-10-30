@@ -1,3 +1,11 @@
+# Current integration ownership — 30 October 2026
+
+Published prerequisites remain ERP `1c6a81d772c654e7a58254845d116e2cc3b0d7bd` and Procurement UI `47cac6a13a24e9db113383f8a9cf5b319494d526`. Draft ERP PR137 (`d54d01ec` product) and UI PR95 (`8b91313b` product) are stacked integration work, not published main or production activation. Root owns their release and M6E controlled-invoice replacement. Do not start a collaborator milestone from unpublished M6E source.
+
+One private qualified invoice comparison, feature-off API/original-UI history, populated downgrade guards and exact fixture restoration are now independently reconciled. Draft ERP PR138 and UI PR96 continue controlled invoice correction; their native readiness and full form integration remain open. Paired release and production preflight still require completion. The [current UAT register](docs/procurement/gap-closure/PROCUREMENT-UAT-AND-GAPS-20261027.md) remains **NOT READY** for whole-module acceptance. No new Manus assignment is issued here. Existing independent document-scanner ownership is unchanged. The dated sections below retain historical evidence and are superseded for current ownership by this paragraph.
+
+---
+
 # M5 technical release and current prerequisites — 28 October 2026
 
 Published ERP main: `1c6a81d772c654e7a58254845d116e2cc3b0d7bd` (through PR133).
@@ -401,3 +409,8 @@ No new Manus milestone is assigned by this checkpoint. Published main baselines 
 Coordinator-owned draft [ERP PR #136](https://github.com/georgemunganga/erp/pull/136) and [UI PR #94](https://github.com/georgemunganga/module-connect/pull/94) retain the original imported invoice UI and manual Core unit-review work. Backend `0f656d63` passes 1,592 Procurement and 671 host tests plus a focused regression. Original-UI review/recovery and native retained history passed; the recorded comparison is legitimately Blocked with no qualified claim. See the [current private workflow checkpoint](docs/procurement/gap-closure/M6C-PRIVATE-WORKFLOW-CHECKPOINT-20261029.md) for evidence and release limits.
 
 Currency-aware invoice calculation and controlled correction after processing history remain coordinator-owned gaps. The Core precision and M6D documents are proposed contracts; do not implement a competing currency master, replace the imported UI, rewrite historical invoices, enable production capabilities or claim Finance integration from these private tests. New work must consume published, reviewed prerequisites; these draft heads are not published main baselines.
+
+
+## M6D active continuation — 30 October 2026
+
+Published main baselines remain ERP `1c6a81d772c654e7a58254845d116e2cc3b0d7bd` and UI `47cac6a13a24e9db113383f8a9cf5b319494d526`. Draft ERP PR137 and UI PR95 contain Core currency ownership and new invoice calculation/recovery; draft source `72537cd5` / UI `72c3882e` includes the source-picker correction. [Actual capture evidence and retained failures](docs/procurement/gap-closure/M6D-PRIVATE-CURRENCY-CAPTURE-CHECKPOINT-20261030.md) distinguish one saved invoice and original-key recovery from uncompleted matching. The coordinator continues actual mapping, independent unit review, qualified comparison, private fixture restoration and reviewed release. No competing currency master, employee prerequisite, policy weakening or replacement invoice UI is authorized. These draft heads are not published prerequisites for a new external assignment.

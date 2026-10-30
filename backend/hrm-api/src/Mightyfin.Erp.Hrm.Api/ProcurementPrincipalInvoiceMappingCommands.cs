@@ -75,8 +75,11 @@ public static partial class ProcurementInvoiceMatchingRoutes
             var issued = await ProcurementPrincipalInvoiceIssuedWitness.LoadReviewIssuedOrderAsync(db, cases,
                 scope, allowed, input.PurchaseOrderId, input.IssuedVersionId, token);
             invoice = await Invoice(db, scope, id, token, true);
+            await db.Entry(invoice).ReloadAsync(token);
             if (invoice.Version != input.Version || invoice.ActiveMatchClaimResultId is not null)
                 throw new MatchingProblem("InvoiceMappingVersionOrActiveClaimChanged", 409);
+            if (await ProcurementPrincipalInvoiceRecordedComparisonGuard.IsLockedAsync(db, invoice, true, token, input.PurchaseOrderId))
+                throw new MatchingProblem(ProcurementPrincipalInvoiceRecordedComparisonGuard.Code, 409);
             var lines = await db.SupplierInvoiceLines.Where(x => x.SupplierInvoiceId == id && x.IsActive)
                 .OrderBy(x => x.LineNumber).ToArrayAsync(token);
             var payload = PrincipalInvoiceMappingEvidence.Create(invoice, lines, input.PurchaseOrderId,

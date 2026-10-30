@@ -7,6 +7,80 @@ namespace Mightyfin.Erp.Hrm.Tests;
 
 public sealed class ProcurementPrincipalInvoiceMatchingSelectorShapeTests
 {
+    private static InvoiceCategoryMatchRule GoodsRule()
+    {
+        var exact=new InvoiceFieldTolerance(0,0,InvoiceToleranceCombination.AllLimits);
+        return new InvoiceCategoryMatchRule("GOODS","ZMW",InvoiceMatchingMethod.ThreeWay,
+            InvoiceAcceptanceKind.Goods,exact,exact,exact,exact);
+    }
+
+    private static PrincipalReceivingSource Source(ReceivingKind kind)
+    {
+        var at=new DateTimeOffset(2026,10,30,1,0,0,TimeSpan.Zero);
+        var pin=new ReceivingSourcePin("tenant",Guid.NewGuid(),Guid.NewGuid(),Guid.NewGuid(),
+            Guid.NewGuid(),Guid.NewGuid(),Guid.NewGuid(),1,"issued","source","category",
+            "classification",kind,"GOODS","Goods","ZMW","EACH",1,5.1234m,"Unit");
+        var actor=new PrincipalReceivingPerson(Guid.NewGuid().ToString("D"),null);
+        return new PrincipalReceivingSource(2,pin,Guid.NewGuid(),Guid.NewGuid(),Guid.NewGuid(),
+            Guid.NewGuid(),"original",actor,actor,at,at,Guid.NewGuid());
+    }
+
+    [Fact]
+    public void Mixed_verified_goods_and_service_sources_keep_page_and_block_only_incompatible_row()
+    {
+        var goodsState=new PrincipalReceivingSourceState { Id=Guid.NewGuid() };
+        var serviceState=new PrincipalReceivingSourceState { Id=Guid.NewGuid() };
+        var sources=new Dictionary<Guid,PrincipalReceivingSource> {
+            [goodsState.Id]=Source(ReceivingKind.Goods),
+            [serviceState.Id]=Source(ReceivingKind.Service)
+        };
+        var rule=GoodsRule();
+        var goodsBlocker=ProcurementInvoiceMatchingRoutes.PrincipalSourceBlocker(rule,goodsState,sources);
+        var serviceBlocker=ProcurementInvoiceMatchingRoutes.PrincipalSourceBlocker(rule,serviceState,sources);
+        Assert.Null(goodsBlocker);
+        Assert.Equal("InvoiceMatchingAcceptanceKindChanged",serviceBlocker);
+
+        var line=new InvoiceIssuedOrderLine(Guid.NewGuid(),1,"GOODS","EACH",1,5.1234m,0);
+        var items=new[] {
+            ProcurementInvoiceMatchingRoutes.PrincipalSourceItem(Guid.NewGuid(),"PO-G",Guid.NewGuid(),
+                line.Id,"Goods",line,rule,"tenant",Guid.NewGuid(),Guid.NewGuid(),goodsState,goodsBlocker),
+            ProcurementInvoiceMatchingRoutes.PrincipalSourceItem(Guid.NewGuid(),"PO-S",Guid.NewGuid(),
+                line.Id,"Service",line,rule,"tenant",Guid.NewGuid(),Guid.NewGuid(),serviceState,serviceBlocker)
+        };
+        using var json=JsonDocument.Parse(ProcurementInvoiceMatchingRoutes.PrincipalSourcePage(
+            Guid.NewGuid(),3,Guid.NewGuid(),items,2,1,25));
+        var page=json.RootElement;
+        Assert.Equal(2,page.GetProperty("total").GetInt32());
+        Assert.Equal(1,page.GetProperty("page").GetInt32());
+        Assert.Equal(25,page.GetProperty("pageSize").GetInt32());
+        var rows=page.GetProperty("items");
+        Assert.Equal(2,rows.GetArrayLength());
+        Assert.Equal(JsonValueKind.Null,rows[0].GetProperty("blocker").ValueKind);
+        Assert.Equal("InvoiceMatchingAcceptanceKindChanged",rows[1].GetProperty("blocker").GetString());
+        Assert.Equal("VerifiedIssued",rows[1].GetProperty("sourceState").GetString());
+        Assert.False(rows[0].GetProperty("canAllocate").GetBoolean());
+        Assert.False(rows[1].GetProperty("canAllocate").GetBoolean());
+    }
+
+    [Fact]
+    public void Chosen_wrong_kind_still_fails_and_missing_or_malformed_witness_never_becomes_blocked_row()
+    {
+        var state=new PrincipalReceivingSourceState { Id=Guid.NewGuid() };
+        var rule=GoodsRule();
+        var service=new Dictionary<Guid,PrincipalReceivingSource> { [state.Id]=Source(ReceivingKind.Service) };
+        var wrongKind=Assert.ThrowsAny<Exception>(()=>
+            ProcurementInvoiceMatchingRoutes.RequirePrincipalAcceptanceKind(rule,state,service));
+        Assert.Equal("InvoiceMatchingAcceptanceKindChanged",wrongKind.Message);
+        var missing=Assert.ThrowsAny<Exception>(()=>
+            ProcurementInvoiceMatchingRoutes.PrincipalSourceBlocker(rule,state,
+                new Dictionary<Guid,PrincipalReceivingSource>()));
+        Assert.Equal("InvoiceIssuedSourceUnavailable",missing.Message);
+        var malformed=new Dictionary<Guid,PrincipalReceivingSource> { [state.Id]=Source((ReceivingKind)999) };
+        var invalid=Assert.ThrowsAny<Exception>(()=>
+            ProcurementInvoiceMatchingRoutes.PrincipalSourceBlocker(rule,state,malformed));
+        Assert.Equal("InvoiceIssuedSourceUnavailable",invalid.Message);
+    }
+
     [Fact]
     public void Issued_line_without_receiving_state_remains_a_two_way_source_candidate()
     {

@@ -2,6 +2,7 @@ using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.EntityFrameworkCore;
 using Mightyfin.Erp.Hrm.Infrastructure.Data;
+using Mightyfin.Erp.Hrm.Application;
 
 namespace Mightyfin.Erp.Hrm.Api;
 
@@ -28,7 +29,7 @@ public static class CoreWorkspaceContextRoutes
         var now = clock.GetUtcNow();
         var account = await core.LocalUsers.AsNoTracking().Where(x => x.TenantId == tenant && x.Id == principal
                 && x.IsActive && !x.IsArchived)
-            .Select(x => new { x.LockedUntil }).SingleOrDefaultAsync(ct);
+            .Select(x => new { x.LockedUntil, x.RolesCsv }).SingleOrDefaultAsync(ct);
         if (account is null || account.LockedUntil is { } until && until > now)
             return Results.Forbid();
 
@@ -39,6 +40,15 @@ public static class CoreWorkspaceContextRoutes
             .Where(x => x.TenantId == tenant && x.UserId == principal && !x.IsArchived)
             .Select(x => x.LocationId).Distinct().ToArrayAsync(ct);
         var organisationWide = declared.Length == 0;
+        var assignedRoles = LocalIdentityRoutes.ParseRoles(account.RolesCsv);
+        var rolePermissions = await core.TenantRoleAssignments.AsNoTracking()
+            .Where(x => x.TenantId == tenant && assignedRoles.Contains(x.RoleKey) && x.Active && !x.IsArchived)
+            .Select(x => x.PermissionsCsv).ToArrayAsync(ct);
+        var grants = rolePermissions.SelectMany(x => LocalIdentityRoutes.ParseRoles(x)).ToHashSet(StringComparer.Ordinal);
+        var coreActions = CoreCurrencyPrecisionPermissions.All.Where(action =>
+            CoreCurrencyPrecisionPermissions.Allows(true, true, !organisationWide,
+                grants.Contains(CoreCurrencyPrecisionPermissions.Read), grants.Contains(CoreCurrencyPrecisionPermissions.Configure),
+                configure: action == CoreCurrencyPrecisionPermissions.Configure)).ToArray();
         var activeCompanies = core.LegalEntities.AsNoTracking()
             .Where(x => x.TenantId == tenant && !x.IsArchived);
         var branches = core.WorkLocations.AsNoTracking()
@@ -55,6 +65,6 @@ public static class CoreWorkspaceContextRoutes
         var branchChoices = await branches.OrderBy(x => x.Name).ThenBy(x => x.Id)
             .Select(x => new { x.Id, x.Code, x.Name, x.LegalEntityId, x.Type }).ToArrayAsync(ct);
         return Results.Ok(new { schemaVersion = 1, tenantId = tenant, principalId = principal,
-            organisationWide, companies = companyChoices, branches = branchChoices });
+            organisationWide, companies = companyChoices, branches = branchChoices, coreActions });
     }
 }

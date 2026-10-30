@@ -21,12 +21,12 @@ export const Route = createFileRoute("/")({
 });
 
 function Entrance() {
-  const { loading, authenticated, erpAuthorized, user, signOut } = useAuth();
+  const { loading, authenticated, erpAuthorized, coreAccessLoading, coreActions, user, signOut } = useAuth();
   const real = import.meta.env.VITE_USE_REAL_API === "true";
   const administrator = canManageCore(user?.roles ?? []);
   const roles = user?.roles ?? [];
 
-  if (real && loading) return <div className="flex min-h-screen items-center justify-center gap-2 text-sm text-muted-foreground"><Loader2 className="size-4 animate-spin" /> Checking your session…</div>;
+  if (real && (loading || authenticated && !administrator && coreAccessLoading)) return <div className="flex min-h-screen items-center justify-center gap-2 text-sm text-muted-foreground"><Loader2 className="size-4 animate-spin" /> Checking your session…</div>;
   if (real && !authenticated) return <SignIn />;
   if (real && !erpAuthorized) return <AuthGate module="erp"><span /></AuthGate>;
 
@@ -48,7 +48,7 @@ function Entrance() {
 
         <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {modules.map((m) =>
-            m.available && (m.id === "core" ? administrator : m.id === "hrm" ? hasHrmStaffRole(roles) : m.id === "procurement" ? canAccessProcurement(roles) : true) ? (
+            m.available && (m.id === "core" ? administrator || coreActions.includes("core-currency-precision-read") : m.id === "hrm" ? hasHrmStaffRole(roles) : m.id === "procurement" ? canAccessProcurement(roles) : true) ? (
               <a
                 key={m.id}
                 href={m.to}

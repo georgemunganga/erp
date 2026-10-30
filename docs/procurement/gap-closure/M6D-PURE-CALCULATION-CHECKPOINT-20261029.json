@@ -1,0 +1,33 @@
+{
+  "baseCommit": "0f656d6316e39063eb09da45210db4b142717ecf",
+  "databaseAccess": false,
+  "exitCode": 0,
+  "imageId": "sha256:4beef5b8919dcaa2dc924233bd069257e883cc7a061e09088a97d152d6a48510",
+  "network": "none",
+  "oomKilled": false,
+  "planSha256": "c20b9061147816b83840635649d0105d7317bdcf01120b18470d875cd9cdc14a",
+  "productionIdentityGuardsUnchanged": true,
+  "productionMutation": false,
+  "receiptSha256": "67a81ac6c240ea426fc5415e67c142d1361a4659730f1ae1257aabba179fcca8",
+  "runtimeIntegration": false,
+  "schemaChanges": false,
+  "sourceFiles": {
+    "backend/procurement-api/src/Mightyfin.Erp.Procurement.Application/InvoiceCurrencyRoundedCalculation.cs": {
+      "bytes": 4804,
+      "sha256": "eedc8d145d4822333992806992c23fc0916e64d14c425e917b8dfd57874be27c"
+    },
+    "backend/procurement-api/src/Mightyfin.Erp.Procurement.Tests/InvoiceCurrencyRoundedCalculationTests.cs": {
+      "bytes": 7278,
+      "sha256": "94e427ec968b96a09cbf88aac32290a6fc0b0dc5040f09385c150d5bc9f3cc63"
+    }
+  },
+  "status": "PASS_PRIVATE_M6D_PURE_CALCULATION_FULL_PROCUREMENT_SUITE",
+  "tests": {
+    "failed": 0,
+    "newCalculatorCases": 11,
+    "passed": 1603,
+    "skipped": 0
+  },
+  "trxSha256": "dcbb26fe91a08da38988ed25ad9b28a181270e0a6d34d685dc4ea90a4a59ab96",
+  "verifiedUnchangedSourceFiles": 1195
+}

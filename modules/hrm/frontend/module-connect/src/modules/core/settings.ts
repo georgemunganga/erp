@@ -37,7 +37,7 @@ export const coreSettingGroups: CoreSettingGroup[] = [
     items: [
       { label: "Reporting Tags", detail: "Cross-module reporting dimensions", owner: "ERP Core" },
       { label: "General", detail: "Locale, time zone and display defaults", owner: "ERP Core" },
-      { label: "Currencies", detail: "Available currencies and display formats; Finance owns exchange rates", owner: "ERP Core" },
+      { label: "Currencies", path: "/core/workspace/settings/currencies", detail: "Currency calculation precision and rounding; Finance owns exchange rates", owner: "ERP Core" },
     ],
   },
   {

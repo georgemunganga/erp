@@ -278,6 +278,17 @@ export const hrmApi = {
     return handleResponse<T>(res);
   },
 
+  /** Durable Core configuration commands carry their original key on the wire. */
+  async postKeyed<T>(path: string, body: unknown, key: string): Promise<T> {
+    const res = await fetch(`${BASE}${path}`, {
+      method: "POST",
+      credentials: "include",
+      headers: { ...headers({ "Idempotency-Key": key }), "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    return handleResponse<T>(res);
+  },
+
   async put<T>(path: string, body: unknown): Promise<T> {
     const res = await fetch(`${BASE}${path}`, {
       method: "PUT",

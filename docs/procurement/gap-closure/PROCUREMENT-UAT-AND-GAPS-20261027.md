@@ -4,7 +4,15 @@
 
 The audit preserves the imported Procurement UI and shared ERP components. Core owns organisation/company, identity, role grants, record scope, branding and shared platform configuration. A permitted Core user need not be an employee. The organisation is the legal entity and its selected currency is the default; test policy amounts are not approved Amizo purchasing thresholds. Finance owns the ledger and payment execution; its absence does not prevent separately governed manual payment recording.
 
-## Current development update — 29 October
+## Current development update — 30 October
+
+Core currency publication, invoice capture/recovery, manual review and one qualified comparison now have bounded private original-UI and native-owner evidence. ERP `d54d01ec` / UI `8b91313b` created exactly one quantity-1 allocation for ZMW 5.12 while preserving the older Blocked result. Backend checks passed 1,678 Procurement tests and 80 focused Host tests; UI type checking, 85 focused tests and build passed. See the [dated checkpoint](M6D-PRIVATE-CURRENCY-CAPTURE-CHECKPOINT-20261030.md) for exact scope and retained failures.
+
+The initial feature-off harness stopped on a wrong expected error code; its three denied requests are retained separately. Continuation completed the remaining two denials, 19 history reads and original-UI history checks with zero business writes. Native reconciliation passed; all owned processes stopped and temporary grants were restored with business history preserved. Controlled invoice replacement has tested source and a genuine generated migration in draft ERP PR138, with typed adapter/recovery work in UI PR96; native migration/readiness and complete Bill-form integration remain open. M6D production release and whole-module acceptance remain open. Published main baselines remain ERP `1c6a81d7` and UI `47cac6a1`.
+
+The production database was separately restarted after a disk-full shutdown using its existing image and volume; the API is healthy. This recovery changed no application deployment, schema or permission policy. Whole-module acceptance remains **NOT READY**.
+
+## Current development update — 29 October (retained history)
 
 Published main baselines are ERP `1c6a81d7` and UI `47cac6a1`. Draft M6C backend `0f656d63` passed 1,592 Procurement tests, 671 host tests and one focused regression. The [private workflow checkpoint](M6C-PRIVATE-WORKFLOW-CHECKPOINT-20261029.md) records original-UI manual unit review, independent Core decision, original-key recovery, native history reconciliation and a combined retained-data downgrade veto. These are private acceptance results, not a production release.
 

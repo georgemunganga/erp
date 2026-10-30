@@ -21,6 +21,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState } 
 import type { ReactNode } from "react";
 import type { Role } from "@/mock/types";
 import { hrmApi, type LinkedWorker, type LocalAuthUser } from "@/platform/api-client";
+import { parseCoreWorkspaceChoices, type CoreWorkspaceChoices } from "@/modules/core/core-workspace-context";
 import {
   clearSession,
   decodeSessionUser,
@@ -35,6 +36,7 @@ import {
 import { INITIAL_AUTH_SETTINGS, loadAuthSettings, type AuthSettings } from "@/platform/auth-settings";
 
 const USE_REAL = (import.meta.env.VITE_USE_REAL_API as string | undefined) === "true";
+const EMPTY_CORE_ACTIONS: CoreWorkspaceChoices["coreActions"] = [];
 
 interface AuthState {
   authSettings: AuthSettings;
@@ -62,6 +64,9 @@ interface AuthState {
   worker: LinkedWorker | null;
   /** True while the initial `/hrm/me` resolution is in flight. */
   resolvingWorker: boolean;
+  coreWorkspace: CoreWorkspaceChoices | null;
+  coreAccessLoading: boolean;
+  coreActions: CoreWorkspaceChoices["coreActions"];
 }
 
 const Ctx = createContext<AuthState | null>(null);
@@ -126,6 +131,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [worker, setWorker] = useState<LinkedWorker | null>(null);
   const [resolvingWorker, setResolvingWorker] = useState(false);
   const [origin, setOrigin] = useState<string>("/hrm");
+  const [coreContext, setCoreContext] = useState<{ actor: string; choices: CoreWorkspaceChoices | null } | null>(null);
 
   // 1. Restore / refresh the Keycloak session on boot (hybrid mode only).
   useEffect(() => {
@@ -206,8 +212,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [session, localUser]);
 
   const authenticated = !USE_REAL || isSessionValid(session) || Boolean(localUser);
+  useEffect(() => {
+    if (!USE_REAL || !authenticated || !user?.subject) return;
+    let cancelled = false;
+    const actor = user.subject;
+    hrmApi.get<unknown>("/core/v1/workspace-context")
+      .then(parseCoreWorkspaceChoices).catch(() => null)
+      .then(choices => { if (!cancelled) setCoreContext({ actor, choices }); });
+    return () => { cancelled = true; };
+  }, [authenticated, user?.subject]);
+  const coreWorkspace = authenticated && coreContext && coreContext.actor === user?.subject ? coreContext.choices : null;
+  const coreAccessLoading = USE_REAL && authenticated && !!user?.subject && coreContext?.actor !== user.subject;
+  const coreActions = coreWorkspace?.coreActions ?? EMPTY_CORE_ACTIONS;
   const authorized = !USE_REAL || (authenticated && hasHrmStaffRole(user?.roles ?? []));
-  const erpAuthorized = !USE_REAL || (authenticated && hasErpModuleRole(user?.roles ?? []));
+  const erpAuthorized = !USE_REAL || (authenticated && (hasErpModuleRole(user?.roles ?? [])
+    || coreActions.includes("core-currency-precision-read")));
 
   const signInInteractive = useCallback(() => {
     const path = PUBLIC_PATHS.has(window.location.pathname) ? "/hrm" : window.location.pathname;
@@ -256,6 +275,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       signOut,
       worker,
       resolvingWorker,
+      coreWorkspace,
+      coreAccessLoading,
+      coreActions,
     }),
     [
       authSettings,
@@ -271,6 +293,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       signOut,
       worker,
       resolvingWorker,
+      coreWorkspace,
+      coreAccessLoading,
+      coreActions,
     ],
   );
 

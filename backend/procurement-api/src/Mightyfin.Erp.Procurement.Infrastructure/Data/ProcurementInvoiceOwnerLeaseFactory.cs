@@ -17,7 +17,8 @@ public sealed partial class ProcurementDbContext
     public async Task<InvoiceHistoricalExposure> BuildPrincipalInvoiceOwnerLeaseAsync(
         InvoiceExposureReadContext context, PrincipalInvoiceIssuedWitness issuedWitness,
         InvoiceProcurementApprovedBaselineWitness approvedBaseline,
-        InvoiceMatchExposureState exposure, CancellationToken ct)
+        InvoiceMatchExposureState exposure, CancellationToken ct,
+        Func<InvoiceAmountCoreReferenceRequirement, CancellationToken, Task<bool>>? verifyCalculationReference = null)
     {
         if (!Database.IsNpgsql() || Database.CurrentTransaction is null
             || Database.CurrentTransaction.GetDbTransaction().IsolationLevel != IsolationLevel.Serializable
@@ -79,7 +80,7 @@ public sealed partial class ProcurementDbContext
                 throw new InvalidOperationException("InvoiceOwnerBaselineDecisionReceiptChanged");
         }
 
-        var current = await ReadPrincipalInvoiceCurrentClaimsAsync(issuedWitness, ct);
+        var current = await ReadPrincipalInvoiceCurrentClaimsAsync(issuedWitness, ct, verifyCalculationReference);
         // A new, tracked zero-sequence exposure is permitted for the first
         // comparison. Every later lease must use the unchanged stored row from
         // this same transaction; a request-shaped exposure cannot set a sequence.
@@ -106,9 +107,12 @@ public sealed partial class ProcurementDbContext
                 baseline, rows, current.Capture, context.PurchaseOrderId,
                 context.SupplierId, context.CurrencyCode))
             throw new InvalidOperationException("InvoiceOwnerHistoricalTargetRequiresReconciliation");
+        var blocked = await ReadBlockedNoClaimResultsAsync(current.Capture,
+            context.PurchaseOrderId, current.ActiveClaims.Select(x => x.Result.Id).ToHashSet(), ct);
         PrincipalInvoiceCurrentOwnerScope.RequireNoUnclassifiedEffect(current.Capture,
             context.PurchaseOrderId, context.SupplierId, issuedWitness.BranchId,
-            context.CurrencyCode, current.ActiveClaims.Select(x => x.Allocation.Id).ToHashSet());
+            context.CurrencyCode, current.ActiveClaims.Select(x => x.Allocation.Id).ToHashSet(),
+            blocked.Results, blocked.Exceptions);
         var local = current.ActiveClaims.Select(x =>
             InvoiceMatchExecutionEvidence.Consumption(x.Allocation, x.Invoice.BranchRef)).ToArray();
         if (local.Where((claim, index) => claim.BranchRef != context.BranchId

@@ -9,10 +9,14 @@ public static class PrincipalInvoiceCurrentOwnerScope
 {
     public static void RequireNoUnclassifiedEffect(InvoiceProcurementInventoryCapture current,
         Guid purchaseOrderId, Guid supplierId, Guid branchId, string currencyCode,
-        IReadOnlySet<Guid> verifiedActiveAllocationIds)
+        IReadOnlySet<Guid> verifiedActiveAllocationIds,
+        IReadOnlySet<Guid>? verifiedBlockedNoClaimResultIds = null,
+        IReadOnlySet<Guid>? verifiedBlockedNoClaimExceptionIds = null)
     {
         ArgumentNullException.ThrowIfNull(current);
         ArgumentNullException.ThrowIfNull(verifiedActiveAllocationIds);
+        verifiedBlockedNoClaimResultIds ??= new HashSet<Guid>();
+        verifiedBlockedNoClaimExceptionIds ??= new HashSet<Guid>();
         _ = InvoiceProcurementInventoryEvidence.Summarize(current);
         if (purchaseOrderId == Guid.Empty || supplierId == Guid.Empty || branchId == Guid.Empty
             || currencyCode is not { Length: 3 })
@@ -88,10 +92,15 @@ public static class PrincipalInvoiceCurrentOwnerScope
                     case "invoice_match_results":
                         // A compared result without a current claim needs an explicit
                         // reconciliation before a later owner can reuse capacity.
-                        if (!tables["invoice_match_allocations"].Rows.Any(x =>
+                        if (!verifiedBlockedNoClaimResultIds.Contains(row.Id)
+                            && !tables["invoice_match_allocations"].Rows.Any(x =>
                             GuidOf(x.RowJson, "match_result_id") == row.Id
                             && verifiedActiveAllocationIds.Contains(x.Id)))
                             throw new InvalidOperationException("PrincipalInvoiceTargetResultUnclassified");
+                        break;
+                    case "invoice_exceptions":
+                        if (!verifiedBlockedNoClaimExceptionIds.Contains(row.Id))
+                            throw new InvalidOperationException("PrincipalInvoiceTargetExceptionUnclassified");
                         break;
                     case "invoice_match_allocations":
                         if (!verifiedActiveAllocationIds.Contains(row.Id))

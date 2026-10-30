@@ -20,6 +20,9 @@ public static partial class ProcurementInvoiceUnitReviewRoutes
             if (await ReplayManual(db, scope, request, invoice, token) is { } replay) return replay;
             if (input.InvoiceVersion != invoice.Version || input.MappingRevision != invoice.MappingRevision) throw new ReviewProblem("InvoiceUnitReviewVersionChanged", 409);
             var mapping = await Mapping(db, invoice, token); var originals = await Originals(db, id, token);
+            if (mapping.SourceSchemaVersion == 3
+                && await ProcurementPrincipalInvoiceRecordedComparisonGuard.IsLockedAsync(db, invoice, true, token))
+                throw new ReviewProblem(ProcurementPrincipalInvoiceRecordedComparisonGuard.Code, 409);
             var matching = await Policy(db, scope, http, InvoiceMatchingPolicyRules.PolicyKey, token);
             var review = await Policy(db, scope, http, InvoiceRetainedUnitReview.ReviewPolicyKey, token);
             RequireManualPolicy(review);

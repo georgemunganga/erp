@@ -20,16 +20,16 @@ const USE_REAL = (import.meta.env.VITE_USE_REAL_API as string | undefined) === "
  * role so every existing page gate keeps working. Authenticated identities
  * without an HRM workforce role receive an explicit access-denied screen.
  */
-export function AuthGate({ children, module = "hrm" }: { children: React.ReactNode; module?: "hrm" | "erp" }) {
+export function AuthGate({ children, module = "hrm" }: { children: React.ReactNode; module?: "hrm" | "erp" | "authenticated" }) {
   const { loading, authenticated, authorized, erpAuthorized, user, signOut, resolveRole } = useAuth();
-  const admitted = module === "erp" ? erpAuthorized : authorized;
+  const admitted = module === "authenticated" ? authenticated : module === "erp" ? erpAuthorized : authorized;
   const { role, setRole } = useApp();
 
   useEffect(() => {
-    if (!USE_REAL || loading || !authenticated || !admitted || !user) return;
+    if (!USE_REAL || loading || !authenticated || !admitted || !user || module === "authenticated") return;
     const next = resolveRole();
     if (next !== role) setRole(next);
-  }, [loading, authenticated, admitted, user, resolveRole, role, setRole]);
+  }, [loading, authenticated, admitted, user, resolveRole, role, setRole, module]);
 
   useEffect(() => {
     if (!USE_REAL || loading) return;
