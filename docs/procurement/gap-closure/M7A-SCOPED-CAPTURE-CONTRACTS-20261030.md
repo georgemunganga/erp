@@ -1,6 +1,6 @@
 # M7A scoped capture contracts — unregistered source slice
 
-Status: implementation candidate for review, not compiled or activated. Based on `34516123`. The existing 28-section M7A child-feature specification remains the feature contract; this note records this source slice's ownership and schema decisions.
+Status: compiled and unit-tested source contracts; not mapped, migrated, exposed or activated. Based on `34516123`; exact tested source `0a2240a2` has the same backend tree as code commit `d1c6cdd2`. The existing 28-section M7A child-feature specification remains the feature contract; this note records this source slice's ownership and schema decisions.
 
 ## Included
 
@@ -38,3 +38,9 @@ No DbSet, mapping, migration, startup/readiness registration, route or feature f
 Source tests cover the existing commercial factory → actual owning `AddScoped`/InMemory SaveChanges path, foreign sidecar scope denial, deliberately unmapped sidecars, complete receipt/snapshot tampering, workerless principal capture, old-key private recovery, retained version increments, cancellation and legacy-provenance denial. These tests are not PostgreSQL or positive sidecar persistence evidence, and have not yet been run for this slice.
 
 Remaining gates: independent source review; bounded compiled tests; mapped model/genuine migration and snapshot; native restrictive-FK/concurrency/retention tests; Core-principal source loader and server permissions; actor-owned original-key-first replay before new-work guards; existing UI wiring; real-cookie Playwright happy/denied/recovery cases; independent full-owner reconciliation; release/rollback/operations evidence. No live workflow, supplier delivery, supplier bid submission, award, payment or module-completion claim follows from this source slice.
+
+## Verified source checkpoint
+
+The bounded SDK run passed all **1,837 Procurement tests**, with no skips: all prior 1,805 stable test IDs/definitions/outcomes and 32 new evidence cases. Analyzers ran and EF reported no pending model change, confirming the two sidecars remain deliberately unmapped. All 13 previously accepted API publications stayed byte-identical. Source binding: `ab4be2c26456111ad9a463221bb8ac2b98d175d99aa4b733c72979099fca83bf`.
+
+The existing bid/line owning-context tests use the in-memory provider; they are not native PostgreSQL, finite-role, atomic sidecar-save or browser acceptance. First schema/API work must also close the supplier-offer field gaps (reference/date/validity, discounts, offered payment/warranty/delivery/tax terms and multiple controlled document selections) identified against the full blueprint. Neither the imported RFQ layout nor this source checkpoint establishes complete quotation CRUD.
