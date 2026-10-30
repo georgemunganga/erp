@@ -18,7 +18,21 @@ public sealed class InvoiceReplacementEvidenceTests
             Mapping, Result, Review, Outcome, Calculation, Capture);
     }
 
-    private static Graph Valid(string? successorNumber = null, Guid? captureKey = null)
+    [Theory]
+    [InlineData("é", 500, true)]
+    [InlineData("é", 501, false)]
+    [InlineData("😀", 250, true)]
+    [InlineData("😀", 251, false)]
+    [InlineData("a", 1000, true)]
+    [InlineData("a", 1001, false)]
+    public void Replacement_reason_matches_database_utf8_byte_boundary(string character, int count, bool accepted)
+    {
+        var graph = Valid(reason: string.Concat(Enumerable.Repeat(character, count)));
+        if (accepted) graph.Verify();
+        else Assert.Equal("InvoiceReplacementLinkInvalid", Assert.Throws<InvalidOperationException>(() => graph.Verify()).Message);
+    }
+
+    private static Graph Valid(string? successorNumber = null, Guid? captureKey = null, string? reason = null)
     {
         var company = Guid.NewGuid(); var supplier = Guid.NewGuid(); var branch = Guid.NewGuid();
         var order = Guid.NewGuid(); var issued = Guid.NewGuid(); var mappingId = Guid.NewGuid();
@@ -57,7 +71,7 @@ public sealed class InvoiceReplacementEvidenceTests
             ReviewOutcomeId = outcomeId, NoClaimProofSha256 = new string('b', 64), SupplierId = supplier,
             CurrencyCode = "ZMW", PurchaseOrderId = order, IssuedVersionId = issued, BranchId = branch,
             CalculationId = calculationId, CaptureReceiptId = captureId, CaptureCommandKey = internalKey,
-            MakerPrincipalId = Actor, Reason = "Supplier issued a corrected invoice", CommandKey = key,
+            MakerPrincipalId = Actor, Reason = reason ?? "Supplier issued a corrected invoice", CommandKey = key,
             RecordedAtUtc = At, CreatedAt = At, CreatedBy = Actor };
         var receipt = InvoiceReplacementEvidence.CreateReceipt(link, successor, new string('c', 64), At);
         return new(link, receipt, source, successor, mapping, result, review, outcome, calculation, capture);
