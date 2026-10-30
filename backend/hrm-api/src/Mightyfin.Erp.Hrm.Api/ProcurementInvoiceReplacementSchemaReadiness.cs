@@ -9,8 +9,8 @@ using static Mightyfin.Erp.Hrm.Api.ProcurementSchemaInspectionSql;
 namespace Mightyfin.Erp.Hrm.Api;
 
 /// <summary>Physical/finite-role admission on the actual caller transaction.
-/// Genuine E schema capture exists; finite-grant positive proof and registration
-/// are separate release gates. This class is deliberately NOT registered yet.
+/// Genuine E schema and finite-role READ/WRITE admission were verified privately.
+/// Registration supplies admission only; write flags and domain guards remain separate.
 /// No actor, source eligibility, policy, or Finance authority is inferred here.</summary>
 public sealed class ProcurementInvoiceReplacementSchemaReadiness(IConfiguration configuration)
     : IProcurementInvoiceReplacementSchemaReadiness

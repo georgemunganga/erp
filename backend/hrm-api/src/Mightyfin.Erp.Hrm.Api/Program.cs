@@ -272,6 +272,8 @@ builder.Services.AddCors(o => o.AddDefaultPolicy(p =>
 builder.Services.AddSingleton(new ApiVersioning { CurrentVersion = 1 });
 
 builder.Services.AddScoped<ICoreCurrencyPrecisionSchemaReadiness, CoreCurrencyPrecisionSchemaReadiness>();
+// Admission checks the actual caller transaction; registration does not enable new writes.
+builder.Services.AddScoped<IProcurementInvoiceReplacementSchemaReadiness, ProcurementInvoiceReplacementSchemaReadiness>();
 
 var app = builder.Build();
 
