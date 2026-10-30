@@ -101,7 +101,7 @@ public static class InvoiceHistoricalPolicyWindow
         var policy=evidence.Policy;
         OperationalPolicyWorkerIdentity.VerifyPublication(policy,evidence.Created,evidence.Submitted,evidence.Published,
             OperationalPolicyPublicationMode.RetainedHistorical);
-        Need(policy.PolicyKey is InvoiceMatchingPolicyRules.PolicyKey or InvoiceUnitReviewPolicyRules.PolicyKey
+        Need(policy.PolicyKey is InvoiceMatchingPolicyRules.PolicyKey or InvoiceRetainedUnitReview.ReviewPolicyKey
             && policy.PublishedAt is { } at && at.Offset==TimeSpan.Zero && policy.EffectiveFrom.Offset==TimeSpan.Zero
             && (policy.EffectiveTo is null || policy.EffectiveTo.Value.Offset==TimeSpan.Zero)
             && !string.IsNullOrWhiteSpace(policy.PublicationReason)
