@@ -115,7 +115,14 @@ public sealed class ProcurementInvoiceReplacementPresentationTests
     {
         var displayed = Invoice();
         Assert.Null(ProcurementInvoiceIntakeRoutes.ReplacementDisplayedContext(displayed, Witness(displayed), number));
-        Assert.Null(ProcurementInvoiceIntakeRoutes.ReplacementDisplayedContext(displayed, Witness(displayed), new string('a',81)));
+    }
+
+    [Fact]
+    public void Human_PO_reference_keeps_the_actual_80_character_storage_boundary()
+    {
+        var displayed = Invoice();var witness = Witness(displayed);
+        Assert.NotNull(ProcurementInvoiceIntakeRoutes.ReplacementDisplayedContext(displayed, witness, new string('a',80)));
+        Assert.Null(ProcurementInvoiceIntakeRoutes.ReplacementDisplayedContext(displayed, witness, new string('a',81)));
     }
 
     [Theory]
