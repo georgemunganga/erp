@@ -23,7 +23,7 @@ public sealed class ProcurementReceivingSchemaReadiness(IConfiguration config, I
         {
             await using var db = new ProcurementDbContext(new DbContextOptionsBuilder<ProcurementDbContext>().UseNpgsql(connection,
                 p => p.MigrationsHistoryTable("__procurement_migrations", "procurement")).Options, scope);
-            if (db.Database.HasPendingModelChanges() || (await db.Database.GetPendingMigrationsAsync(ct)).Any()) return false;
+            if (ProcurementCompiledModelParity.HasPendingModelChanges(db) || (await db.Database.GetPendingMigrationsAsync(ct)).Any()) return false;
             _ = await db.ReceivingSourceStates.Select(x => new { x.Id, x.SourceSha256, x.Sequence }).Take(1).ToArrayAsync(ct);
             _ = await db.ReceivingAcceptanceEffects.Select(x => new { x.Id, x.GoodsReceiptLineId, x.ServiceAcceptanceId }).Take(1).ToArrayAsync(ct);
             _ = await db.GoodsReceipts.Select(x => new { x.Id, x.ExecutionVersion, x.IssuedBindingId }).Take(1).ToArrayAsync(ct);

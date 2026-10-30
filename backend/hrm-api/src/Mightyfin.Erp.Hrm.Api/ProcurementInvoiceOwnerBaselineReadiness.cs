@@ -34,7 +34,7 @@ public sealed class ProcurementInvoiceOwnerBaselineReadiness(IConfiguration conf
                     db.Database.GetDbConnection().ConnectionString)
                 || !ProcurementPrincipalGoodsReturnStoreReadiness.OwnsSerializable(
                     db.Database.CurrentTransaction?.GetDbTransaction(),db.Database.GetDbConnection())
-                || db.Database.HasPendingModelChanges()
+                || ProcurementCompiledModelParity.HasPendingModelChanges(db)
                 || (await db.Database.GetPendingMigrationsAsync(ct)).Any()
                 || !(await db.Database.GetAppliedMigrationsAsync(ct)).Contains(
                     ProcurementInvoiceOwnerBaselineSchemaCapture.MigrationId,StringComparer.Ordinal))return false;

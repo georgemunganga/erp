@@ -79,7 +79,7 @@ internal static class ProcurementPrincipalOrderGovernancePhysicalSchema
         var opened = false;
         try
         {
-            if (owner.Database.HasPendingModelChanges()
+            if (ProcurementCompiledModelParity.HasPendingModelChanges(owner)
                 || (await owner.Database.GetPendingMigrationsAsync(ct)).Any()
                 || !(await owner.Database.GetAppliedMigrationsAsync(ct)).Contains(MigrationId, StringComparer.Ordinal))
                 return false;

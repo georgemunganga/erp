@@ -25,7 +25,7 @@ internal static class ProcurementInvoiceReviewDocumentReadiness
             await using var documents = new DocumentDbContext(new DbContextOptionsBuilder<DocumentDbContext>()
                 .UseNpgsql(transaction.Database.GetDbConnection(), p => p.MigrationsHistoryTable("__EFMigrationsHistory", "core_document")).Options, scope);
             await documents.Database.UseTransactionAsync(transaction.Database.CurrentTransaction.GetDbTransaction(), ct);
-            if (documents.Database.HasPendingModelChanges() || (await documents.Database.GetPendingMigrationsAsync(ct)).Any()
+            if (ProcurementCompiledModelParity.HasPendingModelChanges(documents) || (await documents.Database.GetPendingMigrationsAsync(ct)).Any()
                 || !(await documents.Database.GetAppliedMigrationsAsync(ct)).Contains(MigrationId)) return false;
             await using var command = transaction.Database.GetDbConnection().CreateCommand();
             command.Transaction = transaction.Database.CurrentTransaction.GetDbTransaction(); command.CommandTimeout = 10;

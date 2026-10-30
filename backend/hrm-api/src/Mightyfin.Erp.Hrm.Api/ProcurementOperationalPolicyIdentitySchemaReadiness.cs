@@ -45,7 +45,7 @@ public sealed class ProcurementOperationalPolicyIdentitySchemaReadiness : IProcu
         var opened = false;
         try
         {
-            if (owner.Database.HasPendingModelChanges()) return false;
+            if (ProcurementCompiledModelParity.HasPendingModelChanges(owner)) return false;
             var pending = (await owner.Database.GetPendingMigrationsAsync(ct)).ToArray();
             var unitMigration = ProcurementInvoiceUnitReviewSchemaReadiness.MigrationId;
             // Keep the exact established two-key contract usable before the additive review

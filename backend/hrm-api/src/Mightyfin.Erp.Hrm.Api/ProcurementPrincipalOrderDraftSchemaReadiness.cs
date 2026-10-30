@@ -62,7 +62,7 @@ CHECK (((schema_version = 2) AND ((operation)::text = ANY ((ARRAY['Create'::char
         var opened = false;
         try
         {
-            if (owner.Database.HasPendingModelChanges()
+            if (ProcurementCompiledModelParity.HasPendingModelChanges(owner)
                 || (await owner.Database.GetPendingMigrationsAsync(ct)).Any()
                 || !(await owner.Database.GetAppliedMigrationsAsync(ct)).Contains(MigrationId, StringComparer.Ordinal)
                 || !await p25.CanExecuteAsync(owner, ct)

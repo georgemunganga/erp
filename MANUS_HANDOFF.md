@@ -1,8 +1,10 @@
 # Current integration ownership — 30 October 2026
 
-Published prerequisites remain ERP `1c6a81d772c654e7a58254845d116e2cc3b0d7bd` and Procurement UI `47cac6a13a24e9db113383f8a9cf5b319494d526`. Draft ERP PR137 (`d54d01ec` product) and UI PR95 (`8b91313b` product) are stacked integration work, not published main or production activation. Root owns their release and M6E controlled-invoice replacement. Do not start a collaborator milestone from unpublished M6E source.
+The M6 source cohort is ERP PRs #135–#139 and Procurement UI PRs #93–#96. Before starting collaborator work, fetch both current main branches and verify they include the complete cohort; do not start from an old deployment SHA or a held experiment. Tested backend `f1e5102e` and UI `9c56b492` identify the retained candidate publications. A source merge does not activate a production workflow.
 
-One private qualified invoice comparison, feature-off API/original-UI history, populated downgrade guards and exact fixture restoration are now independently reconciled. Draft ERP PR138 and UI PR96 continue controlled invoice correction; their native readiness and full form integration remain open. Paired release and production preflight still require completion. The [current UAT register](docs/procurement/gap-closure/PROCUREMENT-UAT-AND-GAPS-20261027.md) remains **NOT READY** for whole-module acceptance. No new Manus assignment is issued here. Existing independent document-scanner ownership is unchanged. The dated sections below retain historical evidence and are superseded for current ownership by this paragraph.
+The existing correction form completed a real save and original-key recovery after a deliberately lost response. Its later harness-origin failure remains retained. A separate flags-off original-UI continuation passed both invoices’ Overview/History and saved-result recovery: seven direct reads, six screenshots, no page errors/business writes, and logout. Independent native reconciliation preserved every business record and admitted only its exact authentication cohort. The single temporary vendor permission and 62 finite SQL grants are restored with current data/history retained; only two documented PostgreSQL owner-default ACL storage representations differ from their initial NULL representation. See the [M6E record](docs/procurement/gap-closure/M6E-CONTROLLED-INVOICE-REPLACEMENT-20261030.md).
+
+Root owns fresh production backup/restore, the Core-first plus seven-Procurement migration rehearsal, paired rollout and signed-in verification. Production deployment and [whole-module UAT](docs/procurement/gap-closure/PROCUREMENT-UAT-AND-GAPS-20261027.md) remain open. M7 quotation validation/evidence contracts are isolated source groundwork, not deployed quotation CRUD; complete supplier-offer fields, schema, API and original-UI integration remain required. No new Manus assignment is issued here. Existing independent document-scanner ownership is unchanged. The dated sections below retain historical evidence and are superseded for current ownership by this section.
 
 ---
 
@@ -33,10 +35,14 @@ flag-off history reads also passed real Playwright. Exact temporary roles/grants
 were restored and both private runtime stacks stopped, preserving the legitimate
 test records. See [M6B bounded acceptance and receipt pins](docs/procurement/gap-closure/M6B-PRINCIPAL-INVOICE-LINKS-PRIVATE-ACCEPTANCE-20261028.md).
 No M6B production activation, qualified matching, Finance posting or full-module
-UAT is claimed. M6C manual unit attestation and the invoice selected-branch fix
-remain internal source work requiring a fresh SDK/native/API/UI checkpoint;
-they are not published Manus prerequisites. Preserve real principal parent
-constraints; never insert surrogate legacy versions or fake document evidence.
+UAT is claimed. This is the bounded M6B record; later M6C manual-review and
+Blocked-comparison acceptance is recorded in
+[M6C's private checkpoint](docs/procurement/gap-closure/M6C-PRIVATE-WORKFLOW-CHECKPOINT-20261029.md),
+and the separate M6D qualified comparison and feature-off closeout is recorded in
+[M6D's checkpoint](docs/procurement/gap-closure/M6D-PRIVATE-CURRENCY-CAPTURE-CHECKPOINT-20261030.md).
+Those draft integrations are not published Manus prerequisites. Preserve real
+principal parent constraints; never insert surrogate legacy versions or fake
+document evidence.
 GitHub Actions currently cannot start because its account has a billing lock;
 local pinned SDK/native evidence must remain explicit, never reported as CI.
 

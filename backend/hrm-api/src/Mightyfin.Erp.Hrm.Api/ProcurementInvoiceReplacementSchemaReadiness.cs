@@ -30,7 +30,7 @@ public sealed class ProcurementInvoiceReplacementSchemaReadiness(IConfiguration 
         // Unexpected database/provider errors propagate to the existing API error
         // handling; they are not silently converted into business ineligibility.
         if (!await ProcurementInvoiceReplacementNativeShape.ReadyAsync(connection, transaction, ct)
-            || db.Database.HasPendingModelChanges()
+            || ProcurementCompiledModelParity.HasPendingModelChanges(db)
             || (await db.Database.GetPendingMigrationsAsync(ct)).Any()) return false;
         var applied = await db.Database.GetAppliedMigrationsAsync(ct);
         if (!applied.Contains(ProcurementInvoiceReplacementNativeShape.MigrationId, StringComparer.Ordinal)) return false;
