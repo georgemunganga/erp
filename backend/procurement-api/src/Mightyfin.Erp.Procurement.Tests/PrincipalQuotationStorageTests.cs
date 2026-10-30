@@ -163,8 +163,10 @@ public sealed partial class PrincipalManualQuotationEvidenceTests
         PrincipalQuotationStorage.Apply(draft.Bid, draft.Lines, Offer(), values);
         var snapshot = PrincipalQuotationStorage.Build(draft.Bid, draft.Lines, 1, [], []);
         var json = JsonNode.Parse(snapshot)!;
-        Assert.Equal("0.00000000123456", json["totals"]!["discountAmount"]!.GetValue<string>());
-        Assert.Equal("0.00000000876544", json["totals"]!["payable"]!.GetValue<string>());
+        Assert.Equal(0.00000000123456m, ExactDecimalJsonCodec.Parse(
+            json["totals"]!["discountAmount"]!.GetValue<string>(), 38, 14));
+        Assert.Equal(0.00000000876544m, ExactDecimalJsonCodec.Parse(
+            json["totals"]!["payable"]!.GetValue<string>(), 38, 14));
         Assert.Equal(snapshot, PrincipalQuotationStorage.Build(PrincipalQuotationStorage.Restore(snapshot).Bid,
             PrincipalQuotationStorage.Restore(snapshot).Lines, 1, [], []));
     }

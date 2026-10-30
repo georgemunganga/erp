@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.ChangeTracking;
 using Mightyfin.Erp.Procurement.Application;
 using Mightyfin.Erp.Procurement.Domain;
 
@@ -116,7 +117,12 @@ public sealed partial class ProcurementDbContext
             x.State is EntityState.Added or EntityState.Modified or EntityState.Deleted))
         {
             if (entry.Entity.PrincipalCaptureVersion != 2 && (entry.State == EntityState.Added
-                || entry.OriginalValues.GetValue<int>(nameof(SupplierBid.PrincipalCaptureVersion)) != 2)) continue;
+                || entry.OriginalValues.GetValue<int>(nameof(SupplierBid.PrincipalCaptureVersion)) != 2))
+            {
+                if (LegacyQuotationTermsChanged(entry, ManualHeaderTerms))
+                    throw new InvalidOperationException("ManualQuotationOwnedCommandRequired");
+                continue;
+            }
             if (entry.State == EntityState.Deleted || !added.Any(x => x.SupplierBidId == entry.Entity.Id))
                 throw new InvalidOperationException("ManualQuotationOwnedCommandRequired");
         }
@@ -126,9 +132,32 @@ public sealed partial class ProcurementDbContext
             var owned = entry.Entity.PrincipalCaptureVersion == 2
                 || entry.State != EntityState.Added && entry.OriginalValues.GetValue<int>(nameof(SupplierBidLine.PrincipalCaptureVersion)) == 2
                 || SupplierBids.Local.Any(x => x.Id == entry.Entity.SupplierBidId && x.PrincipalCaptureVersion == 2);
+            if (!owned && LegacyQuotationTermsChanged(entry, ManualLineTerms))
+                throw new InvalidOperationException("ManualQuotationOwnedCommandRequired");
             if (owned && (entry.State == EntityState.Deleted || !added.Any(x => x.SupplierBidId == entry.Entity.SupplierBidId)))
                 throw new InvalidOperationException("ManualQuotationOwnedCommandRequired");
         }
+    }
+
+    private static readonly string[] ManualHeaderTerms =
+        [nameof(SupplierBid.SupplierQuoteReference), nameof(SupplierBid.QuoteDate), nameof(SupplierBid.OfferValidityKind),
+         nameof(SupplierBid.ValidUntil), nameof(SupplierBid.SupplierOfferedPaymentCode), nameof(SupplierBid.SupplierOfferedPaymentText),
+         nameof(SupplierBid.WarrantyText), nameof(SupplierBid.DeliveryTermsText), nameof(SupplierBid.DeliveryDate)];
+    private static readonly string[] ManualLineTerms =
+        [nameof(SupplierBidLine.DiscountKind), nameof(SupplierBidLine.DiscountValue), nameof(SupplierBidLine.TaxTreatment),
+         nameof(SupplierBidLine.SupplierOfferedTaxCode), nameof(SupplierBidLine.IsActive)];
+    private static bool LegacyQuotationTermsChanged(EntityEntry entry, string[] properties)
+    {
+        // Existing legacy values are not retroactively rejected during unrelated
+        // edits. New records/defaults or a change to a new offered field cannot
+        // be smuggled through an older overposting/generic persistence path.
+        if (entry.State != EntityState.Added)
+            return entry.Properties.Any(x => x.IsModified && properties.Contains(x.Metadata.Name));
+        return properties.Any(name => name == nameof(SupplierBidLine.IsActive)
+            ? entry.Property(name).CurrentValue is not true
+            : name == nameof(SupplierBidLine.DiscountValue)
+                ? entry.Property(name).CurrentValue is not decimal value || value != 0m
+                : entry.Property(name).CurrentValue is not null);
     }
 
     private void VerifyManualEffects(PrincipalQuotationEffects.Effects expected)
