@@ -96,6 +96,28 @@ Evaluate current Core principal, action, event/invitation resource and tenant/co
 | Identity, roles, branches, company and currency | Core; consume stable IDs/minimal projections |
 | Document/version/scan evidence | Core Documents; actual controlled references only |
 
+### Commercial fields required before the first M7A schema/API
+
+The imported RFQ Terms tab records buyer requirements; it does not capture a supplier's offered terms. The held P30 quote panel only provides quantity, unit price, tax amount, delivery amount, lead time and notes. Preserve that layout and shared ERP controls, while adding the following explicit commercial contract. This pure checkpoint does not add persisted fields, routes, migrations or verified document use.
+
+| Field | Meaning / draft rule | Authority / future storage |
+|---|---|---|
+| Supplier quote reference; quote date | Optional supplier's own reference and `DateOnly` date, distinct from ERP ID and received timestamp | Procurement documentary value; use human labels |
+| Validity | `Unspecified`, `Fixed` with valid-until date, or `OpenEnded`; fixed end cannot precede a supplied quote date | Preserve missing versus explicit open-ended; M7B governs submission/expiry rules |
+| Supplier-offered payment code/text | Optional documentary code/text, retained unchanged | **Not** a verified Core payment-term reference |
+| Warranty text; offered delivery terms/date | Optional supplier offer, distinct from RFQ requirements and free-form lead time | Procurement owns the immutable offered values |
+| Line discount | `None` (value zero), `Amount`, or `Percent` (0–100), applied to goods quantity × unit price only | Before quoted tax; exclude delivery from basis; discount cannot exceed goods |
+| Quoted tax treatment/amount; offered tax code | Explicit `Exclusive` or `Inclusive`, nonnegative declared amount; optional supplier's documentary code | No payroll tax reuse, jurisdiction inference or tax-rate calculation |
+| Multiple document selections | Actual Core `DocumentUseSelection` identity/revisions/SHA256; unique version IDs | Future owner adapter must resolve scope/availability/access and acquire actual Core use pins |
+
+The repository inspection at `0a2240a2` found existing Procurement string `PaymentTermRef`/`TaxCodeRef` fields, but no implemented Core payment-term or sales/purchase-tax catalog entity/service. HRM `TaxSlab` belongs to payroll and must not be reused. UI must not present these catalogs as connected. Do not introduce duplicate masters. Any future Core catalog reference remains nullable and explicitly unresolved until an owning lookup exists; retain original supplier-offered values independently.
+
+Price order is explicit: goods basis = quantity × unit price; subtract goods-only discount; then for Exclusive tax, payable = discounted goods + quoted tax + delivery. For Inclusive tax, quoted tax is already inside discounted goods, net goods = discounted goods − quoted tax, and payable = discounted goods + delivery. Inclusive quoted tax above discounted goods is invalid. Quoted tax does not calculate tax law or delivery tax. All operations use shared scaled-integer exact arithmetic, including percentage division by 100, rejecting a genuinely unrepresentable decimal result rather than rounding. Pure computed totals serialize as canonical decimal text; they do not invent a persisted SQL precision or claim the complete PostgreSQL numeric range fits `System.Decimal`. Future schema/amount-storage decisions must be explicit and tested before persistence.
+
+Existing `ProcurementAttachmentRef` (`DocumentServiceId`, integer `DocumentVersion`) is a generic owner reference, not a verified Core version GUID, scan or retention pin. Reuse it only after an actual Core-resolved mapping; never fabricate that mapping from client strings. The Application pure contract consumes actual Core Documents Domain selection types, without copying document masters or depending on document infrastructure. Structural selection validation alone certifies no document availability, clean scan, user access or persisted use. The future exact quote-revision snapshot must bind the complete acquired document-version set and Core use pins; unresolved references must not become ready documents.
+
+The pure commercial snapshot deterministically includes every offered term, explicit validity/tax/discount kinds, source-line IDs, canonical amounts, ISO dates and sorted proposed document selections. It is not the existing accepted quotation snapshot or a persisted ownership/version proof. Future adoption must version the combined snapshot/command contract, bind current source and actor, include these fields in create/revise/read/recover flows, and preserve old revision semantics. Text-length, quote completeness and rounding/storage policies remain explicit API/schema decisions; this pure contract invents no business thresholds.
+
 Every new fact is tenant/company-scoped. Scoped restrictive FKs bind invitation, supplier, draft and source lines; uniqueness binds active draft ownership and actor-scoped command keys. Define full deletion/retention rules before migration. Posted evidence uses cancel/version, not physical deletion.
 
 ## 13. Screens & Data Views
@@ -159,6 +181,8 @@ Exactly the declared contact or quotation revision/receipt and its audit/outbox 
 ## 24. Failure & Recovery
 
 A failed validation/admission/CAS transaction creates no partial draft, orphan line/version or marker. Journal before sending; retain unknown outcomes and recover by original-key GET. Same key/body returns the original status/bytes, while changed body conflicts. A different actor cannot recover that key. New-work flags off or INSERT withdrawn must leave admitted READ/history recovery operational. A 403/404/5xx, malformed success or lost response never authorizes silently generating another key. Confirm absence/commit through owning reconciliation before any authorized manual recovery beyond this contract.
+
+Commercial-term failure coverage must also exercise null/duplicate document selections and lines, invalid validity combinations and dates, lossless percentage edge cases, zero/100%/over-discount, inclusive tax above discounted goods, quantity/price and aggregate overflow, deterministic permutations and changed-term snapshot sensitivity. These pure tests are not attachment integration, schema or quotation CRUD acceptance.
 
 ## 25. Acceptance Criteria
 

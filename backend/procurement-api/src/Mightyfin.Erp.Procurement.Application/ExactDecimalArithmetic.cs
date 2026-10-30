@@ -18,6 +18,13 @@ public static class ExactDecimalArithmetic
         return ToDecimal(a.Coefficient * b.Coefficient, a.Scale + b.Scale);
     }
 
+    /// <summary>Compute value * percent / 100 losslessly, without rounding an intermediate decimal.</summary>
+    public static decimal PercentOf(decimal value, decimal percent)
+    {
+        var a = Parts(value); var b = Parts(percent);
+        return ToDecimal(a.Coefficient * b.Coefficient, a.Scale + b.Scale + 2);
+    }
+
     public static decimal Add(decimal left, decimal right) => Sum(new[] { left, right });
     public static decimal Subtract(decimal left, decimal right) => Sum(new[] { left, -right });
 
