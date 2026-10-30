@@ -1,0 +1,85 @@
+{
+  "status": "PASS_BOUNDED_PRIVATE_M6B_PRINCIPAL_INVOICE_LINKS_ONLY",
+  "dateUtc": "2026-10-28",
+  "sourceCommit": "7f44d5f37be73579b7f5daa63c8e63402869986f",
+  "scope": "private normal-cookie schema-3 source selection and mapping, original-key recovery, review-required Compare denial, original UI and flag-off history read",
+  "sdk": {
+    "resultSha256": "3eb7a06f1e99a1a32df3ad6fda392531dddc70ff0ba6db0fd501d2f90565c939",
+    "publicationManifestSha256": "fe7baea47f0d9f820e1c7838deb31081e7719b499eb4be2c6016e7b454ecb262",
+    "procurementPassed": 1559,
+    "hostPassed": 304,
+    "failed": 0,
+    "efNoPendingModelChanges": true,
+    "publicationFiles": 150,
+    "privateImageAllFilesVerifiedSha256": "bca9ce869da03116d3ea662d5cfb9ed88bf818c1999337a473ab1ff481c72f0f"
+  },
+  "nativePrivateSchema": {
+    "databaseName": "proc_m6b_bindings_native_20261028_01",
+    "originalTableCount": 223,
+    "b1GuardedDownUpAndAuditVetoSha256": "6e541d394aaa423b2b8c77be0c882c80fd61c967a67bde64a661defa4db50e62",
+    "b2UpOldBusinessRowsPreservedSha256": "15548d77353a896c5691be721310d616ac1f0676ece8c1dfae903fa829182ec0"
+  },
+  "fixtureAndPreflight": {
+    "fixtureReadySha256": "a6744d616e015dfe2eef529ba43d13b0c47bfe812985892e742a7182a04c2cd4",
+    "ownerBeforeSha256": "d9708e40c541db1975467433cf0a1c0a68bab031addbfdb1e9505324ab4065fd",
+    "approvedBaselineCount": 1,
+    "acceptedGoodsSourceCount": 1,
+    "failedSetupAtomicRollbackSha256": "ba92041a2838e62174145441da532f09b39b9acdd1a3e8a4df2fefa6d4a1bae2",
+    "firstIntakeNoInvoicePersistedSha256": "fa038f0b2691413b5d04fb4fc07992a86a3a20690e99b364995009693ba9f102",
+    "recordPurchaseOrdersSelectOnlyExtensionSha256": "b6a122459d23462cf90ca9427e0912ba0c93f7274e9e89b8c5a21f5273fd5b43"
+  },
+  "normalCookieApi": {
+    "resultSha256": "7979cc5878d2b2780bc09b05dcbef7646e6a45033d5fc950916b9a7e39481a90",
+    "firstOwnerSha256": "2c6abc1b1bfba4a2a39f60e0185507edebc8cb6b6cb32511fcb2376cfd6edcc2",
+    "observed": [
+      "matching policy published by independent normal-cookie configuration actors",
+      "one no-file manual invoice created",
+      "real accepted Goods source selected and schema-3 mapping stored",
+      "original mapping key GET returned recorded response",
+      "foreign actor original-key GET returned 404",
+      "Company All mapping write returned 422",
+      "Compare returned 409 PrincipalInvoiceOriginalUnitReviewRequired"
+    ],
+    "normalLogouts": true
+  },
+  "originalUi": {
+    "mappingSourceCommit": "5d3048f2d573722135010a3c8df29dc2230b80ed",
+    "mappingLostResponseRecoveryAndDenialSha256": "4efa50b6449df17506e6ea47abc0aa7bce274a6f444d5e1f301348d397fc2562",
+    "twoMappingOwnerSha256": "8a540a9db1d6165f9a4c54e80781b1120e91ad444ad4b1c255a1cba778367de0",
+    "friendlyCompareSourceCommit": "e6b4c53d0c6ee4e6924fb09ba58c7d18876cf222",
+    "compareOnlyBrowserSha256": "bee7e1658e1c0c5698c34e4d7ffaa5696d86cd387f0dbfd887ec5edc49b6de9e",
+    "postCompareOwnerSha256": "f82870669db0f27ea55277d2208369591f670a82ac9d64b59c41f31dd8d2907e",
+    "mappingCountAfterUi": 2,
+    "compareOnlyCreatedAnotherMapping": false,
+    "normalLogouts": true
+  },
+  "flagOffHistory": {
+    "principalSourcesEnabled": false,
+    "matchingHistoryEnabled": true,
+    "beforeOwnerSha256": "88a4af441cbfecc3b9767e8e7f51dbd9393389cf5cb54ced65145980bfad46ce",
+    "browserSha256": "1e275907ba7c8a145a80829ae814d40a48c9d61d79cde91653cf4401bd6d0afd",
+    "afterOwnerSha256": "8bc7cb46d0a96115c2f7f15fdc522cb5b730ac6b7aa1825a0cb77ea21de28864",
+    "twoHistoricalMappingsAndOriginalReceiptRead": true,
+    "businessPosts": 0,
+    "nonAuthBusinessAndCoreGraphExact": true,
+    "securityUnchanged": true,
+    "activeSyntheticSessions": 0
+  },
+  "cleanup": {
+    "flagOffApiCleanStopSha256": "7fee61840b71f1cd7ef892617023889da61056832fe15dae53bd8914c9d9211a",
+    "flagOffStaticProxyStopSha256": "5eb274e2aa2c153e056becaafaafb26e4552bd4d8e7492024394a51fe505a4cf",
+    "recordPurchaseOrdersSelectExtensionRestoreSha256": "973a0f0ce7da1927a2a323a215ed663649a4f28f6198364421067ce66f0ac115",
+    "originalFixtureRoleAndAclRestoreSha256": "6533d8325fc27c9927fc3fd7d4f92474c2d670b75c8f328e82c33c93c50546ef",
+    "activeSyntheticSessions": 0,
+    "privateBusinessRowsReturnedToPretestSnapshot": false
+  },
+  "limits": [
+    "one HQ Goods source; excluded-branch denial and concurrency not established",
+    "native owner receipts reconcile scoped persistence, not every cryptographic digest or new auth audit independently",
+    "independent original document or manual unit review approval not established",
+    "qualified Compare, exposure, result and capacity claims not established",
+    "Finance posting, payment and supplier delivery not established",
+    "whole Procurement UAT and M6B production activation not approved"
+  ],
+  "productionBusinessMutation": false
+}

@@ -76,8 +76,8 @@
     }
   },
   "limits": {
-    "completeIntegratedSdkAccepted": false,
-    "integratedSdkStateAtCheckpoint": "RUN02_RUNNING_NO_RESULT_CLAIM",
+    "completeIntegratedSdkAccepted": true,
+    "integratedSdkStateAtCheckpoint": "SDK06_PASS_SOURCE_7f44d5f3_NATIVE_API_JOURNEY_PENDING",
     "newPrincipalMappingInsertNativeTested": false,
     "principalCompareNativeTested": false,
     "documentOrManualReviewJourneyAccepted": false,
@@ -92,5 +92,71 @@
     "fixtureFixCommit": "6d212b2b",
     "run02StateAtCheckpoint": "RUNNING_NO_RESULT_CLAIM",
     "fullSuitePassClaimed": false
+  },
+  "sdk05Checkpoint": {
+    "sourceCommit": "9137e5a3d05f5fba7a96c38c19e04ab1044cb446",
+    "status": "PASS_M6B_INTEGRATED_BUILD_TESTS_PUBLISH_GUARDED_EF_NO_DATABASE",
+    "resultSha256": "ea64c6dd0a97b024dd036897b3830bba7e961536418ad30a98cf052777282ff7",
+    "procurementTestsPassed": 1559,
+    "hostTestsPassed": 304,
+    "skipped": 0,
+    "apiPublicationFiles": 150,
+    "publicationManifestSha256": "a20746e969c574143566d5f55f74ef623692fd0640a318fe2fd27434cb3e6943",
+    "allPublicationBytesAndTrxIndependentlyVerified": true,
+    "nativeBusinessAcceptanceImplied": false
+  },
+  "privateFixtureAttempt01": {
+    "status": "FAILED_BEFORE_GRANTS_COMPLETE_ROLLBACK_RECORDED",
+    "sqlSha256": "7224836295f4974ec87603c73bc425288410551df81896cf99a6278baccdd187",
+    "failedApplyReceiptSha256": "7c78cf118098ffd6a186f9bb49a69b9799fcc2a17a639d9d8f5ff3ef03bd6d9f",
+    "beforeCaptureSha256": "a74577e6422ae71e808248c59a2a21d0f67238061159c42349e157b3c4cbe45e",
+    "ownerRollbackReceiptSha256": "ba92041a2838e62174145441da532f09b39b9acdd1a3e8a4df2fefa6d4a1bae2",
+    "reason": "Existing supplier_invoices column UPDATE(id) was mistaken for a table-level workflow UPDATE gap",
+    "guard": "ExactGrantDeltaChanged",
+    "ownerRecordedAll223BusinessAndSecurityEqualBefore": true,
+    "activeSyntheticSessions": 0,
+    "apiStarted": false,
+    "businessHttpExecuted": false,
+    "productionChanged": false,
+    "successor": "Reviewed16SELECT6INSERT2tableUPDATEplus9namedcolumnUPDATE; preserveexistingidgrant; actualapplyverificationseparate"
+  },
+  "sdk06Checkpoint": {
+    "sourceCommit": "7f44d5f37be73579b7f5daa63c8e63402869986f",
+    "status": "PASS_M6B_INTEGRATED_BUILD_TESTS_PUBLISH_GUARDED_EF_NO_DATABASE",
+    "resultSha256": "3eb7a06f1e99a1a32df3ad6fda392531dddc70ff0ba6db0fd501d2f90565c939",
+    "publicationManifestSha256": "fe7baea47f0d9f820e1c7838deb31081e7719b499eb4be2c6016e7b454ecb262",
+    "procurementTestsPassed": 1559,
+    "hostTestsPassed": 304,
+    "skipped": 0,
+    "apiPublicationFiles": 150,
+    "hostedCiPassed": false
+  },
+  "privateFixtureRun02": {
+    "setupSqlSha256": "04458b56247bed78f1c1e9ba4e3cee29e8592e137da7d673c24cd805ced3b076",
+    "ownerVerifiedReceiptSha256": "a6744d616e015dfe2eef529ba43d13b0c47bfe812985892e742a7182a04c2cd4",
+    "ownerBeforeSha256": "d9708e40c541db1975467433cf0a1c0a68bab031addbfdb1e9505324ab4065fd",
+    "tableGrantAdditions": 24,
+    "invoiceColumnUpdateAdditions": 9,
+    "broadInvoiceUpdateGranted": false,
+    "temporaryRestoreStillRequired": false,
+    "restoredReceiptSha256": "6533d8325fc27c9927fc3fd7d4f92474c2d670b75c8f328e82c33c93c50546ef",
+    "activeSyntheticSessionsAfterRestore": 0,
+    "legitimatePrivateBusinessRowsRetained": true
+  },
+  "privateImage05": {
+    "imageId": "sha256:9fa10ccf5d5985b6040e87ce9dd09e427ddaa2d852c2105635409d8b9421ce61",
+    "all150PublicationFilesVerified": true,
+    "receiptSha256": "bca9ce869da03116d3ea662d5cfb9ed88bf818c1999337a473ab1ff481c72f0f",
+    "productionDeployment": false
+  },
+  "latestScopedWorkflowCheckpoint": {
+    "record": "M6B-PRINCIPAL-INVOICE-LINKS-PRIVATE-ACCEPTANCE-20261028.json",
+    "nativePrincipalMappingTested": true,
+    "realUiMappingAndOriginalKeyRecoveryTested": true,
+    "reviewRequiredDenialTested": true,
+    "flagOffHistoryTested": true,
+    "qualifiedComparisonTested": false,
+    "fullUatAccepted": false,
+    "productionChanged": false
   }
 }
