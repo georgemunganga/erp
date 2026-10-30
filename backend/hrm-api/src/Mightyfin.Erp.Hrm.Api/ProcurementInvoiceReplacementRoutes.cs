@@ -55,6 +55,10 @@ public static partial class ProcurementInvoiceIntakeRoutes
             return Invalid("Enter the original invoice's currency explicitly on the corrected invoice.");
         if (!Guid.TryParse(request.Headers["Idempotency-Key"], out var key) || key == Guid.Empty)
             return Invalid("A saved replacement command reference is required.");
+        // Only structural validation precedes the original-key digest. Mutable
+        // business/policy checks remain after exact saved-command recovery.
+        if (input.CorrectedInvoice.Lines is null || input.CorrectedInvoice.Lines.Any(x => x is null))
+            return Invalid("Supply invoice lines with valid item details.");
         var requestSha = ReplacementRequestDigest(id, input);
         await using var tx = await db.Database.BeginTransactionAsync(IsolationLevel.Serializable, ct);
         await using var core = await ProcurementApprovalExecutionLocks.CoreAsync(db, scope, ct);
@@ -309,8 +313,12 @@ public static partial class ProcurementInvoiceIntakeRoutes
         try { await ProcurementExecutionRecordScope.Branches(core, scope, invoice.BranchRef, true, ct); }
         catch (Exception e) when (e is UnauthorizedAccessException or KeyNotFoundException) { return Missing(); }
         if (!await ReplacementReadSchemaReady(request, ct)) return ReplacementSchemaUnavailable();
-        var verified = await db.ReadVerifiedInvoiceReplacementAsync(id,
-            (requirement, token) => RetainedReplacementReference(db, scope, requirement, token), ct);
+        (InvoiceReplacementLink Link, InvoiceReplacementCommandReceipt Receipt)? verified;
+        try { verified = await db.ReadVerifiedInvoiceReplacementAsync(id,
+            (requirement, token) => RetainedReplacementReference(db, scope, requirement, token), ct); }
+        catch (InvalidOperationException)
+        { return Results.Conflict(new { code = "invoice-replacement-history-unavailable",
+            message = "The retained replacement history needs review before it can be shown." }); }
         if (verified is null) return Missing();
         var (link, receipt) = verified.Value;
         var source = await Visible(db, scope).SingleAsync(x => x.Id == link.SourceInvoiceId, ct);

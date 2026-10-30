@@ -52,6 +52,25 @@ public sealed class InvoiceReplacementCurrencyContractTests
     }
 
     [Fact]
+    public async Task Replacement_rejects_null_line_before_digest_or_database_access()
+    {
+        var http = new DefaultHttpContext();
+        http.Request.Headers["Idempotency-Key"] = Guid.NewGuid().ToString("D");
+        var scope = new ProcurementRequestScope();
+        scope.Set("replacement-lines-test", Guid.NewGuid(), Guid.NewGuid().ToString("D"),
+            Guid.NewGuid(), null, false, "test");
+        var corrected = new InvoiceIntakeInput(Guid.NewGuid(), null, "SUPPLIER-CORRECTED-2",
+            new DateOnly(2026, 10, 30), null, "ZMW", [null!], IntakeSchemaVersion: 2);
+        var response = await ProcurementInvoiceIntakeRoutes.ReplaceCurrencyInvoice(Guid.NewGuid(),
+            new InvoiceReplacementInput(4, "Supplier corrected the issued invoice", corrected),
+            http.Request, null!, scope, default);
+        Assert.Equal(422, Assert.IsAssignableFrom<IStatusCodeHttpResult>(response).StatusCode);
+        var body = JsonSerializer.SerializeToElement(Assert.IsAssignableFrom<IValueHttpResult>(response).Value);
+        Assert.Equal("validation-failed", body.GetProperty("code").GetString());
+        Assert.Contains("invoice lines", body.GetProperty("message").GetString());
+    }
+
+    [Fact]
     public void Replacement_retains_source_currency_even_if_company_default_changes()
     {
         Assert.True(ProcurementInvoiceIntakeRoutes.SameReplacementCurrency("ZMW", " zmw "));

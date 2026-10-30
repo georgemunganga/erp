@@ -58,7 +58,9 @@ public sealed class InvoiceReplacementPersistenceTests
         row.TenantId = Current.TenantId; row.LegalEntityId = Current.LegalEntityId;
         row.CreatedBy = Current.SubjectId; row.Version = 1;
         db.Attach(row); db.Entry(row).State = state;
-        Assert.Equal("InvoiceReplacementAppendOnly", (await Assert.ThrowsAsync<InvalidOperationException>(
+        Assert.Equal(state == EntityState.Deleted
+            ? "Procurement records must be closed, cancelled or reversed; physical deletion is not allowed."
+            : "InvoiceReplacementAppendOnly", (await Assert.ThrowsAsync<InvalidOperationException>(
             () => db.SaveChangesAsync())).Message);
         await using var read = new ProcurementDbContext(options, Current);
         Assert.Empty(await read.InvoiceReplacementLinks.ToArrayAsync());
