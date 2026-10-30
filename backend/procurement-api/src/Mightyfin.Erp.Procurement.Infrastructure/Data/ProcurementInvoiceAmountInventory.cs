@@ -90,16 +90,23 @@ public static class InvoiceAmountInventoryEvidence
             if (audits.Length != 1 || events.Length != 1)
                 throw new InvalidOperationException("InvoiceAmountInventoryMarkersRequired");
             var audit = audits[0]; var message = events[0];
+            // PostgreSQL jsonb may reorder properties and normalize whitespace.
+            // Compare the entire typed marker object, including every key and value;
+            // empty/invalid JSON never proves a retained marker.
+            var markerDigest = ProcurementEvidenceEncoding.PolicyJsonDigest(marker);
+            bool SameMarker(string? stored) => !string.IsNullOrWhiteSpace(stored)
+                && markerDigest.Length == 64
+                && ProcurementEvidenceEncoding.PolicyJsonDigest(stored) == markerDigest;
             if (audit.Action != InvoiceAmountCalculationEvidence.AuditAction
                 || audit.RecordType != nameof(InvoiceAmountCalculation)
                 || audit.ActorSubjectId != row.CreatedBy || audit.CreatedBy != row.CreatedBy
                 || audit.CreatedAt != row.CreatedAt || audit.Version != 1
                 || audit.UpdatedAt is not null || audit.UpdatedBy is not null
-                || audit.ChangedFieldsJson != marker
+                || !SameMarker(audit.ChangedFieldsJson)
                 || message.EventType != InvoiceAmountCalculationEvidence.EventType
                 || message.EventVersion != 2 || message.AggregateType != nameof(SupplierInvoice)
                 || message.CreatedBy != row.CreatedBy || message.CreatedAt != row.CreatedAt
-                || message.Version < 1 || message.PayloadJson != marker
+                || message.Version < 1 || !SameMarker(message.PayloadJson)
                 || message.IdempotencyKey != "invoice-amount-calculation:" + row.Id.ToString("D"))
                 throw new InvalidOperationException("InvoiceAmountInventoryMarkerEvidenceChanged");
             // Enum syntax was checked by the codec; no invented fallback mode.

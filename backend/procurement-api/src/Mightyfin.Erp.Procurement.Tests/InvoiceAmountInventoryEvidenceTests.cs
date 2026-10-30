@@ -1,3 +1,4 @@
+using System.Text.Json;
 using Mightyfin.Erp.Procurement.Application;
 using Mightyfin.Erp.Procurement.Domain;
 using Mightyfin.Erp.Procurement.Infrastructure.Data;
@@ -147,6 +148,47 @@ public sealed class InvoiceAmountInventoryEvidenceTests
         if (change == "scope") g.Receipt.TenantId = "foreign-tenant";
         else g.Receipt.UpdatedAt = InvoiceAmountCalculationEvidenceTests.At;
         Assert.Throws<InvalidOperationException>(() => g.Verify());
+    }
+
+    [Fact]
+    public void Jsonb_reordered_and_spaced_markers_preserve_the_complete_typed_inventory()
+    {
+        var g = new Graph();
+        var original = g.Verify();
+        var marker = InvoiceAmountCalculationEvidence.MarkerJson(g.Calculation);
+        using var parsed = JsonDocument.Parse(marker);
+        var fields = parsed.RootElement.EnumerateObject().ToArray();
+        g.Audit.ChangedFieldsJson = "{ " + string.Join(" , ", fields.Reverse()
+            .Select(x => JsonSerializer.Serialize(x.Name) + " : " + x.Value.GetRawText())) + " }";
+        g.Message.PayloadJson = "{ " + string.Join(" , ", fields
+            .Select(x => JsonSerializer.Serialize(x.Name) + " : " + x.Value.GetRawText())) + " }";
+        var normalized = g.Verify();
+        Assert.Equal(original.SetSha256, normalized.SetSha256);
+        Assert.False(normalized.CoreReferencesVerified);
+    }
+
+    [Theory]
+    [InlineData("extra")][InlineData("changed-type")][InlineData("blank")]
+    [InlineData("invalid")][InlineData("duplicate-key")]
+    public void Marker_object_changes_and_invalid_json_are_denied_for_both_stores(string mutation)
+    {
+        foreach (var target in new[] { "audit", "outbox" })
+        {
+            var g = new Graph();
+            var marker = InvoiceAmountCalculationEvidence.MarkerJson(g.Calculation);
+            var changed = mutation switch
+            {
+                "extra" => marker[..^1] + ",\"unexpected\":true}",
+                "changed-type" => marker.Replace("\"schemaVersion\":2", "\"schemaVersion\":\"2\"", StringComparison.Ordinal),
+                "blank" => "  ",
+                "invalid" => "{",
+                "duplicate-key" => marker[..^1] + ",\"schemaVersion\":2}",
+                _ => throw new InvalidOperationException()
+            };
+            if (target == "audit") g.Audit.ChangedFieldsJson = changed;
+            else g.Message.PayloadJson = changed;
+            Assert.Throws<InvalidOperationException>(() => g.Verify());
+        }
     }
 
 }
