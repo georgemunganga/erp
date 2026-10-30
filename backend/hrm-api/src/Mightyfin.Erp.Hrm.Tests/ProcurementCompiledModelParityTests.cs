@@ -10,7 +10,7 @@ namespace Mightyfin.Erp.Hrm.Tests;
 
 public sealed class ProcurementCompiledModelParityTests
 {
-    private static ModelIdentity Key() => new(new ModelBuilder().Model, new ModelBuilder().Model,
+    private static ModelIdentity Key() => new(new ModelBuilder().FinalizeModel(), new ModelBuilder().FinalizeModel(),
         new("provider-a", typeof(ProcurementCompiledModelParityTests), Guid.NewGuid()));
 
     [Theory]
@@ -35,8 +35,8 @@ public sealed class ProcurementCompiledModelParityTests
         var cache = new ModelParityCache(); var key = Key();
         var other = variant switch
         {
-            "runtime" => key with { RuntimeModel = new ModelBuilder().Model },
-            "design" => key with { DesignModel = new ModelBuilder().Model },
+            "runtime" => key with { RuntimeModel = new ModelBuilder().FinalizeModel() },
+            "design" => key with { DesignModel = new ModelBuilder().FinalizeModel() },
             "provider" => key with { Snapshot = key.Snapshot with { Provider = "provider-b" } },
             "snapshot-type" => key with { Snapshot = key.Snapshot with { SnapshotType = typeof(string) } },
             _ => key with { Snapshot = key.Snapshot with { ModuleVersionId = Guid.NewGuid() } }
