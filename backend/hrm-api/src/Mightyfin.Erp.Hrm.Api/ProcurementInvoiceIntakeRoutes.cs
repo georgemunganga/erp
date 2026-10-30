@@ -32,6 +32,13 @@ public static partial class ProcurementInvoiceIntakeRoutes
         group.MapPost("/calculation-preview", PreviewCurrencyCalculation).RequireAuthorization("procurement-invoice-capture");
         group.MapGet("/{id:guid}/amount-calculation", ReadCurrencyCalculation).RequireAuthorization("procurement-invoice-read");
         group.MapGet("/capture-commands/{key:guid}", RecoverCurrencyCapture).RequireAuthorization("procurement-invoice-read");
+        group.MapPost("/{id:guid}/replacement", ReplaceCurrencyInvoice)
+            .Accepts<InvoiceReplacementInput>("application/json")
+            .RequireAuthorization("procurement-invoice-read", "procurement-invoice-capture");
+        group.MapGet("/{id:guid}/replacement/commands/{key:guid}", RecoverCurrencyReplacement)
+            .RequireAuthorization("procurement-invoice-read");
+        group.MapGet("/{id:guid}/replacement", ReadCurrencyReplacement)
+            .RequireAuthorization("procurement-invoice-read");
         group.MapPut("/{id:guid}", Update).Accepts<InvoiceIntakeUpdateInput>("application/json").RequireAuthorization("procurement-invoice-read", "procurement-invoice-capture");
         group.MapPost("/{id:guid}/cancel", Cancel).RequireAuthorization("procurement-invoice-read", "procurement-invoice-capture");
         ProcurementInvoiceFinanceReadinessRoutes.MapRoutes(app);

@@ -54,6 +54,7 @@ public sealed partial class ProcurementDbContext
         }
         var capture = new InvoiceProcurementInventoryCapture(scope.TenantId,scope.LegalEntityId,tables);
         _ = await VerifyInvoiceAmountInventoryAsync(capture, openingNewBaseline, verifyCalculationReference, ct);
+        await VerifyInvoiceReplacementInventoryAsync(capture, openingNewBaseline, ct);
         return capture;
     }
 }
