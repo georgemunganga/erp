@@ -14,6 +14,9 @@ namespace Mightyfin.Erp.Procurement.Application;
 public static class InvoiceMatchingFoundation
 {
     private static readonly JsonSerializerOptions Json = JsonOptions();
+    /// <summary>The exact policy serializer used inside retained comparison source evidence.</summary>
+    public static string SerializePolicyEvidence(InvoiceMatchingPolicy policy)
+        => JsonSerializer.Serialize(policy, Json);
     private sealed record LineWork(InvoiceMatchDocumentLine Invoice, InvoiceIssuedOrderLine Order,
         InvoiceCategoryMatchRule Rule, Guid? AcceptanceId, BigInteger Quantity, BigInteger Net, BigInteger Tax);
 

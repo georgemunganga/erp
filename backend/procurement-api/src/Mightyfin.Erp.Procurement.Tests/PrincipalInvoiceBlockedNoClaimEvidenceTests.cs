@@ -19,6 +19,14 @@ public sealed class PrincipalInvoiceBlockedNoClaimEvidenceTests
     }
 
     [Fact]
+    public void Recorded_policy_uses_the_foundation_string_enum_and_decimal_contract()
+    {
+        Verify(Fixture());
+        Assert.Throws<InvalidOperationException>(() => Verify(Fixture(numericPolicyEvidence: true)));
+        Assert.Throws<InvalidOperationException>(() => Verify(Fixture(numericToleranceEvidence: true)));
+    }
+
+    [Fact]
     public void Extra_effects_and_self_consistent_but_wrong_markers_are_denied()
     {
         var f = Fixture();
@@ -71,7 +79,8 @@ public sealed class PrincipalInvoiceBlockedNoClaimEvidenceTests
     private static FixtureState Fixture(decimal? unexpectedVariance = null,
         bool badWatermark = false, bool forgedSourceSupplier = false,
         bool duplicateOrderCheckpoint = false, bool duplicateAcceptanceCheckpoint = false,
-        string? projectionMutation = null)
+        string? projectionMutation = null, bool numericPolicyEvidence = false,
+        bool numericToleranceEvidence = false)
     {
         var tenant = "blocked-no-claim-test";
         var company = Guid.NewGuid(); var branch = Guid.NewGuid();
@@ -144,6 +153,11 @@ public sealed class PrincipalInvoiceBlockedNoClaimEvidenceTests
             // This fixture tests retained digest linkage, not independent Core review approval.
             State = "Verified", EvidenceSchemaVersion = 4, EvidenceJson = "{}",
             EvidenceSha256 = ProcurementEvidenceEncoding.Digest("{}") };
+        var serializedPolicy = InvoiceMatchingFoundation.SerializePolicyEvidence(
+            InvoiceMatchingPolicyRules.Project(policy));
+        if (numericToleranceEvidence)
+            serializedPolicy = serializedPolicy.Replace("\"absolute\":\"0\"", "\"absolute\":0",
+                StringComparison.Ordinal);
         var source = new
         {
             invoice = new { invoice.Id, version = 3, tenantId = tenant, legalEntityId = company,
@@ -164,7 +178,9 @@ public sealed class PrincipalInvoiceBlockedNoClaimEvidenceTests
                 currencyCode = "ZMW", branchRef = branch,
                 lines = sourceOrderLines },
             acceptances = sourceAcceptances,
-            policy = InvoiceMatchingPolicyRules.Project(policy),
+            policy = numericPolicyEvidence
+                ? JsonSerializer.SerializeToElement(InvoiceMatchingPolicyRules.Project(policy), Json)
+                : JsonDocument.Parse(serializedPolicy).RootElement.Clone(),
             consumption = new { watermark = consumptionWatermark, complete = true, allocations = Array.Empty<object>() },
             duplicates = new { watermark = duplicateWatermark, complete = true }
         };

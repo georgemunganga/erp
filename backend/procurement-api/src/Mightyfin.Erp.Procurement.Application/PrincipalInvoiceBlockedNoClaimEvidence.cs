@@ -280,7 +280,8 @@ public static class PrincipalInvoiceBlockedNoClaimEvidence
                 && source.GetProperty("order").GetProperty("branchRef").GetGuid() == invoice.BranchRef
                 && source.GetProperty("policy").GetProperty("id").GetGuid() == policy.Id
                 && ProcurementEvidenceEncoding.PolicyJsonDigest(source.GetProperty("policy").GetRawText())
-                    == InvoiceMatchingPolicyRules.ProjectionDigest(InvoiceMatchingPolicyRules.Project(policy))
+                    == ProcurementEvidenceEncoding.PolicyJsonDigest(InvoiceMatchingFoundation.SerializePolicyEvidence(
+                        InvoiceMatchingPolicyRules.Project(policy)))
                 && source.GetProperty("acceptances").ValueKind == JsonValueKind.Array
                 && source.GetProperty("consumption").GetProperty("complete").GetBoolean()
                 && source.GetProperty("consumption").GetProperty("allocations").GetArrayLength() == 0
