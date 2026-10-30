@@ -98,6 +98,8 @@ Evaluate current Core principal, action, event/invitation resource and tenant/co
 
 ### Commercial fields required before the first M7A schema/API
 
+**Pure commercial contract verification (30 October 2026):** Source `c389104446b8f4df37484053bc48e827031d28d1` passed all **1,872 Procurement tests**, including all previous 1,837 stable test identities/definitions/outcomes and 35 new commercial cases, with analyzers requested and zero failures/skips. Offline empty-feed restore used cached packages and the actual Core Documents Domain project reference; raw restored asset snapshots and exact source/publication guards were retained. EF reported no pending model changes, with sidecars still unmapped. Evidence binding: `f2d732e14b1fdc84083246c67f9c8371c9f572234cefcc9245113aca37bf19c4`; stopped SDK terminal: `50446ffc9c2462b4bb7abc1970f37c0771d7e18d7e124cd4f4ba2fd4ea9266f2`. This verifies pure code only: no schema/migration, document acquisition, API/UI journey, production publication or activation occurred. All 13 previous immutable publications remained unchanged.
+
 The imported RFQ Terms tab records buyer requirements; it does not capture a supplier's offered terms. The held P30 quote panel only provides quantity, unit price, tax amount, delivery amount, lead time and notes. Preserve that layout and shared ERP controls, while adding the following explicit commercial contract. This pure checkpoint does not add persisted fields, routes, migrations or verified document use.
 
 | Field | Meaning / draft rule | Authority / future storage |
