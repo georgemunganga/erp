@@ -77,11 +77,14 @@ public static partial class ProcurementInvoiceIntakeRoutes
             .ToListAsync(ct);
         var supplierName = await db.Suppliers.AsNoTracking().Where(x => x.Id == invoice.SupplierId)
             .Select(x => x.DisplayName).FirstOrDefaultAsync(ct);
+        var actions = await Actions(db, invoice, scope, http, authorization, ct);
+        var replacementContext = await ReplacementPresentation(db, invoice, scope, http, authorization, ct);
+        if (replacementContext is not null) actions = [.. actions, "Replace"];
         return Results.Ok(new { invoice.Id, invoice.SupplierId, invoice.BranchRef, supplierName, invoice.PurchaseOrderId,
             invoice.InvoiceNumber, invoice.InvoiceDate, invoice.DueDate, invoice.CurrencyCode,
             invoice.NetAmount, invoice.TaxAmount, invoice.GrossAmount, invoice.IntakeChannel,
             invoice.Status, invoice.Version, invoice.CreatedAt, lines, intakeCrudVersion = 1,
-            allowedActions = await Actions(db, invoice, scope, http, authorization, ct),
+            allowedActions = actions, replacementContext,
             exactAmounts = new { netAmount = Exact(invoice.NetAmount), taxAmount = Exact(invoice.TaxAmount), grossAmount = Exact(invoice.GrossAmount) },
             nextStep = "Confirm source evidence and resolve duplicate or PO exceptions before matching." });
     }

@@ -44,7 +44,7 @@ public static partial class ProcurementInvoiceMatchingRoutes
             throw new MatchingProblem("PrincipalInvoiceMatchingSchemaUnavailable", 503);
     }
 
-    private static async Task<HashSet<Guid>> PrincipalMatchingBranches(HrmDbContext core,
+    internal static async Task<HashSet<Guid>> PrincipalMatchingBranches(HrmDbContext core,
         ProcurementRequestScope scope, CancellationToken ct)
     {
         var actor = await ProcurementPrincipalPeople.Resolve(core, scope.TenantId,

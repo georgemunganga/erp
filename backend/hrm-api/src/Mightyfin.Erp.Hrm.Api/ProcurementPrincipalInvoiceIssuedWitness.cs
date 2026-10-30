@@ -15,10 +15,27 @@ namespace Mightyfin.Erp.Hrm.Api;
 /// This helper neither admits an invoice owner nor enables claims or posting.</summary>
 internal static class ProcurementPrincipalInvoiceIssuedWitness
 {
-    internal static async Task<PrincipalInvoiceIssuedWitness> LoadAsync(
+    internal static Task<PrincipalInvoiceIssuedWitness> LoadAsync(
         ProcurementDbContext db, ApprovalDbContext cases, ProcurementRequestScope scope,
         IReadOnlySet<Guid> currentCoreAllowedBranches, Guid orderId,
         Guid issuedVersionId, CancellationToken ct)
+        => LoadOwnedAsync(db, cases, scope, currentCoreAllowedBranches, orderId,
+            issuedVersionId, lockSources: true, ct: ct);
+
+    /// <summary>Read-only UI eligibility hint in one Serializable snapshot. This
+    /// does not lock source rows or admit a new command; commands keep LoadAsync
+    /// and revalidate its locked authority before committing any effects.</summary>
+    internal static Task<PrincipalInvoiceIssuedWitness> ReadForPresentationAsync(
+        ProcurementDbContext db, ApprovalDbContext cases, ProcurementRequestScope scope,
+        IReadOnlySet<Guid> currentCoreAllowedBranches, Guid orderId,
+        Guid issuedVersionId, CancellationToken ct)
+        => LoadOwnedAsync(db, cases, scope, currentCoreAllowedBranches, orderId,
+            issuedVersionId, lockSources: false, ct: ct);
+
+    private static async Task<PrincipalInvoiceIssuedWitness> LoadOwnedAsync(
+        ProcurementDbContext db, ApprovalDbContext cases, ProcurementRequestScope scope,
+        IReadOnlySet<Guid> currentCoreAllowedBranches, Guid orderId,
+        Guid issuedVersionId, bool lockSources, CancellationToken ct)
     {
         var transaction = db.Database.CurrentTransaction?.GetDbTransaction();
         if (!db.Database.IsNpgsql() || !cases.Database.IsNpgsql()
@@ -32,7 +49,7 @@ internal static class ProcurementPrincipalInvoiceIssuedWitness
         await db.Database.ExecuteSqlRawAsync("SET LOCAL row_security = off", ct);
         var retained = await ProcurementPrincipalOrderRetainedIssued.LoadAsync(
             db, cases, scope, currentCoreAllowedBranches, orderId, issuedVersionId,
-            selectedLineId: null, lockSources: true, ct: ct);
+            selectedLineId: null, lockSources: lockSources, ct: ct);
         var order = retained.Order;
         if (order.TenantId != scope.TenantId || order.LegalEntityId != scope.LegalEntityId
             || order.BranchRef is not { } branch || branch == Guid.Empty

@@ -176,6 +176,8 @@ public static class ProcurementHostIntegration
                     services,scope,http,pending,ct);
                 var currencyCalculations = !pending && await ProcurementInvoiceIntakeRoutes.CurrencyCalculationReady(
                     db, app.Configuration, ct);
+                var invoiceReplacementRead = await ProcurementInvoiceIntakeRoutes.ReplacementReadCapability(
+                    db, scope, http, pending, ct);
                 var now = DateTimeOffset.UtcNow;
                 var receivingPolicies = receivingDrafts && receivingOptions.PositiveExecutionEnabled
                     ? await db.PolicyVersions.AsNoTracking().Where(x => x.PolicyKey == "RECEIVING" && x.State == "Published"
@@ -303,6 +305,7 @@ public static class ProcurementHostIntegration
                         receivingCorrections = false,
                         invoiceIntake = !pending,
                         invoiceCurrencyCalculationRead = currencyCalculations,
+                        invoiceReplacementRead,
                         invoiceCurrencyCalculationV2 = currencyCalculations
                             && app.Configuration.GetValue<bool>("Procurement:InvoiceCurrencyCalculation:CaptureEnabled")
                             && await ProcurementInvoiceIntakeRoutes.CurrencyCalculationReady(db, app.Configuration, ct, capture: true),
