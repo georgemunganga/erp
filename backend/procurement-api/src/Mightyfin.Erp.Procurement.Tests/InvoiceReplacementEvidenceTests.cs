@@ -170,9 +170,10 @@ public sealed class InvoiceReplacementEvidenceTests
         var audit = new AuditEvent { ChangedFieldsJson = "{\"outcome\":\"Blocked\"}" };
         var outbox = new OutboxEvent { PayloadJson = "{\"outcome\":\"Blocked\"}" };
         var exceptionId = Guid.NewGuid();
+        var receiptId = Guid.NewGuid();
         string Digest(string response) => InvoiceReplacementEvidence.NoClaimProofDigest(graph.Source, graph.Mapping,
             graph.Result, graph.Review, graph.Outcome, [exceptionId],
-            new ProcurementCommercialCommandReceipt { ResponseJson = response }, audit, outbox);
+            new ProcurementCommercialCommandReceipt { Id = receiptId, ResponseJson = response }, audit, outbox);
         var original = Digest("{\"outcome\":\"Blocked\"}");
         Assert.Equal(original, Digest("{\"outcome\":\"Blocked\"}"));
         Assert.NotEqual(original, Digest("{\"outcome\":\"Compared\"}"));
