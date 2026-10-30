@@ -138,13 +138,18 @@ public static partial class ProcurementInvoiceMatchingRoutes
             // The legacy mapping route cannot turn a recorded principal comparison
             // back into an editable mapping. Its original-key replay remains above
             // this fence, and legacy-only invoices keep their prior behavior.
-            if (await db.InvoiceMatchResults.AsNoTracking().AnyAsync(x =>
-                    x.SupplierInvoiceId == id && x.SourceSchemaVersion == 3, token))
+            if (await ProcurementPrincipalInvoiceRecordedComparisonGuard.IsLockedAsync(
+                    db, invoice, false, token, input.PurchaseOrderId, principalOnly: true))
             {
                 invoice = await Invoice(db, scope, id, token, true);
-                if (await ProcurementPrincipalInvoiceRecordedComparisonGuard.IsLockedAsync(
-                        db, invoice, true, token, input.PurchaseOrderId))
-                    throw new MatchingProblem(ProcurementPrincipalInvoiceRecordedComparisonGuard.Code, 409);
+                await db.Entry(invoice).ReloadAsync(token);
+                if (db.Entry(invoice).State == EntityState.Detached || invoice.TenantId != scope.TenantId
+                    || invoice.LegalEntityId != scope.LegalEntityId)
+                    throw new MatchingProblem("InvoiceMatchingInvoiceNotFound", 404);
+                if (!await ProcurementPrincipalInvoiceRecordedComparisonGuard.IsLockedAsync(
+                        db, invoice, false, token, input.PurchaseOrderId, principalOnly: true))
+                    throw new MatchingProblem("InvoiceMatchingHistoryChanged", 409);
+                throw new MatchingProblem(ProcurementPrincipalInvoiceRecordedComparisonGuard.Code, 409);
             }
             _=await ProcurementReceivingRoutes.InvoiceEvidence(db,cases,scope,input.PurchaseOrderId,input.IssuedVersionId,input.Lines,token,false);
             invoice=await Invoice(db,scope,id,token,true);
