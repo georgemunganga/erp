@@ -46,6 +46,7 @@ public sealed class PrincipalManualQuotationDraftTests
     public void Snapshot_binds_scope_line_identity_optional_details_and_real_value_changes()
     {
         var f = new Fixture();
+        var originalLineId = f.Lines[0].Id;
         var before = PrincipalManualQuotationSnapshot.Build(f.Bid, f.Lines);
         f.Lines[0].UnitPrice = 1.0002m;
         Assert.NotEqual(before, PrincipalManualQuotationSnapshot.Build(f.Bid, f.Lines));
@@ -55,12 +56,18 @@ public sealed class PrincipalManualQuotationDraftTests
         f.Lines[0].Notes = null;
         f.Lines[0].Id = Guid.NewGuid();
         Assert.NotEqual(before, PrincipalManualQuotationSnapshot.Build(f.Bid, f.Lines));
+        f.Lines[0].Id = originalLineId;
+        Assert.Equal(before, PrincipalManualQuotationSnapshot.Build(f.Bid, f.Lines));
         f.Bid.TenantId = "another-tenant"; f.Lines[0].TenantId = f.Bid.TenantId;
         var otherScope = PrincipalManualQuotationSnapshot.Build(f.Bid, f.Lines);
         Assert.NotEqual(before, otherScope);
         using var document = JsonDocument.Parse(otherScope);
         Assert.Equal(f.Bid.TenantId, document.RootElement.GetProperty("TenantId").GetString());
         Assert.Equal(f.Bid.LegalEntityId, document.RootElement.GetProperty("LegalEntityId").GetGuid());
+        f.Bid.TenantId = f.Event.TenantId; f.Lines[0].TenantId = f.Bid.TenantId;
+        Assert.Equal(before, PrincipalManualQuotationSnapshot.Build(f.Bid, f.Lines));
+        f.Bid.LegalEntityId = Guid.NewGuid(); f.Lines[0].LegalEntityId = f.Bid.LegalEntityId;
+        Assert.NotEqual(before, PrincipalManualQuotationSnapshot.Build(f.Bid, f.Lines));
     }
 
     [Fact]
