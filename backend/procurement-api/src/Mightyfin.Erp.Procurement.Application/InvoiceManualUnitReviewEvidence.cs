@@ -22,6 +22,18 @@ public sealed record InvoiceManualUnitReviewEnvelope(int SchemaVersion, string E
 
 public static class InvoiceManualUnitReviewEvidence
 {
+    /// <summary>Reconstruct a completed manual review at its recorded completion
+    /// time. Current command permissions and current policy publication are
+    /// checked by the new command separately; neither rewrites historical Core
+    /// completion or makes an expired review policy disappear.</summary>
+    public static IReadOnlyDictionary<Guid, string> VerifyHistorical(
+        InvoiceRetainedUnitReviewAuthority authority,
+        InvoiceUnitReviewTransitions.Source source, SupplierInvoice invoice,
+        IReadOnlyList<SupplierInvoiceLine> originals, InvoiceMatchMappingVersion mapping,
+        DateTimeOffset completedAt)
+        => VerifyOwnedProof(authority, source, invoice, originals, mapping, completedAt,
+            allowRetiredAtHistoricalTime: true);
+
     private static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web)
     {
         UnmappedMemberHandling = JsonUnmappedMemberHandling.Disallow,
@@ -58,7 +70,8 @@ public static class InvoiceManualUnitReviewEvidence
         InvoiceRetainedUnitReviewAuthority authority,
         InvoiceUnitReviewTransitions.Source source,
         SupplierInvoice invoice, IReadOnlyList<SupplierInvoiceLine> originals,
-        InvoiceMatchMappingVersion mapping, DateTimeOffset at)
+        InvoiceMatchMappingVersion mapping, DateTimeOffset at,
+        bool allowRetiredAtHistoricalTime = false)
     {
         try
         {
@@ -132,7 +145,8 @@ public static class InvoiceManualUnitReviewEvidence
                 || ProcurementEvidenceEncoding.PolicyJsonDigest(matching.RulesJson) != evidence.MatchingPolicySha256
                 || ProcurementEvidenceEncoding.PolicyJsonDigest(review.RulesJson) != evidence.ReviewPolicySha256
                 || InvoiceUnitReviewPolicyRules.Parse(review.RulesJson).SchemaVersion != 2
-                || review.State != "Published" || matching.State != "Published"
+                || !(review.State == "Published" || allowRetiredAtHistoricalTime && review.State == "Retired")
+                || !(matching.State == "Published" || allowRetiredAtHistoricalTime && matching.State == "Retired")
                 || review.PublishedAt is null || review.PublishedAt > source.OpenedAt
                 || matching.PublishedAt is null || matching.PublishedAt > source.OpenedAt
                 || review.EffectiveFrom == default || review.EffectiveFrom > source.OpenedAt
@@ -140,7 +154,8 @@ public static class InvoiceManualUnitReviewEvidence
                 || review.EffectiveTo is { } end && at >= end
                 || matching.EffectiveTo is { } matchingEnd && at >= matchingEnd)
                 throw new InvalidOperationException("InvoiceManualUnitReviewInvalid");
-            InvoiceUnitReviewPolicyRules.VerifyRetainedProjection(source.ReviewPolicy, review, at);
+            InvoiceUnitReviewPolicyRules.VerifyRetainedProjection(source.ReviewPolicy, review, at,
+                allowRetiredAtHistoricalTime);
             InvoiceUnitReviewPolicyRules.VerifyCaseGraph(source.ReviewPolicy,
                 authority.Case, authority.Workers);
             InvoiceRetainedUnitReview.VerifyCoreCompletion(authority,

@@ -105,6 +105,12 @@ public static partial class ProcurementInvoiceIntakeRoutes
         if (InvoiceUnitReviewStorage.Read(witness.ReviewSource).SourceSchemaVersion != 4)
             return Results.Conflict(new { code = "invoice-replacement-review-mode-unsupported",
                 message = "This original review needs a separate retained evidence path before replacement." });
+        if (witness.BlockedResult.MatchedAt == default
+            || witness.ReviewOutcome.CompletedAt == default
+            || witness.BlockedResult.MatchedAt < witness.ReviewOutcome.CompletedAt
+            || witness.BlockedResult.MatchedAt > CalculationNow(request.HttpContext))
+            return Results.Conflict(new { code = "invoice-replacement-review-time-invalid",
+                message = "The original comparison and review time cannot be reconciled." });
         // A stored Verified label is not Core approval authority. Reconstruct the
         // terminal review in the same transaction before admitting replacement.
         await using var cases = new ApprovalDbContext(
@@ -119,16 +125,17 @@ public static partial class ProcurementInvoiceIntakeRoutes
         var reviewContext = new InvoiceMappingReviewContext(scope.TenantId, scope.LegalEntityId,
             source.BranchRef, scope.SubjectId, actor.CoreLinkedWorkerId, policy.Id,
             ProcurementEvidenceEncoding.PolicyJsonDigest(policy.RulesJson),
-            CalculationNow(request.HttpContext), new Dictionary<Guid, string>());
+            witness.BlockedResult.MatchedAt, new Dictionary<Guid, string>());
         InvoiceMappingReview? retained;
         try { retained = await ProcurementInvoiceUnitReviewRoutes.RetainedReview(db, cases,
-            scope, request.HttpContext, source, sourceLines, witness.Mapping, reviewContext, ct); }
+            scope, request.HttpContext, source, sourceLines, witness.Mapping, reviewContext, ct,
+            requireCurrentPublication: false); }
         catch (UnauthorizedAccessException) { return Results.Forbid(); }
         catch (InvalidOperationException)
         { return Results.Conflict(new { code = "invoice-replacement-review-unavailable",
             message = "The original invoice review must remain independently verified." }); }
-        if (retained is null || !PrincipalInvoiceMatchingBridge.ReviewCovers3(
-                witness.Mapping, source, sourceLines, retained, reviewContext))
+        if (retained is not { Verified: true, State: "Verified", ManualSource: not null,
+                RetainedAuthority: not null })
             return Results.Conflict(new { code = "invoice-replacement-review-unavailable",
                 message = "The original invoice review must remain independently verified." });
         try
