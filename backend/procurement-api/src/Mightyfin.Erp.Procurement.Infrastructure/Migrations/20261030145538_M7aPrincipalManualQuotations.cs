@@ -425,6 +425,7 @@ namespace Mightyfin.Erp.Procurement.Infrastructure.Migrations
                   procurement.sourcing_manual_quote_versions,
                   procurement.supplier_bids,
                   procurement.supplier_bid_lines,
+                  procurement.sourcing_invitations,
                   procurement.audit_events,
                   procurement.outbox_events IN ACCESS EXCLUSIVE MODE;
                 DO $m7a_quotation_down$
@@ -440,6 +441,7 @@ namespace Mightyfin.Erp.Procurement.Infrastructure.Migrations
                       WHERE principal_capture_version<>0 OR is_active IS DISTINCT FROM TRUE
                         OR discount_kind IS NOT NULL OR discount_value<>0
                         OR tax_treatment IS NOT NULL OR supplier_offered_tax_code IS NOT NULL)
+                    OR EXISTS (SELECT 1 FROM procurement.sourcing_invitations WHERE status='ManualContactRecorded')
                     OR EXISTS (SELECT 1 FROM procurement.audit_events
                       WHERE record_type IN ('SourcingManualContact','SourcingManualQuoteVersion')
                         OR (record_type='SupplierQuotation' AND action IN

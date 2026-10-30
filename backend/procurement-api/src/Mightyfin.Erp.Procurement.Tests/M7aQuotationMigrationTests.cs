@@ -25,8 +25,9 @@ public sealed class M7aQuotationMigrationTests
     {
         var operations = Invoke("Down"); var guard = Assert.IsType<SqlOperation>(operations[0]);
         foreach (var table in new[] { "sourcing_manual_contacts", "sourcing_manual_quote_versions", "supplier_bids",
-            "supplier_bid_lines", "audit_events", "outbox_events" }) Assert.Contains("procurement." + table, guard.Sql);
+            "supplier_bid_lines", "sourcing_invitations", "audit_events", "outbox_events" }) Assert.Contains("procurement." + table, guard.Sql);
         Assert.Contains("IN ACCESS EXCLUSIVE MODE", guard.Sql); Assert.Contains("ERRCODE='55000'", guard.Sql);
+        Assert.Contains("status='ManualContactRecorded'", guard.Sql);
         Assert.Contains("is_active IS DISTINCT FROM TRUE", guard.Sql); Assert.Contains("principal_capture_version<>0", guard.Sql);
         foreach (var field in new[] { "supplier_quote_reference", "quote_date", "offer_validity_kind", "valid_until",
             "supplier_offered_payment_code", "supplier_offered_payment_text", "warranty_text", "delivery_terms_text",
