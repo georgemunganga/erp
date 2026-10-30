@@ -24,11 +24,13 @@ public static partial class ProcurementInvoiceMatchingRoutes
             _=await Actor(core,scope,http,auth,"procurement-invoice-read",invoice.BranchRef,token);
             var mappings=await db.InvoiceMatchMappingVersions.Where(x=>x.SupplierInvoiceId==id).OrderBy(x=>x.MappingRevision).ToArrayAsync(token);
             var results=await db.InvoiceMatchResults.Where(x=>x.SupplierInvoiceId==id && (x.ExecutionVersion==1 || x.ExecutionVersion==2)).OrderBy(x=>x.MatchedAt).ThenBy(x=>x.Id).ToArrayAsync(token);
+            var principalNewWorkLocked=await ProcurementPrincipalInvoiceRecordedComparisonGuard.IsLockedAsync(db,invoice,
+                mappings.Any(x=>x.Id==invoice.CurrentMappingVersionId && x.SourceSchemaVersion==3),token);
             var exceptions=await db.InvoiceExceptions.Where(x=>x.SupplierInvoiceId==id).OrderBy(x=>x.CreatedAt).ToArrayAsync(token);
             var originalLines=await db.SupplierInvoiceLines.Where(x=>x.SupplierInvoiceId==id && x.IsActive).OrderBy(x=>x.LineNumber).ToArrayAsync(token);
             var currentOriginalSha=InvoiceMappingEvidence.OriginalDigest(invoice,originalLines);
             return JsonSerializer.Serialize(new { invoiceId=id,invoice.Version,invoice.Status,invoice.MatchingState,invoice.MappingRevision,invoice.MatchRevision,
-                invoice.CurrentMappingVersionId,invoice.LastMatchResultId,invoice.ActiveMatchClaimResultId,
+                invoice.CurrentMappingVersionId,invoice.LastMatchResultId,invoice.ActiveMatchClaimResultId,principalNewWorkLocked,
                 canPostToFinance=false,isInvoiceApproval=false,matchingStateIsRecordedResult=true,
                 original=new { netAmount=Exact(invoice.NetAmount),taxAmount=Exact(invoice.TaxAmount),grossAmount=Exact(invoice.GrossAmount),
                     invoice.CurrencyCode,lines=originalLines.Select(x=>new { x.Id,x.LineNumber,x.Description,quantity=Exact(x.Quantity),unitPrice=Exact(x.UnitPrice),taxAmount=Exact(x.TaxAmount) }) },

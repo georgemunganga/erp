@@ -68,6 +68,8 @@ public static partial class ProcurementInvoiceMatchingRoutes
         if (invoice.Version!=input.Version || invoice.CurrentMappingVersionId!=mapping.Id
             || invoice.MappingRevision!=mapping.MappingRevision)
             throw new MatchingProblem("InvoiceComparisonVersionChanged",409);
+        if (await ProcurementPrincipalInvoiceRecordedComparisonGuard.IsLockedAsync(db,invoice,true,token))
+            throw new MatchingProblem(ProcurementPrincipalInvoiceRecordedComparisonGuard.Code,409);
         if (invoice.ActiveMatchClaimResultId is not null)
             throw new MatchingProblem("InvoiceExistingClaimRequiresOwnerResolution",409);
         var originals=await db.SupplierInvoiceLines.Where(x=>x.SupplierInvoiceId==id && x.IsActive)
