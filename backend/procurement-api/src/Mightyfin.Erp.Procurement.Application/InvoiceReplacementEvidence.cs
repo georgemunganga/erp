@@ -189,6 +189,6 @@ public static class InvoiceReplacementEvidence
 
     private static bool Hex64(string? text) => text is { Length: 64 }
         && text.All(x => x is >= '0' and <= '9' or >= 'a' and <= 'f');
-    private static void Need(bool accepted, string code)
+    private static void Need([System.Diagnostics.CodeAnalysis.DoesNotReturnIf(false)] bool accepted, string code)
     { if (!accepted) throw new InvalidOperationException(code); }
 }

@@ -154,6 +154,6 @@ public static class InvoiceHistoricalPolicyWindow
         var at=value.GetDateTimeOffset(); Need(at.Offset==TimeSpan.Zero,"HistoricalPolicyAuditTimeInvalid");
         return ProcurementEvidenceEncoding.DatabaseTimestamp(at);
     }
-    private static void Need(bool okay,string code)
+    private static void Need([System.Diagnostics.CodeAnalysis.DoesNotReturnIf(false)] bool okay,string code)
     { if(!okay)throw new InvalidOperationException(code); }
 }
