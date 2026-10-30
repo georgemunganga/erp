@@ -135,6 +135,17 @@ public static partial class ProcurementInvoiceMatchingRoutes
             _=await Target(db,core,scope,http,auth,"procurement-invoice-capture",invoice,input.PurchaseOrderId,token);
             // Exact recovery rechecks both the actual invoice and target PO's current scope first.
             if(await Replay(db,scope,"InvoiceMapping",key,fingerprint,id,input.PurchaseOrderId,token) is { } replay) return replay;
+            // The legacy mapping route cannot turn a recorded principal comparison
+            // back into an editable mapping. Its original-key replay remains above
+            // this fence, and legacy-only invoices keep their prior behavior.
+            if (await db.InvoiceMatchResults.AsNoTracking().AnyAsync(x =>
+                    x.SupplierInvoiceId == id && x.SourceSchemaVersion == 3, token))
+            {
+                invoice = await Invoice(db, scope, id, token, true);
+                if (await ProcurementPrincipalInvoiceRecordedComparisonGuard.IsLockedAsync(
+                        db, invoice, true, token, input.PurchaseOrderId))
+                    throw new MatchingProblem(ProcurementPrincipalInvoiceRecordedComparisonGuard.Code, 409);
+            }
             _=await ProcurementReceivingRoutes.InvoiceEvidence(db,cases,scope,input.PurchaseOrderId,input.IssuedVersionId,input.Lines,token,false);
             invoice=await Invoice(db,scope,id,token,true);
             if(invoice.Version!=input.Version || invoice.ActiveMatchClaimResultId is not null) throw new MatchingProblem("InvoiceMappingVersionOrActiveClaimChanged",409);
