@@ -21,10 +21,10 @@ public static partial class ProcurementInvoiceIntakeRoutes
 
     internal static bool ReplacementMakerContext(SupplierInvoice invoice, ProcurementRequestScope scope,
         HttpRequest request, ProcurementPrincipalPeople.Person? actor)
-        => ReplacementReadActor(scope, actor) && IntakeWriteContextAllowed(scope, request)
+        => actor is not null && ReplacementReadActor(scope, actor) && IntakeWriteContextAllowed(scope, request)
             && invoice.TenantId == scope.TenantId && invoice.LegalEntityId == scope.LegalEntityId
             && invoice.CreatedBy == scope.SubjectId && invoice.BranchRef == scope.WorkLocationId
-            && actor!.Permissions.Contains("procurement-invoice-capture")
+            && actor.Permissions.Contains("procurement-invoice-capture")
             && (actor.OrganisationWide || actor.AllowedBranches.Contains(scope.WorkLocationId!.Value));
 
     internal static bool ReplacementSourceCandidate(SupplierInvoice invoice)

@@ -130,6 +130,24 @@ public sealed class ProcurementInvoiceReplacementPresentationTests
             string policyName) => Task.FromResult(AuthorizationResult.Failed());
     }
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task Ordinary_invoice_detail_hint_exits_before_storage_when_provider_missing_or_writes_disabled(bool providerPresent)
+    {
+        var profile = new ReadOnlyProfile();
+        var setup = new ServiceCollection().AddSingleton<IConfiguration>(new ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string,string?> {
+                ["Procurement:InvoiceReplacement:Enabled"] = providerPresent ? "false" : "true",
+                ["Procurement:InvoiceCurrencyCalculation:ReadEnabled"] = "true",
+                ["Procurement:InvoiceCurrencyCalculation:CaptureEnabled"] = "true" }).Build());
+        if (providerPresent) setup.AddSingleton<IProcurementInvoiceReplacementSchemaReadiness>(profile);
+        using var services = setup.BuildServiceProvider();
+        var http = new DefaultHttpContext { RequestServices = services };
+        Assert.Null(await ProcurementInvoiceIntakeRoutes.ReplacementPresentation(null!, Invoice(), Scope(), http, null!, default));
+        Assert.Equal(0, profile.Reads);Assert.Equal(0, profile.Writes);
+    }
+
     [Fact]
     public async Task Read_profile_remains_available_without_INSERT_and_new_work_flags()
     {
