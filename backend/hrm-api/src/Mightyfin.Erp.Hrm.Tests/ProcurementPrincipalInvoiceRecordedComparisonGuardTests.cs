@@ -51,6 +51,30 @@ public sealed class ProcurementPrincipalInvoiceRecordedComparisonGuardTests
     }
 
     [Fact]
+    public void Legacy_mapping_entry_cannot_reopen_a_source3_comparison_but_keeps_legacy_only_history()
+    {
+        var principal = Invoice();
+        var principalResult = new InvoiceMatchResult {
+            TenantId = principal.TenantId, LegalEntityId = principal.LegalEntityId,
+            SupplierInvoiceId = principal.Id, SourceSchemaVersion = 3,
+            ExecutionVersion = 2, Outcome = "Blocked" };
+        principal.MatchRevision = 1;
+        principal.LastMatchResultId = principalResult.Id;
+        Assert.True(ProcurementPrincipalInvoiceRecordedComparisonGuard.IsLocked(
+            principal, true, [principalResult], []));
+
+        var legacy = Invoice();
+        var legacyResult = new InvoiceMatchResult {
+            TenantId = legacy.TenantId, LegalEntityId = legacy.LegalEntityId,
+            SupplierInvoiceId = legacy.Id, SourceSchemaVersion = null,
+            ExecutionVersion = 1, Outcome = "Blocked" };
+        legacy.MatchRevision = 1;
+        legacy.LastMatchResultId = legacyResult.Id;
+        Assert.False(ProcurementPrincipalInvoiceRecordedComparisonGuard.IsLocked(
+            legacy, false, [legacyResult], []));
+    }
+
+    [Fact]
     public void A_sibling_invoice_receipt_on_the_same_order_does_not_close_this_invoice()
     {
         var invoice = Invoice();
