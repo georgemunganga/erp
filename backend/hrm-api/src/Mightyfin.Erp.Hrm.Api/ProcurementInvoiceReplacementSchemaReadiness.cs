@@ -69,6 +69,10 @@ public sealed class ProcurementInvoiceReplacementSchemaReadiness(IConfiguration 
             ProcurementInvoiceCurrencySchemaReadiness.PrivilegeSql(InvoiceCurrencySchemaMode.RecordRead, role)[7..],
             "has_table_privilege(current_user,'procurement.commercial_command_receipts','SELECT')"
         };
+        foreach (var projection in CoreReadColumns)
+            foreach (var column in projection.Value)
+                clauses.Add("has_column_privilege(current_user," + Literal(projection.Key) + ","
+                    + Literal(column) + ",'SELECT')");
         foreach (var table in ProcurementInvoiceReplacementNativeShape.Tables)
         {
             clauses.Add("has_table_privilege(current_user," + Literal(table) + ",'SELECT')");
@@ -82,6 +86,7 @@ public sealed class ProcurementInvoiceReplacementSchemaReadiness(IConfiguration 
         if (write)
         {
             clauses.Add("current_setting('transaction_read_only')='off' AND NOT pg_is_in_recovery()");
+            clauses.Add("has_column_privilege(current_user,'hrm.legal_entities','currency','SELECT')");
             clauses.Add(ProcurementPrincipalOrderDraftSchemaReadiness.PrivilegeSql(false, role)[7..]);
             foreach (var table in WriteAdditionalReads)
                 clauses.Add("has_table_privilege(current_user," + Literal(table) + ",'SELECT')");
@@ -96,13 +101,25 @@ public sealed class ProcurementInvoiceReplacementSchemaReadiness(IConfiguration 
         return "SELECT " + string.Join(" AND ", clauses);
     }
 
+    // Controlled projections used by existing Core principal/branch helpers and
+    // the optional HR alias lookup. No full user/employee records or private
+    // authentication, payroll, bank or personal fields are required.
+    internal static readonly IReadOnlyDictionary<string, string[]> CoreReadColumns =
+        new Dictionary<string, string[]>(StringComparer.Ordinal) {
+            ["hrm.local_users"] = ["id", "tenant_id", "is_active", "is_archived", "worker_id", "roles_csv", "locked_until"],
+            ["hrm.tenant_role_assignments"] = ["tenant_id", "active", "is_archived", "role_key", "permissions_csv"],
+            ["hrm.hr_user_branch_assignments"] = ["tenant_id", "user_id", "location_id", "is_archived"],
+            ["hrm.legal_entities"] = ["tenant_id", "id", "is_archived"],
+            ["hrm.work_locations"] = ["tenant_id", "id", "legal_entity_id", "is_archived"],
+            ["hrm.workers"] = ["tenant_id", "id", "is_archived", "status", "location_id", "org_unit_id"],
+            ["hrm.org_units"] = ["tenant_id", "id", "is_archived", "status", "legal_entity_id"]
+        };
+
     internal static readonly string[] WriteAdditionalReads = [
         "procurement.principal_order_submissions", "procurement.principal_order_issued_versions",
         "procurement.principal_order_funding_evidence", "procurement.principal_order_acknowledgments",
         "procurement.principal_order_assignments", "procurement.principal_order_decisions",
-        "procurement.principal_receiving_sources", "procurement.principal_receiving_facts",
-        "procurement.principal_receiving_revisions", "procurement.principal_receiving_receipts",
-        "procurement.principal_receiving_line_bindings", "procurement.policy_evaluations",
+        "procurement.principal_receiving_sources", "procurement.policy_evaluations",
         "procurement.sourcing_events", "procurement.sourcing_lines"
     ];
 }

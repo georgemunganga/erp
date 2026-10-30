@@ -55,6 +55,22 @@ public sealed class ProcurementInvoiceReplacementReadinessTests
         Assert.DoesNotContain("CaptureEnabled", read);Assert.DoesNotContain("Enabled", read);
     }
 
+    [Fact]
+    public void Current_Core_projection_uses_minimal_column_reads_and_never_private_account_or_payroll_fields()
+    {
+        var read = ProcurementInvoiceReplacementSchemaReadiness.PrivilegeSql(false, "finite_role");
+        foreach (var projection in ProcurementInvoiceReplacementSchemaReadiness.CoreReadColumns)
+            foreach (var column in projection.Value)
+                Assert.Contains($"has_column_privilege(current_user,'{projection.Key}','{column}','SELECT')", read);
+        var columns = ProcurementInvoiceReplacementSchemaReadiness.CoreReadColumns.Values.SelectMany(x => x).ToArray();
+        Assert.Equal(34, columns.Length);
+        foreach (var privateField in new[] { "password_hash", "email", "salary", "bank_account", "date_of_birth" })
+            Assert.DoesNotContain(privateField, columns);
+        Assert.DoesNotContain("has_column_privilege(current_user,'hrm.legal_entities','currency','SELECT')", read);
+        foreach (var unused in new[] { "principal_receiving_facts", "principal_receiving_revisions", "principal_receiving_receipts", "principal_receiving_line_bindings" })
+            Assert.DoesNotContain("procurement." + unused, ProcurementInvoiceReplacementSchemaReadiness.WriteAdditionalReads);
+    }
+
     private static IConfiguration Connections() => new ConfigurationBuilder().AddInMemoryCollection(
         new Dictionary<string,string?> {
             ["ConnectionStrings:Procurement"] = "Host=127.0.0.1;Database=never_opened_replacement;Username=record_finite",
