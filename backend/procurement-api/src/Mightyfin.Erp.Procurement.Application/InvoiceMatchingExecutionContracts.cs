@@ -20,6 +20,8 @@ public sealed record InvoiceMappingReview(bool Verified, string State, string Ev
     // Owning typed-v2 proof is distinct from legacy caller-bound JSON; never synthesize a v1 signer.
     public InvoiceRetainedUnitReviewAuthority? RetainedAuthority { get; init; }
     public InvoiceUnitReviewConsumer? CurrentConsumer { get; init; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public InvoiceUnitReviewTransitions.Source? ManualSource { get; init; }
     public static InvoiceMappingReview Unavailable(string reason) => new(false, reason, "{}", new Dictionary<Guid, string>());
 }
 public sealed record InvoiceMappingReviewContext(string TenantId, Guid LegalEntityId, Guid? BranchId,
@@ -27,6 +29,8 @@ public sealed record InvoiceMappingReviewContext(string TenantId, Guid LegalEnti
     IReadOnlyDictionary<Guid, string> DocumentVersionHashes);
 public sealed record InvoiceReviewedDocumentLine(Guid InvoiceLineId, Guid DocumentVersionId,
     string DocumentSha256, string DocumentLineReference, string UnitCode);
+/// <summary>Human-entered unit attestation. It has no document identity or hash.</summary>
+public sealed record InvoiceReviewedManualLine(Guid InvoiceLineId, string UnitCode);
 public sealed record InvoiceMappingReviewEnvelope(int SchemaVersion, string TenantId, Guid LegalEntityId,
     Guid? BranchId, Guid InvoiceId, Guid MappingVersionId, string MappingSha256, string InvoiceOriginalSha256,
     Guid PurchaseOrderId, Guid IssuedVersionId, string PrincipalId, Guid WorkerId, Guid PolicyId,

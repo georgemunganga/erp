@@ -19,6 +19,7 @@ public static partial class ProcurementInvoiceUnitReviewRoutes
                 if (existingReview is not null) blockers.Add("OriginalUnitReviewAlreadyOpened");
                 var matching = await Policy(db, scope, http, InvoiceMatchingPolicyRules.PolicyKey, token);
                 var review = await Policy(db, scope, http, InvoiceRetainedUnitReview.ReviewPolicyKey, token);
+                if (IsManualPolicy(InvoiceUnitReviewPolicyRules.Parse(review.RulesJson))) throw new ReviewProblem("InvoiceDocumentReviewPolicyRequired", 409);
                 var people = new List<InvoiceUnitReviewPolicyRules.Person>();
                 foreach (var principal in InvoiceUnitReviewPolicyRules.Parse(review.RulesJson).Stages.SelectMany(x => x.Principals).Distinct(StringComparer.Ordinal))
                     people.Add(await ProcurementInvoiceUnitReviewPeople.Resolve(core, scope.TenantId, scope.LegalEntityId, principal, token) ?? throw new ReviewProblem("InvoiceUnitReviewerUnavailable", 409));
@@ -57,6 +58,7 @@ public static partial class ProcurementInvoiceUnitReviewRoutes
                     AND i.branch_ref IS NOT DISTINCT FROM s.branch_ref
                     AND i.current_mapping_version_id=s.mapping_version_id AND i.mapping_revision=s.mapping_revision
                 WHERE s.tenant_id={scope.TenantId} AND s.legal_entity_id={scope.LegalEntityId}
+                AND COALESCE(s.source_json::jsonb->>'SourceSchemaVersion','')<>'4'
                 AND EXISTS (SELECT 1 FROM core_approval.cases c
                     JOIN core_approval.stages g ON g.""CaseId""=c.""Id"" AND g.""TenantId""=c.""TenantId"" AND g.""LegalEntityId""=c.""LegalEntityId""
                     JOIN core_approval.assignments a ON a.""StageId""=g.""Id"" AND a.""CaseId""=c.""Id"" AND a.""TenantId""=c.""TenantId"" AND a.""LegalEntityId""=c.""LegalEntityId""
@@ -83,6 +85,7 @@ public static partial class ProcurementInvoiceUnitReviewRoutes
         => Run(http, scope, false, async (db, cases, core, auth, documents, token) =>
         {
             var (source, invoice) = await Source(db, scope, id, false, token);
+            if (InvoiceUnitReviewStorage.Read(source).SourceSchemaVersion == 4) throw new KeyNotFoundException();
             var actor = await Actor(core, scope, http, auth, source.BranchRef,
                 [InvoiceRetainedUnitReview.ReviewPermission, InvoiceUnitReviewTransitions.RequestPermission, InvoiceUnitReviewTransitions.ReadPermission], token);
             var workflow = await Workflow(cases, scope, source, false, token);
@@ -129,6 +132,7 @@ public static partial class ProcurementInvoiceUnitReviewRoutes
         {
             if (key == Guid.Empty) throw new ReviewProblem("InvoiceUnitReviewCommandKeyRequired", 400);
             var (source, invoice) = await Source(db, scope, id, false, token);
+            if (InvoiceUnitReviewStorage.Read(source).SourceSchemaVersion == 4) throw new KeyNotFoundException();
             var receipt = await db.InvoiceUnitReviewReceipts.SingleOrDefaultAsync(x => x.ReviewSourceId == id && x.CommandKey == key && x.ActorPrincipalId == scope.SubjectId, token) ?? throw new KeyNotFoundException();
             var action = receipt.Operation == "Open" ? InvoiceUnitReviewTransitions.RequestPermission : InvoiceRetainedUnitReview.ReviewPermission;
             var actor = await Actor(core, scope, http, auth, source.BranchRef, [action], token);

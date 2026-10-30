@@ -18,6 +18,7 @@ public static partial class ProcurementInvoiceUnitReviewRoutes
     public sealed record DecisionInput(long InvoiceVersion, long CaseVersion, long AssignmentVersion, string Action, string? Reason, string? Attestation);
     public static void MapRoutes(WebApplication app)
     {
+        MapManualRoutes(app);
         var invoices = app.MapGroup("/api/procurement/v1/invoices");
         invoices.MapPost("/{id:guid}/documents/{documentId:guid}/retire", RetireOriginalDocument)
             .RequireAuthorization(DocumentRetirementPermission, "procurement-invoice-read");
@@ -130,6 +131,7 @@ public static partial class ProcurementInvoiceUnitReviewRoutes
         if (receipt.ActorPrincipalId != scope.SubjectId || receipt.Fingerprint != ProcurementEvidenceEncoding.PolicyJsonDigest(InvoiceUnitReviewCommands.Serialize(request)))
             throw new ReviewProblem("InvoiceUnitReviewCommandKeyConflict", 409);
         var source = await db.InvoiceUnitReviewSources.SingleAsync(x => x.Id == receipt.ReviewSourceId, ct);
+        if (InvoiceUnitReviewStorage.Read(source).SourceSchemaVersion == 4) throw new KeyNotFoundException();
         if (source.BranchRef != invoice.BranchRef || source.SupplierInvoiceId != invoice.Id || source.SupplierInvoiceId != request.InvoiceId || request.ReviewId is { } id && source.Id != id) throw new ReviewProblem("InvoiceUnitReviewCommandKeyConflict", 409);
         _ = InvoiceUnitReviewCommands.ReadHistorical(receipt, source);
         return receipt.ResponseJson;

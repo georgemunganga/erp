@@ -60,6 +60,27 @@ public static class InvoiceUnitReviewTerminal
             if (workflow.State == "Approved")
             {
                 var source = owned.Source;
+                if (source.SourceSchemaVersion == 4)
+                {
+                    var manual = new InvoiceManualUnitReviewEnvelope(4, "ManualAttestation",
+                        source.TenantId, source.LegalEntityId, source.BranchId,
+                        source.ReviewId, source.SourceVersion, source.InvoiceId, invoice.Version,
+                        source.MappingId, source.MappingRevision, source.MappingSha256,
+                        source.OriginalSha256, source.PurchaseOrderId, source.IssuedVersionId,
+                        source.MatchingPolicyId, source.MatchingPolicyVersion, source.MatchingPolicySha256,
+                        source.ReviewPolicy.PolicyId, source.ReviewPolicy.PolicyVersion,
+                        source.ReviewPolicy.RulesSha256, source.CoreCaseId, final!.Id,
+                        source.ReviewPolicy.MakerPrincipalId, source.ReviewPolicy.MakerWorkerId,
+                        source.ManualReason!, signer!.PrincipalId, signer.WorkerId,
+                        final.Reason ?? "", final.DecidedAt, source.ManualLines!, owned.AssignmentWorkers);
+                    var manualJson = JsonSerializer.Serialize(manual, new JsonSerializerOptions(JsonSerializerDefaults.Web));
+                    var manualAuthority = new InvoiceRetainedUnitReviewAuthority(source.ReviewId,
+                        source.SourceVersion, manualJson, ProcurementEvidenceEncoding.Digest(manualJson),
+                        workflow, ownedDecisions, owned.AssignmentWorkers, matchingPolicy, reviewPolicy);
+                    _ = InvoiceManualUnitReviewEvidence.VerifyOwnedProof(manualAuthority,
+                        source, invoice, originals, mapping, now);
+                    return new(owned, final, signer.WorkerId, "Verified", 4, manualJson);
+                }
                 var envelope = new InvoiceRetainedUnitReviewEnvelope(3, source.TenantId, source.LegalEntityId, source.BranchId,
                     source.ReviewId, source.SourceVersion, source.InvoiceId, invoice.Version, source.MappingId, source.MappingRevision,
                     source.MappingSha256, source.OriginalSha256, source.PurchaseOrderId, source.IssuedVersionId,
@@ -77,11 +98,12 @@ public static class InvoiceUnitReviewTerminal
                 return new(owned, final, signer.WorkerId, "Verified", 3, json);
             }
             VerifyNonVerification(owned, ownedDecisions, final!);
-            var denied = JsonSerializer.Serialize(new { schemaVersion = 3, type = "InvoiceUnitReviewNonVerification",
+            var schemaVersion = owned.Source.SourceSchemaVersion == 4 ? 4 : 3;
+            var denied = JsonSerializer.Serialize(new { schemaVersion, type = "InvoiceUnitReviewNonVerification",
                 owned.Source.ReviewId, owned.Source.SourceVersion, owned.SourceSha256, owned.Source.InvoiceId,
                 owned.Source.MappingId, coreCaseId = workflow.Id, state = workflow.State, finalDecisionId = final!.Id,
                 final.ActorSubjectId, signer!.WorkerId, final.DecidedAt, final.Reason });
-            return new(owned, final, signer.WorkerId, workflow.State, 3, denied);
+            return new(owned, final, signer.WorkerId, workflow.State, schemaVersion, denied);
         }
         catch (Exception error) when (error is InvalidOperationException or ArgumentException or JsonException
             or FormatException or OverflowException or NullReferenceException or KeyNotFoundException)
@@ -95,7 +117,7 @@ public static class InvoiceUnitReviewTerminal
         InvoiceIssuedOrder issued, PolicyVersion matchingPolicy, PolicyVersion reviewPolicy,
         IReadOnlyList<ApprovalDecision> ownedDecisions, InvoiceUnitReviewConsumer currentConsumer)
     {
-        Need(outcome.State == "Verified" && outcome.EvidenceSchemaVersion is 2 or 3 && outcome.ReviewId == owned.Source.ReviewId
+        Need(outcome.State == "Verified" && outcome.EvidenceSchemaVersion is 2 or 3 or 4 && outcome.ReviewId == owned.Source.ReviewId
             && outcome.SourceVersion == owned.Source.SourceVersion && outcome.SourceSha256 == owned.SourceSha256
             && outcome.CoreCaseId == owned.Case.Id && outcome.InvoiceId == invoice.Id && outcome.MappingId == mapping.Id
             && outcome.EvidenceSha256 == ProcurementEvidenceEncoding.Digest(outcome.EvidenceJson));
@@ -104,9 +126,13 @@ public static class InvoiceUnitReviewTerminal
         var final = ownedDecisions.SingleOrDefault(x => x.Id == outcome.FinalDecisionId);
         Need(final is not null && final.ActorSubjectId == outcome.ReviewerPrincipalId && final.DecidedAt == outcome.CompletedAt
             && owned.AssignmentWorkers.Any(x => x.AssignmentId == final.AssignmentId && x.WorkerId == outcome.ReviewerWorkerId));
-        return InvoiceRetainedUnitReview.Verify(new(outcome.ReviewId, outcome.SourceVersion,
+        var authority = new InvoiceRetainedUnitReviewAuthority(outcome.ReviewId, outcome.SourceVersion,
             outcome.EvidenceJson, outcome.EvidenceSha256, owned.Case, ownedDecisions, owned.AssignmentWorkers,
-            matchingPolicy, reviewPolicy), invoice, originals, mapping, currentConsumer);
+            matchingPolicy, reviewPolicy);
+        return outcome.EvidenceSchemaVersion == 4
+            ? InvoiceManualUnitReviewEvidence.Verify(authority, owned.Source, invoice, originals,
+                mapping, currentConsumer)
+            : InvoiceRetainedUnitReview.Verify(authority, invoice, originals, mapping, currentConsumer);
     }
 
     // Read integrity of the real Core nonapproval terminal, not a second execution engine.

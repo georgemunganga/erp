@@ -171,6 +171,7 @@ public static class ProcurementHostIntegration
                 var principalGoodsReturnDrafts = principalGoodsReturnDraftsRead
                     && services.GetRequiredService<ProcurementPrincipalGoodsReturnOptions>().Enabled;
                 var originalUnitReview = !pending && await ProcurementInvoiceUnitReviewCapability.ReadyAsync(services, ct);
+                var manualUnitReview = await ProcurementInvoiceManualUnitReviewCapability.ReadyAsync(services, scope, http, pending, ct);
                 var principalInvoiceComparison = await ProcurementPrincipalInvoiceMatchingCapability.ReadyAsync(
                     services,scope,http,pending,ct);
                 var now = DateTimeOffset.UtcNow;
@@ -312,6 +313,8 @@ public static class ProcurementHostIntegration
                             && await services.GetRequiredService<IProcurementInvoiceMatchingSchemaReadiness>().IsReadyAsync(ct),
                         principalInvoiceComparisonRead = principalInvoiceComparison.Read,
                         principalInvoiceComparison = principalInvoiceComparison.NewWork,
+                        invoiceManualUnitReviewRead = manualUnitReview.Read,
+                        invoiceManualUnitReview = manualUnitReview.NewWork,
                         invoiceOriginalUnitReview = originalUnitReview, // Configured availability only; per-record policy/actor/document guards still apply.
                         invoiceQualifiedClaims = false, // No authenticated complete Finance history owner is installed.
                         invoiceValidation = false,
@@ -643,7 +646,8 @@ public sealed class ProcurementScopeMiddleware(RequestDelegate next, IWebHostEnv
             && Guid.TryParseExact(parts[4],"D",out var invoiceId) && invoiceId!=Guid.Empty
             && string.Equals(parts[5],"matching",StringComparison.OrdinalIgnoreCase)
             && string.Equals(parts[6],"principal-sources",StringComparison.OrdinalIgnoreCase);
-        return principalInvoiceSources || string.Equals(value, "/api/procurement/v1/requests", StringComparison.OrdinalIgnoreCase)
+        return principalInvoiceSources || string.Equals(value, "/api/procurement/v1/manual-invoice-unit-reviews/tasks", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(value, "/api/procurement/v1/requests", StringComparison.OrdinalIgnoreCase)
             || string.Equals(value, "/api/procurement/v1/plans", StringComparison.OrdinalIgnoreCase)
             || string.Equals(value, "/api/procurement/v1/contracts", StringComparison.OrdinalIgnoreCase)
             || string.Equals(value, "/api/procurement/v1/orders/principal-direct-drafts", StringComparison.OrdinalIgnoreCase)

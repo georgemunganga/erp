@@ -43,7 +43,7 @@ public sealed partial class ProcurementDbContext
         outcome.Property(x => x.State).HasMaxLength(20); outcome.Property(x => x.EvidenceJson).HasColumnType("text"); outcome.Property(x => x.EvidenceSha256).HasMaxLength(64); outcome.Property(x => x.ReviewerPrincipalId).HasMaxLength(200);
         outcome.HasOne<InvoiceUnitReviewSource>().WithMany().HasForeignKey(x => new { x.TenantId, x.LegalEntityId, x.ReviewSourceId, x.CoreCaseId }).HasPrincipalKey(x => new { x.TenantId, x.LegalEntityId, x.Id, x.CoreCaseId }).OnDelete(DeleteBehavior.Restrict).HasConstraintName("fk_inv_unit_outcome_source");
         outcome.HasIndex(x => new { x.TenantId, x.LegalEntityId, x.ReviewSourceId }).IsUnique().HasDatabaseName("ux_inv_unit_outcome_source");
-        outcome.ToTable(t => t.HasCheckConstraint("ck_inv_unit_outcome", "(state IN ('Verified','Returned','Rejected') AND evidence_schema_version=3) AND final_decision_id <> '00000000-0000-0000-0000-000000000000'::uuid AND (reviewer_worker_id IS NULL OR reviewer_worker_id <> '00000000-0000-0000-0000-000000000000'::uuid) AND reviewer_principal_id ~ '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$' AND reviewer_principal_id <> '00000000-0000-0000-0000-000000000000' AND evidence_sha256 IS NOT NULL AND evidence_sha256 ~ '^[0-9a-f]{64}$' AND octet_length(evidence_json) BETWEEN 1 AND 524288 AND isfinite(completed_at)"));
+        outcome.ToTable(t => t.HasCheckConstraint("ck_inv_unit_outcome", "(state IN ('Verified','Returned','Rejected') AND evidence_schema_version IN (3,4)) AND final_decision_id <> '00000000-0000-0000-0000-000000000000'::uuid AND (reviewer_worker_id IS NULL OR reviewer_worker_id <> '00000000-0000-0000-0000-000000000000'::uuid) AND reviewer_principal_id ~ '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$' AND reviewer_principal_id <> '00000000-0000-0000-0000-000000000000' AND evidence_sha256 IS NOT NULL AND evidence_sha256 ~ '^[0-9a-f]{64}$' AND octet_length(evidence_json) BETWEEN 1 AND 524288 AND isfinite(completed_at)"));
         var receipt = model.Entity<InvoiceUnitReviewCommandReceipt>();
         receipt.Property(x => x.RequestJson).HasColumnType("text"); receipt.Property(x => x.Operation).HasMaxLength(20); receipt.Property(x => x.ActorPrincipalId).HasMaxLength(200); receipt.Property(x => x.Fingerprint).HasMaxLength(64); receipt.Property(x => x.ResponseJson).HasColumnType("text");
         receipt.HasOne<InvoiceUnitReviewSource>().WithMany().HasForeignKey(x => new { x.TenantId, x.LegalEntityId, x.ReviewSourceId }).HasPrincipalKey(x => new { x.TenantId, x.LegalEntityId, x.Id }).OnDelete(DeleteBehavior.Restrict).HasConstraintName("fk_inv_unit_receipt_source");
@@ -81,23 +81,29 @@ public sealed partial class ProcurementDbContext
                 || invoice.CurrentMappingVersionId != mapping.Id || invoice.BranchRef != source.BranchRef || mapping.ActorPrincipalId != scope.SubjectId
                 || source.MappingRevision != mapping.MappingRevision || source.MappingSha256 != mapping.MappingSha256 || source.OriginalSha256 != mapping.InvoiceOriginalSha256)
                 throw new InvalidOperationException("InvoiceUnitReviewSourceBindingRequired");
-            var order = PurchaseOrders.Single(x => x.Id == source.PurchaseOrderId);
-            var issuedRow = OrderIssuedVersions.Single(x => x.Id == source.IssuedVersionId);
-            var orderSubmission = OrderSubmissions.Single(x => x.Id == issuedRow.SubmissionId);
-            var orderCase = core.Cases.Single(x => x.Id == orderSubmission.CoreApprovalCaseId);
-            var orderLines = PurchaseOrderLines.Where(x => x.PurchaseOrderId == order.Id && x.IsActive).ToArray();
-            ReceivingIssuedAuthority.Verify(order, orderLines, issuedRow, orderSubmission, orderCase,
-                PolicyVersions.Single(x => x.Id == orderSubmission.PolicyVersionId));
-            var delivery = OrderDeliveryEvidence.Where(x => x.IssuedVersionId == issuedRow.Id).OrderByDescending(x => x.CreatedAt).ThenByDescending(x => x.Id).First();
             var projected = JsonSerializer.Deserialize<InvoiceIssuedOrder>(source.IssuedJson) ?? throw new InvalidOperationException("InvoiceUnitReviewIssuedProofRequired");
-            if (delivery.Outcome != "Delivered" || projected.IssuedAt != delivery.ObservedAt || projected.IssuedReference != issuedRow.CommercialSnapshotSha256
-                || projected.RevisionNumber != issuedRow.RevisionNumber || projected.RevisionState != "Issued"
-                || projected.Id != order.Id || projected.RevisionId != issuedRow.Id || projected.BranchRef != source.BranchRef
-                || projected.TenantId != source.TenantId || projected.LegalEntityId != source.LegalEntityId
-                || projected.CurrencyCode != order.CurrencyCode || projected.SupplierId != order.SupplierId || projected.Lines.Count != orderLines.Length
-                || orderLines.Any(line => !projected.Lines.Any(p => p.Id == line.Id && p.Quantity == line.Quantity && p.UnitPrice == line.UnitPrice && p.TaxAmount == line.TaxAmount && p.UnitCode == line.UnitCode
-                    && p.CategoryCode == PurchaseRequestLines.Where(x => x.Id == line.PurchaseRequestLineId).Select(x => x.CategoryCode).Single())))
-                throw new InvalidOperationException("InvoiceUnitReviewIssuedProjectionMismatch");
+            if (mapping.SourceSchemaVersion == 3)
+                RequirePrincipalUnitReviewIssued(source, projected, core);
+            else if (mapping.SourceSchemaVersion is null)
+            {
+                var order = PurchaseOrders.Single(x => x.Id == source.PurchaseOrderId);
+                var issuedRow = OrderIssuedVersions.Single(x => x.Id == source.IssuedVersionId);
+                var orderSubmission = OrderSubmissions.Single(x => x.Id == issuedRow.SubmissionId);
+                var orderCase = core.Cases.Single(x => x.Id == orderSubmission.CoreApprovalCaseId);
+                var orderLines = PurchaseOrderLines.Where(x => x.PurchaseOrderId == order.Id && x.IsActive).ToArray();
+                ReceivingIssuedAuthority.Verify(order, orderLines, issuedRow, orderSubmission, orderCase,
+                    PolicyVersions.Single(x => x.Id == orderSubmission.PolicyVersionId));
+                var delivery = OrderDeliveryEvidence.Where(x => x.IssuedVersionId == issuedRow.Id).OrderByDescending(x => x.CreatedAt).ThenByDescending(x => x.Id).First();
+                if (delivery.Outcome != "Delivered" || projected.IssuedAt != delivery.ObservedAt || projected.IssuedReference != issuedRow.CommercialSnapshotSha256
+                    || projected.RevisionNumber != issuedRow.RevisionNumber || projected.RevisionState != "Issued"
+                    || projected.Id != order.Id || projected.RevisionId != issuedRow.Id || projected.BranchRef != source.BranchRef
+                    || projected.TenantId != source.TenantId || projected.LegalEntityId != source.LegalEntityId
+                    || projected.CurrencyCode != order.CurrencyCode || projected.SupplierId != order.SupplierId || projected.Lines.Count != orderLines.Length
+                    || orderLines.Any(line => !projected.Lines.Any(p => p.Id == line.Id && p.Quantity == line.Quantity && p.UnitPrice == line.UnitPrice && p.TaxAmount == line.TaxAmount && p.UnitCode == line.UnitCode
+                        && p.CategoryCode == PurchaseRequestLines.Where(x => x.Id == line.PurchaseRequestLineId).Select(x => x.CategoryCode).Single())))
+                    throw new InvalidOperationException("InvoiceUnitReviewIssuedProjectionMismatch");
+            }
+            else throw new InvalidOperationException("InvoiceUnitReviewSourceSchemaUnavailable");
             InvoiceUnitReviewTransitions.VerifyIssuedEvidence(projected, mapping, invoice, originals, source.OpenedAt, typed.IssuedEvidenceSha256);
             var pins = added.Select(x => x.Entity).OfType<InvoiceUnitReviewAssignmentEvidence>().Where(x => x.ReviewSourceId == source.Id).ToArray();
             var workflow = core.Cases.Include(x => x.Stages).ThenInclude(x => x.Assignments).Single(x => x.Id == source.CoreCaseId);
@@ -166,6 +172,10 @@ public sealed partial class ProcurementDbContext
     }
     private void RequireUnitReviewDocumentPins(InvoiceUnitReviewSource source)
     {
+        // A version-4 manual source has no document identities to pin. Its
+        // exact line/unit set and mandatory reasons are verified by the source
+        // and terminal contracts; do not open Core Docs for this mode.
+        if (InvoiceUnitReviewStorage.Read(source).SourceSchemaVersion == 4) return;
         using var documents = new DocumentDbContext(new DbContextOptionsBuilder<DocumentDbContext>()
             .UseNpgsql(Database.GetDbConnection()).Options, new UnitReviewDocumentScope(scope.TenantId, scope.LegalEntityId, scope.SubjectId));
         documents.Database.UseTransaction(Database.CurrentTransaction!.GetDbTransaction());

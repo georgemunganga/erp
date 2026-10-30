@@ -1,0 +1,15 @@
+# M6C private build and schema checkpoint — 2026-10-28
+
+This records a bounded private build and schema rehearsal for ERP source `921e4abc29c7a052a1a24100d85bbf5fa1e63ee8` and UI source `56fbd3b90a6f57854717a6dfc8e55203108a1312`. It is not M6C workflow acceptance or a production rollout.
+
+The first integrated SDK run, on earlier source `39d8a7de`, failed one Host branch-scope fixture: 668 of 669 Host tests passed. The invoice in that test had been created in the same branch to which the actor was later confined. Commit `921e4abc` corrected only two Host test files to create a real second branch and test both hidden and allowed invoices. The original failed receipt remains retained.
+
+Run02 passed the focused regression **1/1**, Procurement **1,567/1,567**, and Host **669/669**, with zero failures or skipped tests in each TRX. It completed genuine EF Up, no-transaction Up and guarded Down exports, found no pending EF model changes, and published 150 API files. Its controller nevertheless recorded **FAILED** because its 45 MB evidence-growth limit was crossed by the actual 61 MB publication. The original failure is retained. A separate read-only verifier rechecked source archive `9bf80a70…`, completed commands, raw outputs, all three TRXs, the exact guarded SQL relationship, and all 150 published file bytes. Its PASS receipt `32e3f6a1…` and publication manifest `4cd30b8a…` are paired evidence; they do not relabel the controller result.
+
+On an isolated copy of the accepted B private database, genuine C Up changed only the invoice unit outcome CHECK and migration history. The private guarded Down/Up rehearsal then restored the exact 223-table row inventory and captured security profile, preserved the accepted B source, and returned the C CHECK to its initial captured definition. It used a rollback-only temporary CHECK probe to bind PostgreSQL's actual Down deparse before applying guarded Down. Raw unguarded Down was not executed. The rehearsal receipt is `78b80e25…`; the original private Up receipt is `2eab16a2…`. No source-schema-4 retained evidence was seeded, so a `55000` retained-evidence veto is **not yet proved**.
+
+The live-mode UI build at source `56fbd3b9` passed as a source artifact: five assets, 112 canonical routes, and 1,844 transformed modules. Its receipt is `25044415…`. It made no browser or API request and was not deployed.
+
+The private candidate image also passed an independent export check of all 150 published files (eight changed from the accepted base), receipt `051513d6…`. The verifier container was never started, and production was unchanged.
+
+**Remaining:** real normal-cookie policy publication, manual Open and independent Decision, original-key recovery, source-schema-4 evidence and retained-data Down veto, qualified Compare and claim reconciliation, browser acceptance, and production activation. No Finance posting or complete UAT claim follows from this checkpoint. The adjacent JSON contains full SHA-256 evidence pins without private payloads or credentials.

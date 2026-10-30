@@ -76,9 +76,10 @@ public static partial class ProcurementInvoiceIntakeRoutes
             nextStep = "Confirm source evidence and resolve duplicate or PO exceptions before matching." });
     }
 
-    private static async Task<IResult> Capture(HttpRequest request, ProcurementDbContext db,
+    internal static async Task<IResult> Capture(HttpRequest request, ProcurementDbContext db,
         ProcurementRequestScope scope, HrmDbContext core, CancellationToken ct)
     {
+        if (!IntakeWriteContextAllowed(scope, request)) return IntakeBranchRequired();
         if (!request.HasJsonContentType()) return Results.StatusCode(415);
         InvoiceIntakeInput? input;
         try { input = await request.ReadFromJsonAsync<InvoiceIntakeInput>(ct); }

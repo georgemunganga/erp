@@ -33,7 +33,9 @@ public static class PrincipalInvoiceMatchingBridge
             _ = PrincipalInvoiceMappingEvidence.VerifyStored(mapping, invoice, originalLines);
             // Existing verifier dispatches source3 for original-document review and
             // rechecks actual Core completion, independence, documents and consumer.
-            var units = InvoiceRetainedUnitReview.Verify(authority, invoice, originalLines, mapping, consumer);
+            var units = review.ManualSource is { } manual
+                ? InvoiceManualUnitReviewEvidence.Verify(authority, manual, invoice, originalLines, mapping, consumer)
+                : InvoiceRetainedUnitReview.Verify(authority, invoice, originalLines, mapping, consumer);
             return units.Count == review.VerifiedUnits.Count
                 && units.All(x => review.VerifiedUnits.TryGetValue(x.Key, out var unit) && unit == x.Value);
         }

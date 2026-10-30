@@ -1,0 +1,123 @@
+{
+  "date": "2026-10-29",
+  "erpSourceCommit": "0f656d6316e39063eb09da45210db4b142717ecf",
+  "evidence": {
+    "blockedComparison": {
+      "receiptSha256": "5210d32bd10bdd139ba5f8f7257700b9095c17c9937c2d5a5d17e1b55109d71c",
+      "status": "PASS_PRIVATE_M6C_BLOCKED_COMPARE_BOUNDED_NATIVE_PERSISTENCE_READ_ONLY"
+    },
+    "blockedReceiptRecovery": {
+      "receiptSha256": "e5946cfdf9324856411bf52330db93e03dc4221093c124332a600c76e0c7778c",
+      "status": "PASS_PRIVATE_M6C_BLOCKED_COMPARE_ORIGINAL_KEY_GET_ONLY"
+    },
+    "fixtureRestoration": {
+      "activeSyntheticSessions": 0,
+      "originalRoleRowsRestored": 2,
+      "receiptSha256": "f4cc01b2b8e6a89b4ee2d7a01e76f93a1d2c717b66dad455e21851d89eee047a",
+      "status": "PASS_PRIVATE_M6C_FIXTURE_RESTORED",
+      "temporaryInvoiceColumnGrantsRemoved": 9,
+      "temporaryTableGrantEdgesRemoved": 34
+    },
+    "flagOffHistory": {
+      "receiptSha256": "2ab60710420314940b95f961ec341a7dcda003f467559f48ea5aab17c7fea491",
+      "status": "PASS_PRIVATE_M6C_BLOCKED_FLAGOFF_API_HISTORY_OWNER_PENDING"
+    },
+    "flagOffNativeOwner": {
+      "receiptSha256": "b8871dd4cf9abec419406649b7b795d22d7de9d34db10bce2c384f31ef014315",
+      "status": "PASS_PRIVATE_M6C_BLOCKED_FLAGOFF_HISTORY_NATIVE_READ_ONLY"
+    },
+    "nativeReview": {
+      "receiptSha256": "e7dc259a42f1ea969aabd98f10fc7581bf6d9ad73ef8f4bba0faed93a10a2fff",
+      "status": "PASS_PRIVATE_M6C_BROWSER_BOUNDED_NATIVE_PERSISTENCE_READ_ONLY"
+    },
+    "retainedDownVeto": {
+      "receiptSha256": "47d1c2ae2c8db553b3e67e2c86501d618a47ed82e4079046ee14e3f13e74c9fd",
+      "status": "PASS_PRIVATE_M6C_COMBINED_RETAINED_MARKERS_DOWN_VETO_55000_NO_DDL"
+    },
+    "sdk": {
+      "publicationFiles": 150,
+      "publicationManifestSha256": "c99b5c18a63ec79fd29841162e2a9a246aada9cf063e00ae70b58e7bc8385e73",
+      "receiptSha256": "9316a2fad28839ed4fbc31999fc16da4dfbab1b38b473989f041e73eabc46d3c",
+      "status": "PASS_M6C_INTEGRATED_BUILD_TESTS_PUBLISH_GUARDED_EF_NO_DATABASE",
+      "tests": {
+        "guard-focused": {
+          "counters": {
+            "aborted": "0",
+            "completed": "0",
+            "disconnected": "0",
+            "error": "0",
+            "executed": "1",
+            "failed": "0",
+            "inProgress": "0",
+            "inconclusive": "0",
+            "notExecuted": "0",
+            "notRunnable": "0",
+            "passed": "1",
+            "passedButRunAborted": "0",
+            "pending": "0",
+            "timeout": "0",
+            "total": "1",
+            "warning": "0"
+          },
+          "sha256": "672cb56af5d1cb2caa9e6ba908dcad50b3ea080ddb4616e4460b50f26733010c"
+        },
+        "host": {
+          "counters": {
+            "aborted": "0",
+            "completed": "0",
+            "disconnected": "0",
+            "error": "0",
+            "executed": "671",
+            "failed": "0",
+            "inProgress": "0",
+            "inconclusive": "0",
+            "notExecuted": "0",
+            "notRunnable": "0",
+            "passed": "671",
+            "passedButRunAborted": "0",
+            "pending": "0",
+            "timeout": "0",
+            "total": "671",
+            "warning": "0"
+          },
+          "sha256": "37d91d5117e9ebf567a4d5dee3cf70edb218c555c21b37293cebbff065660413"
+        },
+        "procurement": {
+          "counters": {
+            "aborted": "0",
+            "completed": "0",
+            "disconnected": "0",
+            "error": "0",
+            "executed": "1592",
+            "failed": "0",
+            "inProgress": "0",
+            "inconclusive": "0",
+            "notExecuted": "0",
+            "notRunnable": "0",
+            "passed": "1592",
+            "passedButRunAborted": "0",
+            "pending": "0",
+            "timeout": "0",
+            "total": "1592",
+            "warning": "0"
+          },
+          "sha256": "36fa2c3a2be806bfc7a122e9df7e29dfe58cdf28df69cd1de87c2457e48fc713"
+        }
+      }
+    },
+    "uiComposite": {
+      "receiptSha256": "f27fbc3378a721a4955ae4b27a6322b7b17626d82f9e54b94ee7797f34995f8a",
+      "status": "PASS_PRIVATE_M6C_REAL_UI_OWNER_PENDING"
+    }
+  },
+  "productionMutation": false,
+  "remaining": [
+    "qualified comparison and allocation acceptance",
+    "currency-aware new invoice calculation",
+    "controlled correction after review history",
+    "release review and production activation"
+  ],
+  "schemaVersion": 1,
+  "status": "PRIVATE_REVIEW_AND_BLOCKED_CONTROL_ACCEPTED_NOT_FULL_UAT",
+  "uiSourceCommit": "56fbd3b90a6f57854717a6dfc8e55203108a1312"
+}

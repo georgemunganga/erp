@@ -15,11 +15,14 @@ public static partial class ProcurementInvoiceUnitReviewRoutes
         InvoiceMatchMappingVersion mapping, InvoiceMappingReviewContext context, CancellationToken ct)
     {
         var options = http.RequestServices.GetRequiredService<ProcurementInvoiceUnitReviewOptions>();
-        if (!options.Enabled || !options.ExecutionDatabaseConfigured) return null;
+        if (!options.ExecutionDatabaseConfigured || !options.Enabled && !options.ManualAttestationEnabled) return null;
         if (!await http.RequestServices.GetRequiredService<IProcurementInvoiceUnitReviewSchemaReadiness>().IsReadyAsync(db, ct))
             return InvoiceMappingReview.Unavailable("InvoiceUnitReviewSchemaUnavailable");
         var source = await db.InvoiceUnitReviewSources.SingleOrDefaultAsync(x => x.SupplierInvoiceId == invoice.Id && x.MappingVersionId == mapping.Id, ct);
         if (source is null) return InvoiceMappingReview.Unavailable("OriginalInvoiceUnitReviewRequired");
+        if (InvoiceUnitReviewStorage.Read(source).SourceSchemaVersion == 4)
+            return await RetainedManualReview(db, cases, scope, http, invoice, originals, mapping, source, context, ct);
+        if (!options.Enabled) return null;
         if (!await ProcurementInvoiceReviewDocumentReadiness.ReadyAsync(db, scope, false, false, ct))
             return InvoiceMappingReview.Unavailable("InvoiceUnitReviewDocumentRetentionUnavailable");
         if (source.BranchRef != invoice.BranchRef) throw new UnauthorizedAccessException();

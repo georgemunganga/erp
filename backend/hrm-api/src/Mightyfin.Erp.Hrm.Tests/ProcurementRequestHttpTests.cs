@@ -2797,7 +2797,7 @@ public sealed partial class ProcurementRequestHttpTests
         await fixture.ConfigureCoreRole(fixture.Other, "ap_processor");
         var captured = await SendJson(fixture.Client, HttpMethod.Post, "/api/procurement/v1/invoices", fixture.Other,
             new InvoiceIntakeInput(supplier, null, "READINESS-1", DateOnly.FromDateTime(DateTime.UtcNow), null, "ZMW",
-                [new InvoiceIntakeLineInput("Recorded invoice", 1, 100, 0, null, null)]), "ap_processor");
+                [new InvoiceIntakeLineInput("Recorded invoice", 1, 100, 0, null, null)]), "ap_processor", selectedLocation: await fixture.IntakeSelectedBranch());
         Assert.Equal(HttpStatusCode.Created, captured.StatusCode);
         var invoice = await captured.Content.ReadFromJsonAsync<JsonElement>(); var id = invoice.GetProperty("id").GetGuid();
         var before = await fixture.InvoiceReadinessFootprint();
@@ -2854,11 +2854,11 @@ public sealed partial class ProcurementRequestHttpTests
         Assert.Equal(HttpStatusCode.Unauthorized,
             (await fixture.Client.PostAsJsonAsync(path, input)).StatusCode);
         Assert.Equal(HttpStatusCode.Forbidden,
-            (await SendJson(fixture.Client, HttpMethod.Post, path, fixture.Owner, input)).StatusCode);
+            (await SendJson(fixture.Client, HttpMethod.Post, path, fixture.Owner, input, selectedLocation: await fixture.IntakeSelectedBranch())).StatusCode);
 
         await fixture.ConfigureCoreRole(fixture.Other, "ap_processor");
         var created = await SendJson(fixture.Client, HttpMethod.Post, path, fixture.Other, input,
-            "ap_processor");
+            "ap_processor", selectedLocation: await fixture.IntakeSelectedBranch());
         Assert.Equal(HttpStatusCode.Created, created.StatusCode);
         var row = await created.Content.ReadFromJsonAsync<JsonElement>();
         var id = row.GetProperty("id").GetGuid();
@@ -2878,14 +2878,14 @@ public sealed partial class ProcurementRequestHttpTests
 
         Assert.Equal(HttpStatusCode.Conflict,
             (await SendJson(fixture.Client, HttpMethod.Post, path, fixture.Other,
-                input with { InvoiceNumber = "inv-001" }, "ap_processor")).StatusCode);
+                input with { InvoiceNumber = "inv-001" }, "ap_processor", selectedLocation: await fixture.IntakeSelectedBranch())).StatusCode);
         Assert.Equal(HttpStatusCode.UnprocessableEntity,
             (await SendJson(fixture.Client, HttpMethod.Post, path, fixture.Other,
-                input with { InvoiceNumber = "INV-002", DueDate = today.AddDays(-1) }, "ap_processor")).StatusCode);
+                input with { InvoiceNumber = "INV-002", DueDate = today.AddDays(-1) }, "ap_processor", selectedLocation: await fixture.IntakeSelectedBranch())).StatusCode);
         Assert.Equal(HttpStatusCode.UnprocessableEntity,
             (await SendJson(fixture.Client, HttpMethod.Post, path, fixture.Other,
                 input with { InvoiceNumber = "INV-003", Lines = [new InvoiceIntakeLineInput("Invalid", 0, 1, 0, null, null)] },
-                "ap_processor")).StatusCode);
+                "ap_processor", selectedLocation: await fixture.IntakeSelectedBranch())).StatusCode);
         Assert.Equal(0, await fixture.InvoiceHandoffCount());
     }
 
@@ -2950,12 +2950,13 @@ public sealed partial class ProcurementRequestHttpTests
         Assert.Equal(.0001m,saved.GetProperty("lines")[0].GetProperty("unitPrice").GetDecimal());
         Assert.Equal(.9999m,saved.GetProperty("lines")[1].GetProperty("unitPrice").GetDecimal());
     }
-    private static Task<HttpResponseMessage> RawInvoice(Fixture fixture,Guid supplier,string number,string lines)
+    private static async Task<HttpResponseMessage> RawInvoice(Fixture fixture,Guid supplier,string number,string lines)
     {
         var body="{\"supplierId\":\""+supplier+"\",\"invoiceNumber\":\""+number+"\",\"invoiceDate\":\"2026-10-20\",\"currencyCode\":\"ZMW\",\"lines\":["+lines+"]}";
         var request=new HttpRequestMessage(HttpMethod.Post,"/api/procurement/v1/invoices") { Content=new StringContent(body,System.Text.Encoding.UTF8,"application/json") };
         request.Headers.Add("X-Test-User",fixture.Other.ToString());request.Headers.Add("X-Test-Role","ap_processor");
-        return fixture.Client.SendAsync(request);
+        request.Headers.Add("X-Shell-Location",(await fixture.IntakeSelectedBranch()).ToString());
+        return await fixture.Client.SendAsync(request);
     }
 
     [Fact]
@@ -2993,13 +2994,13 @@ public sealed partial class ProcurementRequestHttpTests
         Assert.Equal(HttpStatusCode.OK,
             (await Send(fixture.Client, HttpMethod.Get, $"{path}/{id}", fixture.Reviewer, role: "ap_processor")).StatusCode);
         Assert.Equal(HttpStatusCode.Conflict,
-            (await SendJson(fixture.Client, HttpMethod.Post, path, fixture.Other, input, "ap_processor")).StatusCode);
+            (await SendJson(fixture.Client, HttpMethod.Post, path, fixture.Other, input, "ap_processor", selectedLocation: await fixture.IntakeSelectedBranch())).StatusCode);
         Assert.Equal(HttpStatusCode.UnprocessableEntity,
             (await SendJson(fixture.Client, HttpMethod.Post, path, fixture.Other,
-                input with { InvoiceNumber = "BRANCH-INV-002", PurchaseOrderId = orderId }, "ap_processor")).StatusCode);
+                input with { InvoiceNumber = "BRANCH-INV-002", PurchaseOrderId = orderId }, "ap_processor", selectedLocation: await fixture.IntakeSelectedBranch())).StatusCode);
 
         var scoped = await SendJson(fixture.Client, HttpMethod.Post, path, fixture.Other,
-            input with { InvoiceNumber = "BRANCH-INV-003" }, "ap_processor");
+            input with { InvoiceNumber = "BRANCH-INV-003" }, "ap_processor", selectedLocation: await fixture.IntakeSelectedBranch());
         Assert.Equal(HttpStatusCode.Created, scoped.StatusCode);
         var own = await scoped.Content.ReadFromJsonAsync<JsonElement>();
         Assert.Equal(assignedBranch, own.GetProperty("branchRef").GetGuid());
@@ -3503,7 +3504,7 @@ public sealed partial class ProcurementRequestHttpTests
         await fixture.ConfigureCoreRole(fixture.Owner, "ap_processor");
         var invoice = await SendJson(fixture.Client, HttpMethod.Post, "/api/procurement/v1/invoices", fixture.Owner,
             new InvoiceIntakeInput(supplierId, null, "DOC-INV-1", new DateOnly(2026, 10, 20), null, "ZMW",
-                [new InvoiceIntakeLineInput("Supplies", 1, 100, 0, null, null)]), "ap_processor");
+                [new InvoiceIntakeLineInput("Supplies", 1, 100, 0, null, null)]), "ap_processor", selectedLocation: await fixture.IntakeSelectedBranch());
         Assert.Equal(HttpStatusCode.Created, invoice.StatusCode);
         var id = (await invoice.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("id").GetGuid();
         var path = $"/api/procurement/v1/invoices/{id}/documents";

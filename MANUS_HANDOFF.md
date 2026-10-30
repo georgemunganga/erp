@@ -392,3 +392,12 @@ The P28 migration is not applied to production. Keep its schema checks and the e
 ## Queued P35 backend verification — 24 October 2026
 
 [MANUS-P35-BACKEND-VERIFICATION-06](docs/collaboration/manus/MANUS-P35-BACKEND-VERIFICATION-06.md) is a separate, queued source-verification assignment pinned to ERP branch `codex/p35-contract-review-source` at `f5cee78d57df4a0d22089b9a7b94fee844f27233`. It must not interrupt the active Core build, scanner or P33 UI workstreams. P32/P33/P35 remain held and default off pending genuine schema, runtime and owner evidence; the task's SDK and test results must be recorded before any further activation claim.
+
+
+## Coordinator checkpoint — 29 October 2026
+
+No new Manus milestone is assigned by this checkpoint. Published main baselines remain ERP `1c6a81d772c654e7a58254845d116e2cc3b0d7bd` and UI `47cac6a13a24e9db113383f8a9cf5b319494d526`; refresh and verify them before any subsequent assignment.
+
+Coordinator-owned draft [ERP PR #136](https://github.com/georgemunganga/erp/pull/136) and [UI PR #94](https://github.com/georgemunganga/module-connect/pull/94) retain the original imported invoice UI and manual Core unit-review work. Backend `0f656d63` passes 1,592 Procurement and 671 host tests plus a focused regression. Original-UI review/recovery and native retained history passed; the recorded comparison is legitimately Blocked with no qualified claim. See the [current private workflow checkpoint](docs/procurement/gap-closure/M6C-PRIVATE-WORKFLOW-CHECKPOINT-20261029.md) for evidence and release limits.
+
+Currency-aware invoice calculation and controlled correction after processing history remain coordinator-owned gaps. The Core precision and M6D documents are proposed contracts; do not implement a competing currency master, replace the imported UI, rewrite historical invoices, enable production capabilities or claim Finance integration from these private tests. New work must consume published, reviewed prerequisites; these draft heads are not published main baselines.

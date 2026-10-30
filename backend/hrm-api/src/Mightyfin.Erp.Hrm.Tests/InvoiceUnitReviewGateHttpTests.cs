@@ -36,6 +36,79 @@ public sealed class InvoiceUnitReviewGateHttpTests
         Assert.Equal(HttpStatusCode.ServiceUnavailable, decision.StatusCode);
         // No coordinator/readiness/context is registered: invoking any store would fail this test.
     }
+    [Fact]
+    public async Task Manual_routes_are_closed_without_configuration_and_never_require_a_document_provider()
+    {
+        await using var app=await App();using var client=app.GetTestClient();var id=Guid.NewGuid();
+        foreach(var path in new[]{ $"/invoices/{id}/manual-unit-review-readiness", $"/invoices/{id}/manual-unit-reviews/commands/{Guid.NewGuid()}", "/manual-invoice-unit-reviews/tasks",
+            $"/manual-invoice-unit-reviews/{id}", $"/manual-invoice-unit-reviews/{id}/commands/{Guid.NewGuid()}?operation=Open"})
+        {
+            using var response=await client.GetAsync("/api/procurement/v1"+path);
+            Assert.Equal(HttpStatusCode.ServiceUnavailable,response.StatusCode);
+            Assert.Equal("InvoiceManualUnitReviewUnavailable",(await response.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("code").GetString());
+        }
+        using var opened=await client.PostAsJsonAsync($"/api/procurement/v1/invoices/{id}/manual-unit-reviews",
+            new ProcurementInvoiceUnitReviewRoutes.OpenInput(1,1,"Entered units checked"));
+        Assert.Equal(HttpStatusCode.ServiceUnavailable,opened.StatusCode);
+        using var decided=await client.PostAsJsonAsync($"/api/procurement/v1/manual-invoice-unit-reviews/{id}/assignments/{Guid.NewGuid()}/decisions",
+            new ProcurementInvoiceUnitReviewRoutes.DecisionInput(1,1,1,"Approve","Independently checked","ManuallyEnteredUnitsConfirmed"));
+        Assert.Equal(HttpStatusCode.ServiceUnavailable,decided.StatusCode);
+        Assert.False(new ProcurementInvoiceUnitReviewOptions().ManualAttestationEnabled);
+    }
+    [Theory]
+    [InlineData(1,"DocumentReview",false)]
+    [InlineData(1,"ManualAttestation",false)]
+    [InlineData(2,"DocumentReview",false)]
+    [InlineData(2,"ManualAttestation",true)]
+    [InlineData(3,"ManualAttestation",false)]
+    public void Manual_policy_requires_both_explicit_schema_and_mode(int schema,string mode,bool expected)
+    {
+        var rules=new Mightyfin.Erp.Procurement.Application.InvoiceUnitReviewPolicyRules.Document([])
+            {SchemaVersion=schema,EvidenceMode=mode};
+        Assert.Equal(expected,ProcurementInvoiceUnitReviewRoutes.IsManualPolicy(rules));
+    }
+    [Fact]
+    public void Manual_write_requires_selected_Core_principal_and_rejects_raw_All_fallback()
+    {
+        var principal=Guid.NewGuid();var branch=Guid.NewGuid();var scope=new ProcurementRequestScope();
+        scope.Set("manual-test",Guid.NewGuid(),principal.ToString("D"),branch,null,true,"test");
+        scope.AssignPrincipal(principal);
+        Assert.True(ProcurementInvoiceUnitReviewRoutes.ManualWriteContext(scope,false));
+        Assert.False(ProcurementInvoiceUnitReviewRoutes.ManualWriteContext(scope,true));
+        var all=new ProcurementRequestScope();
+        all.Set("manual-test",Guid.NewGuid(),principal.ToString("D"),null,null,true,"test",true,[branch]);
+        all.AssignPrincipal(principal);
+        Assert.False(ProcurementInvoiceUnitReviewRoutes.ManualWriteContext(all,false));
+        var noPrincipal=new ProcurementRequestScope();
+        noPrincipal.Set("manual-test",Guid.NewGuid(),principal.ToString("D"),branch,null,true,"test");
+        Assert.False(ProcurementInvoiceUnitReviewRoutes.ManualWriteContext(noPrincipal,false));
+    }
+    [Theory]
+    [InlineData("actor")][InlineData("key")][InlineData("operation")]
+    [InlineData("tenant")][InlineData("company")][InlineData("branch")][InlineData("invoice")]
+    public void Manual_recorded_value_rejects_foreign_actor_key_operation_and_scope_before_payload(string fault)
+    {
+        var principal=Guid.NewGuid().ToString("D");var company=Guid.NewGuid();var branch=Guid.NewGuid();var key=Guid.NewGuid();
+        var scope=new ProcurementRequestScope();scope.Set("manual-recovery-test",company,principal,branch,null,true,"test");
+        var invoice=new Mightyfin.Erp.Procurement.Domain.SupplierInvoice{
+            TenantId="manual-recovery-test",LegalEntityId=company,BranchRef=branch};
+        var source=new Mightyfin.Erp.Procurement.Domain.InvoiceUnitReviewSource{
+            TenantId=fault=="tenant"?"other":"manual-recovery-test",LegalEntityId=fault=="company"?Guid.NewGuid():company,
+            SupplierInvoiceId=fault=="invoice"?Guid.NewGuid():invoice.Id,BranchRef=fault=="branch"?Guid.NewGuid():branch};
+        var receipt=new Mightyfin.Erp.Procurement.Domain.InvoiceUnitReviewCommandReceipt{
+            TenantId="manual-recovery-test",LegalEntityId=company,ReviewSourceId=source.Id,
+            ActorPrincipalId=fault=="actor"?Guid.NewGuid().ToString("D"):principal,
+            Operation=fault=="operation"?"Decision":"Open",CommandKey=fault=="key"?Guid.NewGuid():key};
+        Assert.Throws<KeyNotFoundException>(()=>ProcurementInvoiceUnitReviewRoutes.ManualRecordedValue(
+            receipt,source,invoice,scope,"Open",key));
+    }
+    [Fact]
+    public void Unknown_native_schema_pins_cannot_admit_any_check()
+    {
+        Assert.False(ProcurementInvoiceManualUnitReviewSchemaCapture.MatchesOutcome(""));
+        Assert.False(ProcurementInvoiceManualUnitReviewSchemaCapture.MatchesOutcome(
+            ProcurementInvoiceUnitReviewSchemaReadiness.CheckDefinitions["ck_inv_unit_outcome"]));
+    }
     [Theory]
     [InlineData("ap_processor")][InlineData("procurement_manager")][InlineData("procurement_buyer")]
     public async Task Existing_roles_do_not_gain_new_request_or_original_unit_vote_actions(string role)

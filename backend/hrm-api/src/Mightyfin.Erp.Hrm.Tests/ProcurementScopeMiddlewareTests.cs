@@ -195,6 +195,7 @@ public sealed class ProcurementScopeMiddlewareTests
     [InlineData("/api/procurement/v1/orders/principal-finance-work")]
     [InlineData("/api/procurement/v1/orders/principal-assigned-reviews")]
     [InlineData("/api/procurement/v1/orders/principal-operation-work")]
+    [InlineData("/api/procurement/v1/manual-invoice-unit-reviews/tasks")]
     public async Task Reviewed_All_collections_do_not_default_to_an_assigned_branch(string path)
     {
         await using var db=TestDbContextFactory.Create("tenant-a");var (user,company,_,branch)=await Seed(db);
@@ -264,6 +265,50 @@ public sealed class ProcurementScopeMiddlewareTests
             }).InvokeAsync(http, scope, db);
             Assert.True(reached);
         }
+    }
+
+    [Fact]
+    public void Manual_unit_review_All_scope_is_exact_task_collection_GET_only()
+    {
+        const string tasks="/api/procurement/v1/manual-invoice-unit-reviews/tasks";
+        Assert.True(ProcurementScopeMiddleware.AllOperationalListReadPath(tasks,"GET"));
+        Assert.False(ProcurementScopeMiddleware.AllOperationalListReadPath(tasks,"POST"));
+        Assert.False(ProcurementScopeMiddleware.AllOperationalListReadPath(tasks+"/child","GET"));
+        Assert.False(ProcurementScopeMiddleware.AllOperationalListReadPath(tasks+"s","GET"));
+        Assert.False(ProcurementScopeMiddleware.AllOperationalListReadPath(
+            "/api/procurement/v1/manual-invoice-unit-reviews/11111111-1111-1111-1111-111111111111","GET"));
+        Assert.False(ProcurementScopeMiddleware.AllOperationalListReadPath(
+            "/api/procurement/v1/manual-invoice-unit-reviews/11111111-1111-1111-1111-111111111111/commands/22222222-2222-2222-2222-222222222222","GET"));
+    }
+
+    [Theory]
+    [InlineData("POST", "/api/procurement/v1/invoices", true)]
+    [InlineData("POST", "/api/procurement/v1/invoices", false)]
+    [InlineData("PUT", "/api/procurement/v1/invoices/11111111-1111-1111-1111-111111111111", true)]
+    [InlineData("PUT", "/api/procurement/v1/invoices/11111111-1111-1111-1111-111111111111", false)]
+    [InlineData("POST", "/api/procurement/v1/invoices/11111111-1111-1111-1111-111111111111/cancel", true)]
+    [InlineData("POST", "/api/procurement/v1/invoices/11111111-1111-1111-1111-111111111111/cancel", false)]
+    public async Task Invoice_intake_rejects_raw_All_even_after_middleware_branch_fallback_and_accepts_explicit_branch(
+        string method,string path,bool confined)
+    {
+        await using var db=TestDbContextFactory.Create("tenant-a");var(user,company,_,branch)=await Seed(db);
+        if(confined){db.UserBranchAssignments.Add(new HrUserBranchAssignment{UserId=user.Id,LocationId=branch.Id});await db.SaveChangesAsync();}
+        var(all,allScope)=Request(user.Id);all.Request.Method=method;all.Request.Path=path;
+        all.Request.Headers["X-Shell-Entity"]=company.Id.ToString();all.Request.Headers["X-Shell-Branch-Scope"]="all";
+        var reached=false;
+        await Middleware(_=>{
+            reached=true;Assert.False(ProcurementInvoiceIntakeRoutes.IntakeWriteContextAllowed(allScope,all.Request));
+            if(confined)Assert.Equal(branch.Id,allScope.WorkLocationId);
+            else Assert.Null(allScope.WorkLocationId);
+            return Task.CompletedTask;
+        }).InvokeAsync(all,allScope,db);
+        Assert.True(reached); // Demonstrates why the handler must retain its own raw-header guard.
+        var(selected,selectedScope)=Request(user.Id);selected.Request.Method=method;selected.Request.Path=path;
+        selected.Request.Headers["X-Shell-Entity"]=company.Id.ToString();selected.Request.Headers["X-Shell-Location"]=branch.Id.ToString();
+        reached=false;
+        await Middleware(_=>{reached=true;Assert.True(ProcurementInvoiceIntakeRoutes.IntakeWriteContextAllowed(selectedScope,selected.Request));return Task.CompletedTask;})
+            .InvokeAsync(selected,selectedScope,db);
+        Assert.True(reached);
     }
 
     private static async Task<(LocalUser, LegalEntity, LegalEntity, WorkLocation)> Seed(HrmDbContext db)

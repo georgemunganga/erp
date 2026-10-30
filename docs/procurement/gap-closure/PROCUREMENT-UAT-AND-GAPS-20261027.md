@@ -4,7 +4,13 @@
 
 The audit preserves the imported Procurement UI and shared ERP components. Core owns organisation/company, identity, role grants, record scope, branding and shared platform configuration. A permitted Core user need not be an employee. The organisation is the legal entity and its selected currency is the default; test policy amounts are not approved Amizo purchasing thresholds. Finance owns the ledger and payment execution; its absence does not prevent separately governed manual payment recording.
 
-## Current release update — 28 October
+## Current development update — 29 October
+
+Published main baselines are ERP `1c6a81d7` and UI `47cac6a1`. Draft M6C backend `0f656d63` passed 1,592 Procurement tests, 671 host tests and one focused regression. The [private workflow checkpoint](M6C-PRIVATE-WORKFLOW-CHECKPOINT-20261029.md) records original-UI manual unit review, independent Core decision, original-key recovery, native history reconciliation and a combined retained-data downgrade veto. These are private acceptance results, not a production release.
+
+The actual comparison saved a **Blocked** result for a four-decimal invoice header under a two-decimal matching policy. No qualified allocation or Finance posting was created. Currency-aware new invoice calculation and controlled correction after review history are explicit remaining gaps; neither is solved by changing tolerances or replacing the original UI. Whole-module acceptance remains **NOT READY**. The sections below retain their dated historical scope.
+
+## Release update — 28 October (retained history)
 
 The [M6A private invoice-history checkpoint](M6A-INVOICE-HISTORY-PRIVATE-ACCEPTANCE-20261028.md) passed original-key Open recovery and independent Core approval on backend source `6287bd22`, with native owner and fixture-restoration proof. Its first 503 and committed Open201/readback409 remain separate failed evidence. This source is pending PR #133; published ERP main remains `536f4c77`. The baseline records history only: qualified invoice matching, Finance posting, original invoice-history UI, production activation and whole-module UAT remain open.
 
