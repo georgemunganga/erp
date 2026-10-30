@@ -1,3 +1,11 @@
+# Current integration ownership — 30 October 2026
+
+Published prerequisites remain ERP `1c6a81d772c654e7a58254845d116e2cc3b0d7bd` and Procurement UI `47cac6a13a24e9db113383f8a9cf5b319494d526`. Draft ERP PR137 (`d54d01ec` product) and UI PR95 (`8b91313b` product) are stacked integration work, not published main or production activation. Root owns their release and M6E controlled-invoice replacement. Do not start a collaborator milestone from unpublished M6E source.
+
+One private qualified invoice comparison is now independently reconciled; the feature-off continuation, fixture restoration, migration safeguards and paired release still require completion. The [current UAT register](docs/procurement/gap-closure/PROCUREMENT-UAT-AND-GAPS-20261027.md) remains **NOT READY** for whole-module acceptance. No new Manus assignment is issued here. Existing independent document-scanner ownership is unchanged. The dated sections below retain historical evidence and are superseded for current ownership by this paragraph.
+
+---
+
 # M5 technical release and current prerequisites — 28 October 2026
 
 Published ERP main: `1c6a81d772c654e7a58254845d116e2cc3b0d7bd` (through PR133).

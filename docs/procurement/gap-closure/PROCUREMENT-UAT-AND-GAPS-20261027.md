@@ -6,9 +6,11 @@ The audit preserves the imported Procurement UI and shared ERP components. Core 
 
 ## Current development update — 30 October
 
-Core currency publication and new invoice capture/original-key recovery passed private real UI and native owner verification on ERP `8013252d` / UI `fe425ed`; see the [bounded capture checkpoint](M6D-PRIVATE-CURRENCY-CAPTURE-CHECKPOINT-20261030.md). One invoice was committed and recovered without a duplicate. Historical failed harness attempts remain separate evidence. The next source-picker check found that an unrelated Service order blocked a Goods invoice's whole page. Backend `72537cd5` and UI `72c3882e` correct that read model, with 19 focused Host tests, 23 UI contract tests, type checking and builds passed. Native matching/review/qualified allocation acceptance and release remain open. Published main baselines remain ERP `1c6a81d7` and UI `47cac6a1`; draft heads are not deployment claims.
+Core currency publication, invoice capture/recovery, manual review and one qualified comparison now have bounded private original-UI and native-owner evidence. ERP `d54d01ec` / UI `8b91313b` created exactly one quantity-1 allocation for ZMW 5.12 while preserving the older Blocked result. Backend checks passed 1,678 Procurement tests and 80 focused Host tests; UI type checking, 85 focused tests and build passed. See the [dated checkpoint](M6D-PRIVATE-CURRENCY-CAPTURE-CHECKPOINT-20261030.md) for exact scope and retained failures.
 
-The production database was separately restarted after a disk-full shutdown, using its existing image and volume; the API is healthy. This operational recovery changed no application deployment, schema or permission policy. Whole-module acceptance remains **NOT READY**.
+The feature-off continuation stopped on a test assertion: comparison correctly returned generic `InvoiceMatchingUnavailable`, rather than the expected route-specific code. Three denied requests accepted no business writes; native reconciliation and the remaining UI/history checks are continuing. Controlled invoice replacement is a separate source implementation under compile/migration work, not a completed operational capability. M6D production release, temporary test-grant restoration and whole-module acceptance remain open. Published main baselines remain ERP `1c6a81d7` and UI `47cac6a1`.
+
+The production database was separately restarted after a disk-full shutdown using its existing image and volume; the API is healthy. This recovery changed no application deployment, schema or permission policy. Whole-module acceptance remains **NOT READY**.
 
 ## Current development update — 29 October (retained history)
 
