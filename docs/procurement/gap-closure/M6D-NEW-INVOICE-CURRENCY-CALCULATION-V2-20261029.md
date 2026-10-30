@@ -4,7 +4,7 @@ Proposed child-feature specification using the mandated 28-section framework. Ex
 
 ## 1. Feature Identification
 
-Feature reference: M6D. Procurement owns invoice calculation evidence; Core owns precision. Discovery baseline: ERP 0f656d6316e39063eb09da45210db4b142717ecf and original UI 56fbd3b. Status: Core reference, persistence, invoice v2 API and original-layout UI integration are implemented on the M6D development branch. Automated and isolated native checks passed; real-cookie workflow UAT and release review remain open. See the [bounded arithmetic checkpoint](M6D-PURE-CALCULATION-CHECKPOINT-20261029.md).
+Feature reference: M6D. Procurement owns invoice calculation evidence; Core owns precision. Discovery baseline: ERP 0f656d6316e39063eb09da45210db4b142717ecf and original UI 56fbd3b. Status: Core reference, persistence, invoice v2 API and original-layout UI integration are implemented on the M6D development branch. Automated checks and private real UI/native capture recovery passed; qualified matching, wider workflow UAT and release review remain open. See the [capture checkpoint](M6D-PRIVATE-CURRENCY-CAPTURE-CHECKPOINT-20261030.md). See the [bounded arithmetic checkpoint](M6D-PURE-CALCULATION-CHECKPOINT-20261029.md).
 
 ## 2. Purpose & Business Outcome
 

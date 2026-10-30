@@ -4,7 +4,13 @@
 
 The audit preserves the imported Procurement UI and shared ERP components. Core owns organisation/company, identity, role grants, record scope, branding and shared platform configuration. A permitted Core user need not be an employee. The organisation is the legal entity and its selected currency is the default; test policy amounts are not approved Amizo purchasing thresholds. Finance owns the ledger and payment execution; its absence does not prevent separately governed manual payment recording.
 
-## Current development update — 29 October
+## Current development update — 30 October
+
+Core currency publication and new invoice capture/original-key recovery passed private real UI and native owner verification on ERP `8013252d` / UI `fe425ed`; see the [bounded capture checkpoint](M6D-PRIVATE-CURRENCY-CAPTURE-CHECKPOINT-20261030.md). One invoice was committed and recovered without a duplicate. Historical failed harness attempts remain separate evidence. The next source-picker check found that an unrelated Service order blocked a Goods invoice's whole page. Backend `72537cd5` and UI `72c3882e` correct that read model, with 19 focused Host tests, 23 UI contract tests, type checking and builds passed. Native matching/review/qualified allocation acceptance and release remain open. Published main baselines remain ERP `1c6a81d7` and UI `47cac6a1`; draft heads are not deployment claims.
+
+The production database was separately restarted after a disk-full shutdown, using its existing image and volume; the API is healthy. This operational recovery changed no application deployment, schema or permission policy. Whole-module acceptance remains **NOT READY**.
+
+## Current development update — 29 October (retained history)
 
 Published main baselines are ERP `1c6a81d7` and UI `47cac6a1`. Draft M6C backend `0f656d63` passed 1,592 Procurement tests, 671 host tests and one focused regression. The [private workflow checkpoint](M6C-PRIVATE-WORKFLOW-CHECKPOINT-20261029.md) records original-UI manual unit review, independent Core decision, original-key recovery, native history reconciliation and a combined retained-data downgrade veto. These are private acceptance results, not a production release.
 

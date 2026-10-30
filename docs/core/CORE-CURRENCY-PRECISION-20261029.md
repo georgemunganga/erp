@@ -10,7 +10,7 @@ Proposed child-feature specification using the mandated 28-section framework. Ex
 
 ## 1. Feature Identification
 
-Feature reference: CORE-CURRENCY-PRECISION, shared prerequisite for M6D. Owner: ERP Core. Discovery baseline: ERP 0f656d6316e39063eb09da45210db4b142717ecf and Procurement UI 56fbd3b. Status: implemented on the M6D development branch; isolated native migration and automated checks passed. Real-cookie integration UAT and release review remain required before activation.
+Feature reference: CORE-CURRENCY-PRECISION, shared prerequisite for M6D. Owner: ERP Core. Discovery baseline: ERP 0f656d6316e39063eb09da45210db4b142717ecf and Procurement UI 56fbd3b. Status: implemented on the M6D development branch; isolated native migration and automated checks passed. Core publication and original-key recovery passed bounded private real UI/native checks. Wider integration UAT and release review remain required before production activation.
 
 ## 2. Purpose & Business Outcome
 
