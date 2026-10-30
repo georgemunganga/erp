@@ -116,6 +116,37 @@ public sealed partial class PrincipalManualQuotationEvidenceTests
         Assert.Equal("QuotationOwningEffectsMissing", Assert.Throws<InvalidOperationException>(() => Prepare(db)).Message);
     }
 
+    [Fact]
+    public void Fully_coherent_structural_pin_graph_cannot_save_without_actual_enlisted_Core_transport()
+    {
+        var f = new Fixture(); var contact = f.Contact(); var draft = f.Draft(contact);
+        f.Invitation.Version = contact.InvitationVersionAtCapture;
+        var document = new Mightyfin.Erp.Core.Documents.Domain.DocumentUseSelection("procurement", "supplier_bid",
+            draft.Bid.Id, Guid.NewGuid(), Guid.NewGuid(), 1, 1, new string('a', 64));
+        var offer = Offer() with { Documents = [document] }; var input = OfferedLines(draft);
+        PrincipalQuotationStorage.Apply(draft.Bid, draft.Lines, offer, input);
+        var proposedPin = new PrincipalQuotationStorage.Pin(Guid.NewGuid(), f.Event.TenantId, f.Event.LegalEntityId,
+            new(Guid.NewGuid(), "procurement", "supplier_quotation", draft.Bid.Id, 1,
+                Mightyfin.Erp.Core.Documents.Domain.DocumentUseKind.Review), document.OwnerModule, document.OwnerType,
+            document.OwnerId, document.DocumentId, document.VersionId, document.DocumentRevision,
+            document.VersionRevision, document.Sha256);
+        var command = new PrincipalQuotationCommand("Create", f.Event.Version, f.Invitation.Version,
+            null, null, null, offer, input);
+        var receipt = PrincipalManualQuotationEvidence.Quotation(f.Event, f.Invitation, contact,
+            draft.Bid, draft.Lines, f.Sources, f.Actor, null, Guid.NewGuid(), f.At, "Create",
+            command: command, documentPins: [proposedPin]);
+        var coherent = PrincipalQuotationStorage.Restore(receipt.SnapshotJson);
+        PrincipalManualQuotationEvidence.VerifyQuotation(receipt, coherent.Bid, coherent.Lines, contact);
+        Assert.Equal(1, receipt.DocumentPinCount);
+        using var db = f.Context(); AttachPublication(db, f); db.Attach(f.Invitation); db.Attach(contact);
+        foreach (var source in f.Sources) db.Attach(source);
+        db.AddScoped(draft.Bid); foreach (var line in draft.Lines) db.AddScoped(line); db.AddScoped(receipt);
+        AddEffects(db, PrincipalQuotationEffects.Quotation(receipt));
+        Assert.Equal("QuotationDocumentUsesUnavailable", Assert.Throws<InvalidOperationException>(() => Prepare(db)).Message);
+        // No Core pin store or proof is registered. Structural consistency above
+        // is deliberately NOT claimed as document availability or authority.
+    }
+
     private static void AddEffects(ProcurementDbContext db, PrincipalQuotationEffects.Effects effects)
     {
         effects.Audit.CorrelationId = "m7-factory";

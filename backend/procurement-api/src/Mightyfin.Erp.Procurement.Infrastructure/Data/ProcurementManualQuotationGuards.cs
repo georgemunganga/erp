@@ -39,6 +39,11 @@ public sealed partial class ProcurementDbContext
             RequireManualActor(row, row.ActorPrincipalId, row.ActorCoreLinkedWorkerId);
             if (row.SnapshotSchemaVersion != 3)
                 throw new InvalidOperationException("ManualQuotationNewCaptureRequiresV3");
+            // Proposed pin shapes are not owning Core authority. Until a real
+            // enlisted quotation use-pin transport exists, ONLY empty document
+            // sets may persist; this also closes non-HTTP/generic write paths.
+            if (row.DocumentPinCount != 0)
+                throw new InvalidOperationException("QuotationDocumentUsesUnavailable");
             var bid = SupplierBids.Local.SingleOrDefault(x => x.Id == row.SupplierBidId)
                 ?? throw new InvalidOperationException("ManualQuotationHeaderNotTracked");
             var bidEntry = Entry(bid);
