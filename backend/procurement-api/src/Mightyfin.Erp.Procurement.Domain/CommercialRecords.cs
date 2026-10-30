@@ -52,6 +52,19 @@ public sealed class SourcingInvitation : ProcurementRecord
 
 public sealed class SupplierBid : ProcurementRecord
 {
+    // Zero retains legacy meaning. Only the M7 owning command may create 2;
+    // current employee linkage never determines this Core-principal protocol.
+    public int PrincipalCaptureVersion { get; set; }
+    public string? SupplierQuoteReference { get; set; }
+    public DateOnly? QuoteDate { get; set; }
+    public string? OfferValidityKind { get; set; }
+    public DateOnly? ValidUntil { get; set; }
+    public string? SupplierOfferedPaymentCode { get; set; }
+    public string? SupplierOfferedPaymentText { get; set; }
+    public string? WarrantyText { get; set; }
+    public string? DeliveryTermsText { get; set; }
+    public DateOnly? DeliveryDate { get; set; }
+
     public Guid SourcingEventId { get; set; }
     public Guid SupplierId { get; set; }
     public Guid? InvitationId { get; set; }
@@ -68,6 +81,13 @@ public sealed class SupplierBid : ProcurementRecord
 
 public sealed class SupplierBidLine : ProcurementRecord
 {
+    public int PrincipalCaptureVersion { get; set; }
+    public bool IsActive { get; set; } = true;
+    public string? DiscountKind { get; set; }
+    public decimal DiscountValue { get; set; }
+    public string? TaxTreatment { get; set; }
+    public string? SupplierOfferedTaxCode { get; set; }
+
     public Guid SupplierBidId { get; set; }
     public Guid SourcingLineId { get; set; }
     public decimal Quantity { get; set; }

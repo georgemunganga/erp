@@ -79,6 +79,10 @@ public static class PrincipalManualQuotationDraft
                 || !ExactDecimalJsonCodec.IsRepresentable(line.DeliveryAmount, 18, 4)))
             throw new InvalidOperationException("ManualQuotationLineInvalid");
 
+        // M7 V3 owns exact scaled-integer commercial totals in its complete
+        // typed snapshot. Raw columns keep 18,4, but discounts may add scale and
+        // an aggregate need not fit the legacy CLR/numeric(38,8) total envelope.
+        if (bid.PrincipalCaptureVersion == 2) return;
         try
         {
             // Use shared scaled-integer arithmetic, never rounded CLR decimal
