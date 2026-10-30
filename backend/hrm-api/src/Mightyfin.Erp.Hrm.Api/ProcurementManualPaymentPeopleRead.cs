@@ -17,7 +17,7 @@ public static partial class ProcurementManualPaymentRoutes
         CancellationToken ct)
     {
         var principals = new[] {
-            request.CreatorPrincipalId, request.ApproverPrincipalId, request.RecorderPrincipalId,
+            scope.SubjectId, request.CreatorPrincipalId, request.ApproverPrincipalId, request.RecorderPrincipalId,
             request.ConfirmerPrincipalId, request.ApprovedByPrincipalId,
             request.RecordedByPrincipalId, request.ConfirmedByPrincipalId
         }.Concat(decisions.SelectMany(x => new[] {

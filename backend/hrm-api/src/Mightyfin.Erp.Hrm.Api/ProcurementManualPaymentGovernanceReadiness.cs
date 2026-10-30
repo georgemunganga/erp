@@ -111,7 +111,7 @@ public sealed class ProcurementManualPaymentGovernanceReadiness(
         + " AND NOT has_table_privilege(current_user,'" + table + "','TRUNCATE')"
         + " AND NOT has_table_privilege(current_user,'" + table + "','TRIGGER')";
 
-    private const string CoreOwnerSql = """
+    internal const string CoreOwnerSql = """
         SELECT EXISTS(SELECT 1 FROM core_approval."__EFMigrationsHistory" WHERE "MigrationId"='20261019183218_P01CoreApprovalFoundation')
         AND EXISTS(SELECT 1 FROM hrm.__hrm_migrations WHERE "MigrationId"='20261023130726_CoreCompanyTimeZone')
         AND EXISTS(SELECT 1 FROM pg_attribute a WHERE a.attrelid='hrm.legal_entities'::regclass
