@@ -123,10 +123,11 @@ public static class InvoiceUnitReviewPolicyRules
 
     /// <summary>Retained graph is historical. Reparse the actual owned policy without
     /// manufacturing current account eligibility for reviewers who already completed work.</summary>
-    public static void VerifyRetainedProjection(Projection pinned, PolicyVersion policy, DateTimeOffset now)
+    public static void VerifyRetainedProjection(Projection pinned, PolicyVersion policy, DateTimeOffset now,
+        bool retainedHistoricalPublication = false)
     {
         ValidatePolicy(policy, pinned.TenantId, pinned.LegalEntityId, pinned.BranchId,
-            pinned.MakerPrincipalId, pinned.MakerWorkerId, now);
+            pinned.MakerPrincipalId, pinned.MakerWorkerId, now, retainedHistoricalPublication);
         var rules = Parse(policy.RulesJson);
         Need(policy.Id == pinned.PolicyId && policy.PolicyVersionNumber == pinned.PolicyVersion
             && ProcurementEvidenceEncoding.PolicyJsonDigest(policy.RulesJson) == pinned.RulesSha256
@@ -146,12 +147,14 @@ public static class InvoiceUnitReviewPolicyRules
     }
 
     private static void ValidatePolicy(PolicyVersion policy, string tenant, Guid company, Guid? branch,
-        string maker, Guid? makerWorker, DateTimeOffset now)
+        string maker, Guid? makerWorker, DateTimeOffset now, bool retainedHistoricalPublication = false)
     {
         Need(policy is not null && policy.TenantId == tenant && policy.LegalEntityId == company && company != Guid.Empty
             && !string.IsNullOrWhiteSpace(tenant) && branch != Guid.Empty && Canonical(maker) && ProcurementPrincipalEvidence.OptionalWorker(makerWorker)
             && policy.Id != Guid.Empty && policy.PolicyKey == InvoiceRetainedUnitReview.ReviewPolicyKey
-            && policy.PolicyVersionNumber > 0 && policy.State == "Published" && policy.PublishedAt is { } published
+            && policy.PolicyVersionNumber > 0
+            && (policy.State == "Published" || retainedHistoricalPublication && policy.State == "Superseded")
+            && policy.PublishedAt is { } published
             && published <= now && policy.EffectiveFrom != default && policy.EffectiveFrom <= now
             && (policy.EffectiveTo is null || now < policy.EffectiveTo)
             && Canonical(policy.CreatedBy) && Canonical(policy.PublishedBy) && policy.CreatedBy != policy.PublishedBy

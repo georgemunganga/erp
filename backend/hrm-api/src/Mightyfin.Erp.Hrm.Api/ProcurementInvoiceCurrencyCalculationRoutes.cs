@@ -88,44 +88,65 @@ public static partial class ProcurementInvoiceIntakeRoutes
                 || input.ExpectedCalculationSha256 != PreviewDigest(input, precision))
                 return Results.Conflict(new { code = "invoice-calculation-changed", message = "Invoice details or currency settings changed. Review the updated calculation before saving." });
             var result = CalculateInput(input, precision);
-            var selectedBranch = scope.WorkLocationId;
-            if (selectedBranch is not { } branch || !await CoreCurrencyPrecisionReader.BranchAvailableForCompanyAsync(
-                    db.Database.GetDbConnection(), transaction.GetDbTransaction(), scope.TenantId,
-                    scope.LegalEntityId, branch, precision.ObservedAtUtc, ct))
-                return Invalid("The invoice branch is unavailable in this company.");
-            var prepared = await Prepare(input, db, core, scope, null, ct, result, branch);
-            var invoice = new SupplierInvoice { BranchRef = prepared.Branch, IntakeChannel = "Manual",
-                Status = "Received", CreatedBy = scope.SubjectId };
-            Apply(invoice, prepared); db.AddScoped(invoice);
-            var lines = new List<SupplierInvoiceLine>(input.Lines!.Count);
-            for (var i = 0; i < input.Lines.Count; i++)
-            {
-                var line = new SupplierInvoiceLine { SupplierInvoiceId = invoice.Id, LineNumber = i + 1 };
-                ApplyLine(line, input.Lines[i]); db.AddScoped(line); lines.Add(line);
-            }
-            var snapshot = new InvoiceCurrencyPrecisionSnapshot(precision.CurrencyCode,
-                precision.ReferenceId, precision.Revision, precision.MinorUnits, ParseRounding(precision.Rounding));
-            var evidence = InvoiceAmountCalculationEvidence.Create(invoice, lines, snapshot,
-                precision.PayloadSha256, precision.PublishedAtUtc, precision.ObservedAtUtc, scope.SubjectId);
-            db.AddScoped(evidence);
-            var marker = InvoiceAmountCalculationEvidence.MarkerJson(evidence);
-            db.AddScoped(new AuditEvent { RecordType = nameof(InvoiceAmountCalculation), RecordId = evidence.Id,
-                Action = InvoiceAmountCalculationEvidence.AuditAction, ActorSubjectId = scope.SubjectId,
-                ChangedFieldsJson = marker, CorrelationId = scope.CorrelationId });
-            db.AddScoped(new OutboxEvent { AggregateType = nameof(SupplierInvoice), AggregateId = invoice.Id,
-                EventType = InvoiceAmountCalculationEvidence.EventType, EventVersion = 2, PayloadJson = marker,
-                IdempotencyKey = "invoice-amount-calculation:" + evidence.Id.ToString("D") });
-            var responseJson = JsonSerializer.Serialize(new {
-                invoice.Id, invoice.InvoiceNumber, invoice.Status, invoice.GrossAmount, invoice.CurrencyCode,
-                invoice.BranchRef, invoice.Version, intakeSchemaVersion = 2,
-                calculationId = evidence.Id, amounts = CalculationView(result) }, CalculationJson);
-            db.AddScoped(InvoiceIntakeCommandReceiptEvidence.Create(invoice, evidence, lines, commandKey,
-                scope.SubjectId, requestSha, responseJson, CalculationNow(request.HttpContext)));
+            var staged = await StageCurrencyCaptureAsync(input, db, core, scope, precision, result,
+                commandKey, requestSha, CalculationNow(request.HttpContext), ct);
             await db.SaveChangesAsync(ct);
             await transaction.CommitAsync(ct);
-            return Results.Content(responseJson, "application/json", statusCode: 201);
+            return Results.Content(staged.ResponseJson, "application/json", statusCode: 201);
         }
         catch (InvalidOperationException e) { return CalculationProblem(e); }
+    }
+
+    private sealed record StagedCurrencyCapture(SupplierInvoice Invoice,
+        IReadOnlyList<SupplierInvoiceLine> Lines, InvoiceAmountCalculation Calculation,
+        InvoiceIntakeCommandReceipt Receipt, string ResponseJson);
+
+    // Both the ordinary capture endpoint and replacement command use this one
+    // owned staging operation. The caller supplies the SAME transaction and
+    // commits once after every successor/link/receipt guard has passed.
+    private static async Task<StagedCurrencyCapture> StageCurrencyCaptureAsync(InvoiceIntakeInput input,
+        ProcurementDbContext db, HrmDbContext core, ProcurementRequestScope scope,
+        CoreCurrencyPrecisionSnapshot precision, InvoiceCurrencyCalculationResult result,
+        Guid commandKey, string requestSha, DateTimeOffset completedAt, CancellationToken ct)
+    {
+        var transaction = db.Database.CurrentTransaction?.GetDbTransaction();
+        if (transaction?.IsolationLevel != IsolationLevel.Serializable)
+            throw new InvalidOperationException("InvoiceCaptureSharedSerializableRequired");
+        var selectedBranch = scope.WorkLocationId;
+        if (selectedBranch is not { } branch || !await CoreCurrencyPrecisionReader.BranchAvailableForCompanyAsync(
+                db.Database.GetDbConnection(), transaction, scope.TenantId,
+                scope.LegalEntityId, branch, precision.ObservedAtUtc, ct))
+            throw new IntakeProblem("validation-failed", "The invoice branch is unavailable in this company.", 422);
+        var prepared = await Prepare(input, db, core, scope, null, ct, result, branch);
+        var invoice = new SupplierInvoice { BranchRef = prepared.Branch, IntakeChannel = "Manual",
+            Status = "Received", CreatedBy = scope.SubjectId };
+        Apply(invoice, prepared); db.AddScoped(invoice);
+        var lines = new List<SupplierInvoiceLine>(input.Lines!.Count);
+        for (var i = 0; i < input.Lines.Count; i++)
+        {
+            var line = new SupplierInvoiceLine { SupplierInvoiceId = invoice.Id, LineNumber = i + 1 };
+            ApplyLine(line, input.Lines[i]); db.AddScoped(line); lines.Add(line);
+        }
+        var snapshot = new InvoiceCurrencyPrecisionSnapshot(precision.CurrencyCode,
+            precision.ReferenceId, precision.Revision, precision.MinorUnits, ParseRounding(precision.Rounding));
+        var evidence = InvoiceAmountCalculationEvidence.Create(invoice, lines, snapshot,
+            precision.PayloadSha256, precision.PublishedAtUtc, precision.ObservedAtUtc, scope.SubjectId);
+        db.AddScoped(evidence);
+        var marker = InvoiceAmountCalculationEvidence.MarkerJson(evidence);
+        db.AddScoped(new AuditEvent { RecordType = nameof(InvoiceAmountCalculation), RecordId = evidence.Id,
+            Action = InvoiceAmountCalculationEvidence.AuditAction, ActorSubjectId = scope.SubjectId,
+            ChangedFieldsJson = marker, CorrelationId = scope.CorrelationId });
+        db.AddScoped(new OutboxEvent { AggregateType = nameof(SupplierInvoice), AggregateId = invoice.Id,
+            EventType = InvoiceAmountCalculationEvidence.EventType, EventVersion = 2, PayloadJson = marker,
+            IdempotencyKey = "invoice-amount-calculation:" + evidence.Id.ToString("D") });
+        var responseJson = JsonSerializer.Serialize(new {
+            invoice.Id, invoice.InvoiceNumber, invoice.Status, invoice.GrossAmount, invoice.CurrencyCode,
+            invoice.BranchRef, invoice.Version, intakeSchemaVersion = 2,
+            calculationId = evidence.Id, amounts = CalculationView(result) }, CalculationJson);
+        var receipt = InvoiceIntakeCommandReceiptEvidence.Create(invoice, evidence, lines, commandKey,
+            scope.SubjectId, requestSha, responseJson, completedAt);
+        db.AddScoped(receipt);
+        return new(invoice, lines, evidence, receipt, responseJson);
     }
 
     private static async Task<IResult> RecoverCurrencyCapture(Guid key, HttpRequest request,

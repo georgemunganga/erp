@@ -99,6 +99,26 @@ public sealed class InvoiceManualUnitReviewEvidenceTests
             new HashSet<Guid> { f.Policy.Branch }, false);
         Assert.Equal("EACH", InvoiceManualUnitReviewEvidence.Verify(authority,
             plan.Source, f.Invoice, [f.Line], f.Mapping, consumer)[f.Line.Id]);
+        // The completed Core review remains provable at the original comparison
+        // observation even after both retained policies cease being current.
+        f.Matching.EffectiveTo = f.Policy.Now.AddMinutes(3);
+        f.Policy.Policy.EffectiveTo = f.Policy.Now.AddMinutes(3);
+        f.Matching.State = "Superseded";
+        f.Policy.Policy.State = "Superseded";
+        Assert.Equal("EACH", InvoiceManualUnitReviewEvidence.VerifyHistorical(authority,
+            plan.Source, f.Invoice, [f.Line], f.Mapping,
+            f.Policy.Now.AddMinutes(2))[f.Line.Id]);
+        Assert.Throws<InvalidOperationException>(() => InvoiceManualUnitReviewEvidence.Verify(
+            authority, plan.Source, f.Invoice, [f.Line], f.Mapping, consumer));
+        Assert.Throws<InvalidOperationException>(() => InvoiceManualUnitReviewEvidence.VerifyHistorical(
+            authority, plan.Source, f.Invoice, [f.Line], f.Mapping,
+            f.Policy.Now.AddMinutes(4)));
+        f.Matching.State = "Retired";
+        Assert.Throws<InvalidOperationException>(() => InvoiceManualUnitReviewEvidence.VerifyHistorical(
+            authority, plan.Source, f.Invoice, [f.Line], f.Mapping,
+            f.Policy.Now.AddMinutes(2)));
+        f.Matching.State = "Published"; f.Matching.EffectiveTo = null;
+        f.Policy.Policy.State = "Published"; f.Policy.Policy.EffectiveTo = null;
 
         var json = new JsonSerializerOptions(JsonSerializerDefaults.Web);
         var envelope = JsonSerializer.Deserialize<InvoiceManualUnitReviewEnvelope>(terminal.EvidenceJson, json)!;

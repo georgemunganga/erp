@@ -11,9 +11,10 @@ public static partial class ProcurementInvoiceUnitReviewRoutes
     private static async Task<InvoiceMappingReview> RetainedManualReview(ProcurementDbContext db,
         ApprovalDbContext cases,ProcurementRequestScope scope,HttpContext http,SupplierInvoice invoice,
         IReadOnlyList<SupplierInvoiceLine> originals,InvoiceMatchMappingVersion mapping,
-        InvoiceUnitReviewSource source,InvoiceMappingReviewContext context,CancellationToken ct)
+        InvoiceUnitReviewSource source,InvoiceMappingReviewContext context,CancellationToken ct,
+        bool requireCurrentPublication)
     {
-        if(!http.RequestServices.GetRequiredService<ProcurementInvoiceUnitReviewOptions>().ManualAttestationEnabled)
+        if(requireCurrentPublication && !http.RequestServices.GetRequiredService<ProcurementInvoiceUnitReviewOptions>().ManualAttestationEnabled)
             return InvoiceMappingReview.Unavailable("InvoiceManualUnitReviewExecutionDisabled");
         if(!await ProcurementInvoiceManualUnitReviewSchemaCapture.IsInstalledAsync(db,ct))
             return InvoiceMappingReview.Unavailable("InvoiceManualUnitReviewSchemaUnavailable");
@@ -44,14 +45,27 @@ public static partial class ProcurementInvoiceUnitReviewRoutes
         var matching=await db.PolicyVersions.SingleAsync(x=>x.Id==source.MatchingPolicyId,ct);
         var review=await db.PolicyVersions.SingleAsync(x=>x.Id==source.ReviewPolicyId,ct);
         RequireManualPolicy(review);
-        await ProcurementOperationalPolicyCurrentPublication.RequireAsync(db,scope,http.RequestServices,matching,ct);
-        await ProcurementOperationalPolicyCurrentPublication.RequireAsync(db,scope,http.RequestServices,review,ct);
+        if (requireCurrentPublication)
+        {
+            await ProcurementOperationalPolicyCurrentPublication.RequireAsync(db,scope,http.RequestServices,matching,ct);
+            await ProcurementOperationalPolicyCurrentPublication.RequireAsync(db,scope,http.RequestServices,review,ct);
+        }
+        else
+        {
+            _=await ProcurementOperationalPolicyWorkerIdentity.VerifyPublicationAsync(db,scope,matching,ct,
+                OperationalPolicyPublicationMode.RetainedHistorical);
+            _=await ProcurementOperationalPolicyWorkerIdentity.VerifyPublicationAsync(db,scope,review,ct,
+                OperationalPolicyPublicationMode.RetainedHistorical);
+        }
         var votes=await cases.Decisions.Where(x=>x.CaseId==workflow.Id).ToArrayAsync(ct);
         var authority=new InvoiceRetainedUnitReviewAuthority(source.Id,1,outcome.EvidenceJson,outcome.EvidenceSha256,
             workflow,votes,owned.AssignmentWorkers,matching,review);
         var consumer=new InvoiceUnitReviewConsumer(scope.TenantId,scope.LegalEntityId,invoice.BranchRef,scope.SubjectId,
             actor.WorkerId,actor.Permissions,context.At,EmptyManualDocumentHashes,scope.WorkLocationId,actor.AllowedBranches,actor.OrganisationWide);
-        var units=InvoiceManualUnitReviewEvidence.Verify(authority,owned.Source,invoice,originals,mapping,consumer);
+        var units=requireCurrentPublication
+            ? InvoiceManualUnitReviewEvidence.Verify(authority,owned.Source,invoice,originals,mapping,consumer)
+            : InvoiceManualUnitReviewEvidence.VerifyHistorical(authority,owned.Source,invoice,originals,mapping,
+                context.At);
         return new(true,"Verified",outcome.EvidenceJson,units)
             {RetainedAuthority=authority,CurrentConsumer=consumer,ManualSource=owned.Source};
     }

@@ -12,16 +12,19 @@ public static partial class ProcurementInvoiceUnitReviewRoutes
     // This supplies only units; historical Finance exposure keeps its separate unavailable owner.
     internal static async Task<InvoiceMappingReview?> RetainedReview(ProcurementDbContext db, ApprovalDbContext cases,
         ProcurementRequestScope scope, HttpContext http, SupplierInvoice invoice, IReadOnlyList<SupplierInvoiceLine> originals,
-        InvoiceMatchMappingVersion mapping, InvoiceMappingReviewContext context, CancellationToken ct)
+        InvoiceMatchMappingVersion mapping, InvoiceMappingReviewContext context, CancellationToken ct,
+        bool requireCurrentPublication = true)
     {
         var options = http.RequestServices.GetRequiredService<ProcurementInvoiceUnitReviewOptions>();
-        if (!options.ExecutionDatabaseConfigured || !options.Enabled && !options.ManualAttestationEnabled) return null;
+        if (!options.ExecutionDatabaseConfigured
+            || requireCurrentPublication && !options.Enabled && !options.ManualAttestationEnabled) return null;
         if (!await http.RequestServices.GetRequiredService<IProcurementInvoiceUnitReviewSchemaReadiness>().IsReadyAsync(db, ct))
             return InvoiceMappingReview.Unavailable("InvoiceUnitReviewSchemaUnavailable");
         var source = await db.InvoiceUnitReviewSources.SingleOrDefaultAsync(x => x.SupplierInvoiceId == invoice.Id && x.MappingVersionId == mapping.Id, ct);
         if (source is null) return InvoiceMappingReview.Unavailable("OriginalInvoiceUnitReviewRequired");
         if (InvoiceUnitReviewStorage.Read(source).SourceSchemaVersion == 4)
-            return await RetainedManualReview(db, cases, scope, http, invoice, originals, mapping, source, context, ct);
+            return await RetainedManualReview(db, cases, scope, http, invoice, originals, mapping, source,
+                context, ct, requireCurrentPublication);
         if (!options.Enabled) return null;
         if (!await ProcurementInvoiceReviewDocumentReadiness.ReadyAsync(db, scope, false, false, ct))
             return InvoiceMappingReview.Unavailable("InvoiceUnitReviewDocumentRetentionUnavailable");

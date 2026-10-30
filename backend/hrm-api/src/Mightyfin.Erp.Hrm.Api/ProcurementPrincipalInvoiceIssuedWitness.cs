@@ -15,10 +15,29 @@ namespace Mightyfin.Erp.Hrm.Api;
 /// This helper neither admits an invoice owner nor enables claims or posting.</summary>
 internal static class ProcurementPrincipalInvoiceIssuedWitness
 {
+    internal sealed record PresentationIssued(PrincipalInvoiceIssuedWitness Witness, string PurchaseOrderNumber);
+
     internal static async Task<PrincipalInvoiceIssuedWitness> LoadAsync(
         ProcurementDbContext db, ApprovalDbContext cases, ProcurementRequestScope scope,
         IReadOnlySet<Guid> currentCoreAllowedBranches, Guid orderId,
         Guid issuedVersionId, CancellationToken ct)
+        => (await LoadOwnedAsync(db, cases, scope, currentCoreAllowedBranches, orderId,
+            issuedVersionId, lockSources: true, ct: ct)).Witness;
+
+    /// <summary>Read-only UI eligibility hint in one Serializable snapshot. This
+    /// does not lock source rows or admit a new command; commands keep LoadAsync
+    /// and revalidate its locked authority before committing any effects.</summary>
+    internal static Task<PresentationIssued> ReadForPresentationAsync(
+        ProcurementDbContext db, ApprovalDbContext cases, ProcurementRequestScope scope,
+        IReadOnlySet<Guid> currentCoreAllowedBranches, Guid orderId,
+        Guid issuedVersionId, CancellationToken ct)
+        => LoadOwnedAsync(db, cases, scope, currentCoreAllowedBranches, orderId,
+            issuedVersionId, lockSources: false, ct: ct);
+
+    private static async Task<PresentationIssued> LoadOwnedAsync(
+        ProcurementDbContext db, ApprovalDbContext cases, ProcurementRequestScope scope,
+        IReadOnlySet<Guid> currentCoreAllowedBranches, Guid orderId,
+        Guid issuedVersionId, bool lockSources, CancellationToken ct)
     {
         var transaction = db.Database.CurrentTransaction?.GetDbTransaction();
         if (!db.Database.IsNpgsql() || !cases.Database.IsNpgsql()
@@ -32,7 +51,7 @@ internal static class ProcurementPrincipalInvoiceIssuedWitness
         await db.Database.ExecuteSqlRawAsync("SET LOCAL row_security = off", ct);
         var retained = await ProcurementPrincipalOrderRetainedIssued.LoadAsync(
             db, cases, scope, currentCoreAllowedBranches, orderId, issuedVersionId,
-            selectedLineId: null, lockSources: true, ct: ct);
+            selectedLineId: null, lockSources: lockSources, ct: ct);
         var order = retained.Order;
         if (order.TenantId != scope.TenantId || order.LegalEntityId != scope.LegalEntityId
             || order.BranchRef is not { } branch || branch == Guid.Empty
@@ -71,9 +90,9 @@ internal static class ProcurementPrincipalInvoiceIssuedWitness
                 retained with { SelectedLine = original }, kind);
             sources.Add(state.Id, expected);
         }
-        return new(scope.TenantId, scope.LegalEntityId, branch, order.Id,
+        return new(new(scope.TenantId, scope.LegalEntityId, branch, order.Id,
             retained.Issued.Id, retained.CoreCase.Id, order.SupplierId, order.CurrencyCode,
-            new ReadOnlyDictionary<Guid, PrincipalReceivingSource>(sources));
+            new ReadOnlyDictionary<Guid, PrincipalReceivingSource>(sources)), order.Number);
     }
 
     /// <summary>Read-only retained commercial projection for original-unit review.

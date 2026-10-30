@@ -19,6 +19,14 @@ public sealed class PrincipalInvoiceBlockedNoClaimEvidenceTests
     }
 
     [Fact]
+    public void Null_physical_header_po_keeps_the_verified_mapping_projection_and_wrong_header_denies()
+    {
+        Verify(Fixture(nullHeaderPo: true));
+        var wrong = Fixture(); wrong.Invoice.PurchaseOrderId = Guid.NewGuid();
+        Assert.Throws<InvalidOperationException>(() => Verify(wrong));
+    }
+
+    [Fact]
     public void Recorded_policy_uses_the_foundation_string_enum_and_decimal_contract()
     {
         Verify(Fixture());
@@ -66,6 +74,55 @@ public sealed class PrincipalInvoiceBlockedNoClaimEvidenceTests
         }
     }
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void Closed_no_claim_footprint_admits_exact_snapshot_before_future_successor_starts(bool finiteSnapshot)
+    {
+        var f=Fixture(finitePolicyEvidence:finiteSnapshot);
+        var matched=f.Result.MatchedAt;var end=matched.AddDays(1);
+        var original=Publication(f.Policy,matched.AddMinutes(-2));
+        var nextPolicy=new PolicyVersion { TenantId=f.Policy.TenantId,LegalEntityId=f.Policy.LegalEntityId,
+            PolicyKey=f.Policy.PolicyKey,PolicyVersionNumber=2,RulesJson=f.Policy.RulesJson,
+            CreatedBy=f.Policy.CreatedBy,PublishedBy=f.Policy.PublishedBy,EffectiveFrom=end };
+        var next=Publication(nextPolicy,matched.AddSeconds(-2));
+        f.Policy.EffectiveTo=end;f.Policy.Version++;
+        var superseded=PolicyAudit(f.Policy,"Superseded",next.PublishedAudits[0].CreatedAt,
+            "Superseded by policy version 2.");
+        var witness=InvoiceHistoricalPolicyWindow.Verify(original,matched,[superseded],next);
+        var saved=f.Result.EvidenceJson;
+        PrincipalInvoiceBlockedNoClaimEvidence.Verify(f.Result,f.Invoice,f.Mapping,[f.Line],f.Policy,
+            f.ReviewSource,f.ReviewOutcome,f.Receipt,f.CompareAudit,f.CreateAudit,f.Outbox,
+            [f.Exception],[],witness);
+        Assert.Equal(saved,f.Result.EvidenceJson);
+        Assert.Null(f.Invoice.ActiveMatchClaimResultId);
+        Assert.Null(f.Invoice.FinancePostingRef);
+    }
+
+    private static ScopedHistoricalPolicyPublication Publication(PolicyVersion p,DateTimeOffset publishedAt)
+    {
+        var reviewer=p.PublishedBy!;p.State="Draft";p.Version=1;p.EffectiveTo=null;
+        p.CreatedAt=publishedAt.AddMinutes(-2);p.PublishedAt=null;p.PublishedBy=null;
+        p.ReviewReason="Submit matching policy";p.PublicationReason="Publish matching policy";
+        var created=OperationalPolicyWorkerIdentity.Capture(p,"Created",p.CreatedBy,null,1,p.CreatedAt,schemaVersion:2);
+        p.State="PendingReview";p.Version=2;p.ReviewRequestedBy=p.CreatedBy;
+        p.ReviewRequestedAt=publishedAt.AddMinutes(-1);
+        var submitted=OperationalPolicyWorkerIdentity.Capture(p,"Submitted",p.CreatedBy,null,2,
+            p.ReviewRequestedAt.Value,created,schemaVersion:2);
+        p.State="Published";p.Version=3;p.PublishedBy=reviewer;p.PublishedAt=publishedAt;
+        var published=OperationalPolicyWorkerIdentity.Capture(p,"Published",reviewer,null,3,
+            publishedAt,created,submitted,schemaVersion:2);
+        return new(p,created,submitted,published,[PolicyAudit(p,"Published",publishedAt.AddSeconds(1))]);
+    }
+
+    private static AuditEvent PolicyAudit(PolicyVersion p,string action,DateTimeOffset at,string? reason=null)
+        =>new() { TenantId=p.TenantId,LegalEntityId=p.LegalEntityId,RecordType="PolicyVersion",RecordId=p.Id,
+            Action=action,ActorSubjectId=p.PublishedBy!,CreatedBy=p.PublishedBy!,CreatedAt=at,Version=1,
+            ChangedFieldsJson=JsonSerializer.Serialize(new { p.PolicyKey,p.PolicyVersionNumber,p.State,
+                p.EffectiveFrom,p.EffectiveTo,p.ReviewReason,p.PublicationReason,p.PublishedAt,p.PublishedBy,
+                reason,rulesSha256=Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(
+                    System.Text.Encoding.UTF8.GetBytes(p.RulesJson))) }) };
+
     private static void Verify(FixtureState f) => PrincipalInvoiceBlockedNoClaimEvidence.Verify(
         f.Result, f.Invoice, f.Mapping, [f.Line], f.Policy, f.ReviewSource, f.ReviewOutcome, f.Receipt,
         f.CompareAudit, f.CreateAudit, f.Outbox, [f.Exception], []);
@@ -80,7 +137,7 @@ public sealed class PrincipalInvoiceBlockedNoClaimEvidenceTests
         bool badWatermark = false, bool forgedSourceSupplier = false,
         bool duplicateOrderCheckpoint = false, bool duplicateAcceptanceCheckpoint = false,
         string? projectionMutation = null, bool numericPolicyEvidence = false,
-        bool numericToleranceEvidence = false)
+        bool numericToleranceEvidence = false, bool nullHeaderPo = false, bool finitePolicyEvidence = false)
     {
         var tenant = "blocked-no-claim-test";
         var company = Guid.NewGuid(); var branch = Guid.NewGuid();
@@ -89,7 +146,7 @@ public sealed class PrincipalInvoiceBlockedNoClaimEvidenceTests
         var key = Guid.NewGuid(); var actor = Guid.NewGuid().ToString("D");
         var matched = new DateTimeOffset(2026, 10, 30, 10, 0, 0, TimeSpan.Zero);
         var invoice = new SupplierInvoice { TenantId = tenant, LegalEntityId = company,
-            BranchRef = branch, SupplierId = supplier, PurchaseOrderId = order,
+            BranchRef = branch, SupplierId = supplier, PurchaseOrderId = nullHeaderPo ? null : order,
             InvoiceNumber = "TEST-BLOCKED-1", NormalizedInvoiceNumber = "TEST-BLOCKED-1",
             CurrencyCode = "ZMW", IntakeChannel = "Manual", InvoiceDate = new DateOnly(2026, 10, 30),
             NetAmount = 5.1234m, GrossAmount = 5.1234m, Status = "Received", Version = 3 };
@@ -114,7 +171,8 @@ public sealed class PrincipalInvoiceBlockedNoClaimEvidenceTests
                 {"schemaVersion":1,"transactionType":"InvoiceMatching","currencyCode":"ZMW","moneyScale":2,"rounding":"ToEven","rules":[{"categoryCode":"TEST","method":"ThreeWay","acceptanceKind":"Goods","quantity":{"absolute":"0","percent":"0","combination":"AllLimits"},"unitPrice":{"absolute":"0","percent":"0","combination":"AllLimits"},"tax":{"absolute":"0","percent":"0","combination":"AllLimits"},"total":{"absolute":"0","percent":"0","combination":"AllLimits"}}]}
                 """, CreatedBy = actor, PublishedBy = Guid.NewGuid().ToString("D"), PublicationReason = "Test",
             PublishedAt = matched.AddMinutes(-1),
-            EffectiveFrom = matched.AddMinutes(-1) };
+            EffectiveFrom = matched.AddMinutes(-1),
+            EffectiveTo = finitePolicyEvidence ? matched.AddDays(1) : null };
         var inputFingerprint = new string('a', 64);
         var consumptionWatermark = new string('b', 64);
         var duplicateWatermark = new string('c', 64);

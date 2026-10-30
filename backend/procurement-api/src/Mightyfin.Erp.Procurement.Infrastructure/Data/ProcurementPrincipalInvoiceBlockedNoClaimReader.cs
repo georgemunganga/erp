@@ -83,9 +83,10 @@ public sealed partial class ProcurementDbContext
             (x.RecordType == "InvoiceMatchResult" && ids.Contains(x.RecordId))
             || (x.Action == "PrincipalInvoiceCompared" && keyTexts.Contains(x.CorrelationId!))).ToArrayAsync(ct);
         var outbox = await OutboxEvents.AsNoTracking().Where(x => keyTexts.Contains(x.IdempotencyKey)).ToArrayAsync(ct);
+        var historicalPolicies = await ReadHistoricalMatchingWindowsAsync(blocked, policies, ct);
         var verified = PrincipalInvoiceBlockedNoClaimEvidence.VerifyClosedFootprint(blocked,
             invoices, lines, mappings, reviewSources, reviewOutcomes,
-            policies, receipts, audits, outbox, exceptions, allocations);
+            policies, receipts, audits, outbox, exceptions, allocations, historicalPolicies);
         var capturedExceptions = capture.Tables.Single(x => x.TableName == "invoice_exceptions").Rows;
         if (capturedExceptions.Any(x => verified.Exceptions.Contains(x.Id)
             && exceptions.All(y => y.Id != x.Id))

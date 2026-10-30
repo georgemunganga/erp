@@ -28,7 +28,8 @@ public static class PrincipalInvoiceBlockedNoClaimEvidence
         IReadOnlyList<InvoiceUnitReviewOutcome> reviewOutcomes,
         IReadOnlyList<PolicyVersion> policies, IReadOnlyList<ProcurementCommercialCommandReceipt> receipts,
         IReadOnlyList<AuditEvent> audits, IReadOnlyList<OutboxEvent> outbox,
-        IReadOnlyList<InvoiceException> exceptions, IReadOnlyList<InvoiceMatchAllocation> allocations)
+        IReadOnlyList<InvoiceException> exceptions, IReadOnlyList<InvoiceMatchAllocation> allocations,
+        IReadOnlyDictionary<Guid, ScopedHistoricalPolicyWitness>? historicalPolicies = null)
     {
         if (results.Count is < 1 or > 200 || allocations.Count != 0
             || receipts.Count != results.Count || audits.Count != results.Count * 2
@@ -55,9 +56,12 @@ public static class PrincipalInvoiceBlockedNoClaimEvidence
                 && x.RecordId == result.Id && x.Action == "create");
             var comparedOutbox = outbox.Single(x => x.IdempotencyKey == result.CommandKey!.Value.ToString("D"));
             var relatedExceptions = exceptions.Where(x => x.MatchResultId == result.Id).ToArray();
+            if (historicalPolicies is not null && !historicalPolicies.ContainsKey(result.Id))
+                throw new InvalidOperationException("PrincipalInvoiceBlockedHistoricalPolicyMissing");
             Verify(result, invoice, mapping, lines.Where(x => x.SupplierInvoiceId == invoice.Id).ToArray(),
                 policy, reviewSource, reviewOutcome, receipt, comparisonAudit, resultCreateAudit, comparedOutbox,
-                relatedExceptions, allocations);
+                relatedExceptions, allocations,
+                historicalPolicies is null ? null : historicalPolicies.GetValueOrDefault(result.Id));
             resultIds.Add(result.Id);
             exceptionIds.Add(relatedExceptions.Single().Id);
         }
@@ -71,7 +75,8 @@ public static class PrincipalInvoiceBlockedNoClaimEvidence
         PolicyVersion policy, InvoiceUnitReviewSource reviewSource,
         InvoiceUnitReviewOutcome reviewOutcome, ProcurementCommercialCommandReceipt receipt,
         AuditEvent comparisonAudit, AuditEvent resultCreateAudit, OutboxEvent comparedOutbox,
-        IReadOnlyList<InvoiceException> exceptions, IReadOnlyList<InvoiceMatchAllocation> allocations)
+        IReadOnlyList<InvoiceException> exceptions, IReadOnlyList<InvoiceMatchAllocation> allocations,
+        ScopedHistoricalPolicyWitness? historicalPolicy = null)
     {
         ArgumentNullException.ThrowIfNull(result);
         ArgumentNullException.ThrowIfNull(invoice);
@@ -86,6 +91,13 @@ public static class PrincipalInvoiceBlockedNoClaimEvidence
         ArgumentNullException.ThrowIfNull(comparedOutbox);
         ArgumentNullException.ThrowIfNull(exceptions);
         ArgumentNullException.ThrowIfNull(allocations);
+        if (historicalPolicy is not null && (historicalPolicy.PolicyId != policy.Id
+            || historicalPolicy.TenantId != policy.TenantId
+            || historicalPolicy.LegalEntityId != policy.LegalEntityId
+            || historicalPolicy.PolicyVersionNumber != policy.PolicyVersionNumber
+            || historicalPolicy.RulesSha256 != ProcurementEvidenceEncoding.PolicyJsonDigest(policy.RulesJson)
+            || historicalPolicy.ObservedAt != result.MatchedAt))
+            throw new InvalidOperationException("PrincipalInvoiceBlockedHistoricalPolicyMismatch");
         void Need(bool value)
         {
             if (!value) throw new InvalidOperationException("PrincipalInvoiceBlockedNoClaimUnproven");
@@ -134,7 +146,8 @@ public static class PrincipalInvoiceBlockedNoClaimEvidence
             && invoice.CurrentMappingVersionId == mapping.Id
             && invoice.LastMatchResultId == result.Id && invoice.ActiveMatchClaimResultId is null
             && invoice.SupplierId != Guid.Empty && invoice.BranchRef is not null
-            && invoice.CurrencyCode is { Length: 3 } && invoice.PurchaseOrderId == mapping.PurchaseOrderId
+            && invoice.CurrencyCode is { Length: 3 }
+            && (invoice.PurchaseOrderId is null || invoice.PurchaseOrderId == mapping.PurchaseOrderId)
             && invoice.FinancePostingRef is null && invoice.CreditForInvoiceRef is null
             && mapping.SourceSchemaVersion == 3 && mapping.IdentitySchemaVersion == 2
             && mapping.SupplierInvoiceId == invoice.Id && mapping.MappingRevision == invoice.MappingRevision
@@ -279,9 +292,12 @@ public static class PrincipalInvoiceBlockedNoClaimEvidence
                 && source.GetProperty("order").GetProperty("currencyCode").GetString() == invoice.CurrencyCode
                 && source.GetProperty("order").GetProperty("branchRef").GetGuid() == invoice.BranchRef
                 && source.GetProperty("policy").GetProperty("id").GetGuid() == policy.Id
-                && ProcurementEvidenceEncoding.PolicyJsonDigest(source.GetProperty("policy").GetRawText())
-                    == ProcurementEvidenceEncoding.PolicyJsonDigest(InvoiceMatchingFoundation.SerializePolicyEvidence(
-                        InvoiceMatchingPolicyRules.Project(policy)))
+                && (historicalPolicy is null
+                    ? ProcurementEvidenceEncoding.PolicyJsonDigest(source.GetProperty("policy").GetRawText())
+                        == ProcurementEvidenceEncoding.PolicyJsonDigest(InvoiceMatchingFoundation.SerializePolicyEvidence(
+                            InvoiceMatchingPolicyRules.Project(policy)))
+                    : InvoiceHistoricalPolicyWindow.MatchesRecordedMatchingPolicy(historicalPolicy,
+                        source.GetProperty("policy").GetRawText()))
                 && source.GetProperty("acceptances").ValueKind == JsonValueKind.Array
                 && source.GetProperty("consumption").GetProperty("complete").GetBoolean()
                 && source.GetProperty("consumption").GetProperty("allocations").GetArrayLength() == 0
