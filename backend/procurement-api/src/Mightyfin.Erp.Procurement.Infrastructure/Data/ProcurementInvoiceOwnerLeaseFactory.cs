@@ -107,9 +107,12 @@ public sealed partial class ProcurementDbContext
                 baseline, rows, current.Capture, context.PurchaseOrderId,
                 context.SupplierId, context.CurrencyCode))
             throw new InvalidOperationException("InvoiceOwnerHistoricalTargetRequiresReconciliation");
+        var blocked = await ReadBlockedNoClaimResultsAsync(current.Capture,
+            context.PurchaseOrderId, current.ActiveClaims.Select(x => x.Result.Id).ToHashSet(), ct);
         PrincipalInvoiceCurrentOwnerScope.RequireNoUnclassifiedEffect(current.Capture,
             context.PurchaseOrderId, context.SupplierId, issuedWitness.BranchId,
-            context.CurrencyCode, current.ActiveClaims.Select(x => x.Allocation.Id).ToHashSet());
+            context.CurrencyCode, current.ActiveClaims.Select(x => x.Allocation.Id).ToHashSet(),
+            blocked.Results, blocked.Exceptions);
         var local = current.ActiveClaims.Select(x =>
             InvoiceMatchExecutionEvidence.Consumption(x.Allocation, x.Invoice.BranchRef)).ToArray();
         if (local.Where((claim, index) => claim.BranchRef != context.BranchId

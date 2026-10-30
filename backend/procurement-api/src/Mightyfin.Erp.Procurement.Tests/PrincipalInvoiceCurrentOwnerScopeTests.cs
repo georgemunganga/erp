@@ -66,6 +66,35 @@ public sealed class PrincipalInvoiceCurrentOwnerScopeTests
             Capture(f.Company, f.Invoice), f.Order, f.Supplier, Guid.NewGuid(), Currency, new HashSet<Guid>()));
     }
 
+    [Fact]
+    public void Recorded_no_claim_exception_needs_both_verified_ids_and_never_waives_other_effects()
+    {
+        var f = Fixture();
+        var result = Row(f.Company, new { id = Guid.NewGuid(), version = 1,
+            tenant_id = Tenant, legal_entity_id = f.Company, purchase_order_id = f.Order,
+            supplier_invoice_id = f.Invoice.Id });
+        var exception = Row(f.Company, new { id = Guid.NewGuid(), version = 1,
+            tenant_id = Tenant, legal_entity_id = f.Company,
+            supplier_invoice_id = f.Invoice.Id, match_result_id = result.Id });
+        var capture = Capture(f.Company, f.Invoice, ("invoice_match_results", result),
+            ("invoice_exceptions", exception));
+        Assert.Throws<InvalidOperationException>(() => PrincipalInvoiceCurrentOwnerScope.RequireNoUnclassifiedEffect(
+            capture, f.Order, f.Supplier, f.Branch, Currency, new HashSet<Guid>()));
+        Assert.Throws<InvalidOperationException>(() => PrincipalInvoiceCurrentOwnerScope.RequireNoUnclassifiedEffect(
+            capture, f.Order, f.Supplier, f.Branch, Currency, new HashSet<Guid>(),
+            new HashSet<Guid> { result.Id }));
+        PrincipalInvoiceCurrentOwnerScope.RequireNoUnclassifiedEffect(capture, f.Order, f.Supplier,
+            f.Branch, Currency, new HashSet<Guid>(), new HashSet<Guid> { result.Id },
+            new HashSet<Guid> { exception.Id });
+        var payment = Row(f.Company, new { id = Guid.NewGuid(), version = 1,
+            tenant_id = Tenant, legal_entity_id = f.Company, supplier_invoice_id = f.Invoice.Id });
+        Assert.Throws<InvalidOperationException>(() => PrincipalInvoiceCurrentOwnerScope.RequireNoUnclassifiedEffect(
+            Capture(f.Company, f.Invoice, ("invoice_match_results", result),
+                ("invoice_exceptions", exception), ("manual_payment_requests", payment)),
+            f.Order, f.Supplier, f.Branch, Currency, new HashSet<Guid>(),
+            new HashSet<Guid> { result.Id }, new HashSet<Guid> { exception.Id }));
+    }
+
     private static (Guid Company, Guid Order, Guid Supplier, Guid Branch,
         InvoiceProcurementCapturedRow Invoice) Fixture()
     {
