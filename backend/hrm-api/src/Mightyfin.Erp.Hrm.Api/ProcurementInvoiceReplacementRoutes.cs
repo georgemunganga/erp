@@ -18,6 +18,15 @@ public static partial class ProcurementInvoiceIntakeRoutes
     private static bool ReplacementWritesEnabled(IConfiguration config)
         => config.GetValue<bool>("Procurement:InvoiceReplacement:Enabled");
 
+    private static async Task<bool> ReplacementReadSchemaReady(HttpRequest request, CancellationToken ct)
+        => request.HttpContext.RequestServices.GetService<IProcurementInvoiceReplacementSchemaReadiness>()
+            is { } readiness && await readiness.IsReadyAsync(ct);
+
+    private static IResult ReplacementSchemaUnavailable() => Results.Json(new {
+        code = "invoice-replacement-schema-unavailable",
+        message = "Invoice replacement history is not available in this database."
+    }, statusCode: 503);
+
     private static string ReplacementRequestDigest(Guid sourceId, InvoiceReplacementInput input)
         => ProcurementEvidenceEncoding.PolicyJsonDigest(JsonSerializer.Serialize(new {
             operation = InvoiceReplacementEvidence.Operation, sourceId, input.SourceVersion,
@@ -48,12 +57,14 @@ public static partial class ProcurementInvoiceIntakeRoutes
             || scope.WorkLocationId is not { } branch || branch == Guid.Empty
             || !actor.OrganisationWide && !actor.AllowedBranches.Contains(branch))
             return Results.Forbid();
-        try { await ProcurementExecutionRecordScope.Branches(core, scope, branch, true, ct); }
+        Guid[] allowedBranches;
+        try { allowedBranches = await ProcurementExecutionRecordScope.Branches(core, scope, branch, true, ct); }
         catch (Exception e) when (e is UnauthorizedAccessException or KeyNotFoundException)
         { return Results.NotFound(); }
         var source = await Visible(db, scope).SingleOrDefaultAsync(x => x.Id == id, ct);
         if (source is null || source.BranchRef != branch || source.CreatedBy != scope.SubjectId)
             return Missing();
+        if (!await ReplacementReadSchemaReady(request, ct)) return ReplacementSchemaUnavailable();
 
         // The original actor and source are checked before key lookup. Saved bytes
         // remain recoverable after a policy or Core precision is retired.
@@ -87,9 +98,58 @@ public static partial class ProcurementInvoiceIntakeRoutes
         if (already) return Results.Conflict(new { code = "invoice-already-replaced",
             message = "This invoice already has a recorded replacement." });
 
+        // New work follows the established PR -> PO -> exposure -> invoice lock
+        // order. The source pointer is only a prelock hint; it is checked again
+        // against the locked invoice before any successor is staged.
+        if (source.CurrentMappingVersionId is not { } preMappingId
+            || source.LastMatchResultId is not { } preResultId)
+            return Results.Conflict(new { code = "invoice-replacement-source-not-closed",
+                message = "The original invoice's comparison needs review before replacement." });
+        var preMapping = await db.InvoiceMatchMappingVersions.AsNoTracking()
+            .SingleOrDefaultAsync(x => x.Id == preMappingId && x.SupplierInvoiceId == id, ct);
+        var preResult = await db.InvoiceMatchResults.AsNoTracking()
+            .SingleOrDefaultAsync(x => x.Id == preResultId && x.SupplierInvoiceId == id, ct);
+        if (preMapping is not { SourceSchemaVersion: 3 }
+            || preResult is not { SourceSchemaVersion: 3, ExecutionVersion: 2, Outcome: "Blocked" }
+            || preResult.MappingVersionId != preMapping.Id
+            || preResult.PurchaseOrderId != preMapping.PurchaseOrderId
+            || preResult.IssuedVersionId != preMapping.IssuedVersionId)
+            return Results.Conflict(new { code = "invoice-replacement-source-not-closed",
+                message = "The original invoice's comparison needs review before replacement." });
+        await using var cases = new ApprovalDbContext(
+            new DbContextOptionsBuilder<ApprovalDbContext>()
+                .UseNpgsql(db.Database.GetDbConnection()).Options, scope);
+        await cases.Database.UseTransactionAsync(tx.GetDbTransaction(), ct);
+        PrincipalInvoiceIssuedWitness issued;
+        try { issued = await ProcurementPrincipalInvoiceIssuedWitness.LoadAsync(db, cases,
+            scope, allowedBranches.ToHashSet(), preMapping.PurchaseOrderId,
+            preMapping.IssuedVersionId, ct); }
+        catch (InvalidOperationException)
+        { return Results.Conflict(new { code = "invoice-replacement-issued-owner-unavailable",
+            message = "The purchase order's retained issued authority needs review before replacement." }); }
+        if (issued.SupplierId != source.SupplierId || issued.CurrencyCode != source.CurrencyCode
+            || issued.BranchId != branch || issued.PurchaseOrderId != preMapping.PurchaseOrderId
+            || issued.IssuedVersionId != preMapping.IssuedVersionId)
+            return Results.Conflict(new { code = "invoice-replacement-issued-owner-changed",
+                message = "The original purchase order authority changed." });
+        var preExposure = await db.InvoiceMatchExposureStates.AsNoTracking()
+            .SingleOrDefaultAsync(x => x.PurchaseOrderId == preMapping.PurchaseOrderId
+                && x.IssuedVersionId == preMapping.IssuedVersionId, ct);
+        if (preExposure is not null)
+            await db.Database.ExecuteSqlInterpolatedAsync($"SELECT id FROM procurement.invoice_match_exposure_states WHERE tenant_id={scope.TenantId} AND legal_entity_id={scope.LegalEntityId} AND id={preExposure.Id} FOR UPDATE", ct);
         await db.Database.ExecuteSqlInterpolatedAsync($"SELECT id FROM procurement.supplier_invoices WHERE tenant_id={scope.TenantId} AND legal_entity_id={scope.LegalEntityId} AND id={id} FOR UPDATE", ct);
-        source = await Visible(db, scope).SingleAsync(x => x.Id == id, ct);
+        source = await db.SupplierInvoices.SingleOrDefaultAsync(x => x.Id == id
+            && x.TenantId == scope.TenantId && x.LegalEntityId == scope.LegalEntityId, ct);
+        if (source is null) return Missing();
+        await db.Entry(source).ReloadAsync(ct);
+        if (db.Entry(source).State == EntityState.Detached || source.TenantId != scope.TenantId
+            || source.LegalEntityId != scope.LegalEntityId || source.BranchRef != branch
+            || source.CreatedBy != scope.SubjectId)
+            return Missing();
         if (source.Version != input.SourceVersion) return StaleInvoice();
+        if (source.CurrentMappingVersionId != preMapping.Id || source.LastMatchResultId != preResult.Id)
+            return Results.Conflict(new { code = "invoice-replacement-source-changed",
+                message = "The original mapping or comparison changed. Refresh it before replacement." });
         InvoiceReplacementSourceWitness witness;
         try { witness = await db.ReadReplacementSourceAsync(id,
             (requirement, token) => RetainedReplacementReference(db, scope, requirement, token), ct); }
@@ -113,10 +173,6 @@ public static partial class ProcurementInvoiceIntakeRoutes
                 message = "The original comparison and review time cannot be reconciled." });
         // A stored Verified label is not Core approval authority. Reconstruct the
         // terminal review in the same transaction before admitting replacement.
-        await using var cases = new ApprovalDbContext(
-            new DbContextOptionsBuilder<ApprovalDbContext>()
-                .UseNpgsql(db.Database.GetDbConnection()).Options, scope);
-        await cases.Database.UseTransactionAsync(tx.GetDbTransaction(), ct);
         var sourceLines = await db.SupplierInvoiceLines.AsNoTracking()
             .Where(x => x.SupplierInvoiceId == id && x.IsActive)
             .OrderBy(x => x.LineNumber).ToArrayAsync(ct);
@@ -193,7 +249,7 @@ public static partial class ProcurementInvoiceIntakeRoutes
             message = "The corrected invoice or retained source evidence changed. Review it before replacing the invoice." }); }
     }
 
-    private static async Task<bool> RetainedReplacementReference(ProcurementDbContext db,
+    internal static async Task<bool> RetainedReplacementReference(ProcurementDbContext db,
         ProcurementRequestScope scope, InvoiceAmountCoreReferenceRequirement requirement, CancellationToken ct)
     {
         if (requirement.TenantId != scope.TenantId || requirement.LegalEntityId != scope.LegalEntityId)
@@ -222,6 +278,7 @@ public static partial class ProcurementInvoiceIntakeRoutes
         if (source is null || source.CreatedBy != scope.SubjectId) return Missing();
         try { await ProcurementExecutionRecordScope.Branches(core, scope, source.BranchRef, true, ct); }
         catch (Exception e) when (e is UnauthorizedAccessException or KeyNotFoundException) { return Missing(); }
+        if (!await ReplacementReadSchemaReady(request, ct)) return ReplacementSchemaUnavailable();
         var receipt = await db.InvoiceReplacementCommandReceipts.AsNoTracking()
             .SingleOrDefaultAsync(x => x.SourceInvoiceId == id
                 && x.ActorPrincipalId == scope.SubjectId && x.CommandKey == key, ct);
@@ -242,6 +299,7 @@ public static partial class ProcurementInvoiceIntakeRoutes
         if (invoice is null) return Missing();
         try { await ProcurementExecutionRecordScope.Branches(core, scope, invoice.BranchRef, true, ct); }
         catch (Exception e) when (e is UnauthorizedAccessException or KeyNotFoundException) { return Missing(); }
+        if (!await ReplacementReadSchemaReady(request, ct)) return ReplacementSchemaUnavailable();
         var verified = await db.ReadVerifiedInvoiceReplacementAsync(id,
             (requirement, token) => RetainedReplacementReference(db, scope, requirement, token), ct);
         if (verified is null) return Missing();

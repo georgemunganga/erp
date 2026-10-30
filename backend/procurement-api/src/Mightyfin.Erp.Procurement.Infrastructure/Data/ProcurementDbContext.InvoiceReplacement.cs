@@ -92,10 +92,24 @@ public sealed partial class ProcurementDbContext
             throw new InvalidOperationException("InvoiceReplacementAppendOnly");
         var newLinks = links.Where(x => x.State == EntityState.Added).Select(x => x.Entity).ToArray();
         var newReceipts = receipts.Where(x => x.State == EntityState.Added).Select(x => x.Entity).ToArray();
-        if (newLinks.Length != newReceipts.Length
-            || newLinks.Select(x => (x.TenantId,x.LegalEntityId,x.SourceInvoiceId)).Distinct().Count() != newLinks.Length
-            || newLinks.Select(x => (x.TenantId,x.LegalEntityId,x.SuccessorInvoiceId)).Distinct().Count() != newLinks.Length)
+        var markerAudits = ChangeTracker.Entries<AuditEvent>()
+            .Where(x => x.Entity.Action == InvoiceReplacementEvidence.AuditAction).ToArray();
+        var markerOutbox = ChangeTracker.Entries<OutboxEvent>()
+            .Where(x => x.Entity.EventType == InvoiceReplacementEvidence.EventType).ToArray();
+        if (markerAudits.Any(x => x.State != EntityState.Added)
+            || markerOutbox.Any(x => x.State != EntityState.Added))
             throw new InvalidOperationException("InvoiceReplacementAtomicSetChanged");
+        InvoiceReplacementEvidence.VerifyPendingMarkers(newLinks, newReceipts,
+            markerAudits.Select(x => x.Entity).ToArray(),
+            markerOutbox.Select(x => x.Entity).ToArray());
+        if (newLinks.Length != 0)
+        {
+            var endpoints = newLinks.SelectMany(x => new[] { x.SourceInvoiceId,
+                x.SuccessorInvoiceId }).ToHashSet();
+            if (InvoiceReplacementLinks.AsNoTracking().Any(x => endpoints.Contains(x.SourceInvoiceId)
+                || endpoints.Contains(x.SuccessorInvoiceId)))
+                throw new InvalidOperationException("InvoiceReplacementChainUnsupported");
+        }
         foreach (var linkRow in newLinks)
         {
             var receiptRow = newReceipts.SingleOrDefault(x => x.LinkId == linkRow.Id)
@@ -105,6 +119,7 @@ public sealed partial class ProcurementDbContext
             var successor = ChangeTracker.Entries<SupplierInvoice>().SingleOrDefault(x =>
                 x.State == EntityState.Added && x.Entity.Id == linkRow.SuccessorInvoiceId)?.Entity
                 ?? throw new InvalidOperationException("InvoiceReplacementNewSuccessorRequired");
+            InvoiceReplacementEvidence.VerifyNewSuccessor(successor);
             if (ChangeTracker.Entries<SupplierInvoice>().Any(x => x.Entity.Id == source.Id && x.State != EntityState.Unchanged)
                 || ChangeTracker.Entries<SupplierInvoiceLine>().Any(x =>
                     x.Entity.SupplierInvoiceId == source.Id && x.State != EntityState.Unchanged))
@@ -121,6 +136,12 @@ public sealed partial class ProcurementDbContext
                 ?? throw new InvalidOperationException("InvoiceReplacementNewCaptureReceiptRequired");
             InvoiceReplacementEvidence.Verify(linkRow, receiptRow, source, successor, mapping,
                 blocked, reviewSource, reviewOutcome, calculation, capture);
+            var exceptionIds = InvoiceExceptions.AsNoTracking().Where(x => x.MatchResultId == blocked.Id)
+                .Select(x => x.Id).ToArray();
+            if (exceptionIds.Length != 1 || linkRow.NoClaimProofSha256 !=
+                    ReplacementNoClaimDigest(source, mapping, blocked,
+                        reviewSource, reviewOutcome, exceptionIds))
+                throw new InvalidOperationException("InvoiceReplacementNoClaimProofChanged");
         }
     }
 }

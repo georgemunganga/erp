@@ -49,6 +49,10 @@ public static class InvoiceMatchingPolicyRules
         Need(policy.PolicyKey == PolicyKey && policy.State == "Published" && policy.Id != Guid.Empty && policy.PolicyVersionNumber > 0
             && policy.PublishedAt is not null && !string.IsNullOrWhiteSpace(policy.PublishedBy) && !string.IsNullOrWhiteSpace(policy.CreatedBy)
             && policy.PublishedBy != policy.CreatedBy && !string.IsNullOrWhiteSpace(policy.PublicationReason),"PublishedInvoiceMatchingPolicyRequired");
+        return ProjectPublishedEvidence(policy);
+    }
+    private static InvoiceMatchingPolicy ProjectPublishedEvidence(PolicyVersion policy)
+    {
         var rules = Parse(policy.RulesJson);
         return new(policy.Id,policy.PolicyVersionNumber,policy.TenantId,policy.LegalEntityId,null,"Published",
             $"INVOICE_MATCHING:{policy.Id:D}:{policy.PolicyVersionNumber}",policy.EffectiveFrom,policy.EffectiveTo,rules.MoneyScale,rules.Rounding,rules.Rules);

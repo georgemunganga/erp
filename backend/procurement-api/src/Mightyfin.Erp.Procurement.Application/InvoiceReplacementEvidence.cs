@@ -11,7 +11,7 @@ public static class InvoiceReplacementEvidence
 {
     public const string Operation = "InvoiceReplaceV2";
     public const string AuditAction = "InvoiceReplacementRecorded";
-    public const string EventType = "supplier_invoice.replacement_recorded.v1";
+    public const string EventType = "supplier_invoice.replaced.v1";
     public const int MaximumResponseBytes = 262144;
     private static readonly Guid CaptureNamespace = Guid.Parse("4d6a7720-95db-5e4b-af8f-30f9ee12bd5c");
     private static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web);
@@ -36,17 +36,61 @@ public static class InvoiceReplacementEvidence
         => JsonSerializer.Serialize(new { schemaVersion = 1, linkId = link.Id, link.SourceInvoiceId,
             link.SuccessorInvoiceId, link.CalculationId, link.CaptureReceiptId,
             link.CommandKey, link.MakerPrincipalId, link.NoClaimProofSha256,
+            reasonSha256 = ProcurementEvidenceEncoding.Digest(link.Reason),
             canPostToFinance = false }, Json);
+
+    /// <summary>Exact same-save replacement marker set. The EF guard calls this
+    /// before persistence; retained owner inventory proves the saved set again.</summary>
+    public static void VerifyPendingMarkers(IReadOnlyList<InvoiceReplacementLink> links,
+        IReadOnlyList<InvoiceReplacementCommandReceipt> receipts,
+        IReadOnlyList<AuditEvent> audits, IReadOnlyList<OutboxEvent> outbox)
+    {
+        Need(links.Count == receipts.Count && links.Count == audits.Count
+            && links.Count == outbox.Count
+            && links.Select(x => (x.TenantId, x.LegalEntityId, x.SourceInvoiceId)).Distinct().Count() == links.Count
+            && links.Select(x => (x.TenantId, x.LegalEntityId, x.SuccessorInvoiceId)).Distinct().Count() == links.Count
+            && links.SelectMany(x => new[] { (x.TenantId, x.LegalEntityId, x.SourceInvoiceId),
+                    (x.TenantId, x.LegalEntityId, x.SuccessorInvoiceId) })
+                .Distinct().Count() == links.Count * 2,
+            "InvoiceReplacementAtomicSetChanged");
+        foreach (var link in links)
+        {
+            var markerSha = ProcurementEvidenceEncoding.PolicyJsonDigest(MarkerJson(link));
+            Need(receipts.Count(x => x.LinkId == link.Id) == 1
+                && audits.Count(x => x.TenantId == link.TenantId
+                    && x.LegalEntityId == link.LegalEntityId
+                    && x.RecordType == nameof(InvoiceReplacementLink) && x.RecordId == link.Id
+                    && x.Action == AuditAction && x.ActorSubjectId == link.MakerPrincipalId
+                    && x.CorrelationId == link.CommandKey.ToString("D")
+                    && ProcurementEvidenceEncoding.PolicyJsonDigest(x.ChangedFieldsJson) == markerSha) == 1
+                && outbox.Count(x => x.TenantId == link.TenantId
+                    && x.LegalEntityId == link.LegalEntityId
+                    && x.AggregateType == nameof(SupplierInvoice) && x.AggregateId == link.SourceInvoiceId
+                    && x.EventType == EventType && x.EventVersion == 1
+                    && x.IdempotencyKey == link.CommandKey.ToString("D")
+                    && ProcurementEvidenceEncoding.PolicyJsonDigest(x.PayloadJson) == markerSha) == 1,
+                "InvoiceReplacementAtomicSetChanged");
+        }
+    }
 
     public static string NoClaimProofDigest(SupplierInvoice source, InvoiceMatchMappingVersion mapping,
         InvoiceMatchResult blocked, InvoiceUnitReviewSource reviewSource,
-        InvoiceUnitReviewOutcome reviewOutcome, IReadOnlyList<Guid> exceptionIds)
+        InvoiceUnitReviewOutcome reviewOutcome, IReadOnlyList<Guid> exceptionIds,
+        ProcurementCommercialCommandReceipt compareReceipt, AuditEvent comparedAudit,
+        OutboxEvent comparedOutbox)
         => ProcurementEvidenceEncoding.PolicyJsonDigest(JsonSerializer.Serialize(new {
             schemaVersion = 1, sourceInvoiceId = source.Id, source.Version,
-            mappingId = mapping.Id, mapping.MappingSha256, blockedResultId = blocked.Id,
+            mappingId = mapping.Id, mapping.MappingSha256,
+            sourceOriginalSha256 = mapping.InvoiceOriginalSha256, blockedResultId = blocked.Id,
             blocked.EvidenceSha256, blocked.InputFingerprint, blocked.SourceWatermarksJson,
             reviewSourceId = reviewSource.Id, reviewOutcomeId = reviewOutcome.Id,
             reviewEvidenceSha256 = reviewOutcome.EvidenceSha256,
+            compareReceiptId = compareReceipt.Id,
+            compareResponseSha256 = ProcurementEvidenceEncoding.Digest(compareReceipt.ResponseJson),
+            comparedAuditId = comparedAudit.Id,
+            comparedAuditSha256 = ProcurementEvidenceEncoding.PolicyJsonDigest(comparedAudit.ChangedFieldsJson),
+            comparedOutboxId = comparedOutbox.Id,
+            comparedOutboxSha256 = ProcurementEvidenceEncoding.PolicyJsonDigest(comparedOutbox.PayloadJson),
             exceptionIds = exceptionIds.Order().ToArray(), allocations = Array.Empty<Guid>()
         }, Json));
 
@@ -54,8 +98,16 @@ public static class InvoiceReplacementEvidence
         => JsonSerializer.Serialize(new { schemaVersion = 1, sourceInvoiceId = link.SourceInvoiceId,
             successorInvoiceId = successor.Id, linkId = link.Id, calculationId = link.CalculationId,
             captureReceiptId = link.CaptureReceiptId, commandKey = link.CommandKey,
-            successor.InvoiceNumber, successor.Version, successor.Status,
+            successor.InvoiceNumber, version = 1L, status = "Received",
             canPostToFinance = false }, Json);
+
+    /// <summary>Creation-state admission is checked once, while the successor is
+    /// Added. Later mapping, review and comparison must retain this link.</summary>
+    public static void VerifyNewSuccessor(SupplierInvoice successor)
+        => Need(successor.Version == 1 && successor.Status == "Received"
+            && successor.MappingRevision == 0 && successor.CurrentMappingVersionId is null
+            && successor.LastMatchResultId is null && successor.ActiveMatchClaimResultId is null
+            && successor.FinancePostingRef is null, "InvoiceReplacementNewSuccessorChanged");
 
     public static InvoiceReplacementCommandReceipt CreateReceipt(InvoiceReplacementLink link,
         SupplierInvoice successor, string requestSha256, DateTimeOffset at)
@@ -93,12 +145,10 @@ public static class InvoiceReplacementEvidence
             && source.BranchRef == successor.BranchRef && source.BranchRef == link.BranchId
             && (source.PurchaseOrderId is null || source.PurchaseOrderId == link.PurchaseOrderId)
             && successor.PurchaseOrderId == link.PurchaseOrderId
-            && source.Status == "Received" && successor.Status == "Received"
-            && successor.Version == 1 && successor.MappingRevision == 0
-            && successor.CurrentMappingVersionId is null && successor.LastMatchResultId is null
-            && successor.ActiveMatchClaimResultId is null && successor.FinancePostingRef is null
+            && source.Status == "Received" && successor.Version >= 1
             && source.NormalizedInvoiceNumber != successor.NormalizedInvoiceNumber
             && source.ActiveMatchClaimResultId is null && source.FinancePostingRef is null
+            && source.CreditForInvoiceRef is null
             && mapping.Id == link.SourceMappingVersionId && mapping.SupplierInvoiceId == source.Id
             && mapping.MappingRevision == link.SourceMappingRevision && mapping.SourceSchemaVersion == 3
             && mapping.PurchaseOrderId == link.PurchaseOrderId && mapping.IssuedVersionId == link.IssuedVersionId

@@ -19,6 +19,14 @@ public sealed class PrincipalInvoiceBlockedNoClaimEvidenceTests
     }
 
     [Fact]
+    public void Null_physical_header_po_keeps_the_verified_mapping_projection_and_wrong_header_denies()
+    {
+        Verify(Fixture(nullHeaderPo: true));
+        var wrong = Fixture(); wrong.Invoice.PurchaseOrderId = Guid.NewGuid();
+        Assert.Throws<InvalidOperationException>(() => Verify(wrong));
+    }
+
+    [Fact]
     public void Recorded_policy_uses_the_foundation_string_enum_and_decimal_contract()
     {
         Verify(Fixture());
@@ -80,7 +88,7 @@ public sealed class PrincipalInvoiceBlockedNoClaimEvidenceTests
         bool badWatermark = false, bool forgedSourceSupplier = false,
         bool duplicateOrderCheckpoint = false, bool duplicateAcceptanceCheckpoint = false,
         string? projectionMutation = null, bool numericPolicyEvidence = false,
-        bool numericToleranceEvidence = false)
+        bool numericToleranceEvidence = false, bool nullHeaderPo = false)
     {
         var tenant = "blocked-no-claim-test";
         var company = Guid.NewGuid(); var branch = Guid.NewGuid();
@@ -89,7 +97,7 @@ public sealed class PrincipalInvoiceBlockedNoClaimEvidenceTests
         var key = Guid.NewGuid(); var actor = Guid.NewGuid().ToString("D");
         var matched = new DateTimeOffset(2026, 10, 30, 10, 0, 0, TimeSpan.Zero);
         var invoice = new SupplierInvoice { TenantId = tenant, LegalEntityId = company,
-            BranchRef = branch, SupplierId = supplier, PurchaseOrderId = order,
+            BranchRef = branch, SupplierId = supplier, PurchaseOrderId = nullHeaderPo ? null : order,
             InvoiceNumber = "TEST-BLOCKED-1", NormalizedInvoiceNumber = "TEST-BLOCKED-1",
             CurrencyCode = "ZMW", IntakeChannel = "Manual", InvoiceDate = new DateOnly(2026, 10, 30),
             NetAmount = 5.1234m, GrossAmount = 5.1234m, Status = "Received", Version = 3 };

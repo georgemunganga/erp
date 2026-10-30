@@ -62,6 +62,8 @@ public sealed partial class ProcurementDbContext
             || openingNewBaseline && links.Length != 0
             || links.Select(x => x.SourceInvoiceId).Distinct().Count() != links.Length
             || links.Select(x => x.SuccessorInvoiceId).Distinct().Count() != links.Length
+            || links.SelectMany(x => new[] { x.SourceInvoiceId, x.SuccessorInvoiceId })
+                .Distinct().Count() != links.Length * 2
             || receipts.Select(x => x.LinkId).Distinct().Count() != receipts.Length
             || receipts.Select(x => (x.ActorPrincipalId, x.CommandKey)).Distinct().Count() != receipts.Length)
             throw new InvalidOperationException("InvoiceReplacementInventorySetChanged");
@@ -85,6 +87,17 @@ public sealed partial class ProcurementDbContext
             var capture = await InvoiceIntakeCommandReceipts.AsNoTracking().SingleAsync(x => x.Id == link.CaptureReceiptId, ct);
             InvoiceReplacementEvidence.Verify(link, receipt, source, successor, mapping, blocked,
                 review, outcome, calculation, capture);
+            if (await InvoiceMatchAllocations.AsNoTracking().AnyAsync(x =>
+                    x.SupplierInvoiceId == source.Id, ct)
+                || await SupplierCreditNoteRefs.AsNoTracking().AnyAsync(x =>
+                    x.SupplierInvoiceId == source.Id, ct)
+                || await FinanceInvoiceHandoffs.AsNoTracking().AnyAsync(x =>
+                    x.SupplierInvoiceId == source.Id, ct)
+                || await FinancePaymentStatusRefs.AsNoTracking().AnyAsync(x =>
+                    x.SupplierInvoiceId == source.Id, ct)
+                || await ManualPaymentRequests.AsNoTracking().AnyAsync(x =>
+                    x.SupplierInvoiceId == source.Id, ct))
+                throw new InvalidOperationException("InvoiceReplacementSourceEffectChanged");
             var allocations = await InvoiceMatchAllocations.AsNoTracking()
                 .Where(x => x.PurchaseOrderId == link.PurchaseOrderId).ToArrayAsync(ct);
             var admitted = await ReadBlockedNoClaimResultsAsync(oldCapture, link.PurchaseOrderId,
@@ -93,7 +106,7 @@ public sealed partial class ProcurementDbContext
                 .Where(x => x.MatchResultId == blocked.Id).Select(x => x.Id).ToArrayAsync(ct);
             if (!admitted.Results.Contains(blocked.Id) || exceptionIds.Length != 1
                 || !admitted.Exceptions.Contains(exceptionIds[0])
-                || link.NoClaimProofSha256 != InvoiceReplacementEvidence.NoClaimProofDigest(
+                || link.NoClaimProofSha256 != ReplacementNoClaimDigest(
                     source, mapping, blocked, review, outcome, exceptionIds))
                 throw new InvalidOperationException("InvoiceReplacementNoClaimProofChanged");
             var marker = InvoiceReplacementEvidence.MarkerJson(link);

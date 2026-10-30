@@ -23,6 +23,7 @@ public static partial class ProcurementManualPaymentCommandRoutes
             if (await Replay(db, core, scope, auth, http, key, "Create", hash, null, token) is { } replay) return replay;
             var source = (await ManualPaymentCapacityReader.ReadLockedAsync(db, scope, input.InvoiceId,
                 input.BranchId, AllowedBranches(person, input.BranchId), ct: token)).Source;
+            await RequireNoReplacedInvoiceSourceAsync(db, scope, input.InvoiceId, token);
             var assignees = await AssignedPeople(core, scope, input.BranchId, input.ApproverPrincipalId,
                 input.RecorderPrincipalId, input.ConfirmerPrincipalId, token);
             var change = ManualPaymentWorkflow.Create(new(input.BranchId, input.InvoiceId, source.SupplierId,
@@ -50,6 +51,7 @@ public static partial class ProcurementManualPaymentCommandRoutes
             if (await Replay(db, core, scope, auth, http, key, "Revise", hash, id, token) is { } replay) return replay;
             var source = (await ManualPaymentCapacityReader.ReadLockedAsync(db, scope, peek.SupplierInvoiceId,
                 peek.BranchId, AllowedBranches(person, peek.BranchId), id, token)).Source;
+            await RequireNoReplacedInvoiceSourceAsync(db, scope, peek.SupplierInvoiceId, token);
             var current = await Current(db, scope, id, token);
             if (current.SupplierInvoiceId != peek.SupplierInvoiceId || current.BranchId != peek.BranchId
                 || current.Version != input.ExpectedVersion) throw new PaymentProblem("payment-version-changed", 409);
@@ -81,6 +83,7 @@ public static partial class ProcurementManualPaymentCommandRoutes
             if (await Replay(db, core, scope, auth, http, key, action, hash, id, token) is { } replay) return replay;
             var source = (await ManualPaymentCapacityReader.ReadLockedAsync(db, scope, peek.SupplierInvoiceId,
                 peek.BranchId, AllowedBranches(person, peek.BranchId), id, token)).Source;
+            await RequireNoReplacedInvoiceSourceAsync(db, scope, peek.SupplierInvoiceId, token);
             var current = await Current(db, scope, id, token);
             if (current.SupplierInvoiceId != peek.SupplierInvoiceId || current.BranchId != peek.BranchId
                 || current.Version != input.ExpectedVersion) throw new PaymentProblem("payment-version-changed", 409);

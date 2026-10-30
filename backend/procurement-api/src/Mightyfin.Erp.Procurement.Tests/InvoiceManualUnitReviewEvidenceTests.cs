@@ -103,8 +103,8 @@ public sealed class InvoiceManualUnitReviewEvidenceTests
         // observation even after both retained policies cease being current.
         f.Matching.EffectiveTo = f.Policy.Now.AddMinutes(3);
         f.Policy.Policy.EffectiveTo = f.Policy.Now.AddMinutes(3);
-        f.Matching.State = "Retired";
-        f.Policy.Policy.State = "Retired";
+        f.Matching.State = "Superseded";
+        f.Policy.Policy.State = "Superseded";
         Assert.Equal("EACH", InvoiceManualUnitReviewEvidence.VerifyHistorical(authority,
             plan.Source, f.Invoice, [f.Line], f.Mapping,
             f.Policy.Now.AddMinutes(2))[f.Line.Id]);
@@ -113,6 +113,10 @@ public sealed class InvoiceManualUnitReviewEvidenceTests
         Assert.Throws<InvalidOperationException>(() => InvoiceManualUnitReviewEvidence.VerifyHistorical(
             authority, plan.Source, f.Invoice, [f.Line], f.Mapping,
             f.Policy.Now.AddMinutes(4)));
+        f.Matching.State = "Retired";
+        Assert.Throws<InvalidOperationException>(() => InvoiceManualUnitReviewEvidence.VerifyHistorical(
+            authority, plan.Source, f.Invoice, [f.Line], f.Mapping,
+            f.Policy.Now.AddMinutes(2)));
         f.Matching.State = "Published"; f.Matching.EffectiveTo = null;
         f.Policy.Policy.State = "Published"; f.Policy.Policy.EffectiveTo = null;
 

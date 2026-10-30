@@ -32,7 +32,7 @@ public static class InvoiceManualUnitReviewEvidence
         IReadOnlyList<SupplierInvoiceLine> originals, InvoiceMatchMappingVersion mapping,
         DateTimeOffset completedAt)
         => VerifyOwnedProof(authority, source, invoice, originals, mapping, completedAt,
-            allowRetiredAtHistoricalTime: true);
+            retainedHistoricalPublication: true);
 
     private static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web)
     {
@@ -71,7 +71,7 @@ public static class InvoiceManualUnitReviewEvidence
         InvoiceUnitReviewTransitions.Source source,
         SupplierInvoice invoice, IReadOnlyList<SupplierInvoiceLine> originals,
         InvoiceMatchMappingVersion mapping, DateTimeOffset at,
-        bool allowRetiredAtHistoricalTime = false)
+        bool retainedHistoricalPublication = false)
     {
         try
         {
@@ -145,8 +145,8 @@ public static class InvoiceManualUnitReviewEvidence
                 || ProcurementEvidenceEncoding.PolicyJsonDigest(matching.RulesJson) != evidence.MatchingPolicySha256
                 || ProcurementEvidenceEncoding.PolicyJsonDigest(review.RulesJson) != evidence.ReviewPolicySha256
                 || InvoiceUnitReviewPolicyRules.Parse(review.RulesJson).SchemaVersion != 2
-                || !(review.State == "Published" || allowRetiredAtHistoricalTime && review.State == "Retired")
-                || !(matching.State == "Published" || allowRetiredAtHistoricalTime && matching.State == "Retired")
+                || !(review.State == "Published" || retainedHistoricalPublication && review.State == "Superseded")
+                || !(matching.State == "Published" || retainedHistoricalPublication && matching.State == "Superseded")
                 || review.PublishedAt is null || review.PublishedAt > source.OpenedAt
                 || matching.PublishedAt is null || matching.PublishedAt > source.OpenedAt
                 || review.EffectiveFrom == default || review.EffectiveFrom > source.OpenedAt
@@ -155,7 +155,7 @@ public static class InvoiceManualUnitReviewEvidence
                 || matching.EffectiveTo is { } matchingEnd && at >= matchingEnd)
                 throw new InvalidOperationException("InvoiceManualUnitReviewInvalid");
             InvoiceUnitReviewPolicyRules.VerifyRetainedProjection(source.ReviewPolicy, review, at,
-                allowRetiredAtHistoricalTime);
+                retainedHistoricalPublication);
             InvoiceUnitReviewPolicyRules.VerifyCaseGraph(source.ReviewPolicy,
                 authority.Case, authority.Workers);
             InvoiceRetainedUnitReview.VerifyCoreCompletion(authority,

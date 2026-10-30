@@ -50,6 +50,13 @@ public static partial class ProcurementInvoiceUnitReviewRoutes
             await ProcurementOperationalPolicyCurrentPublication.RequireAsync(db,scope,http.RequestServices,matching,ct);
             await ProcurementOperationalPolicyCurrentPublication.RequireAsync(db,scope,http.RequestServices,review,ct);
         }
+        else
+        {
+            _=await ProcurementOperationalPolicyWorkerIdentity.VerifyPublicationAsync(db,scope,matching,ct,
+                OperationalPolicyPublicationMode.RetainedHistorical);
+            _=await ProcurementOperationalPolicyWorkerIdentity.VerifyPublicationAsync(db,scope,review,ct,
+                OperationalPolicyPublicationMode.RetainedHistorical);
+        }
         var votes=await cases.Decisions.Where(x=>x.CaseId==workflow.Id).ToArrayAsync(ct);
         var authority=new InvoiceRetainedUnitReviewAuthority(source.Id,1,outcome.EvidenceJson,outcome.EvidenceSha256,
             workflow,votes,owned.AssignmentWorkers,matching,review);

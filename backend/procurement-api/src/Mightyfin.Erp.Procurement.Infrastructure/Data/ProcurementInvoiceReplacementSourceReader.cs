@@ -64,7 +64,7 @@ public sealed partial class ProcurementDbContext
             .Where(x => x.MatchResultId == blocked.Id).Select(x => x.Id).ToArrayAsync(ct);
         if (sourceExceptions.Length != 1 || !admitted.Exceptions.Contains(sourceExceptions[0]))
             throw new InvalidOperationException("InvoiceReplacementSourceExceptionChanged");
-        var digest = InvoiceReplacementEvidence.NoClaimProofDigest(source, mapping, blocked,
+        var digest = ReplacementNoClaimDigest(source, mapping, blocked,
             reviews[0], outcomes[0], sourceExceptions);
         if (digest.Length != 64) throw new InvalidOperationException("InvoiceReplacementSourceDigestUnavailable");
         return new(source, mapping, blocked, reviews[0], outcomes[0], digest);
