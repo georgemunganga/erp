@@ -18,6 +18,12 @@ public static partial class ProcurementInvoiceIntakeRoutes
     private static bool ReplacementWritesEnabled(IConfiguration config)
         => config.GetValue<bool>("Procurement:InvoiceReplacement:Enabled");
 
+    internal static bool ExplicitReplacementCurrency(string? currency)
+        => !string.IsNullOrWhiteSpace(currency);
+
+    internal static bool SameReplacementCurrency(string sourceCurrency, string correctedCurrency)
+        => correctedCurrency.Trim().ToUpperInvariant() == sourceCurrency;
+
     private static async Task<bool> ReplacementReadSchemaReady(HttpRequest request, CancellationToken ct)
         => request.HttpContext.RequestServices.GetService<IProcurementInvoiceReplacementSchemaReadiness>()
             is { } readiness && await readiness.IsReadyAsync(ct);
@@ -37,13 +43,15 @@ public static partial class ProcurementInvoiceIntakeRoutes
             expectedCalculationSha256 = input.CorrectedInvoice?.ExpectedCalculationSha256
         }, CalculationJson));
 
-    private static async Task<IResult> ReplaceCurrencyInvoice(Guid id, InvoiceReplacementInput input,
+    internal static async Task<IResult> ReplaceCurrencyInvoice(Guid id, InvoiceReplacementInput input,
         HttpRequest request, ProcurementDbContext db, ProcurementRequestScope scope, CancellationToken ct)
     {
         if (!IntakeWriteContextAllowed(scope, request)) return IntakeBranchRequired();
         if (id == Guid.Empty || input.CorrectedInvoice is null || input.SourceVersion <= 0
             || string.IsNullOrWhiteSpace(input.Reason) || input.Reason.Trim().Length > 1000)
             return Invalid("Supply the source version, corrected invoice and replacement reason.");
+        if (!ExplicitReplacementCurrency(input.CorrectedInvoice.CurrencyCode))
+            return Invalid("Enter the original invoice's currency explicitly on the corrected invoice.");
         if (!Guid.TryParse(request.Headers["Idempotency-Key"], out var key) || key == Guid.Empty)
             return Invalid("A saved replacement command reference is required.");
         var requestSha = ReplacementRequestDigest(id, input);
@@ -86,11 +94,11 @@ public static partial class ProcurementInvoiceIntakeRoutes
             || input.CorrectedInvoice.ExpectedCurrencyRevision is null
             || input.CorrectedInvoice.ExpectedCalculationSha256 is not { Length: 64 })
             return Invalid("Review the corrected invoice's currency calculation before replacing the original.");
-        var issue = Validate(input.CorrectedInvoice, allowDefaultCurrency: true);
+        var issue = Validate(input.CorrectedInvoice, allowDefaultCurrency: false);
         if (issue is not null) return Invalid(issue);
         if (source.Version != input.SourceVersion) return StaleInvoice();
         if (source.BranchRef != branch || source.SupplierId != input.CorrectedInvoice.SupplierId
-            || source.CurrencyCode != input.CorrectedInvoice.CurrencyCode?.Trim().ToUpperInvariant())
+            || !SameReplacementCurrency(source.CurrencyCode, input.CorrectedInvoice.CurrencyCode!))
             return Results.Conflict(new { code = "invoice-replacement-scope-changed",
                 message = "The corrected invoice must retain the vendor, currency and branch." });
         var already = await db.InvoiceReplacementLinks.AsNoTracking()

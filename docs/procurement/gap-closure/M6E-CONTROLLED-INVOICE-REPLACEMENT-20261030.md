@@ -68,7 +68,7 @@ The existing approved baseline header and **all original 21 owner-table row dige
 
 ## 13. Screens & Data Views
 
-Reuse `reference-ui/src/features/LiveInvoices.tsx` Bill list, form, and detail layout. Add a dedicated replacement route using the same input fields and calculation preview, with locked supplier/company/currency/PO/branch and an explicit corrected number/reason. The source detail's Overview and History show the successor link, recorded Blocked result, original exception, and immutable review; the successor detail shows the source link. Keep existing list filters and original Bill identity.
+Reuse `reference-ui/src/features/LiveInvoices.tsx` Bill list, form, and detail layout. Add a dedicated replacement route using the same input fields and calculation preview, with locked supplier/company/PO/branch and the source invoice currency prefilled read-only in the corrected input, plus an explicit corrected number/reason. The replacement command requires that explicit currency even if the company's current default has changed; ordinary new-invoice capture keeps its existing default behavior. The source detail's Overview and History show the successor link, recorded Blocked result, original exception, and immutable review; the successor detail shows the source link. Keep existing list filters and original Bill identity.
 
 ## 14. User Experience / Human Behaviour
 
