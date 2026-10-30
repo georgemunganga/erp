@@ -1,3 +1,6 @@
+using Mightyfin.Erp.Procurement.Infrastructure.Data;
+using Mightyfin.Erp.Core.Approvals.Infrastructure;
+using Mightyfin.Erp.Hrm.Infrastructure.Data;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.EntityFrameworkCore;
 using Mightyfin.Erp.Core.Approvals.Domain;
@@ -24,8 +27,8 @@ public static partial class ProcurementInvoiceUnitReviewRoutes
             foreach (var person in people)
                 if (!await ProcurementPrincipalPeople.IndependentNow(core, scope.TenantId, actor.PrincipalId, actor.WorkerId, person.PrincipalId, person.WorkerId, token))
                     throw new ReviewProblem("InvoiceUnitReviewIndependentReviewerRequired", 409);
-            var hashes = await AvailableHashes(db, scope, http, id, InvoiceMappingEvidence.Verify(mapping, invoice, originals), token);
-            var issued = await ProcurementReceivingRoutes.InvoiceReviewIssuedOrder(db, cases, scope, mapping.PurchaseOrderId, mapping.IssuedVersionId, token);
+            var hashes = await AvailableHashes(db, scope, http, id, InvoiceMappingReviewSourceDispatch.Verify(mapping, invoice, originals), token);
+            var issued = await ReviewIssuedOrder(db, cases, core, scope, actor, mapping, mapping.PurchaseOrderId, mapping.IssuedVersionId, token);
             var now = Now();
             var plan = InvoiceUnitReviewTransitions.PrepareOpen(invoice, originals, mapping, issued, matching, review, actor, people, hashes,
                 new(key, input.InvoiceVersion, input.MappingRevision, now, request.Reason));
@@ -65,9 +68,9 @@ public static partial class ProcurementInvoiceUnitReviewRoutes
             var review = await db.PolicyVersions.SingleAsync(x => x.Id == source.ReviewPolicyId, token);
             await ProcurementOperationalPolicyCurrentPublication.RequireAsync(db, scope, http.RequestServices, matching, token);
             await ProcurementOperationalPolicyCurrentPublication.RequireAsync(db, scope, http.RequestServices, review, token);
-            var hashes = await AvailableHashes(db, scope, http, invoice.Id, InvoiceMappingEvidence.Verify(mapping, invoice, originals), token);
+            var hashes = await AvailableHashes(db, scope, http, invoice.Id, InvoiceMappingReviewSourceDispatch.Verify(mapping, invoice, originals), token);
             await RequireRetainedOriginalDocuments(db, scope, source, token);
-            var issued = await ProcurementReceivingRoutes.InvoiceReviewIssuedOrder(db, cases, scope, source.PurchaseOrderId, source.IssuedVersionId, token);
+            var issued = await ReviewIssuedOrder(db, cases, core, scope, actor, mapping, source.PurchaseOrderId, source.IssuedVersionId, token);
             var decisions = (await cases.Decisions.Where(x => x.CaseId == workflow.Id).ToArrayAsync(token)).ToList(); var before = decisions.Select(x => x.Id).ToHashSet(); var now = Now();
             _ = InvoiceUnitReviewTransitions.ApplyNewDecision(owned, invoice, originals, mapping, issued, matching, review, actor, hashes, assignmentId,
                 new(key, input.InvoiceVersion, input.CaseVersion, input.AssignmentVersion, input.Action, request.Reason, now), decisions);
@@ -89,4 +92,26 @@ public static partial class ProcurementInvoiceUnitReviewRoutes
                 EventType = "invoice.original_units_reviewed.v1", IdempotencyKey = key.ToString("D"), PayloadJson = InvoiceUnitReviewCommands.Serialize(new { invoiceId = invoice.Id, reviewId = id, state = outcome.State, canPostToFinance = false }) });
             await db.SaveChangesAsync(token); return InvoiceUnitReviewCommands.Serialize(response);
         }, ct);
+
+    private static async Task<InvoiceIssuedOrder> ReviewIssuedOrder(ProcurementDbContext db,
+        ApprovalDbContext cases, HrmDbContext core, ProcurementRequestScope scope,
+        InvoiceUnitReviewPolicyRules.Person actor, InvoiceMatchMappingVersion mapping,
+        Guid orderId, Guid issuedVersionId, CancellationToken ct)
+    {
+        if (mapping.SourceSchemaVersion is null)
+            return await ProcurementReceivingRoutes.InvoiceReviewIssuedOrder(
+                db, cases, scope, orderId, issuedVersionId, ct);
+        if (mapping.SourceSchemaVersion != 3)
+            throw new ReviewProblem("InvoiceUnitReviewSourceSchemaUnavailable", 409);
+        // Actor has already passed the current action/invoice-branch fence. An
+        // organisation-wide account still receives only active current-company
+        // locations; raw assignment IDs or historical reviewers cannot widen it.
+        var allowed = await core.WorkLocations.AsNoTracking().Where(x =>
+            x.TenantId == scope.TenantId && x.LegalEntityId == scope.LegalEntityId
+            && !x.IsArchived && (actor.OrganisationWide || actor.AllowedBranches.Contains(x.Id)))
+            .Select(x => x.Id).ToArrayAsync(ct);
+        return await ProcurementPrincipalInvoiceIssuedWitness.LoadReviewIssuedOrderAsync(
+            db, cases, scope, allowed.ToHashSet(), orderId, issuedVersionId, ct);
+    }
+
 }

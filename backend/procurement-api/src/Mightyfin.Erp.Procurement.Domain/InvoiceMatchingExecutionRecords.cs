@@ -36,6 +36,10 @@ public sealed class InvoiceMatchAllocation : ProcurementRecord
     public Guid? ReceivingSourceStateId { get; init; }
     public Guid? GoodsReceiptLineId { get; init; }
     public Guid? ServiceAcceptanceId { get; init; }
+    /// <summary>M6B principal receiving identity. Both values are null on
+    /// retained v1/v2 claims; source schema 3 stores both or neither.</summary>
+    public Guid? PrincipalReceivingSourceStateId { get; init; }
+    public Guid? PrincipalReceivingFactId { get; init; }
     public Guid? OriginalDebitId { get; init; }
     public string Kind { get; init; } = "Debit";
     public string CurrencyCode { get; init; } = null!;
@@ -54,6 +58,8 @@ public sealed class InvoiceMatchExposureState : ProcurementRecord
 {
     public Guid PurchaseOrderId { get; init; }
     public Guid IssuedVersionId { get; init; }
+    /// <summary>Null for retained legacy exposure; 3 selects the principal issued order.</summary>
+    public int? SourceSchemaVersion { get; init; }
     public Guid SupplierId { get; init; }
     public string CurrencyCode { get; init; } = null!;
     public long Sequence { get; set; }

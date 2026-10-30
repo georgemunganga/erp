@@ -17,6 +17,8 @@ public sealed partial class ProcurementDbContext
             || Database.CurrentTransaction.GetDbTransaction().IsolationLevel != IsolationLevel.Serializable
             || string.IsNullOrWhiteSpace(scope.TenantId) || scope.LegalEntityId == Guid.Empty)
             throw new InvalidOperationException("InvoiceOwnerSerializableInventoryRequired");
+        // A later RLS policy must fail the owner capture instead of masking rows.
+        await Database.ExecuteSqlRawAsync("SET LOCAL row_security = off", ct);
         var connection=Database.GetDbConnection();
         var transaction=Database.CurrentTransaction.GetDbTransaction();
         var tables=new List<InvoiceProcurementCapturedTable>(InvoiceProcurementOwnerTables.Names.Count);
@@ -34,7 +36,9 @@ public sealed partial class ProcurementDbContext
             await using var reader=await command.ExecuteReaderAsync(ct);
             while(await reader.ReadAsync(ct))
             {
-                var id=reader.GetGuid(0);var version=reader.GetInt64(1);var json=reader.GetString(2);
+                var id=reader.GetGuid(0);var version=reader.GetInt64(1);
+                var json=InvoiceProcurementIssuedCanonicalRow.Project(table,
+                    InvoiceProcurementAllocationCanonicalRow.Project(table,reader.GetString(2)));
                 var bytes=Encoding.UTF8.GetByteCount(json);
                 totalRows++;totalBytes+=bytes;
                 if(id==Guid.Empty || version<1 || bytes is < 1 or > 1_048_576

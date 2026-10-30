@@ -22,6 +22,9 @@ public static partial class ProcurementInvoiceMatchingRoutes
     {
         var group=app.MapGroup("/api/procurement/v1/invoices");
         group.MapPost("/{id:guid}/matching/mappings",Map).RequireAuthorization("procurement-invoice-capture");
+        group.MapPut("/{id:guid}/matching/principal-mapping",MapPrincipal).RequireAuthorization("procurement-invoice-capture");
+        group.MapGet("/{id:guid}/matching/principal-sources",PrincipalSources).RequireAuthorization("procurement-invoice-match","procurement-invoice-read");
+        group.MapGet("/{id:guid}/matching/principal-sources/{orderId:guid}/lines/{lineId:guid}/acceptances",PrincipalAcceptances).RequireAuthorization("procurement-invoice-match","procurement-invoice-read");
         group.MapPost("/{id:guid}/matching/compare",Compare).RequireAuthorization("procurement-invoice-match");
         group.MapGet("/{id:guid}/matching/sources",Sources).RequireAuthorization("procurement-invoice-match","procurement-invoice-read");
         group.MapGet("/{id:guid}/matching/sources/{orderId:guid}/lines/{lineId:guid}/acceptances",Acceptances).RequireAuthorization("procurement-invoice-match","procurement-invoice-read");
@@ -29,15 +32,29 @@ public static partial class ProcurementInvoiceMatchingRoutes
         group.MapGet("/{id:guid}/matching/commands/{key:guid}",Recover).RequireAuthorization("procurement-access");
     }
     private static async Task<IResult> Run(HttpContext http,ProcurementRequestScope scope,
-        Func<ProcurementDbContext,ApprovalDbContext,HrmDbContext,IAuthorizationService,CancellationToken,Task<string>> work,CancellationToken ct)
+        Func<ProcurementDbContext,ApprovalDbContext,HrmDbContext,IAuthorizationService,CancellationToken,Task<string>> work,CancellationToken ct,bool deferSchema=false,bool historyRead=false)
     {
+        http.Response.Headers.CacheControl="no-store";
         try
         {
             var options=http.RequestServices.GetRequiredService<ProcurementInvoiceMatchingExecutionOptions>();
-            if(!options.Enabled || !options.ExecutionDatabaseConfigured || !await http.RequestServices.GetRequiredService<IProcurementInvoiceMatchingSchemaReadiness>().IsReadyAsync(ct))
+            if(!options.Enabled || !options.ExecutionDatabaseConfigured)
+                throw new MatchingProblem("InvoiceMatchingUnavailable",503);
+            var legacyReadiness=http.RequestServices.GetService<IProcurementInvoiceMatchingSchemaReadiness>();
+            var requireLegacy=!deferSchema || !options.PrincipalSourcesEnabled;
+            var legacyReady=(requireLegacy || historyRead) && legacyReadiness is not null
+                && await legacyReadiness.IsReadyAsync(ct);
+            var principalHistory=historyRead && !legacyReady;
+            var baseline=principalHistory
+                ? http.RequestServices.GetService<IProcurementInvoiceOwnerBaselineReadiness>() : null;
+            if((!historyRead && requireLegacy && !legacyReady) || (principalHistory && baseline is null))
                 throw new MatchingProblem("InvoiceMatchingUnavailable",503);
             var json=await http.RequestServices.GetRequiredService<ProcurementApprovalTransaction>().ExecuteAsync(async(db,cases,token)=>
             {
+                if(principalHistory && (!await baseline!.CanReadAsync(db,token)
+                    || !await ProcurementPrincipalInvoiceMatchingReadiness.IsReadyAsync(db,cases,false,
+                        http.RequestServices.GetRequiredService<IConfiguration>(),token)))
+                    throw new MatchingProblem("InvoiceMatchingUnavailable",503);
                 await using var core=await ProcurementApprovalExecutionLocks.CoreAsync(db,scope,token);
                 return await work(db,cases,core,http.RequestServices.GetRequiredService<IAuthorizationService>(),token);
             },ct);

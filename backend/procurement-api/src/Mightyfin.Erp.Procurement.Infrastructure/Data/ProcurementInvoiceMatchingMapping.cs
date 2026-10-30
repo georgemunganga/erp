@@ -20,6 +20,9 @@ public sealed partial class ProcurementDbContext
         model.Entity<PurchaseOrderIssuedVersion>()
             .HasAlternateKey(x => new { x.TenantId, x.LegalEntityId, x.Id, x.PurchaseOrderId })
             .HasName("ak_invoice_issued_order_binding");
+        model.Entity<PrincipalOrderIssuedVersion>()
+            .HasAlternateKey(x => new { x.TenantId, x.LegalEntityId, x.Id, x.PurchaseOrderId })
+            .HasName("ak_invoice_principal_issued_order_binding");
         ConfigureBase<InvoiceMatchMappingVersion>(model, "invoice_match_mapping_versions");
         ConfigureBase<InvoiceMatchAllocation>(model, "invoice_match_allocations");
         ConfigureBase<InvoiceMatchExposureState>(model, "invoice_match_exposure_states");
@@ -70,18 +73,17 @@ public sealed partial class ProcurementDbContext
         mapping.Property(x => x.ActorPrincipalId).HasMaxLength(200); mapping.Property(x => x.VerificationState).HasMaxLength(100);
         mapping.HasIndex(x => new { x.TenantId, x.LegalEntityId, x.SupplierInvoiceId, x.MappingRevision }).IsUnique();
         Link<InvoiceMatchMappingVersion, SupplierInvoice>(model, nameof(InvoiceMatchMappingVersion.SupplierInvoiceId));
-        mapping.HasOne<PurchaseOrderIssuedVersion>().WithMany().HasForeignKey(x => new { x.TenantId, x.LegalEntityId, x.IssuedVersionId, x.PurchaseOrderId })
-            .HasPrincipalKey(x => new { x.TenantId, x.LegalEntityId, x.Id, x.PurchaseOrderId }).OnDelete(DeleteBehavior.Restrict);
+        ConfigureInvoiceIssuedParents<InvoiceMatchMappingVersion>(model);
         mapping.ToTable(t => t.HasCheckConstraint("ck_invoice_mapping_evidence", "mapping_revision > 0 AND mapping_sha256 ~ '^[0-9a-f]{64}$' AND invoice_original_sha256 ~ '^[0-9a-f]{64}$' AND identity_schema_version IN (1,2) AND (source_schema_version IS NULL OR (source_schema_version=3 AND identity_schema_version=2)) AND (identity_schema_version=2 OR actor_worker_id IS NOT NULL) AND (actor_worker_id IS NULL OR actor_worker_id <> '00000000-0000-0000-0000-000000000000'::uuid) AND actor_principal_id IS NOT NULL AND (identity_schema_version=1 OR (actor_principal_id ~ '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$' AND actor_principal_id <> '00000000-0000-0000-0000-000000000000'))"));
         var exposure = model.Entity<InvoiceMatchExposureState>();
         exposure.Property(x => x.CurrencyCode).HasMaxLength(3); exposure.Property(x => x.CoverageState).HasMaxLength(30);
         exposure.Property(x => x.OwnerReference).HasMaxLength(500); exposure.Property(x => x.OwnerWatermark).HasMaxLength(500);
         exposure.Property(x => x.OwnerEvidenceSha256).HasMaxLength(64);
         exposure.HasIndex(x => new { x.TenantId, x.LegalEntityId, x.PurchaseOrderId, x.IssuedVersionId }).IsUnique();
-        exposure.HasOne<PurchaseOrderIssuedVersion>().WithMany().HasForeignKey(x => new { x.TenantId, x.LegalEntityId, x.IssuedVersionId, x.PurchaseOrderId })
-            .HasPrincipalKey(x => new { x.TenantId, x.LegalEntityId, x.Id, x.PurchaseOrderId }).OnDelete(DeleteBehavior.Restrict);
+        exposure.Property(x => x.SourceSchemaVersion).HasColumnName("source_schema_version");
+        ConfigureInvoiceIssuedParents<InvoiceMatchExposureState>(model);
         Link<InvoiceMatchExposureState, Supplier>(model, nameof(InvoiceMatchExposureState.SupplierId));
-        exposure.ToTable(t => t.HasCheckConstraint("ck_invoice_exposure_state", "sequence >= 0 AND coverage_state IN ('Unknown','Verified','Stale') AND currency_code ~ '^[A-Z]{3}$' AND (coverage_state <> 'Verified' OR (owner_reference IS NOT NULL AND owner_watermark IS NOT NULL AND owner_evidence_sha256 IS NOT NULL AND owner_evidence_sha256 ~ '^[0-9a-f]{64}$' AND owner_valid_until IS NOT NULL))"));
+        exposure.ToTable(t => t.HasCheckConstraint("ck_invoice_exposure_state", "sequence >= 0 AND (source_schema_version IS NULL OR source_schema_version=3) AND coverage_state IN ('Unknown','Verified','Stale') AND currency_code ~ '^[A-Z]{3}$' AND (coverage_state <> 'Verified' OR (owner_reference IS NOT NULL AND owner_watermark IS NOT NULL AND owner_evidence_sha256 IS NOT NULL AND owner_evidence_sha256 ~ '^[0-9a-f]{64}$' AND owner_valid_until IS NOT NULL))"));
         var result = model.Entity<InvoiceMatchResult>();
         result.Property(x => x.ExecutionVersion).HasDefaultValue(0);
         result.Property(x => x.EvidenceJson).HasColumnType("text"); result.Property(x => x.SourceWatermarksJson).HasColumnType("text");
@@ -91,10 +93,10 @@ public sealed partial class ProcurementDbContext
         result.Property(x => x.QuantityVariance).HasPrecision(18,4); result.Property(x => x.PriceVariance).HasPrecision(18,4); result.Property(x => x.TaxVariance).HasPrecision(38,8);
         result.HasOne<InvoiceMatchMappingVersion>().WithMany().HasForeignKey(x => new { x.TenantId, x.LegalEntityId, x.MappingVersionId, x.SupplierInvoiceId, x.PurchaseOrderId, x.IssuedVersionId })
             .HasPrincipalKey(x => new { x.TenantId, x.LegalEntityId, x.Id, x.SupplierInvoiceId, x.PurchaseOrderId, x.IssuedVersionId }).OnDelete(DeleteBehavior.Restrict);
-        result.HasOne<PurchaseOrderIssuedVersion>().WithMany().HasForeignKey(x => new { x.TenantId, x.LegalEntityId, x.IssuedVersionId, x.PurchaseOrderId })
-            .HasPrincipalKey(x => new { x.TenantId, x.LegalEntityId, x.Id, x.PurchaseOrderId }).OnDelete(DeleteBehavior.Restrict);
+        result.Property(x => x.SourceSchemaVersion).HasColumnName("source_schema_version");
+        ConfigureInvoiceIssuedParents<InvoiceMatchResult>(model);
         result.HasIndex(x => new { x.TenantId, x.LegalEntityId, x.CommandKey }).IsUnique().HasFilter("command_key IS NOT NULL");
-        result.ToTable(t => t.HasCheckConstraint("ck_invoice_match_execution", "execution_version = 0 OR (execution_version IN (1,2) AND mapping_version_id IS NOT NULL AND purchase_order_id IS NOT NULL AND issued_version_id IS NOT NULL AND invoice_version > 0 AND command_key IS NOT NULL AND (execution_version=2 OR actor_worker_id IS NOT NULL) AND (actor_worker_id IS NULL OR actor_worker_id <> '00000000-0000-0000-0000-000000000000'::uuid) AND actor_principal_id IS NOT NULL AND (execution_version=1 OR (actor_principal_id ~ '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$' AND actor_principal_id <> '00000000-0000-0000-0000-000000000000')) AND invoice_original_sha256 IS NOT NULL AND invoice_original_sha256 ~ '^[0-9a-f]{64}$' AND input_fingerprint IS NOT NULL AND input_fingerprint ~ '^[0-9a-f]{64}$' AND evidence_sha256 IS NOT NULL AND evidence_sha256 ~ '^[0-9a-f]{64}$' AND policy_rules_sha256 IS NOT NULL AND policy_rules_sha256 ~ '^[0-9a-f]{64}$' AND evidence_json IS NOT NULL AND source_watermarks_json IS NOT NULL AND outcome IN ('Compared','Blocked'))"));
+        result.ToTable(t => t.HasCheckConstraint("ck_invoice_match_execution", "(source_schema_version IS NULL OR (source_schema_version=3 AND execution_version=2 AND mapping_version_id IS NOT NULL AND purchase_order_id IS NOT NULL AND issued_version_id IS NOT NULL)) AND (execution_version = 0 OR (execution_version IN (1,2) AND mapping_version_id IS NOT NULL AND purchase_order_id IS NOT NULL AND issued_version_id IS NOT NULL AND invoice_version > 0 AND command_key IS NOT NULL AND (execution_version=2 OR actor_worker_id IS NOT NULL) AND (actor_worker_id IS NULL OR actor_worker_id <> '00000000-0000-0000-0000-000000000000'::uuid) AND actor_principal_id IS NOT NULL AND (execution_version=1 OR (actor_principal_id ~ '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$' AND actor_principal_id <> '00000000-0000-0000-0000-000000000000')) AND invoice_original_sha256 IS NOT NULL AND invoice_original_sha256 ~ '^[0-9a-f]{64}$' AND input_fingerprint IS NOT NULL AND input_fingerprint ~ '^[0-9a-f]{64}$' AND evidence_sha256 IS NOT NULL AND evidence_sha256 ~ '^[0-9a-f]{64}$' AND policy_rules_sha256 IS NOT NULL AND policy_rules_sha256 ~ '^[0-9a-f]{64}$' AND evidence_json IS NOT NULL AND source_watermarks_json IS NOT NULL AND outcome IN ('Compared','Blocked')))"));
         var invoice = model.Entity<SupplierInvoice>(); invoice.Property(x => x.MatchingState).HasMaxLength(50).HasDefaultValue("NotCompared");
         invoice.HasOne<InvoiceMatchMappingVersion>().WithMany().HasForeignKey(x => new { x.TenantId, x.LegalEntityId, x.CurrentMappingVersionId, x.Id })
             .HasPrincipalKey(x => new { x.TenantId, x.LegalEntityId, x.Id, x.SupplierInvoiceId }).OnDelete(DeleteBehavior.Restrict);
@@ -117,6 +119,14 @@ public sealed partial class ProcurementDbContext
             .HasPrincipalKey(x => new { x.TenantId, x.LegalEntityId, x.Id, x.PurchaseOrderId }).OnDelete(DeleteBehavior.Restrict);
         allocation.HasOne<ReceivingSourceState>().WithMany().HasForeignKey(x => new { x.TenantId, x.LegalEntityId, x.ReceivingSourceStateId, x.PurchaseOrderId, x.IssuedVersionId, x.PurchaseOrderLineId })
             .HasPrincipalKey(x => new { x.TenantId, x.LegalEntityId, x.Id, x.PurchaseOrderId, x.IssuedVersionId, x.PurchaseOrderLineId }).OnDelete(DeleteBehavior.Restrict);
+        allocation.HasOne<PrincipalReceivingSourceState>().WithMany().HasForeignKey(x => new
+            { x.TenantId, x.LegalEntityId, x.PrincipalReceivingSourceStateId, x.PurchaseOrderId, x.IssuedVersionId, x.PurchaseOrderLineId })
+            .HasPrincipalKey(x => new { x.TenantId, x.LegalEntityId, x.Id, x.PurchaseOrderId, x.IssuedVersionId, x.PurchaseOrderLineId })
+            .OnDelete(DeleteBehavior.Restrict).HasConstraintName("fk_invoice_allocation_principal_source_line");
+        allocation.HasOne<PrincipalReceivingFact>().WithMany().HasForeignKey(x => new
+            { x.TenantId, x.LegalEntityId, x.PrincipalReceivingFactId, x.PrincipalReceivingSourceStateId })
+            .HasPrincipalKey(x => new { x.TenantId, x.LegalEntityId, x.Id, x.SourceStateId })
+            .OnDelete(DeleteBehavior.Restrict).HasConstraintName("fk_invoice_allocation_principal_fact_source");
         // Mutable receiving completion pins must never become EF principal keys.
         // The migration-owned deferred overlay below binds the exact line/state tuple.
         allocation.HasOne<GoodsReceiptLine>().WithMany().HasForeignKey(x => new { x.TenantId, x.LegalEntityId, x.GoodsReceiptLineId })
@@ -129,7 +139,7 @@ public sealed partial class ProcurementDbContext
             .IsUnique().HasDatabaseName("ux_invoice_service_exact_source_binding");
         Link<InvoiceMatchAllocation, Supplier>(model, nameof(InvoiceMatchAllocation.SupplierId));
         Link<InvoiceMatchAllocation, InvoiceMatchAllocation>(model, nameof(InvoiceMatchAllocation.OriginalDebitId));
-        allocation.ToTable(t => t.HasCheckConstraint("ck_invoice_match_allocation", "kind = 'Debit' AND original_debit_id IS NULL AND quantity > 0 AND net_amount >= 0 AND tax_amount >= 0 AND exposure_sequence > 0 AND (goods_receipt_line_id IS NULL OR service_acceptance_id IS NULL) AND ((goods_receipt_line_id IS NULL AND service_acceptance_id IS NULL AND receiving_source_state_id IS NULL) OR (receiving_source_state_id IS NOT NULL AND (goods_receipt_line_id IS NOT NULL OR service_acceptance_id IS NOT NULL)))"));
+        allocation.ToTable(t => t.HasCheckConstraint("ck_invoice_match_allocation", "kind = 'Debit' AND original_debit_id IS NULL AND quantity > 0 AND net_amount >= 0 AND tax_amount >= 0 AND exposure_sequence > 0 AND ((principal_receiving_source_state_id IS NULL AND principal_receiving_fact_id IS NULL AND (goods_receipt_line_id IS NULL OR service_acceptance_id IS NULL) AND ((goods_receipt_line_id IS NULL AND service_acceptance_id IS NULL AND receiving_source_state_id IS NULL) OR (receiving_source_state_id IS NOT NULL AND (goods_receipt_line_id IS NOT NULL OR service_acceptance_id IS NOT NULL)))) OR (principal_receiving_source_state_id IS NOT NULL AND principal_receiving_source_state_id <> '00000000-0000-0000-0000-000000000000'::uuid AND principal_receiving_fact_id IS NOT NULL AND principal_receiving_fact_id <> '00000000-0000-0000-0000-000000000000'::uuid AND receiving_source_state_id IS NULL AND goods_receipt_line_id IS NULL AND service_acceptance_id IS NULL))"));
         var exception = model.Entity<InvoiceException>();
         foreach (var pointer in new[] { nameof(InvoiceException.MatchResultId), nameof(InvoiceException.ResolvingMatchResultId) })
             exception.HasOne<InvoiceMatchResult>().WithMany().HasForeignKey(nameof(ProcurementRecord.TenantId), nameof(ProcurementRecord.LegalEntityId), pointer, nameof(InvoiceException.SupplierInvoiceId))
@@ -137,6 +147,30 @@ public sealed partial class ProcurementDbContext
         exception.HasOne<SupplierInvoiceLine>().WithMany().HasForeignKey(x => new { x.TenantId, x.LegalEntityId, x.SupplierInvoiceLineId, x.SupplierInvoiceId })
             .HasPrincipalKey(x => new { x.TenantId, x.LegalEntityId, x.Id, x.SupplierInvoiceId }).OnDelete(DeleteBehavior.Restrict);
         model.Entity<InvoiceException>().Property(x => x.DiscrepancyKey).HasMaxLength(150);
+    }
+
+    private static void ConfigureInvoiceIssuedParents<T>(ModelBuilder model) where T : ProcurementRecord
+    {
+        var row = model.Entity<T>();
+        // Effective IssuedVersionId stays byte-identical in historical payloads.
+        // Generated nullable references make the source discriminator enforceable
+        // by two real scoped FKs, including result rows without a mapping.
+        row.Property<Guid?>("LegacyIssuedVersionRefId")
+            .HasColumnName("legacy_issued_version_ref_id")
+            .HasComputedColumnSql("CASE WHEN source_schema_version IS NULL THEN issued_version_id ELSE NULL END", stored: true);
+        row.Property<Guid?>("PrincipalIssuedVersionRefId")
+            .HasColumnName("principal_issued_version_ref_id")
+            .HasComputedColumnSql("CASE WHEN source_schema_version = 3 THEN issued_version_id ELSE NULL END", stored: true);
+        row.HasOne<PurchaseOrderIssuedVersion>().WithMany()
+            .HasForeignKey("TenantId", "LegalEntityId", "LegacyIssuedVersionRefId", "PurchaseOrderId")
+            .HasPrincipalKey("TenantId", "LegalEntityId", "Id", "PurchaseOrderId")
+            .OnDelete(DeleteBehavior.Restrict)
+            .HasConstraintName($"fk_{typeof(T).Name.ToLowerInvariant()}_legacy_issued_order");
+        row.HasOne<PrincipalOrderIssuedVersion>().WithMany()
+            .HasForeignKey("TenantId", "LegalEntityId", "PrincipalIssuedVersionRefId", "PurchaseOrderId")
+            .HasPrincipalKey("TenantId", "LegalEntityId", "Id", "PurchaseOrderId")
+            .OnDelete(DeleteBehavior.Restrict)
+            .HasConstraintName($"fk_{typeof(T).Name.ToLowerInvariant()}_principal_issued_order");
     }
 
     private void GuardInvoiceMatchingExecution()
@@ -178,12 +212,29 @@ public sealed partial class ProcurementDbContext
                     || result.PurchaseOrderId != row.PurchaseOrderId || result.IssuedVersionId != row.IssuedVersionId
                     || mapping.PurchaseOrderId != row.PurchaseOrderId || mapping.IssuedVersionId != row.IssuedVersionId
                     || exposure.PurchaseOrderId != row.PurchaseOrderId || exposure.IssuedVersionId != row.IssuedVersionId
+                    || result.SourceSchemaVersion != mapping.SourceSchemaVersion
+                    || exposure.SourceSchemaVersion != mapping.SourceSchemaVersion
                     || exposure.SupplierId != row.SupplierId || exposure.CurrencyCode != row.CurrencyCode
                     || invoice.SupplierId != row.SupplierId || invoice.CurrencyCode != row.CurrencyCode
                     || row.NetAmount < 0 || row.TaxAmount < 0 || string.IsNullOrWhiteSpace(row.UnitCode)
                     || row.Quantity <= 0 || !ExactDecimalJsonCodec.IsRepresentable(row.Quantity,18,4)
                     || !ExactDecimalJsonCodec.IsRepresentable(row.NetAmount,38,8) || !ExactDecimalJsonCodec.IsRepresentable(row.TaxAmount,38,8))
                     throw new InvalidOperationException("InvoiceAllocationAuthorityRequired");
+                if (mapping.SourceSchemaVersion == 3)
+                {
+                    var originals = SupplierInvoiceLines.Where(x => x.SupplierInvoiceId == invoice.Id && x.IsActive).ToArray();
+                    var snapshot = PrincipalInvoiceMappingEvidence.VerifyStored(mapping, invoice, originals);
+                    var line = snapshot.Lines.SingleOrDefault(x => x.InvoiceLineId == row.SupplierInvoiceLineId
+                        && x.PurchaseOrderLineId == row.PurchaseOrderLineId);
+                    if (line is null || row.PrincipalReceivingSourceStateId != line.PrincipalReceivingSourceStateId
+                        || row.PrincipalReceivingFactId != line.PrincipalReceivingFactId
+                        || row.ReceivingSourceStateId is not null || row.GoodsReceiptLineId is not null
+                        || row.ServiceAcceptanceId is not null)
+                        throw new InvalidOperationException("PrincipalInvoiceAllocationSourceChanged");
+                }
+                else if (row.PrincipalReceivingSourceStateId is not null
+                    || row.PrincipalReceivingFactId is not null)
+                    throw new InvalidOperationException("LegacyInvoiceAllocationSourceChanged");
             }
         }
         foreach (var entry in ChangeTracker.Entries<InvoiceMatchResult>())
@@ -194,6 +245,7 @@ public sealed partial class ProcurementDbContext
                 var mapping = row.MappingVersionId is { } mappingId ? ApprovalEvidence<InvoiceMatchMappingVersion>(mappingId) : null;
                 if (invoice is null || mapping is null || invoice.CurrentMappingVersionId != mapping.Id || invoice.MappingRevision != mapping.MappingRevision
                     || mapping.SupplierInvoiceId != invoice.Id || mapping.PurchaseOrderId != row.PurchaseOrderId || mapping.IssuedVersionId != row.IssuedVersionId
+                    || row.SourceSchemaVersion != mapping.SourceSchemaVersion
                     || row.InvoiceVersion != invoice.Version || row.InvoiceOriginalSha256 != mapping.InvoiceOriginalSha256
                     || row.InvoiceOriginalSha256 != InvoiceMappingEvidence.OriginalDigest(invoice, SupplierInvoiceLines.Where(x => x.SupplierInvoiceId == invoice.Id && x.IsActive).ToArray()))
                     throw new InvalidOperationException("InvoiceMatchCurrentSourceRequired");

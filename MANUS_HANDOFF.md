@@ -1,15 +1,36 @@
 # M5 technical release and current prerequisites — 28 October 2026
 
-Published ERP main: `536f4c7721d3aef32a831dadecff7dd13908a31d` (through PR134).
+Published ERP main: `1c6a81d772c654e7a58254845d116e2cc3b0d7bd` (through PR133).
 Published Procurement UI main: `47cac6a13a24e9db113383f8a9cf5b319494d526`
 (PR92, `georgemunganga/module-connect`). Use current main descendants.
 These include M5b receiving and M5c company-local service-date source fixes.
 
 M6A invoice-history Open and independent review passed a bounded private
-real-cookie/native owner checkpoint on pending backend source `6287bd22`:
+real-cookie/native owner checkpoint on backend source `6287bd22`, now published through PR133:
 [scope and exact evidence](docs/procurement/gap-closure/M6A-INVOICE-HISTORY-PRIVATE-ACCEPTANCE-20261028.md).
-Published ERP main remains `536f4c77`; PR #133 is pending, and this checkpoint
+Published ERP main is `1c6a81d7`; PR #133 is merged, and this checkpoint
 does not activate M6 or prove qualified matching, Finance posting or whole UAT.
+
+M6B principal invoice mapping remains under Root integration in ERP draft PR135
+and UI draft PR93; these are not published prerequisites for new Manus work.
+The genuine receiving and dual-issued-parent migrations passed private Up,
+guarded Down/Up and retention veto checks. Source `7f44d5f3` passed 1,559
+Procurement and 304 focused Host tests. A real-cookie private journey created
+an invoice, saved source3 links to a genuine principal receipt, recovered the
+original command, denied another actor's key and Company All writes, and
+required independent original-unit review before comparison. Native persistence
+reconciliation passed. The original UI then passed a second mapping, lost-response
+original-key recovery and review-required denial; the wording successor and
+flag-off history reads also passed real Playwright. Exact temporary roles/grants
+were restored and both private runtime stacks stopped, preserving the legitimate
+test records. See [M6B bounded acceptance and receipt pins](docs/procurement/gap-closure/M6B-PRINCIPAL-INVOICE-LINKS-PRIVATE-ACCEPTANCE-20261028.md).
+No M6B production activation, qualified matching, Finance posting or full-module
+UAT is claimed. M6C manual unit attestation and the invoice selected-branch fix
+remain internal source work requiring a fresh SDK/native/API/UI checkpoint;
+they are not published Manus prerequisites. Preserve real principal parent
+constraints; never insert surrogate legacy versions or fake document evidence.
+GitHub Actions currently cannot start because its account has a billing lock;
+local pinned SDK/native evidence must remain explicit, never reported as CI.
 
 M5d accepted-Goods return-request CRUD/history now has private normal-cookie
 API and independently replayed native owner acceptance. It preserves the

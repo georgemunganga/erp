@@ -49,8 +49,11 @@ internal static class ProcurementPrincipalReceivingPhysicalSchema
         {
             if (owner.Database.HasPendingModelChanges() || (await owner.Database.GetPendingMigrationsAsync(ct)).Any()
                 || !(await owner.Database.GetAppliedMigrationsAsync(ct)).Contains(MigrationId, StringComparer.Ordinal)) return false;
-            var returnsApplied=(await owner.Database.GetAppliedMigrationsAsync(ct)).Contains(
+            var applied=await owner.Database.GetAppliedMigrationsAsync(ct);
+            var returnsApplied=applied.Contains(
                 ProcurementPrincipalGoodsReturnSchemaCapture.MigrationId,StringComparer.Ordinal);
+            var invoiceBindingsApplied=applied.Contains(
+                ProcurementPrincipalInvoiceMatchingReadiness.MigrationId,StringComparer.Ordinal);
             var model = owner.GetService<IDesignTimeModel>().Model;
             var connection = owner.Database.GetDbConnection();
             if (connection.State != ConnectionState.Open) { await owner.Database.OpenConnectionAsync(ct); opened = true; }
@@ -101,6 +104,17 @@ internal static class ProcurementPrincipalReceivingPhysicalSchema
                 foreach (var index in indexes)
                     if (!await True(IndexSql(table, index.Properties.Select(x => x.GetColumnName(table)!).ToArray(), index.GetDatabaseName()!, true))) return false;
             }
+            // The M6B nullable invoice FKs add two real parent AK/index pairs.
+            // GetKeys() above already includes them in exact counts; do not add
+            // synthetic overlay counts. Verify the named tuples if B is applied.
+            if(invoiceBindingsApplied)
+                foreach(var (name,columns) in ProcurementPrincipalInvoiceMatchingReadiness.ParentKeys)
+                {
+                    var parent=StoreObjectIdentifier.Table(name.Contains("sources",StringComparison.Ordinal)
+                        ?"principal_receiving_sources":"principal_receiving_facts","procurement");
+                    if(!await True(KeySql(parent,columns,name,false))
+                        || !await True(IndexSql(parent,columns,name,true)))return false;
+                }
             return checkedNames.SetEquals(ExpectedChecks.Keys) && await True(PrincipalReceivingOwnershipConstraintSql.ManifestQuery);
         }
         catch (Exception error) when (error is not OperationCanceledException) { return false; }

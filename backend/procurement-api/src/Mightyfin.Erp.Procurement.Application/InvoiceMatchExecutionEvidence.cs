@@ -203,7 +203,8 @@ public static class InvoiceMatchExecutionEvidence
             "InvoiceAllocationKindInvalid");
         return new(row.Id, row.SupplierInvoiceId, row.SupplierInvoiceLineId, row.TenantId, row.LegalEntityId, branch,
             row.SupplierId, row.PurchaseOrderId, row.IssuedVersionId, row.PurchaseOrderLineId,
-            row.GoodsReceiptLineId ?? row.ServiceAcceptanceId, row.CurrencyCode, row.Kind == "Credit" ? InvoiceConsumptionKind.Credit : InvoiceConsumptionKind.Debit,
+            row.PrincipalReceivingFactId ?? row.GoodsReceiptLineId ?? row.ServiceAcceptanceId,
+            row.CurrencyCode, row.Kind == "Credit" ? InvoiceConsumptionKind.Credit : InvoiceConsumptionKind.Debit,
             row.OriginalDebitId, row.Quantity, row.NetAmount, row.TaxAmount, row.ValidationReference);
     }
     private static decimal Parse(string value, int precision, int scale) => ExactDecimalJsonCodec.Parse(value, precision, scale, "InvoiceMatchAmount");

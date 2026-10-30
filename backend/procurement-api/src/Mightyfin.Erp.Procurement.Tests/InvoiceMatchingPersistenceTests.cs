@@ -14,6 +14,42 @@ public sealed class InvoiceMatchingPersistenceTests
     private static ProcurementDbContext Context() => new(new DbContextOptionsBuilder<ProcurementDbContext>().UseInMemoryDatabase(Guid.NewGuid().ToString()).Options,
         new Scope("invoice-test", Guid.NewGuid(), "matcher"));
     [Fact]
+    public void Three_matching_records_bind_exactly_one_issued_parent_without_replacing_effective_id()
+    {
+        // Relational computed-column conventions must be tested with the actual
+        // provider model. Building the model opens no database connection.
+        using var db = new ProcurementDbContext(new DbContextOptionsBuilder<ProcurementDbContext>()
+            .UseNpgsql("Host=127.0.0.1;Database=model_not_opened;Username=model_only").Options,
+            new Scope("invoice-model",Guid.NewGuid(),"model-only"));
+        var legacy = db.Model.FindEntityType(typeof(PurchaseOrderIssuedVersion))!;
+        var principal = db.Model.FindEntityType(typeof(PrincipalOrderIssuedVersion))!;
+        Assert.Contains(principal.GetKeys(), key => key.Properties.Select(x => x.Name).SequenceEqual(
+            new[] { "TenantId", "LegalEntityId", "Id", "PurchaseOrderId" }));
+        foreach (var type in new[] { typeof(InvoiceMatchMappingVersion), typeof(InvoiceMatchExposureState), typeof(InvoiceMatchResult) })
+        {
+            var row = db.Model.FindEntityType(type)!;
+            Assert.Equal(typeof(int?), row.FindProperty("SourceSchemaVersion")!.ClrType);
+            foreach (var (parent, reference) in new[] {
+                (legacy, "LegacyIssuedVersionRefId"), (principal, "PrincipalIssuedVersionRefId") })
+            {
+                Assert.Contains(row.GetForeignKeys(), fk => fk.PrincipalEntityType == parent
+                    && fk.Properties.Select(x => x.Name).SequenceEqual(
+                        new[] { "TenantId", "LegalEntityId", reference, "PurchaseOrderId" }));
+                var property = row.FindProperty(reference)!;
+                Assert.True(property.IsShadowProperty());
+                Assert.Equal(ValueGenerated.OnAddOrUpdate, property.ValueGenerated);
+                Assert.Contains(reference == "LegacyIssuedVersionRefId" ? "source_schema_version IS NULL" : "source_schema_version = 3",
+                    property.GetComputedColumnSql()!);
+            }
+            Assert.DoesNotContain(row.GetForeignKeys(), fk => fk.PrincipalEntityType == legacy
+                && fk.Properties.Any(x => x.Name == "IssuedVersionId"));
+        }
+        var model = db.GetService<IDesignTimeModel>().Model;
+        var result = model.FindEntityType(typeof(InvoiceMatchResult))!;
+        var check = result.GetCheckConstraints().Single(x => x.Name == "ck_invoice_match_execution").Sql;
+        Assert.Contains("source_schema_version=3 AND execution_version=2", check);
+    }
+    [Fact]
     public void Claims_bind_exact_invoice_line_result_exposure_issued_line_and_receiving_source_state()
     {
         using var db = Context(); var allocation = db.Model.FindEntityType(typeof(InvoiceMatchAllocation))!;
@@ -24,6 +60,12 @@ public sealed class InvoiceMatchingPersistenceTests
             && fk.Properties.Select(x=>x.Name).SequenceEqual(new[] { "TenantId","LegalEntityId","MappingVersionId","SupplierInvoiceId","PurchaseOrderId","IssuedVersionId" }));
         Assert.Contains(allocation.GetForeignKeys(), fk => fk.PrincipalEntityType.ClrType == typeof(ReceivingSourceState)
             && fk.Properties.Select(x => x.Name).SequenceEqual(new[] { "TenantId","LegalEntityId","ReceivingSourceStateId","PurchaseOrderId","IssuedVersionId","PurchaseOrderLineId" }));
+        Assert.Contains(allocation.GetForeignKeys(), fk => fk.PrincipalEntityType.ClrType == typeof(PrincipalReceivingSourceState)
+            && fk.Properties.Select(x => x.Name).SequenceEqual(new[] { "TenantId","LegalEntityId","PrincipalReceivingSourceStateId","PurchaseOrderId","IssuedVersionId","PurchaseOrderLineId" })
+            && fk.PrincipalKey.Properties.Select(x => x.Name).SequenceEqual(new[] { "TenantId","LegalEntityId","Id","PurchaseOrderId","IssuedVersionId","PurchaseOrderLineId" }));
+        Assert.Contains(allocation.GetForeignKeys(), fk => fk.PrincipalEntityType.ClrType == typeof(PrincipalReceivingFact)
+            && fk.Properties.Select(x => x.Name).SequenceEqual(new[] { "TenantId","LegalEntityId","PrincipalReceivingFactId","PrincipalReceivingSourceStateId" })
+            && fk.PrincipalKey.Properties.Select(x => x.Name).SequenceEqual(new[] { "TenantId","LegalEntityId","Id","SourceStateId" }));
         foreach (var target in new[] { typeof(GoodsReceiptLine),typeof(ServiceAcceptance) })
             Assert.Contains(allocation.GetForeignKeys(), fk => fk.PrincipalEntityType.ClrType == target
                 && fk.Properties.Select(x=>x.Name).SequenceEqual(new[] { "TenantId","LegalEntityId",target==typeof(GoodsReceiptLine)?"GoodsReceiptLineId":"ServiceAcceptanceId" }));
@@ -31,6 +73,12 @@ public sealed class InvoiceMatchingPersistenceTests
         Assert.Equal(8,allocation.FindProperty(nameof(InvoiceMatchAllocation.NetAmount))!.GetScale());
         Assert.Contains(allocation.GetIndexes(), x => x.IsUnique && x.Properties.Select(p => p.Name).SequenceEqual(
             new[] { "TenantId","LegalEntityId","ExposureStateId","ExposureSequence","SupplierInvoiceLineId" }));
+        var constraint = db.GetService<IDesignTimeModel>().Model.FindEntityType(typeof(InvoiceMatchAllocation))!
+            .GetCheckConstraints().Single(x => x.Name == "ck_invoice_match_allocation").Sql;
+        Assert.Contains("principal_receiving_source_state_id IS NULL AND principal_receiving_fact_id IS NULL", constraint);
+        Assert.Contains("principal_receiving_source_state_id IS NOT NULL", constraint);
+        Assert.Contains("principal_receiving_fact_id IS NOT NULL", constraint);
+        Assert.Contains("receiving_source_state_id IS NULL AND goods_receipt_line_id IS NULL AND service_acceptance_id IS NULL", constraint);
         var exception = db.Model.FindEntityType(typeof(InvoiceException))!;
         Assert.Contains(exception.GetForeignKeys(), fk => fk.PrincipalEntityType.ClrType == typeof(InvoiceMatchResult)
             && fk.Properties.Any(x => x.Name == "SupplierInvoiceId") && fk.Properties.Any(x => x.Name == "MatchResultId"));
@@ -76,7 +124,8 @@ public sealed class InvoiceMatchingPersistenceTests
     {
         using var db=Context(); var entity=db.GetService<IDesignTimeModel>().Model.FindEntityType(typeof(InvoiceMatchResult))!;
         var sql=entity.GetCheckConstraints().Single(x=>x.Name=="ck_invoice_match_execution").Sql;
-        Assert.StartsWith("execution_version = 0 OR (execution_version IN (1,2) AND",sql);
+        Assert.StartsWith("(source_schema_version IS NULL OR (source_schema_version=3 AND execution_version=2",sql);
+        Assert.Contains("AND (execution_version = 0 OR (execution_version IN (1,2) AND",sql);
         Assert.Contains("(execution_version=2 OR actor_worker_id IS NOT NULL)", sql);
         Assert.Contains("actor_principal_id ~", sql);
         foreach(var (property,column) in new[] {

@@ -1,14 +1,24 @@
 using System.Text.Json;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.EntityFrameworkCore;
+using Mightyfin.Erp.Core.Approvals.Infrastructure;
+using Mightyfin.Erp.Hrm.Infrastructure.Data;
 using Mightyfin.Erp.Procurement.Application;
 using Mightyfin.Erp.Procurement.Domain;
+using Mightyfin.Erp.Procurement.Infrastructure.Data;
 
 namespace Mightyfin.Erp.Hrm.Api;
 
 public static partial class ProcurementInvoiceMatchingRoutes
 {
+    // Historical matching detail and original-key receipts remain readable after
+    // new principal work is disabled, provided either physical history is ready.
+    private static Task<IResult> RunHistory(HttpContext http,ProcurementRequestScope scope,
+        Func<ProcurementDbContext,ApprovalDbContext,HrmDbContext,IAuthorizationService,CancellationToken,Task<string>> work,
+        CancellationToken ct) => Run(http,scope,work,ct,historyRead:true);
+
     private static Task<IResult> Read(Guid id,HttpContext http,ProcurementRequestScope scope,CancellationToken ct)
-        =>Run(http,scope,async(db,cases,core,auth,token)=>
+        =>RunHistory(http,scope,async(db,cases,core,auth,token)=>
         {
             var invoice=await Invoice(db,scope,id,token);
             _=await Actor(core,scope,http,auth,"procurement-invoice-read",invoice.BranchRef,token);
@@ -22,10 +32,10 @@ public static partial class ProcurementInvoiceMatchingRoutes
                 canPostToFinance=false,isInvoiceApproval=false,matchingStateIsRecordedResult=true,
                 original=new { netAmount=Exact(invoice.NetAmount),taxAmount=Exact(invoice.TaxAmount),grossAmount=Exact(invoice.GrossAmount),
                     invoice.CurrencyCode,lines=originalLines.Select(x=>new { x.Id,x.LineNumber,x.Description,quantity=Exact(x.Quantity),unitPrice=Exact(x.UnitPrice),taxAmount=Exact(x.TaxAmount) }) },
-                mappings=mappings.Select(x=>new { x.Id,x.MappingRevision,x.PurchaseOrderId,x.IssuedVersionId,x.VerificationState,
+                mappings=mappings.Select(x=>new { x.Id,x.MappingRevision,x.PurchaseOrderId,x.IssuedVersionId,x.SourceSchemaVersion,x.VerificationState,
                     originalDigestCurrent=x.InvoiceOriginalSha256==currentOriginalSha,x.ActorPrincipalId,x.ActorWorkerId,x.ReviewedAt,
                     snapshot=JsonDocument.Parse(x.MappingJson).RootElement }),
-                comparisons=results.Select(x=>new { x.Id,x.Outcome,x.MatchedAt,x.InvoiceVersion,x.MappingVersionId,x.PurchaseOrderId,x.IssuedVersionId,
+                comparisons=results.Select(x=>new { x.Id,x.Outcome,x.SourceSchemaVersion,x.MatchedAt,x.InvoiceVersion,x.MappingVersionId,x.PurchaseOrderId,x.IssuedVersionId,
                     x.PolicyVersionId,x.PolicyRulesSha256,hasHeldCapacityClaim=invoice.ActiveMatchClaimResultId==x.Id,
                     comparison=InvoiceMatchReadProjection.Summary(x,originalLines.Select(line=>line.Id).ToHashSet()),
                     recordedHistoricalResult=true,isCurrentApproval=false,canPostToFinance=false }),
@@ -35,7 +45,7 @@ public static partial class ProcurementInvoiceMatchingRoutes
         },ct);
 
     private static Task<IResult> Recover(Guid id,Guid key,string? operation,HttpContext http,ProcurementRequestScope scope,CancellationToken ct)
-        =>Run(http,scope,async(db,cases,core,auth,token)=>
+        =>RunHistory(http,scope,async(db,cases,core,auth,token)=>
         {
             var permission=operation switch { "InvoiceMapping"=>"procurement-invoice-capture","InvoiceCompare"=>"procurement-invoice-match",_=>throw new MatchingProblem("InvoiceMatchingOperationRequired",400) };
             var invoice=await Invoice(db,scope,id,token);
