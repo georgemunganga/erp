@@ -19,8 +19,7 @@ internal static class ProcurementPrincipalReceivingCapability
         if (pending || scope.OrgUnitId is not null || scope.PrincipalId?.ToString("D") != scope.SubjectId
             || scope.IsConfined && scope.WorkLocationId is null && !scope.IsExplicitAllBranches
             || !Configured(services.GetService<ProcurementPrincipalReceivingOptions>(), false)
-            || services.GetService<IProcurementPrincipalReceivingReadiness>() is not { } readiness
-            || !await readiness.IsReadyAsync(ct)) return false;
+            || services.GetService<IProcurementPrincipalReceivingReadiness>() is not { } readiness) return false;
         var core = services.GetRequiredService<HrmDbContext>();
         var person = await ProcurementPrincipalPeople.Resolve(core, scope.TenantId,
             scope.LegalEntityId, scope.SubjectId, ct);
@@ -30,9 +29,12 @@ internal static class ProcurementPrincipalReceivingCapability
                 || x == ControlledReceiving.RecordPermission || x == ControlledReceiving.InspectPermission
                 || x == ControlledReceiving.AcceptPermission || x == ControlledReceiving.CertifyPermission)) return false;
         var allowed = person.AllowedBranches.ToArray();
-        return await core.WorkLocations.AsNoTracking().AnyAsync(site => site.TenantId == scope.TenantId
+        var branchAllowed = await core.WorkLocations.AsNoTracking().AnyAsync(site => site.TenantId == scope.TenantId
             && site.LegalEntityId == scope.LegalEntityId && !site.IsArchived
             && (person.OrganisationWide || allowed.Contains(site.Id))
             && (scope.WorkLocationId == null || site.Id == scope.WorkLocationId), ct);
+        // Reject unrelated actors before expensive native readiness probes. Grants
+        // and branch scope above are still resolved freshly on every invocation.
+        return branchAllowed && await readiness.IsReadyAsync(ct);
     }
 }

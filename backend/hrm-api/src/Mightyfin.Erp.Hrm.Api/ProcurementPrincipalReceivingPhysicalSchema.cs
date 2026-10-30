@@ -47,7 +47,7 @@ internal static class ProcurementPrincipalReceivingPhysicalSchema
         var opened = false;
         try
         {
-            if (owner.Database.HasPendingModelChanges() || (await owner.Database.GetPendingMigrationsAsync(ct)).Any()
+            if (ProcurementCompiledModelParity.HasPendingModelChanges(owner) || (await owner.Database.GetPendingMigrationsAsync(ct)).Any()
                 || !(await owner.Database.GetAppliedMigrationsAsync(ct)).Contains(MigrationId, StringComparer.Ordinal)) return false;
             var applied=await owner.Database.GetAppliedMigrationsAsync(ct);
             var returnsApplied=applied.Contains(

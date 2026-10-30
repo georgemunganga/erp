@@ -63,7 +63,7 @@ public sealed class ProcurementPrincipalSourcingPublicationSchemaReadiness(
         var opened = false;
         try
         {
-            if (owner.Database.HasPendingModelChanges()
+            if (ProcurementCompiledModelParity.HasPendingModelChanges(owner)
                 || (await owner.Database.GetPendingMigrationsAsync(ct)).Any()
                 || !(await owner.Database.GetAppliedMigrationsAsync(ct))
                     .Contains(M4PrincipalRfqPhysicalChecks.MigrationId, StringComparer.Ordinal)

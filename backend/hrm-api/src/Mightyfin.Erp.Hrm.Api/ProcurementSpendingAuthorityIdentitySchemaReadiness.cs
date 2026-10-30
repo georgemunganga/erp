@@ -42,7 +42,7 @@ public sealed class ProcurementSpendingAuthorityIdentitySchemaReadiness : IProcu
         var opened = false;
         try
         {
-            if (owner.Database.HasPendingModelChanges() || (await owner.Database.GetPendingMigrationsAsync(ct)).Any()) return false;
+            if (ProcurementCompiledModelParity.HasPendingModelChanges(owner) || (await owner.Database.GetPendingMigrationsAsync(ct)).Any()) return false;
             if (!(await owner.Database.GetAppliedMigrationsAsync(ct)).Contains(MigrationId, StringComparer.Ordinal)) return false;
             var connection = owner.Database.GetDbConnection();
             if (connection.State != ConnectionState.Open) { await owner.Database.OpenConnectionAsync(ct); opened = true; }

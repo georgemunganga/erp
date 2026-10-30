@@ -119,7 +119,7 @@ internal static class ProcurementHumanCsvExport
     // model parity and no unapplied Procurement migration. This adds no flag.
     internal static async Task<bool> NativeReaderReadyAsync(ProcurementDbContext db, CancellationToken ct) =>
         await db.Database.CanConnectAsync(ct)
-        && !db.Database.HasPendingModelChanges()
+        && !ProcurementCompiledModelParity.HasPendingModelChanges(db)
         && !(await db.Database.GetPendingMigrationsAsync(ct)).Any();
 
     internal static IResult Unavailable(HttpContext http, ILogger logger, string code)

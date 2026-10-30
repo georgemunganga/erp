@@ -32,7 +32,7 @@ public sealed class ProcurementManualPaymentGovernanceReadiness(
         {
             await using var db = new ProcurementDbContext(new DbContextOptionsBuilder<ProcurementDbContext>()
                 .UseNpgsql(executionConnection, x => x.MigrationsHistoryTable("__procurement_migrations", "procurement")).Options, scope);
-            if (db.Database.HasPendingModelChanges()) return false;
+            if (ProcurementCompiledModelParity.HasPendingModelChanges(db)) return false;
             await using var transaction = await db.Database.BeginTransactionAsync(IsolationLevel.ReadCommitted, ct);
             await db.Database.ExecuteSqlRawAsync("SET LOCAL search_path=pg_catalog; SET LOCAL transaction_read_only=on; SET LOCAL statement_timeout='5s'", ct);
             if ((await db.Database.GetPendingMigrationsAsync(ct)).Any()

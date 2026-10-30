@@ -79,7 +79,7 @@ public sealed class ProcurementPrincipalGoodsReturnStoreReadiness(
 
     private static async Task<bool> CheckPhysicalAsync(ProcurementDbContext owner,bool write,string role,CancellationToken ct)
     {
-        if(owner.Database.HasPendingModelChanges() || (await owner.Database.GetPendingMigrationsAsync(ct)).Any()
+        if(ProcurementCompiledModelParity.HasPendingModelChanges(owner) || (await owner.Database.GetPendingMigrationsAsync(ct)).Any()
             || !(await owner.Database.GetAppliedMigrationsAsync(ct)).Contains(ProcurementPrincipalGoodsReturnSchemaCapture.MigrationId,StringComparer.Ordinal))return false;
         var model=owner.GetService<IDesignTimeModel>().Model;
         await using var command=owner.Database.GetDbConnection().CreateCommand();

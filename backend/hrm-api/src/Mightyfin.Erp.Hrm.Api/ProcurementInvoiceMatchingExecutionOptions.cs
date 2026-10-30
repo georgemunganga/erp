@@ -23,7 +23,7 @@ public sealed class ProcurementInvoiceMatchingSchemaReadiness(IConfiguration con
         {
             await using var db=new ProcurementDbContext(new DbContextOptionsBuilder<ProcurementDbContext>().UseNpgsql(connection,
                 p=>p.MigrationsHistoryTable("__procurement_migrations","procurement")).Options,scope);
-            if(db.Database.HasPendingModelChanges() || (await db.Database.GetPendingMigrationsAsync(ct)).Any()) return false;
+            if(ProcurementCompiledModelParity.HasPendingModelChanges(db) || (await db.Database.GetPendingMigrationsAsync(ct)).Any()) return false;
             _=await db.InvoiceMatchMappingVersions.Select(x=>new { x.Id,x.MappingSha256 }).Take(1).ToArrayAsync(ct);
             _=await db.InvoiceMatchAllocations.Select(x=>new { x.Id,x.ReceivingSourceStateId }).Take(1).ToArrayAsync(ct);
             _=await db.InvoiceMatchExposureStates.Select(x=>new { x.Id,x.Sequence }).Take(1).ToArrayAsync(ct);

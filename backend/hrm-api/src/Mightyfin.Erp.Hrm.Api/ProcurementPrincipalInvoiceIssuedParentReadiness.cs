@@ -33,7 +33,7 @@ internal static class ProcurementPrincipalInvoiceIssuedParentReadiness
                 db.Database.CurrentTransaction?.GetDbTransaction(),db.Database.GetDbConnection()))return false;
         try
         {
-            if(db.Database.HasPendingModelChanges()
+            if(ProcurementCompiledModelParity.HasPendingModelChanges(db)
                 || (await db.Database.GetPendingMigrationsAsync(ct)).Any()
                 || !(await db.Database.GetAppliedMigrationsAsync(ct)).Contains(MigrationId,StringComparer.Ordinal))return false;
             var model=db.GetService<IDesignTimeModel>().Model;

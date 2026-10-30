@@ -80,7 +80,7 @@ internal static class ProcurementPrincipalInvoiceMatchingReadiness
         {
             if(!TryConfiguredExecutionRole(configuration,db.Database.GetDbConnection().ConnectionString,
                 out var executionRole))return false;
-            if(db.Database.HasPendingModelChanges() || (await db.Database.GetPendingMigrationsAsync(ct)).Any()
+            if(ProcurementCompiledModelParity.HasPendingModelChanges(db) || (await db.Database.GetPendingMigrationsAsync(ct)).Any()
                 || !(await db.Database.GetAppliedMigrationsAsync(ct)).Contains(MigrationId,StringComparer.Ordinal)
                 || !await ProcurementPrincipalReceivingPhysicalSchema.InspectAsync(
                     db,false,executionRole,ct))

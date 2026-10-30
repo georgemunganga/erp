@@ -59,7 +59,7 @@ SELECT jsonb_object_agg(n.nspname||'.'||c.relname,jsonb_build_object(
             { command.CommandText = sql; return await command.ExecuteScalarAsync(ct) is true; }
             if (!await True(PrivilegeSql(mode, expected.Username))) return false;
             if (!await NativeShapeReadyAsync(connection, transaction, false, ct)) return false;
-            if (db.Database.HasPendingModelChanges() || (await db.Database.GetPendingMigrationsAsync(ct)).Any()) return false;
+            if (ProcurementCompiledModelParity.HasPendingModelChanges(db) || (await db.Database.GetPendingMigrationsAsync(ct)).Any()) return false;
             return await True("SELECT EXISTS(SELECT 1 FROM hrm.__hrm_migrations WHERE \"MigrationId\"="
                 + Literal(CoreMigrationId) + ") AND EXISTS(SELECT 1 FROM procurement.__procurement_migrations WHERE \"MigrationId\"="
                 + Literal(ProcurementMigrationId) + ") AND EXISTS(SELECT 1 FROM procurement.__procurement_migrations WHERE \"MigrationId\"="
