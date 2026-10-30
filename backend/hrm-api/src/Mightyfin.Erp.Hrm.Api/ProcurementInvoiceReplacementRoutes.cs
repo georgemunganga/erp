@@ -120,12 +120,19 @@ public static partial class ProcurementInvoiceIntakeRoutes
             source.BranchRef, scope.SubjectId, actor.CoreLinkedWorkerId, policy.Id,
             ProcurementEvidenceEncoding.PolicyJsonDigest(policy.RulesJson),
             CalculationNow(request.HttpContext), new Dictionary<Guid, string>());
-        var retained = await ProcurementInvoiceUnitReviewRoutes.RetainedReview(db, cases,
-            scope, request.HttpContext, source, sourceLines, witness.Mapping, reviewContext, ct);
+        InvoiceMappingReview? retained;
+        try { retained = await ProcurementInvoiceUnitReviewRoutes.RetainedReview(db, cases,
+            scope, request.HttpContext, source, sourceLines, witness.Mapping, reviewContext, ct); }
+        catch (UnauthorizedAccessException) { return Results.Forbid(); }
+        catch (InvalidOperationException)
+        { return Results.Conflict(new { code = "invoice-replacement-review-unavailable",
+            message = "The original invoice review must remain independently verified." }); }
         if (retained is null || !PrincipalInvoiceMatchingBridge.ReviewCovers3(
                 witness.Mapping, source, sourceLines, retained, reviewContext))
             return Results.Conflict(new { code = "invoice-replacement-review-unavailable",
                 message = "The original invoice review must remain independently verified." });
+        try
+        {
         var precision = await ResolveCalculationPrecision(db, scope,
             input.CorrectedInvoice.CurrencyCode, CalculationNow(request.HttpContext), ct);
         var corrected = input.CorrectedInvoice with { CurrencyCode = precision.CurrencyCode };
@@ -173,6 +180,10 @@ public static partial class ProcurementInvoiceIntakeRoutes
         await tx.CommitAsync(ct);
         return Results.Content(InvoiceReplacementEvidence.ResponseJson(link, staged.Invoice),
             "application/json", statusCode: 201);
+        }
+        catch (InvalidOperationException)
+        { return Results.Conflict(new { code = "invoice-replacement-evidence-changed",
+            message = "The corrected invoice or retained source evidence changed. Review it before replacing the invoice." }); }
     }
 
     private static async Task<bool> RetainedReplacementReference(ProcurementDbContext db,
@@ -248,9 +259,12 @@ public static partial class ProcurementInvoiceIntakeRoutes
         if (link.SourceInvoiceId != source.Id || link.MakerPrincipalId != scope.SubjectId) return Missing();
         // The inventory supplement authenticates the link, both command receipts,
         // the retained no-claim result and the exact audit/outbox marker pair.
-        _ = await db.CaptureInvoiceOwnerInventoryAsync(ct,
+        try { _ = await db.CaptureInvoiceOwnerInventoryAsync(ct,
             (requirement, token) => RetainedReplacementReference(db, scope, requirement, token),
-            openingNewBaseline: false);
+            openingNewBaseline: false); }
+        catch (InvalidOperationException)
+        { return Results.Conflict(new { code = "invoice-replacement-history-unavailable",
+            message = "The retained replacement history needs review before its original response can be shown." }); }
         return Results.Content(receipt.ResponseJson, "application/json", statusCode: receipt.ResponseStatus);
     }
 }
