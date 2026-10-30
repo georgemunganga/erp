@@ -2,6 +2,8 @@
 
 **Status:** Proposed specification; not implemented or accepted by this document.
 
+**Isolated foundation checkpoint (30 October 2026):** Pure quotation input validation and canonical snapshot helpers, with domain test sources, are prepared separately from the existing RFQ publication code. They do not establish principal provenance or external contact, persist records, add a revision model, expose an API/UI, install a migration or activate M7A. SDK execution and integration acceptance remain pending. Lead-time, notes and correction-reason text limits must be agreed and enforced at the future API boundary; this foundation does not invent those business limits.
+
 **Version:** 0.1 · **Prepared:** 30 October 2026
 
 **Hierarchy:** Procurement → Strategic Sourcing → Supplier Contact / Quotation Draft → Record, Create, Read, Revise, Cancel, Recover.
