@@ -143,6 +143,63 @@ public sealed class ProcurementPrincipalInvoiceRecordedComparisonGuardTests
             [CopyWithResponse(sibling, falseClaim)]));
     }
 
+    [Fact]
+    public void Legacy_map_admission_preserves_typed_legacy_receipts_but_closes_orphan_principal_work()
+    {
+        var invoice = Invoice();
+        var orderId = Guid.NewGuid();
+        var legacy = Receipt(invoice, invoice.Id, orderId);
+        legacy = CopyWithResponse(legacy, legacy.ResponseJson.Replace(
+            "\"commandSchemaVersion\":3,\"sourceSchemaVersion\":3",
+            "\"commandSchemaVersion\":1", StringComparison.Ordinal));
+        var legacyResult = new InvoiceMatchResult
+        {
+            TenantId = invoice.TenantId, LegalEntityId = invoice.LegalEntityId,
+            SupplierInvoiceId = invoice.Id, ExecutionVersion = 1, Outcome = "Blocked"
+        };
+        invoice.MatchRevision = 1;
+        invoice.LastMatchResultId = legacyResult.Id;
+        Assert.False(ProcurementPrincipalInvoiceRecordedComparisonGuard.IsLocked(
+            invoice, false, [legacyResult], [legacy], principalOnly: true));
+
+        var siblingPrincipal = Receipt(invoice, Guid.NewGuid(), orderId);
+        Assert.False(ProcurementPrincipalInvoiceRecordedComparisonGuard.IsLocked(
+            invoice, false, [legacyResult], [legacy, siblingPrincipal], principalOnly: true));
+        Assert.True(ProcurementPrincipalInvoiceRecordedComparisonGuard.IsLocked(
+            invoice, false, [legacyResult], [legacy, Receipt(invoice, invoice.Id, orderId)], principalOnly: true));
+        var truncatedSibling = CopyWithResponse(siblingPrincipal, "{\"invoiceId\":\"" +
+            Guid.NewGuid().ToString("D") + "\"}");
+        Assert.True(ProcurementPrincipalInvoiceRecordedComparisonGuard.IsLocked(
+            invoice, false, [legacyResult], [legacy, truncatedSibling], principalOnly: true));
+        invoice.LastMatchResultId = Guid.NewGuid();
+        Assert.True(ProcurementPrincipalInvoiceRecordedComparisonGuard.IsLocked(
+            invoice, false, [legacyResult], [legacy], principalOnly: true));
+    }
+
+    [Fact]
+    public void Legacy_map_route_checks_invoice_scoped_principal_history_after_replay_before_po_evidence()
+    {
+        var directory = new DirectoryInfo(AppContext.BaseDirectory);
+        while (directory is not null && !File.Exists(Path.Combine(directory.FullName,
+            "Mightyfin.Erp.Hrm.Api", "ProcurementInvoiceMatchingRoutes.cs")))
+            directory = directory.Parent;
+        Assert.NotNull(directory);
+        var source = File.ReadAllText(Path.Combine(directory!.FullName,
+            "Mightyfin.Erp.Hrm.Api", "ProcurementInvoiceMatchingRoutes.cs"));
+        var map = source[source.IndexOf("private static Task<IResult> Map(", StringComparison.Ordinal)..];
+        var replay = map.IndexOf("if(await Replay(", StringComparison.Ordinal);
+        var fence = map.IndexOf("principalOnly: true", StringComparison.Ordinal);
+        var invoiceLock = map.IndexOf("Invoice(db, scope, id, token, true)", StringComparison.Ordinal);
+        var reload = map.IndexOf("Entry(invoice).ReloadAsync", StringComparison.Ordinal);
+        var secondFence = map.IndexOf("principalOnly: true", fence + 1, StringComparison.Ordinal);
+        var terminalDenial = map.IndexOf("throw new MatchingProblem(ProcurementPrincipalInvoiceRecordedComparisonGuard.Code, 409)", StringComparison.Ordinal);
+        var poEvidence = map.IndexOf("ProcurementReceivingRoutes.InvoiceEvidence", StringComparison.Ordinal);
+        Assert.True(replay >= 0 && replay < fence && fence < invoiceLock
+            && invoiceLock < reload && reload < secondFence
+            && secondFence < terminalDenial && terminalDenial < poEvidence);
+        Assert.DoesNotContain("InvoiceMatchResults.AsNoTracking().AnyAsync", map);
+    }
+
     private static ProcurementCommercialCommandReceipt CopyWithResponse(
         ProcurementCommercialCommandReceipt source, string response,
         string? fingerprint = null, string? actor = null) => new()

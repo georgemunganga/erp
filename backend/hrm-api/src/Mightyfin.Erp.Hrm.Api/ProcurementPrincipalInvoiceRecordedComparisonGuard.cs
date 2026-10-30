@@ -16,7 +16,8 @@ internal static class ProcurementPrincipalInvoiceRecordedComparisonGuard
     // receipt is PO-bound, so its saved invoice identity must be checked; a
     // sibling invoice's result on the same PO cannot close this invoice.
     internal static async Task<bool> IsLockedAsync(ProcurementDbContext db, SupplierInvoice invoice,
-        bool currentPrincipalMapping, CancellationToken ct, Guid? requestedOrderId = null)
+        bool currentPrincipalMapping, CancellationToken ct, Guid? requestedOrderId = null,
+        bool principalOnly = false)
     {
         if (db.Database.CurrentTransaction?.GetDbTransaction().IsolationLevel != IsolationLevel.Serializable)
             throw new InvalidOperationException("PrincipalInvoiceSharedTransactionRequired");
@@ -35,11 +36,12 @@ internal static class ProcurementPrincipalInvoiceRecordedComparisonGuard
             && x.Operation == "InvoiceCompare" && (candidateOrders.Contains(x.PurchaseOrderId)
                 || x.ResponseJson.Contains(invoiceId)))
             .Take(1025).ToArrayAsync(ct);
-        return receipts.Length > 1024 || IsLocked(invoice, currentPrincipalMapping, results, receipts);
+        return receipts.Length > 1024 || IsLocked(invoice, currentPrincipalMapping, results, receipts, principalOnly);
     }
 
     internal static bool IsLocked(SupplierInvoice invoice, bool currentPrincipalMapping,
-        IReadOnlyList<InvoiceMatchResult> results, IReadOnlyList<ProcurementCommercialCommandReceipt> compareReceipts)
+        IReadOnlyList<InvoiceMatchResult> results, IReadOnlyList<ProcurementCommercialCommandReceipt> compareReceipts,
+        bool principalOnly = false)
     {
         var ownResults = results.Where(x => x.SupplierInvoiceId == invoice.Id && x.TenantId == invoice.TenantId
             && x.LegalEntityId == invoice.LegalEntityId).ToArray();
@@ -71,6 +73,10 @@ internal static class ProcurementPrincipalInvoiceRecordedComparisonGuard
                     || !Guid.TryParseExact(identities[0].Value.GetString(), "D", out var savedId))
                     return true;
                 if (savedId != invoice.Id) continue;
+                // The legacy Map entry must preserve genuine source-1 histories.
+                // Its extra admission fence only closes principal comparisons;
+                // malformed candidate receipts still fail before this branch.
+                if (principalOnly && root.GetProperty("commandSchemaVersion").GetInt32() == 1) continue;
                 // A target receipt without its result is still recorded work.
                 // Its shape may be damaged, but it cannot authorize a new key.
                 return true;
