@@ -13,7 +13,8 @@ public static partial class ProcurementInvoiceMatchingRoutes
     // payment, or posting authority and never manufacture a legacy receipt ID.
     internal static object PrincipalSourceItem(Guid orderId, string orderNumber, Guid issuedId,
         Guid lineId, string description, InvoiceIssuedOrderLine line, InvoiceCategoryMatchRule? rule,
-        string tenantId, Guid companyId, Guid branchId, PrincipalReceivingSourceState? state)
+        string tenantId, Guid companyId, Guid branchId, PrincipalReceivingSourceState? state,
+        string? blocker = null)
         => new
         {
             orderId, orderNumber, issuedVersionId = issuedId, purchaseOrderLineId = lineId,
@@ -24,9 +25,38 @@ public static partial class ProcurementInvoiceMatchingRoutes
             method = rule?.Method.ToString(), acceptanceKind = rule?.AcceptanceKind?.ToString(),
             sourceSchemaVersion = 3, principalReceivingSourceStateId = state?.Id,
             principalSourceVersion = state?.Sequence, principalSourceSha256 = state?.SourceSha256,
-            sourceState = "VerifiedIssued", blocker = rule is null ? "MatchingCategoryUnavailable" : null,
+            sourceState = "VerifiedIssued", blocker = blocker ?? (rule is null ? "MatchingCategoryUnavailable" : null),
             canAllocate = false, canPostToFinance = false
         };
+
+    // A list row can describe a verified source that the current policy cannot
+    // select. Missing or malformed witness evidence is still a page failure.
+    internal static string? PrincipalSourceBlocker(InvoiceCategoryMatchRule? rule,
+        PrincipalReceivingSourceState? state,
+        IReadOnlyDictionary<Guid, PrincipalReceivingSource> verifiedSources)
+    {
+        if (state is null) return rule is null ? "MatchingCategoryUnavailable" : null;
+        if (!verifiedSources.TryGetValue(state.Id,out var source) || source?.Commercial is null
+            || !Enum.IsDefined(source.Commercial.Kind))
+            throw new MatchingProblem("InvoiceIssuedSourceUnavailable",409);
+        if (rule is null) return "MatchingCategoryUnavailable";
+        return rule.AcceptanceKind is { } requiredKind
+            && source.Commercial.Kind.ToString()!=requiredKind.ToString()
+                ? "InvoiceMatchingAcceptanceKindChanged" : null;
+    }
+
+    internal static void RequirePrincipalAcceptanceKind(InvoiceCategoryMatchRule rule,
+        PrincipalReceivingSourceState state,
+        IReadOnlyDictionary<Guid, PrincipalReceivingSource> verifiedSources)
+    {
+        var blocker = PrincipalSourceBlocker(rule,state,verifiedSources);
+        if (blocker is not null) throw new MatchingProblem(blocker,409);
+    }
+
+    internal static string PrincipalSourcePage(Guid invoiceId, long invoiceVersion,
+        Guid policyVersionId, IReadOnlyList<object> items, int total, int page, int pageSize)
+        => JsonSerializer.Serialize(new { invoiceId,invoiceVersion,policyVersionId,items,total,page,pageSize,
+            isAuthority=false,canAllocate=false,canPostToFinance=false },Json);
 
     internal static object PrincipalAcceptanceItem(PrincipalInvoiceAcceptedFact fact,
         PrincipalReceivingAcceptance accepted)
@@ -114,20 +144,14 @@ public static partial class ProcurementInvoiceMatchingRoutes
                     .SingleOrDefaultAsync(x=>x.PurchaseOrderId==row.OrderId
                         && x.IssuedVersionId==row.IssuedId
                         && x.PurchaseOrderLineId==row.LineId,token);
-                if (state is not null && !owner.Witness.Sources.ContainsKey(state.Id))
-                    throw new MatchingProblem("InvoiceIssuedSourceUnavailable",409);
                 var rule = policy.Rules.SingleOrDefault(x=>x.CategoryCode==line.CategoryCode
                     && x.CurrencyCode==invoice.CurrencyCode);
-                if(state is not null && rule?.AcceptanceKind is { } requiredKind
-                    && owner.Witness.Sources[state.Id].Commercial.Kind.ToString()!=requiredKind.ToString())
-                    throw new MatchingProblem("InvoiceMatchingAcceptanceKindChanged",409);
+                var blocker = PrincipalSourceBlocker(rule,state,owner.Witness.Sources);
                 items.Add(PrincipalSourceItem(row.OrderId,row.OrderNumber,row.IssuedId,row.LineId,
                     row.Description,line,rule,invoice.TenantId,invoice.LegalEntityId,
-                    owner.Witness.BranchId,state));
+                    owner.Witness.BranchId,state,blocker));
             }
-            return JsonSerializer.Serialize(new { invoiceId=id,invoiceVersion=invoice.Version,
-                policyVersionId=policy.Id,items,total,page=paging.Page,pageSize=paging.Size,
-                isAuthority=false,canAllocate=false,canPostToFinance=false },Json);
+            return PrincipalSourcePage(id,invoice.Version,policy.Id,items,total,paging.Page,paging.Size);
         },ct);
 
     private static Task<IResult> PrincipalAcceptances(Guid id, Guid orderId, Guid lineId,
@@ -181,9 +205,7 @@ public static partial class ProcurementInvoiceMatchingRoutes
             if (!witness.Sources.TryGetValue(state.Id,out var expected)
                 || state.PurchaseOrderId!=orderId || state.PurchaseOrderLineId!=lineId)
                 throw new MatchingProblem("InvoiceAcceptanceHistoryUnavailable",409);
-            if(rule.AcceptanceKind is { } requiredKind
-                && expected.Commercial.Kind.ToString()!=requiredKind.ToString())
-                throw new MatchingProblem("InvoiceMatchingAcceptanceKindChanged",409);
+            RequirePrincipalAcceptanceKind(rule,state,witness.Sources);
             var facts=await db.PrincipalReceivingFacts.AsNoTracking()
                 .Where(x=>x.SourceStateId==state.Id).OrderBy(x=>x.Sequence).Take(2001).ToArrayAsync(token);
             if (facts.Length>2000) throw new MatchingProblem("InvoiceAcceptanceHistoryUnavailable",409);
