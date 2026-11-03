@@ -1,6 +1,6 @@
 # M7A owning HTTP contract — implementation draft
 
-Status: compiled source and native store admission verified; complete positive quotation HTTP/UI workflow acceptance and production rollout remain open. Existing quotation/RFQ screens will consume these contracts; no replacement UI is introduced.
+Status: implemented scoped API with private native contact/create/revise/cancel/recovery and original-UI command acceptance. See the [3 November acceptance record](M7A-NATIVE-DRAFT-WORKFLOW-ACCEPTANCE-20261103.md) for current evidence and remaining release gates. The dated checkpoints below retain their historical scope; they do not supersede that record. Nonempty shared Core document transport remains unavailable.
 
 ## Access and ownership
 
@@ -85,3 +85,9 @@ After the real owning-provider probe, a complete native snapshot matched the pre
 ## Quotation handler line discovery
 
 `GET /{eventId}/quotation-drafts` additionally includes `source.lines`, ordered by the retained line number. Each line contains `id`, `description`, `unitCode`, nullable `categoryCode`, exact canonical string `quantity`, `approvedUnitEstimate`, `estimatedValue` and `allocationState`. It uses the already-verified retained publication and current quotation READ/scope. A handler need not call the RFQ maker-only detail route. Canonical derived values may use G29 exponent notation; consumers must preserve their exact decimal meaning. A released allocation remains labeled Released and does not authorize new capture.
+
+## Native integration defects and verification — 3 November 2026
+
+PR152 exposes verified source lines to authorized quotation handlers without requiring maker-only RFQ access. Genuine HTTP testing also found raw Company All falling back to a default branch on fresh commands. Commands and action hints now reject the raw marker, and only finite retained GET contracts admit company All. A quotation-only demand scope binds the source branch already admitted by current Core authorization, without changing the shared loader or parent All context.
+
+Source7f25 passed236 focused Host tests and independent scope review. Private API checks verified employee-optional handler identity, exact create/replay/recovery, current branch reassignment, stale/CAS denial, no new effects on All denial, READ/recovery without INSERT, capture-disabled cancellation and immutable history. Actual original UI contact/create as B and revise/history/cancel as C were reconciled to exactly four owning command receipts and audit/outbox pairs. Empty document sets were used; this is not positive attachment-transport acceptance. The initial strict-label harness failure and its narrow continuation remain separate evidence. See the linked acceptance record for bindings, followup read checks and production status.
