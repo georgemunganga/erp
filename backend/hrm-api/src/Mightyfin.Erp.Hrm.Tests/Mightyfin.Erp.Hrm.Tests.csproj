@@ -22,6 +22,8 @@
 
   <ItemGroup>
     <EmbeddedResource Include="Fixtures/M7aRestoredDerivedShape.json" />
+    <EmbeddedResource Include="Fixtures/B1DirectCapturedShape.json" />
+    <EmbeddedResource Include="Fixtures/B1RestoredCapturedShape.json" />
     <Using Include="Xunit" />
   </ItemGroup>
 
