@@ -11,7 +11,9 @@ public static class PlanReviewSnapshot
 
     public static Prepared Create(ProcurementPlan plan, long submittedVersion)
     {
-        if (plan.Id == Guid.Empty || plan.BranchRef is not { } branch || branch == Guid.Empty
+        if (plan.Id == Guid.Empty || string.IsNullOrWhiteSpace(plan.TenantId)
+            || plan.LegalEntityId == Guid.Empty
+            || plan.BranchRef is not { } branch || branch == Guid.Empty
             || string.IsNullOrWhiteSpace(plan.CurrencyCode) || submittedVersion < 1)
             throw new InvalidOperationException("PlanReviewSourceUnavailable");
         var lines = plan.Lines.Where(x => x.Status == "Active").OrderBy(x => x.LineNumber).ThenBy(x => x.Id).ToArray();
@@ -29,6 +31,8 @@ public static class PlanReviewSnapshot
         var json = JsonSerializer.Serialize(new
         {
             schemaVersion = 1,
+            tenantId = plan.TenantId,
+            legalEntityId = plan.LegalEntityId,
             planId = plan.Id,
             planNumber = plan.Number,
             submittedVersion,
@@ -56,6 +60,8 @@ public static class PlanReviewSnapshot
         {
             var now = Create(plan, submission.SubmittedPlanVersion);
             return submission.ProcurementPlanId == plan.Id
+                && submission.TenantId == plan.TenantId
+                && submission.LegalEntityId == plan.LegalEntityId
                 && submission.BranchRef == plan.BranchRef
                 && submission.CurrencyCode == plan.CurrencyCode
                 && submission.EstimatedAmount == now.EstimatedAmount

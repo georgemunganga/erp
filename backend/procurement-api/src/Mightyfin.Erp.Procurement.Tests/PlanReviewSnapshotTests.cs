@@ -15,6 +15,7 @@ public sealed class PlanReviewSnapshotTests
         Assert.Equal(36.50m, original.EstimatedAmount);
         var submission = new PlanReviewSubmission
         {
+            TenantId = plan.TenantId, LegalEntityId = plan.LegalEntityId,
             ProcurementPlanId = plan.Id, BranchRef = plan.BranchRef!.Value,
             CurrencyCode = plan.CurrencyCode, SubmittedPlanVersion = 2,
             EstimatedAmount = original.EstimatedAmount,
@@ -39,6 +40,7 @@ public sealed class PlanReviewSnapshotTests
     {
         var plan = new ProcurementPlan
         {
+            TenantId = "tenant", LegalEntityId = Guid.Parse("cccccccc-cccc-4ccc-8ccc-cccccccccccc"),
             BranchRef = Guid.Parse("aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"),
             Number = "PLAN-1", OwnerSubjectId = "maker", CurrencyCode = "ZMW",
             FinancialPeriodRef = "FY-2027", Status = "Draft",

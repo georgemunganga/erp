@@ -43,7 +43,7 @@ public sealed partial class ProcurementDbContext
                 .HasPrincipalKey(x => new { x.TenantId, x.LegalEntityId, x.Id })
                 .OnDelete(DeleteBehavior.Restrict);
             b.ToTable(t => t.HasCheckConstraint("ck_plan_review_receipt",
-                "command_key <> '00000000-0000-0000-0000-000000000000'::uuid AND request_sha256 ~ '^[0-9a-f]{64}$' AND response_status BETWEEN 200 AND 299"));
+                "command_key <> '00000000-0000-0000-0000-000000000000'::uuid AND operation IN ('ClaimScope','Submit','Decide','Withdraw') AND request_sha256 ~ '^[0-9a-f]{64}$' AND response_status BETWEEN 200 AND 299"));
         });
     }
 }
