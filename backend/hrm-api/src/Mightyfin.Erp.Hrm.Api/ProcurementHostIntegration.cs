@@ -490,6 +490,15 @@ public sealed class ProcurementScopeMiddleware(RequestDelegate next, IWebHostEnv
             // Existing P29 payment records are company-ledger scoped, including
             // their reviewed commands. Do not narrow them to a selected branch.
             || http.Request.Path.StartsWithSegments("/api/procurement/v1/manual-payments", StringComparison.OrdinalIgnoreCase));
+        // Policy configuration has no reviewed All-branches contract. Do not
+        // silently substitute the first assigned branch and run its policy
+        // queries under a scope the caller did not select.
+        if (validAllHeader && http.Request.Path.StartsWithSegments(
+            "/api/procurement/v1/configuration/policies", StringComparison.OrdinalIgnoreCase))
+        {
+            await Deny(http, StatusCodes.Status400BadRequest, "Choose a branch before opening procurement policies.");
+            return;
+        }
         Guid? requestedEntity = null;
         Guid? requestedLocation = null;
         if (!string.IsNullOrEmpty(requestedEntityText))
