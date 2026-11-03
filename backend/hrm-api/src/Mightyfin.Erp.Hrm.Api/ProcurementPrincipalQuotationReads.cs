@@ -46,13 +46,15 @@ public static partial class ProcurementSourcingExecutionRoutes
                 .OrderBy(x => x.Id).Take(101).ToArrayAsync(token);
             if (bids.Length > 100) throw new Problem("QuotationHistoryNeedsReview", 409);
             var contacts = await db.SourcingManualContacts.AsNoTracking().Where(x => x.SourcingEventId == id).ToArrayAsync(token);
-            var readied = await http.RequestServices.GetRequiredService<IProcurementManualQuotationReadiness>().CanRecordAsync(db, token);
+            var options = http.RequestServices.GetRequiredService<ProcurementManualQuotationOptions>();
+            var readied = options.RecordEnabled
+                && await http.RequestServices.GetRequiredService<IProcurementManualQuotationReadiness>().CanRecordAsync(db, token);
             var person = await ProcurementPrincipalPeople.Resolve(core, scope.TenantId, scope.LegalEntityId, scope.SubjectId, token);
-            var canCapture = readied && source.Status == "Published" && scope.WorkLocationId == source.BranchRef
+            var canCapture = readied && options.CaptureEnabled && source.Status == "Published" && scope.WorkLocationId == source.BranchRef
                 && !scope.IsExplicitAllBranches && http.RequestServices.GetRequiredService<ProcurementPrincipalSourcingPublicationOptions>().Enabled
                 && person is not null && person.Permissions.Contains("procurement-quotation-capture")
                 && (await auth.AuthorizeAsync(http.User, "procurement-quotation-capture")).Succeeded;
-            var canContact = readied && source.Status == "Published" && scope.WorkLocationId == source.BranchRef
+            var canContact = readied && options.CaptureEnabled && source.Status == "Published" && scope.WorkLocationId == source.BranchRef
                 && !scope.IsExplicitAllBranches && http.RequestServices.GetRequiredService<ProcurementPrincipalSourcingPublicationOptions>().Enabled
                 && person is not null && person.Permissions.Contains("procurement-sourcing-contact")
                 && (await auth.AuthorizeAsync(http.User, "procurement-sourcing-contact")).Succeeded;
@@ -100,14 +102,16 @@ public static partial class ProcurementSourcingExecutionRoutes
                 ?? throw new Problem("QuotationSourceReferenceUnavailable", 409);
             if (string.IsNullOrWhiteSpace(source.Number) || string.IsNullOrWhiteSpace(supplier.Number)
                 || string.IsNullOrWhiteSpace(supplier.DisplayName)) throw new Problem("QuotationSourceReferenceUnavailable", 409);
-            var canRecord = await http.RequestServices.GetRequiredService<IProcurementManualQuotationReadiness>().CanRecordAsync(db, token);
+            var options = http.RequestServices.GetRequiredService<ProcurementManualQuotationOptions>();
+            var canRecord = options.RecordEnabled
+                && await http.RequestServices.GetRequiredService<IProcurementManualQuotationReadiness>().CanRecordAsync(db, token);
             var person = await ProcurementPrincipalPeople.Resolve(core, scope.TenantId, scope.LegalEntityId, scope.SubjectId, token);
             var actions = new List<string>();
             if (canRecord && bid.Status == "Draft" && scope.WorkLocationId == source.BranchRef && !scope.IsExplicitAllBranches && person is not null)
             {
                 if (person.Permissions.Contains("procurement-quotation-cancel")
                     && (await auth.AuthorizeAsync(http.User, "procurement-quotation-cancel")).Succeeded) actions.Add("CancelDraft");
-                if (source.Status == "Published" && http.RequestServices.GetRequiredService<ProcurementPrincipalSourcingPublicationOptions>().Enabled
+                if (options.CaptureEnabled && source.Status == "Published" && http.RequestServices.GetRequiredService<ProcurementPrincipalSourcingPublicationOptions>().Enabled
                     && person.Permissions.Contains("procurement-quotation-capture")
                     && (await auth.AuthorizeAsync(http.User, "procurement-quotation-capture")).Succeeded)
                 {

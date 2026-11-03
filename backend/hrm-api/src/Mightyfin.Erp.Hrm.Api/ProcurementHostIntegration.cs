@@ -57,6 +57,8 @@ public static class ProcurementHostIntegration
         sourcingOptions.ExecutionDatabaseConfigured = !string.IsNullOrWhiteSpace(executionConnection);
         services.AddSingleton(sourcingOptions);
         services.AddScoped<IProcurementSourcingDraftSchemaReadiness, ProcurementSourcingDraftSchemaReadiness>();
+        services.AddSingleton(configuration.GetSection("Procurement:ManualQuotations")
+            .Get<ProcurementManualQuotationOptions>() ?? new());
         // Native owning READ/RECORD acceptance: e9e5826419a6fcc293838adbf2e05eeb835463ab85327c84641aa243d94206ab.
         // Registration grants no action and never bypasses same-transaction admission.
         services.AddScoped<IProcurementManualQuotationReadiness, ProcurementManualQuotationSchemaReadiness>();

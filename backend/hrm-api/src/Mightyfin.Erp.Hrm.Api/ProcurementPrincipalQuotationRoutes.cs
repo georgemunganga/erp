@@ -79,7 +79,10 @@ public static partial class ProcurementSourcingExecutionRoutes
 
     private static async Task RequireQuotationRecord(HttpContext http, ProcurementDbContext db, bool newCommercial, CancellationToken ct)
     {
-        if (newCommercial && !http.RequestServices.GetRequiredService<ProcurementPrincipalSourcingPublicationOptions>().Enabled)
+        var options = http.RequestServices.GetRequiredService<ProcurementManualQuotationOptions>();
+        if (!options.RecordEnabled) throw new Problem("QuotationRecordingUnavailable", 503);
+        if (newCommercial && (!options.CaptureEnabled
+            || !http.RequestServices.GetRequiredService<ProcurementPrincipalSourcingPublicationOptions>().Enabled))
             throw new Problem("QuotationCaptureUnavailable", 503);
         if (!await http.RequestServices.GetRequiredService<IProcurementManualQuotationReadiness>().CanRecordAsync(db, ct))
             throw new Problem("QuotationRecordingUnavailable", 503);

@@ -116,8 +116,36 @@ public sealed class ProcurementManualQuotationReadinessTests
         Assert.IsType<ProcurementManualQuotationSchemaReadiness>(readiness);
         Assert.True(readiness.HasCapturedContract);
         Assert.False(scope.ServiceProvider.GetRequiredService<ProcurementPrincipalSourcingPublicationOptions>().Enabled);
+        Assert.False(scope.ServiceProvider.GetRequiredService<ProcurementManualQuotationOptions>().RecordEnabled);
+        Assert.False(scope.ServiceProvider.GetRequiredService<ProcurementManualQuotationOptions>().CaptureEnabled);
         Assert.Equal(ServiceLifetime.Scoped, Assert.Single(services,
             x => x.ServiceType == typeof(IProcurementManualQuotationReadiness)).Lifetime);
+    }
+
+    [Fact]
+    public void Existing_RFQ_publication_flag_does_not_enable_new_quotation_writes()
+    {
+        var config = new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string?> {
+            ["Procurement:SourcingPublication:Enabled"] = "true" }).Build();
+        var services = new ServiceCollection(); services.AddSingleton<IConfiguration>(config);
+        ProcurementHostIntegration.AddServices(services, "Host=unopened.invalid;Database=erp;Username=record", config);
+        using var provider = services.BuildServiceProvider();
+        Assert.True(provider.GetRequiredService<ProcurementPrincipalSourcingPublicationOptions>().Enabled);
+        Assert.False(provider.GetRequiredService<ProcurementManualQuotationOptions>().RecordEnabled);
+        Assert.False(provider.GetRequiredService<ProcurementManualQuotationOptions>().CaptureEnabled);
+    }
+
+    [Fact]
+    public void Stopping_new_capture_keeps_independent_recording_available_for_retained_draft_cancellation()
+    {
+        var config = new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string?> {
+            ["Procurement:ManualQuotations:RecordEnabled"] = "true",
+            ["Procurement:ManualQuotations:CaptureEnabled"] = "false" }).Build();
+        var services = new ServiceCollection(); services.AddSingleton<IConfiguration>(config);
+        ProcurementHostIntegration.AddServices(services, "Host=unopened.invalid;Database=erp;Username=record", config);
+        using var provider = services.BuildServiceProvider();
+        var options = provider.GetRequiredService<ProcurementManualQuotationOptions>();
+        Assert.True(options.RecordEnabled); Assert.False(options.CaptureEnabled);
     }
 
     private static IConfiguration Config(string? record, string? execution) => new ConfigurationBuilder()
