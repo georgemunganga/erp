@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.EntityFrameworkCore;
 using Mightyfin.Erp.Procurement.Application;
 using Mightyfin.Erp.Procurement.Domain;
+using Mightyfin.Erp.Procurement.Infrastructure.Approvals;
 using Mightyfin.Erp.Procurement.Infrastructure.Data;
 using Mightyfin.Erp.Hrm.Infrastructure.Data;
 
@@ -26,6 +27,8 @@ public static class ProcurementPlanRoutes
 
     private static async Task<IResult> List(ProcurementDbContext db, ProcurementRequestScope scope,
         IProcurementPlanReviewReadiness readiness,
+        ProcurementPlanReviewOptions options, HttpContext http, IAuthorizationService authorization,
+        ProcurementApprovalTransaction transaction,
         string? status, int? page, int? pageSize, CancellationToken ct)
     {
         if (!await readiness.CanReadPlanAsync(db, ct)) return PlanStoreUnavailable();
@@ -45,18 +48,28 @@ public static class ProcurementPlanRoutes
                 x.CurrencyCode, x.Status, x.RevisionNumber, x.Version, x.CreatedAt,
                 LineCount = db.ProcurementPlanLines.Count(line => line.ProcurementPlanId == x.Id && line.Status == "Active") })
             .ToListAsync(ct);
-        return Results.Ok(new { items, total, page = number, pageSize = size });
+        var actions = await ActionContext(transaction, scope, options, readiness, http, authorization, ct);
+        return Results.Ok(new { items = items.Select(x => new
+            {
+                x.Id, x.Number, x.FinancialPeriodRef, x.DepartmentRef, x.BranchRef,
+                x.CurrencyCode, x.Status, x.RevisionNumber, x.Version, x.CreatedAt, x.LineCount,
+                allowedActions = AllowedActions(x.Status, x.BranchRef, scope, actions),
+            }).ToArray(), total, page = number, pageSize = size });
     }
 
     private static async Task<IResult> Get(Guid id, ProcurementDbContext db, ProcurementRequestScope scope,
         IProcurementPlanReviewReadiness readiness,
+        ProcurementPlanReviewOptions options, HttpContext http, IAuthorizationService authorization,
+        ProcurementApprovalTransaction transaction,
         CancellationToken ct)
     {
         if (!await readiness.CanReadPlanAsync(db, ct)) return PlanStoreUnavailable();
         var plan = await db.ProcurementPlans.AsNoTracking().Include(x => x.Lines)
             .SingleOrDefaultAsync(x => x.Id == id && x.OwnerSubjectId == scope.SubjectId, ct);
         if (plan is not null && !VisibleBranch(plan, scope)) plan = null;
-        return plan is null ? Problem("not-found", "Plan not found.", 404) : Results.Ok(Detail(plan));
+        if (plan is null) return Problem("not-found", "Plan not found.", 404);
+        var actions = await ActionContext(transaction, scope, options, readiness, http, authorization, ct);
+        return Results.Ok(Detail(plan, AllowedActions(plan.Status, plan.BranchRef, scope, actions)));
     }
 
     private static async Task<IResult> Create(JsonElement body, ProcurementDbContext db, HrmDbContext core,
@@ -170,8 +183,17 @@ public static class ProcurementPlanRoutes
             .SingleOrDefaultAsync(x => x.Id == id && x.OwnerSubjectId == scope.SubjectId, ct);
         if (plan is null) return Problem("not-found", "Plan not found.", 404);
         if (!VisibleBranch(plan, scope)) return Problem("not-found", "Plan not found.", 404);
-        if (plan.Status != "Draft") return Problem("plan-locked", "Only a draft plan can be cancelled here.", 409);
+        if (plan.Status is not ("Draft" or "Returned"))
+            return Problem("plan-locked", "Only a draft or returned plan can be cancelled here.", 409);
         if (plan.Version != input.Version) return Problem("version-conflict", "Refresh this plan before cancelling it.", 409);
+        if (plan.Status == "Returned")
+        {
+            var rounds = await db.PlanReviewSubmissions.AsNoTracking()
+                .Where(x => x.ProcurementPlanId == plan.Id)
+                .OrderByDescending(x => x.SubmittedPlanVersion).ToArrayAsync(ct);
+            if (!ReturnedReviewClosed(plan, rounds))
+                return Problem("plan-review-conflict", "Refresh the returned review before cancelling this plan.", 409);
+        }
         if (string.IsNullOrWhiteSpace(input.Reason) || input.Reason.Trim().Length > 1000)
             return Problem("validation-failed", "Give a cancellation reason of up to 1,000 characters.", 422);
         var before = ProcurementDraftAudit.Snapshot(Detail(plan));
@@ -199,9 +221,8 @@ public static class ProcurementPlanRoutes
             return Problem("plan-review-unavailable", "Plan review is not ready in this workspace.", 503);
         if (scope.IsExplicitAllBranches || scope.WorkLocationId is not { } branch || scope.PrincipalId is null)
             return Problem("branch-required", "Choose a permitted branch to claim this plan.", 400);
-        if (!Guid.TryParseExact(http.Request.Headers["X-Idempotency-Key"].ToString(), "D", out var key)
-            || key == Guid.Empty)
-            return Problem("command-key-required", "Send a valid command key for safe recovery.", 422);
+        if (!ProcurementPlanReviewRoutes.TryKey(http, out var key))
+            return Problem("command-key-required", "Send one valid Idempotency-Key for safe recovery.", 422);
         var reason = input.Reason?.Trim();
         if (string.IsNullOrWhiteSpace(reason) || reason.Length > 1000 ||
             string.IsNullOrWhiteSpace(input.ConfirmStoredCurrencyCode))
@@ -275,11 +296,12 @@ public static class ProcurementPlanRoutes
         line.FundingSourceRef = Clean(input.FundingSourceRef);
     }
 
-    private static object Detail(ProcurementPlan plan) => new
+    private static object Detail(ProcurementPlan plan, IReadOnlyList<string>? allowedActions = null) => new
     {
         plan.Id, plan.Number, plan.FinancialPeriodRef, plan.DepartmentRef, plan.BranchRef,
         plan.CurrencyCode, plan.Status, plan.StatusReason, plan.OwnerSubjectId,
         plan.RevisionNumber, plan.FundingSourceRef, plan.Version, plan.CreatedAt, plan.UpdatedAt,
+        allowedActions = allowedActions ?? [],
         Lines = plan.Lines.OrderBy(x => x.LineNumber).Select(x => new
         {
             x.Id, x.LineNumber, x.CatalogItemId, x.Description, x.CategoryCode, x.UnitCode,
@@ -289,6 +311,69 @@ public static class ProcurementPlanRoutes
     };
 
     private static string? Clean(string? value) => string.IsNullOrWhiteSpace(value) ? null : value.Trim();
+    internal static bool ReturnedReviewClosed(ProcurementPlan plan, IReadOnlyList<PlanReviewSubmission> rounds)
+    {
+        var latest = rounds.OrderByDescending(x => x.SubmittedPlanVersion).FirstOrDefault();
+        return plan.Status == "Returned" && latest is { State: "Returned", CompletedAt: not null }
+            && plan.ApprovalInstanceRef == latest.CoreApprovalCaseId.ToString("D")
+            && !rounds.Any(x => x.State == "Pending");
+    }
+    private sealed record PlanActionContext(bool Edit, bool Claim, bool Submit, bool Withdraw,
+        bool WriteReady, bool PolicyReady);
+
+    private static async Task<PlanActionContext> ActionContext(ProcurementApprovalTransaction transaction,
+        ProcurementRequestScope scope, ProcurementPlanReviewOptions options,
+        IProcurementPlanReviewReadiness readiness, HttpContext http,
+        IAuthorizationService authorization, CancellationToken ct)
+    {
+        var edit = (await authorization.AuthorizeAsync(http.User, "procurement-plan-edit")).Succeeded;
+        var claim = (await authorization.AuthorizeAsync(http.User, "procurement-plan-claim-scope-all")).Succeeded;
+        var submit = (await authorization.AuthorizeAsync(http.User, "procurement-plan-submit")).Succeeded;
+        var withdraw = (await authorization.AuthorizeAsync(http.User, "procurement-plan-withdraw")).Succeeded;
+        var writeReady = options.Enabled && options.ExecutionDatabaseConfigured
+            && (edit || submit || withdraw || claim) && await readiness.IsReadyAsync(ct);
+        var policyReady = false;
+        if (writeReady && submit)
+        {
+            try
+            {
+                policyReady = await transaction.ExecuteAsync(async (db, _, token) =>
+                {
+                    var now = DateTimeOffset.UtcNow;
+                    var policies = await db.PolicyVersions.AsNoTracking()
+                        .Where(x => x.PolicyKey == PlanReviewPolicyRules.PolicyKey && x.State == "Published"
+                            && x.EffectiveFrom <= now && (x.EffectiveTo == null || x.EffectiveTo > now))
+                        .Take(2).ToArrayAsync(token);
+                    if (policies.Length != 1 || PlanReviewPolicyRules.Read(policies[0].RulesJson) is null)
+                        return false;
+                    _ = await ProcurementOperationalPolicyWorkerIdentity.VerifyPublicationAsync(db,
+                        scope, policies[0], token);
+                    return true;
+                }, ct);
+            }
+            catch (OperationCanceledException) { throw; }
+            catch (Exception) { policyReady = false; }
+        }
+        return new(edit, claim, submit, withdraw, writeReady, policyReady);
+    }
+
+    private static string[] AllowedActions(string status, Guid? branch,
+        ProcurementRequestScope scope, PlanActionContext actor)
+    {
+        var selected = !scope.IsExplicitAllBranches && scope.WorkLocationId.HasValue;
+        var actions = new List<string>();
+        if (selected && branch == scope.WorkLocationId && actor.Edit && (status is "Draft" or "Returned"))
+            actions.Add("Edit");
+        if (selected && branch == scope.WorkLocationId && actor.Edit && (status is "Draft" or "Returned"))
+            actions.Add("Cancel");
+        if (selected && branch is null && (status is "Draft" or "Returned")
+            && actor.WriteReady && (actor.Edit || actor.Claim)) actions.Add("ClaimScope");
+        if (selected && branch == scope.WorkLocationId && (status is "Draft" or "Returned")
+            && actor.WriteReady && actor.Submit && actor.PolicyReady) actions.Add("Submit");
+        if (selected && branch == scope.WorkLocationId && (status is "Submitted" or "Reviewed")
+            && actor.WriteReady && actor.Withdraw) actions.Add("Withdraw");
+        return actions.ToArray();
+    }
     private static bool VisibleBranch(ProcurementPlan plan, ProcurementRequestScope scope) =>
         plan.BranchRef is null || scope.IsExplicitAllBranches
             ? plan.BranchRef is null || scope.PermittedWorkLocationIds.Contains(plan.BranchRef.Value)

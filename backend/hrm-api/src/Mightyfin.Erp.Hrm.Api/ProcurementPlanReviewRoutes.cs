@@ -33,8 +33,8 @@ public static class ProcurementPlanReviewRoutes
             return Problem("plan-review-unavailable", "Plan review is not ready in this workspace.", 503);
         if (scope.IsExplicitAllBranches || scope.WorkLocationId is not { } branch
             || scope.PrincipalId is null) return Problem("branch-required", "Choose a permitted branch.", 400);
-        if (!Guid.TryParseExact(http.Request.Headers["X-Idempotency-Key"].ToString(), "D", out var key)
-            || key == Guid.Empty) return Problem("command-key-required", "Send an original command key.", 422);
+        if (!TryKey(http, out var key)) return Problem("command-key-required",
+            "Send one valid Idempotency-Key for safe recovery.", 422);
         var fingerprint = Hash(new { operation = "Submit", id, actor = scope.SubjectId, branch,
             input.ExpectedPlanVersion });
         try
@@ -156,8 +156,8 @@ public static class ProcurementPlanReviewRoutes
             return Problem("plan-review-unavailable", "Plan review is not ready in this workspace.", 503);
         if (scope.IsExplicitAllBranches || scope.WorkLocationId is not { } branch || scope.PrincipalId is null)
             return Problem("branch-required", "Choose a permitted branch.", 400);
-        if (!Guid.TryParseExact(http.Request.Headers["X-Idempotency-Key"].ToString(), "D", out var key)
-            || key == Guid.Empty) return Problem("command-key-required", "Send an original command key.", 422);
+        if (!TryKey(http, out var key)) return Problem("command-key-required",
+            "Send one valid Idempotency-Key for safe recovery.", 422);
         var reason = input.Reason?.Trim();
         if (input.Action is not ("Approve" or "Return" or "Reject")
             || input.Action != "Approve" && string.IsNullOrWhiteSpace(reason)
@@ -302,8 +302,8 @@ public static class ProcurementPlanReviewRoutes
             return Problem("plan-review-unavailable", "Plan review is not ready in this workspace.", 503);
         if (scope.IsExplicitAllBranches || scope.WorkLocationId is not { } branch || scope.PrincipalId is null)
             return Problem("branch-required", "Choose a permitted branch.", 400);
-        if (!Guid.TryParseExact(http.Request.Headers["X-Idempotency-Key"].ToString(), "D", out var key)
-            || key == Guid.Empty) return Problem("command-key-required", "Send an original command key.", 422);
+        if (!TryKey(http, out var key)) return Problem("command-key-required",
+            "Send one valid Idempotency-Key for safe recovery.", 422);
         var reason = input.Reason?.Trim();
         if (string.IsNullOrWhiteSpace(reason) || reason.Length > 2000)
             return Problem("reason-required", "Give a withdrawal reason of up to 2,000 characters.", 422);
@@ -386,6 +386,14 @@ public static class ProcurementPlanReviewRoutes
     private static Task Lock(ProcurementDbContext db, ProcurementRequestScope scope, Guid id, CancellationToken ct) =>
         db.Database.ExecuteSqlInterpolatedAsync($"SELECT id FROM procurement.procurement_plans WHERE tenant_id={scope.TenantId} AND legal_entity_id={scope.LegalEntityId} AND id={id} FOR UPDATE", ct);
     private static string Hash(object value) => Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(Json(value))));
+    internal static bool TryKey(HttpContext http, out Guid key)
+    {
+        key = Guid.Empty;
+        return http.Request.Headers["X-Idempotency-Key"].Count == 0
+            && http.Request.Headers["Idempotency-Key"].Count == 1
+            && Guid.TryParseExact(http.Request.Headers["Idempotency-Key"].ToString(), "D", out key)
+            && key != Guid.Empty;
+    }
     private static string Json(object value) => JsonSerializer.Serialize(value, new JsonSerializerOptions(JsonSerializerDefaults.Web));
     private static IResult Problem(string code, string message, int status) => Results.Json(new { code, message }, statusCode: status);
     private sealed record Reply(int Status, string Body);

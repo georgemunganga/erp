@@ -265,7 +265,13 @@ public static class ProcurementHostIntegration
                         vendorDraft = !pending,
                         itemDraft = !pending,
                         requestDraft = !pending,
-                        planningDraft = !pending,
+                        planningDraft = !pending
+                            && await services.GetRequiredService<IProcurementPlanReviewReadiness>().CanReadPlanAsync(db, ct),
+                        planReviewRead = await ProcurementPlanReviewReads.ReadCapability(scope, http, pending, ct),
+                        planReviewWorkflow = !pending
+                            && services.GetRequiredService<ProcurementPlanReviewOptions>().Enabled
+                            && services.GetRequiredService<ProcurementPlanReviewOptions>().ExecutionDatabaseConfigured
+                            && await services.GetRequiredService<IProcurementPlanReviewReadiness>().IsReadyAsync(ct),
                         configurationDraft = !pending,
                         contractDraft = !pending,
                         recurringPurchaseDraft = !pending,

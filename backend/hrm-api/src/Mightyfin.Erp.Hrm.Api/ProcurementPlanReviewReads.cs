@@ -1,8 +1,11 @@
+using System.Data.Common;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.EntityFrameworkCore;
 using Mightyfin.Erp.Core.Approvals.Domain;
+using Mightyfin.Erp.Core.Approvals.Infrastructure;
 using Mightyfin.Erp.Procurement.Application;
 using Mightyfin.Erp.Procurement.Infrastructure.Approvals;
+using Mightyfin.Erp.Procurement.Infrastructure.Data;
 
 namespace Mightyfin.Erp.Hrm.Api;
 
@@ -10,9 +13,53 @@ namespace Mightyfin.Erp.Hrm.Api;
 /// read in the same transaction, with branch filtering before paging.</summary>
 public static class ProcurementPlanReviewReads
 {
+    internal static async Task<bool> ReadCapability(ProcurementRequestScope scope, HttpContext http,
+        bool pending, CancellationToken ct)
+    {
+        var services = http.RequestServices;
+        var options = services.GetService<ProcurementPlanReviewOptions>();
+        var readiness = services.GetService<IProcurementPlanReviewReadiness>();
+        var transaction = services.GetService<ProcurementApprovalTransaction>();
+        var authorization = services.GetService<IAuthorizationService>();
+        if (pending || options is not { ExecutionDatabaseConfigured: true }
+            || readiness is null || transaction is null || authorization is null
+            || scope.OrgUnitId is not null
+            || scope.IsConfined && scope.WorkLocationId is null && !scope.IsExplicitAllBranches)
+            return false;
+        var ownerRead = (await authorization.AuthorizeAsync(http.User, "procurement-plan-read")).Succeeded;
+        var assignedRead = (await authorization.AuthorizeAsync(http.User, "procurement-plan-review-read")).Succeeded;
+        if (!ownerRead && !assignedRead) return false;
+        try
+        {
+            return await ReadAsync(transaction, readiness, async (db, _, token) =>
+            {
+                await using var core = await ProcurementApprovalExecutionLocks.CoreAsync(db, scope, token);
+                var actor = await ProcurementPrincipalPeople.Resolve(core, scope.TenantId,
+                    scope.LegalEntityId, scope.SubjectId, token);
+                return actor is not null && (ownerRead && actor.Permissions.Contains("procurement-plan-read")
+                    || assignedRead && actor.Permissions.Contains("procurement-plan-review-read"))
+                    && (scope.IsExplicitAllBranches || scope.WorkLocationId is { } selected
+                        && (actor.OrganisationWide || actor.AllowedBranches.Contains(selected)));
+            }, ct);
+        }
+        catch (OperationCanceledException) { throw; }
+        catch (Exception error) when (error is ReviewReadUnavailable or DbException
+            or InvalidOperationException or UnauthorizedAccessException) { return false; }
+    }
+
     public static void MapRoutes(WebApplication app)
     {
         var group = app.MapGroup("/api/procurement/v1/plans");
+        group.AddEndpointFilter(async (context, next) =>
+        {
+            try { return await next(context); }
+            catch (OperationCanceledException) { throw; }
+            catch (UnauthorizedAccessException)
+            { return Results.Json(new { code = "plan-review-read-denied" }, statusCode: 403); }
+            catch (Exception error) when (error is ReviewReadUnavailable or DbException or InvalidOperationException
+                or DbUpdateException)
+            { return Unavailable(); }
+        });
         group.MapGet("/review-tasks", Tasks).RequireAuthorization("procurement-plan-review-read");
         group.MapGet("/{id:guid}/review-history", History).RequireAuthorization("procurement-plan-read");
         group.MapGet("/review-submissions/{submissionId:guid}", Detail).RequireAuthorization("procurement-access");
@@ -23,10 +70,11 @@ public static class ProcurementPlanReviewReads
         ProcurementPlanReviewOptions options, IProcurementPlanReviewReadiness readiness,
         ProcurementApprovalTransaction transaction, int? page, int? pageSize, CancellationToken ct)
     {
-        if (!await Ready(options, readiness, ct)) return Unavailable();
+        if (!options.ExecutionDatabaseConfigured) return Unavailable();
+        var writeReady = options.Enabled && await readiness.IsReadyAsync(ct);
         var number = Math.Clamp(page ?? 1, 1, 100000);
         var size = Math.Clamp(pageSize ?? 25, 1, 100);
-        var result = await transaction.ExecuteAsync(async (db, core, token) =>
+        var result = await ReadAsync(transaction, readiness, async (db, core, token) =>
         {
             await using var people = await ProcurementApprovalExecutionLocks.CoreAsync(db, scope, token);
             var current = await ProcurementPrincipalPeople.Resolve(people, scope.TenantId,
@@ -59,7 +107,8 @@ public static class ProcurementPlanReviewReads
                     && (current.OrganisationWide || byId[x.planId].BranchRef is { } allowed
                         && current.AllowedBranches.Contains(allowed)))
                 .Select(x => new { x.planId, x.caseId, x.caseVersion, x.Code, x.assignmentId,
-                    x.assignmentVersion, plan = byId[x.planId] }).ToArray();
+                    x.assignmentVersion, plan = byId[x.planId],
+                    allowedActions = writeReady ? new[] { "Approve", "Return", "Reject" } : Array.Empty<string>() }).ToArray();
             return new { items = items.Skip((number - 1) * size).Take(size)
                     .Select(x => (object)x).ToArray(),
                 total = items.Length, page = number, pageSize = size,
@@ -72,8 +121,8 @@ public static class ProcurementPlanReviewReads
         ProcurementPlanReviewOptions options, IProcurementPlanReviewReadiness readiness,
         ProcurementApprovalTransaction transaction, CancellationToken ct)
     {
-        if (!await Ready(options, readiness, ct)) return Unavailable();
-        var result = await transaction.ExecuteAsync(async (db, core, token) =>
+        if (!options.ExecutionDatabaseConfigured) return Unavailable();
+        var result = await ReadAsync(transaction, readiness, async (db, core, token) =>
         {
             var plan = await db.ProcurementPlans.AsNoTracking()
                 .SingleOrDefaultAsync(x => x.Id == id && x.OwnerSubjectId == scope.SubjectId, token);
@@ -101,8 +150,8 @@ public static class ProcurementPlanReviewReads
         ProcurementPlanReviewOptions options, IProcurementPlanReviewReadiness readiness,
         ProcurementApprovalTransaction transaction, CancellationToken ct)
     {
-        if (!await Ready(options, readiness, ct)) return Unavailable();
-        var result = await transaction.ExecuteAsync(async (db, core, token) =>
+        if (!options.ExecutionDatabaseConfigured) return Unavailable();
+        var result = await ReadAsync(transaction, readiness, async (db, core, token) =>
         {
             var round = await db.PlanReviewSubmissions.AsNoTracking()
                 .SingleOrDefaultAsync(x => x.Id == submissionId, token);
@@ -121,6 +170,10 @@ public static class ProcurementPlanReviewReads
             var permission = plan.OwnerSubjectId == scope.SubjectId
                 ? "procurement-plan-read" : "procurement-plan-review-read";
             if (!(await authorization.AuthorizeAsync(http.User, permission)).Succeeded) return null;
+            var canWithdraw = writeReady && plan.OwnerSubjectId == scope.SubjectId
+                && (plan.Status is "Submitted" or "Reviewed")
+                && (await authorization.AuthorizeAsync(http.User,
+                    PlanReviewCoreWorkflow.WithdrawPermission)).Succeeded;
             if (!PlanReviewSnapshot.TryReadRetained(round, out var submittedSnapshot))
                 return new DetailRead(503, new { code = "plan-review-evidence-unavailable",
                     message = "The submitted plan evidence could not be verified." });
@@ -130,13 +183,21 @@ public static class ProcurementPlanReviewReads
                 planVersion = plan.Version, submissionId = round.Id, round.State,
                 round.SubmittedPlanVersion, round.CurrencyCode, round.EstimatedAmount,
                 submittedSnapshot, round.SnapshotSha256,
+                allowedActions = canWithdraw ? new[] { "Withdraw" } : Array.Empty<string>(),
                 round.SubmittedAt, round.CompletedAt, caseId = approvalCase.Id,
                 caseState = approvalCase.State, caseVersion = approvalCase.Version,
                 stages = approvalCase.Stages.OrderBy(x => x.Sequence).Select(x => new
                 {
                     x.Id, x.Code, x.Mode, x.RequiredApprovals, x.State,
                     assignments = x.Assignments.Select(a => new { a.Id, a.AssigneeSubjectId,
-                        a.State, a.Version }).ToArray(),
+                        a.State, a.Version,
+                        allowedActions = writeReady && x.State == "Active" && a.State == "Pending"
+                            && a.AssigneeSubjectId == scope.SubjectId
+                            && (x.Code == "Review" && http.User.HasClaim(ProcurementPermissions.ActionClaim,
+                                    PlanReviewCoreWorkflow.ReviewPermission)
+                                || x.Code == "Final" && http.User.HasClaim(ProcurementPermissions.ActionClaim,
+                                    PlanReviewCoreWorkflow.FinalPermission))
+                                ? new[] { "Approve", "Return", "Reject" } : Array.Empty<string>() }).ToArray(),
                 }).ToArray(),
                 decisions = decisions.Select(x => new { x.Id, x.StageId, x.AssignmentId,
                     x.ActorSubjectId, x.Action, x.Reason, x.DecidedAt }).ToArray() });
@@ -149,8 +210,8 @@ public static class ProcurementPlanReviewReads
         ProcurementPlanReviewOptions options, IProcurementPlanReviewReadiness readiness,
         ProcurementApprovalTransaction transaction, CancellationToken ct)
     {
-        if (!await Ready(options, readiness, ct)) return Unavailable();
-        var result = await transaction.ExecuteAsync(async (db, _, token) =>
+        if (!options.ExecutionDatabaseConfigured) return Unavailable();
+        var result = await ReadAsync(transaction, readiness, async (db, _, token) =>
         {
             var receipt = await db.PlanReviewCommandReceipts.AsNoTracking()
                 .SingleOrDefaultAsync(x => x.CommandKey == commandKey
@@ -159,16 +220,11 @@ public static class ProcurementPlanReviewReads
             var plan = await db.ProcurementPlans.AsNoTracking()
                 .SingleOrDefaultAsync(x => x.Id == receipt.ProcurementPlanId, token);
             if (plan is null || !BranchVisible(plan.BranchRef, scope)) return null;
-            var permission = receipt.Operation switch
-            {
-                "ClaimScope" => plan.OwnerSubjectId == scope.SubjectId
-                    ? "procurement-plan-edit" : "procurement-plan-claim-scope-all",
-                "Submit" => "procurement-plan-submit",
-                "Withdraw" => PlanReviewCoreWorkflow.WithdrawPermission,
-                "Decide" => "procurement-plan-review-read",
-                _ => "procurement-access-denied",
-            };
-            if (!(await authorization.AuthorizeAsync(http.User, permission)).Succeeded) return null;
+            var ownerRead = plan.OwnerSubjectId == scope.SubjectId
+                && (await authorization.AuthorizeAsync(http.User, "procurement-plan-read")).Succeeded;
+            var actorRead = (await authorization.AuthorizeAsync(http.User,
+                "procurement-plan-review-read")).Succeeded;
+            if (!ownerRead && !actorRead) return null;
             return new { receipt.ResponseStatus, receipt.ResponseJson };
         }, ct);
         return result is null ? Missing()
@@ -178,9 +234,16 @@ public static class ProcurementPlanReviewReads
     private static bool BranchVisible(Guid? branch, ProcurementRequestScope scope) => branch is { } id
         && (scope.IsExplicitAllBranches ? scope.PermittedWorkLocationIds.Contains(id)
             : scope.WorkLocationId == id);
-    private static async Task<bool> Ready(ProcurementPlanReviewOptions options,
-        IProcurementPlanReviewReadiness readiness, CancellationToken ct) => options.Enabled
-        && options.ExecutionDatabaseConfigured && await readiness.IsReadyAsync(ct);
+    private static Task<TResult> ReadAsync<TResult>(ProcurementApprovalTransaction transaction,
+        IProcurementPlanReviewReadiness readiness,
+        Func<ProcurementDbContext, ApprovalDbContext, CancellationToken, Task<TResult>> read,
+        CancellationToken ct) => transaction.ExecuteAsync(async (db, core, token) =>
+        {
+            await db.Database.ExecuteSqlRawAsync("SET LOCAL transaction_read_only=on", token);
+            if (!await readiness.CanReadReviewAsync(db, token)) throw new ReviewReadUnavailable();
+            return await read(db, core, token);
+        }, ct);
+    private sealed class ReviewReadUnavailable : Exception { }
     private static IResult Unavailable() => Results.Json(new { code = "plan-review-unavailable",
         message = "Plan review is not ready in this workspace." }, statusCode: 503);
     private static IResult Missing() => Results.Json(new { code = "not-found",

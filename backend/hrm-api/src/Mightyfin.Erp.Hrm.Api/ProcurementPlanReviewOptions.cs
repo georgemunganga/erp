@@ -12,12 +12,6 @@ public sealed class ProcurementPlanReviewOptions
 public interface IProcurementPlanReviewReadiness
 {
     Task<bool> CanReadPlanAsync(ProcurementDbContext db, CancellationToken cancellationToken);
+    Task<bool> CanReadReviewAsync(ProcurementDbContext db, CancellationToken cancellationToken);
     Task<bool> IsReadyAsync(CancellationToken cancellationToken);
-}
-
-/// <summary>No nominal readiness before the genuine additive schema and finite roles are captured.</summary>
-public sealed class UnavailableProcurementPlanReviewReadiness : IProcurementPlanReviewReadiness
-{
-    public Task<bool> CanReadPlanAsync(ProcurementDbContext db, CancellationToken cancellationToken) => Task.FromResult(false);
-    public Task<bool> IsReadyAsync(CancellationToken cancellationToken) => Task.FromResult(false);
 }

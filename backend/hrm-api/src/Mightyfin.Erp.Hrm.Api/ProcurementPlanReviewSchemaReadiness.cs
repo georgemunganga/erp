@@ -56,24 +56,34 @@ public sealed class ProcurementPlanReviewSchemaReadiness(IConfiguration configur
 
     public async Task<bool> IsReadyAsync(CancellationToken ct)
     {
-        if (!ManifestCaptured) return false;
         var execution = configuration.GetConnectionString("ProcurementApprovalExecution");
         if (string.IsNullOrWhiteSpace(execution)) return false;
         try
         {
             await using var db = new ProcurementDbContext(new DbContextOptionsBuilder<ProcurementDbContext>()
                 .UseNpgsql(execution, x => x.MigrationsHistoryTable("__procurement_migrations", "procurement")).Options, scope);
-            if (!await CanReadPlanAsync(db, ct)
-                || !(await db.Database.GetAppliedMigrationsAsync(ct)).Contains(RequiredMigrationId, StringComparer.Ordinal)
-                || !await policyIdentity.IsReadyAsync(db, ct)) return false;
-            var opened = false;
-            try
-            {
+            return await CheckReviewAsync(db, readOnly: false, ct);
+        }
+        catch (Exception error) when (error is not OperationCanceledException) { return false; }
+    }
+
+    public Task<bool> CanReadReviewAsync(ProcurementDbContext db, CancellationToken ct)
+        => CheckReviewAsync(db, readOnly: true, ct);
+
+    private async Task<bool> CheckReviewAsync(ProcurementDbContext db, bool readOnly, CancellationToken ct)
+    {
+        if (!ManifestCaptured || !await CanReadPlanAsync(db, ct)
+            || !(await db.Database.GetAppliedMigrationsAsync(ct)).Contains(RequiredMigrationId, StringComparer.Ordinal)
+            || !await policyIdentity.IsReadyAsync(db, ct)) return false;
+        var opened = false;
+        try
+        {
                 var connection = db.Database.GetDbConnection();
                 if (connection.State != ConnectionState.Open) { await db.Database.OpenConnectionAsync(ct); opened = true; }
                 await using var command = connection.CreateCommand();
+                command.Transaction = db.Database.CurrentTransaction?.GetDbTransaction();
                 command.CommandTimeout = 10;
-                command.CommandText = PrivilegeSql;
+                command.CommandText = readOnly ? ReadPrivilegeSql : PrivilegeSql;
                 if (await command.ExecuteScalarAsync(ct) is not true) return false;
                 var design = db.GetService<IDesignTimeModel>().Model;
                 foreach (var type in new[] { typeof(PlanReviewSubmission), typeof(PlanReviewCommandReceipt) })
@@ -106,14 +116,36 @@ public sealed class ProcurementPlanReviewSchemaReadiness(IConfiguration configur
                     }
                 }
                 return true;
-            }
-            finally { if (opened) await db.Database.CloseConnectionAsync(); }
         }
         catch (Exception error) when (error is not OperationCanceledException) { return false; }
+        finally { if (opened) await db.Database.CloseConnectionAsync(); }
     }
 
     private static async Task<bool> True(System.Data.Common.DbCommand command, string sql, CancellationToken ct)
     { command.CommandText = sql; return await command.ExecuteScalarAsync(ct) is true; }
+
+    internal static string ReadPrivilegeSql => "SELECT " + string.Join(" AND ", new[]
+    {
+        "current_setting('transaction_read_only')='on'",
+        "NOT EXISTS(SELECT 1 FROM pg_roles WHERE rolname=current_user AND (rolsuper OR rolcreatedb OR rolcreaterole OR rolreplication OR rolbypassrls))",
+        ProcurementSpendingAuthorityIdentitySchemaReadiness.NoOwnershipSql,
+        ProcurementSpendingAuthorityIdentitySchemaReadiness.NoCoreIdentityWritesSql,
+        "has_schema_privilege(current_user,'hrm','USAGE')",
+        "NOT EXISTS(SELECT 1 FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname IN ('procurement','core_approval') AND (pg_has_role(current_user,c.relowner,'MEMBER') OR pg_has_role(current_user,c.relowner,'SET')))"
+    }.Concat(new[] { "procurement.procurement_plans", "procurement.procurement_plan_lines",
+        "procurement.plan_review_submissions", "procurement.plan_review_command_receipts",
+        "procurement.policy_versions", "procurement.operational_policy_identity_evidence",
+        "core_approval.cases", "core_approval.stages", "core_approval.assignments",
+        "core_approval.decisions" }.Select(x =>
+            "has_table_privilege(current_user," + Literal(x) + ",'SELECT')"))
+      .Concat(new[] { "procurement.plan_review_command_receipts", "core_approval.decisions" }
+        .Select(x => "NOT has_any_column_privilege(current_user," + Literal(x) + ",'UPDATE')"))
+      .Concat(new[] { "procurement.plan_review_submissions", "procurement.plan_review_command_receipts",
+        "core_approval.cases", "core_approval.stages", "core_approval.assignments", "core_approval.decisions" }
+        .Select(x => "NOT has_table_privilege(current_user," + Literal(x) + ",'DELETE,TRUNCATE,TRIGGER')"))
+      .Concat(CoreColumns.SelectMany(projection => projection.Value.Select(column =>
+          "has_column_privilege(current_user," + Literal(projection.Key) + ","
+              + Literal(column) + ",'SELECT')"))));
 
     internal static string PrivilegeSql => "SELECT " + string.Join(" AND ", new[]
     {
