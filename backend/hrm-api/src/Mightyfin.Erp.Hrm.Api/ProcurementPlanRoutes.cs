@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Mvc;
 using System.Text.Json;
 using System.Data.Common;
 using System.Security.Cryptography;
@@ -26,10 +27,10 @@ public static class ProcurementPlanRoutes
         group.MapPost("/{id:guid}/claim-scope", ClaimScope).RequireAuthorization("procurement-access");
     }
 
-    private static async Task<IResult> List(ProcurementDbContext db, ProcurementRequestScope scope,
-        IProcurementPlanReviewReadiness readiness,
-        ProcurementPlanReviewOptions options, HttpContext http, IAuthorizationService authorization,
-        ProcurementApprovalTransaction transaction,
+    private static async Task<IResult> List([FromServices] ProcurementDbContext db, [FromServices] ProcurementRequestScope scope,
+        [FromServices] IProcurementPlanReviewReadiness readiness,
+        [FromServices] ProcurementPlanReviewOptions options, HttpContext http, [FromServices] IAuthorizationService authorization,
+        [FromServices] ProcurementApprovalTransaction transaction,
         string? status, int? page, int? pageSize, CancellationToken ct)
     {
         if (!await readiness.CanReadPlanAsync(db, ct)) return PlanStoreUnavailable();
@@ -58,10 +59,10 @@ public static class ProcurementPlanRoutes
             }).ToArray(), total, page = number, pageSize = size });
     }
 
-    private static async Task<IResult> Get(Guid id, ProcurementDbContext db, ProcurementRequestScope scope,
-        IProcurementPlanReviewReadiness readiness,
-        ProcurementPlanReviewOptions options, HttpContext http, IAuthorizationService authorization,
-        ProcurementApprovalTransaction transaction,
+    private static async Task<IResult> Get(Guid id, [FromServices] ProcurementDbContext db, [FromServices] ProcurementRequestScope scope,
+        [FromServices] IProcurementPlanReviewReadiness readiness,
+        [FromServices] ProcurementPlanReviewOptions options, HttpContext http, [FromServices] IAuthorizationService authorization,
+        [FromServices] ProcurementApprovalTransaction transaction,
         CancellationToken ct)
     {
         if (!await readiness.CanReadPlanAsync(db, ct)) return PlanStoreUnavailable();
@@ -73,9 +74,9 @@ public static class ProcurementPlanRoutes
         return Results.Ok(Detail(plan, AllowedActions(plan.Status, plan.BranchRef, scope, actions)));
     }
 
-    private static async Task<IResult> Create(JsonElement body, ProcurementDbContext db, HrmDbContext core,
-        IProcurementPlanReviewReadiness readiness,
-        ProcurementRequestScope scope, CancellationToken ct)
+    private static async Task<IResult> Create(JsonElement body, [FromServices] ProcurementDbContext db, [FromServices] HrmDbContext core,
+        [FromServices] IProcurementPlanReviewReadiness readiness,
+        [FromServices] ProcurementRequestScope scope, CancellationToken ct)
     {
         if (!await readiness.CanReadPlanAsync(db, ct)) return PlanStoreUnavailable();
         var parsed=ProcurementOriginalValueInput.Read<ProcurementPlanInput>(body);
@@ -115,9 +116,9 @@ public static class ProcurementPlanRoutes
         return Results.Created($"/api/procurement/v1/plans/{plan.Id}", Detail(plan));
     }
 
-    private static async Task<IResult> Update(Guid id, JsonElement body, ProcurementDbContext db,
-        IProcurementPlanReviewReadiness readiness,
-        ProcurementRequestScope scope, CancellationToken ct)
+    private static async Task<IResult> Update(Guid id, JsonElement body, [FromServices] ProcurementDbContext db,
+        [FromServices] IProcurementPlanReviewReadiness readiness,
+        [FromServices] ProcurementRequestScope scope, CancellationToken ct)
     {
         if (!await readiness.CanReadPlanAsync(db, ct)) return PlanStoreUnavailable();
         if (scope.IsExplicitAllBranches || scope.WorkLocationId is null)
@@ -173,10 +174,10 @@ public static class ProcurementPlanRoutes
         return Results.Ok(Detail(plan));
     }
 
-    private static async Task<IResult> Cancel(Guid id, CancelPlan input, ProcurementDbContext db,
-        IProcurementPlanReviewReadiness readiness,
-        ProcurementRequestScope scope, ProcurementPlanReviewOptions options,
-        ProcurementApprovalTransaction transaction, CancellationToken ct)
+    private static async Task<IResult> Cancel(Guid id, CancelPlan input, [FromServices] ProcurementDbContext db,
+        [FromServices] IProcurementPlanReviewReadiness readiness,
+        [FromServices] ProcurementRequestScope scope, [FromServices] ProcurementPlanReviewOptions options,
+        [FromServices] ProcurementApprovalTransaction transaction, CancellationToken ct)
     {
         if (!await readiness.CanReadPlanAsync(db, ct)) return PlanStoreUnavailable();
         if (scope.IsExplicitAllBranches || scope.WorkLocationId is null)
@@ -227,9 +228,9 @@ public static class ProcurementPlanRoutes
     }
 
     private static async Task<IResult> ClaimScope(Guid id, ClaimPlanScope input, HttpContext http,
-        IAuthorizationService authorization, ProcurementPlanReviewOptions options,
-        IProcurementPlanReviewReadiness readiness,
-        ProcurementDbContext db, ProcurementRequestScope scope,
+        [FromServices] IAuthorizationService authorization, [FromServices] ProcurementPlanReviewOptions options,
+        [FromServices] IProcurementPlanReviewReadiness readiness,
+        [FromServices] ProcurementDbContext db, [FromServices] ProcurementRequestScope scope,
         CancellationToken ct)
     {
         if (!options.Enabled || !options.ExecutionDatabaseConfigured || !await readiness.IsReadyAsync(ct))

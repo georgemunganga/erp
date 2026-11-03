@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Mvc;
 using System.Data.Common;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.EntityFrameworkCore;
@@ -67,9 +68,9 @@ public static class ProcurementPlanReviewReads
         group.MapGet("/commands/{commandKey:guid}", Command).RequireAuthorization("procurement-access");
     }
 
-    private static async Task<IResult> Tasks(ProcurementRequestScope scope,
-        ProcurementPlanReviewOptions options, IProcurementPlanReviewReadiness readiness,
-        ProcurementApprovalTransaction transaction, int? page, int? pageSize, CancellationToken ct)
+    private static async Task<IResult> Tasks([FromServices] ProcurementRequestScope scope,
+        [FromServices] ProcurementPlanReviewOptions options, [FromServices] IProcurementPlanReviewReadiness readiness,
+        [FromServices] ProcurementApprovalTransaction transaction, int? page, int? pageSize, CancellationToken ct)
     {
         if (!options.ExecutionDatabaseConfigured) return Unavailable();
         var writeReady = options.Enabled && await readiness.IsReadyAsync(ct);
@@ -142,9 +143,9 @@ public static class ProcurementPlanReviewReads
         return Results.Ok(result);
     }
 
-    private static async Task<IResult> History(Guid id, ProcurementRequestScope scope,
-        ProcurementPlanReviewOptions options, IProcurementPlanReviewReadiness readiness,
-        ProcurementApprovalTransaction transaction, CancellationToken ct)
+    private static async Task<IResult> History(Guid id, [FromServices] ProcurementRequestScope scope,
+        [FromServices] ProcurementPlanReviewOptions options, [FromServices] IProcurementPlanReviewReadiness readiness,
+        [FromServices] ProcurementApprovalTransaction transaction, CancellationToken ct)
     {
         if (!options.ExecutionDatabaseConfigured) return Unavailable();
         var result = await ReadAsync(transaction, readiness, async (db, core, token) =>
@@ -171,9 +172,9 @@ public static class ProcurementPlanReviewReads
     }
 
     private static async Task<IResult> Detail(Guid submissionId, HttpContext http,
-        IAuthorizationService authorization, ProcurementRequestScope scope,
-        ProcurementPlanReviewOptions options, IProcurementPlanReviewReadiness readiness,
-        ProcurementApprovalTransaction transaction, CancellationToken ct)
+        [FromServices] IAuthorizationService authorization, [FromServices] ProcurementRequestScope scope,
+        [FromServices] ProcurementPlanReviewOptions options, [FromServices] IProcurementPlanReviewReadiness readiness,
+        [FromServices] ProcurementApprovalTransaction transaction, CancellationToken ct)
     {
         if (!options.ExecutionDatabaseConfigured) return Unavailable();
         var writeReady = options.Enabled && await readiness.IsReadyAsync(ct);
@@ -232,9 +233,9 @@ public static class ProcurementPlanReviewReads
     }
 
     private static async Task<IResult> Command(Guid commandKey, HttpContext http,
-        IAuthorizationService authorization, ProcurementRequestScope scope,
-        ProcurementPlanReviewOptions options, IProcurementPlanReviewReadiness readiness,
-        ProcurementApprovalTransaction transaction, CancellationToken ct)
+        [FromServices] IAuthorizationService authorization, [FromServices] ProcurementRequestScope scope,
+        [FromServices] ProcurementPlanReviewOptions options, [FromServices] IProcurementPlanReviewReadiness readiness,
+        [FromServices] ProcurementApprovalTransaction transaction, CancellationToken ct)
     {
         if (!options.ExecutionDatabaseConfigured) return Unavailable();
         var result = await ReadAsync(transaction, readiness, async (db, _, token) =>

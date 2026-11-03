@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Mvc;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
@@ -25,8 +26,8 @@ public static class ProcurementPlanReviewRoutes
     }
 
     private static async Task<IResult> Submit(Guid id, SubmitInput input, HttpContext http,
-        ProcurementRequestScope scope, ProcurementPlanReviewOptions options,
-        IProcurementPlanReviewReadiness readiness, ProcurementApprovalTransaction transaction,
+        [FromServices] ProcurementRequestScope scope, [FromServices] ProcurementPlanReviewOptions options,
+        [FromServices] IProcurementPlanReviewReadiness readiness, [FromServices] ProcurementApprovalTransaction transaction,
         CancellationToken ct)
     {
         if (!options.Enabled || !options.ExecutionDatabaseConfigured || !await readiness.IsReadyAsync(ct))
@@ -149,8 +150,8 @@ public static class ProcurementPlanReviewRoutes
     }
 
     private static async Task<IResult> Decide(Guid submissionId, Guid assignmentId, DecideInput input,
-        HttpContext http, ProcurementRequestScope scope, ProcurementPlanReviewOptions options,
-        IProcurementPlanReviewReadiness readiness, ProcurementApprovalTransaction transaction,
+        HttpContext http, [FromServices] ProcurementRequestScope scope, [FromServices] ProcurementPlanReviewOptions options,
+        [FromServices] IProcurementPlanReviewReadiness readiness, [FromServices] ProcurementApprovalTransaction transaction,
         CancellationToken ct)
     {
         if (!options.Enabled || !options.ExecutionDatabaseConfigured || !await readiness.IsReadyAsync(ct))
@@ -295,8 +296,8 @@ public static class ProcurementPlanReviewRoutes
     }
 
     private static async Task<IResult> Withdraw(Guid submissionId, WithdrawInput input, HttpContext http,
-        ProcurementRequestScope scope, ProcurementPlanReviewOptions options,
-        IProcurementPlanReviewReadiness readiness, ProcurementApprovalTransaction transaction,
+        [FromServices] ProcurementRequestScope scope, [FromServices] ProcurementPlanReviewOptions options,
+        [FromServices] IProcurementPlanReviewReadiness readiness, [FromServices] ProcurementApprovalTransaction transaction,
         CancellationToken ct)
     {
         if (!options.Enabled || !options.ExecutionDatabaseConfigured || !await readiness.IsReadyAsync(ct))
