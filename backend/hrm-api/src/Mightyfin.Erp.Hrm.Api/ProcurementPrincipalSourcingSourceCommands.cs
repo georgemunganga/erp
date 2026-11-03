@@ -93,6 +93,7 @@ public static partial class ProcurementSourcingExecutionRoutes
             await db.Database.ExecuteSqlInterpolatedAsync($"SELECT id FROM procurement.sourcing_events WHERE tenant_id={scope.TenantId} AND legal_entity_id={scope.LegalEntityId} AND id={id} FOR UPDATE",token);
             await db.Entry(initial).ReloadAsync(token);
             var ev=await PrincipalOwnedEvent(db,core,scope,http,auth,actor,"procurement-sourcing-cancel",id,token);
+            await RequireRoundSourceCancellationAllowed(http,db,ev,token);
             if(ev.Status!="Draft" || ev.Version!=input.ExpectedEventVersion
                 || ev.OriginalDraftFingerprint!=input.OriginalDraftFingerprint)
                 throw new Problem("SourcingDraftChanged",409);

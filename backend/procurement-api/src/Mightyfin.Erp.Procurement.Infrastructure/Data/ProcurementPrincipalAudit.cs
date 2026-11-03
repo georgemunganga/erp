@@ -10,6 +10,8 @@ public sealed partial class ProcurementDbContext
     {
         var kind = row switch
         {
+            CommercialRoundEnrollment or CommercialRoundPlan or CommercialRoundPlanRevision or CommercialRoundCriterion
+                or CommercialRoundParticipant or CommercialRoundPlanReceipt => "CommercialRoundPlan",
             OperationalPolicyIdentityRecord { SchemaVersion: 2 } => "OperationalPolicyIdentity",
             InvoiceMatchMappingVersion { IdentitySchemaVersion: 2 } => "InvoiceMappingIdentity",
             InvoiceMatchResult { ExecutionVersion: 2 } => "InvoiceMatchExecution",

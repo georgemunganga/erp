@@ -10,6 +10,8 @@ public static class ProcurementActionCatalog
         "procurement-vendor-export" or "procurement-item-export"
         or "procurement-vendor-import" or "procurement-item-import"
         or "procurement-sourcing-submit" or "procurement-sourcing-publish"
+        or "procurement-round-plan-read" or "procurement-round-plan-manage" or "procurement-round-plan-submit"
+        or "procurement-round-plan-review" or "procurement-round-plan-cancel"
         or "procurement-sourcing-contact" or "procurement-quotation-read"
         or "procurement-quotation-capture" or "procurement-quotation-cancel"
         or "procurement-invoice-owner-baseline-open" or "procurement-invoice-owner-baseline-read"
@@ -92,6 +94,11 @@ public static class ProcurementActionCatalog
             // Explicit configured grant only; catalog registration adds no publication endpoint or limit.
             ["procurement-sourcing-publish"] = [],
             ["procurement-sourcing-contact"] = [],
+            ["procurement-round-plan-read"] = [],
+            ["procurement-round-plan-manage"] = [],
+            ["procurement-round-plan-submit"] = [],
+            ["procurement-round-plan-review"] = [],
+            ["procurement-round-plan-cancel"] = [],
             ["procurement-quotation-read"] = [],
             ["procurement-quotation-capture"] = [],
             ["procurement-quotation-cancel"] = [],
@@ -166,7 +173,7 @@ public static class ProcurementActionCatalog
             "configuration" => "Configuration",
             "contract" => "Contracts",
             "recurring" => "Recurring purchases",
-            "sourcing" or "quotation" => "Sourcing and RFQs",
+            "sourcing" or "quotation" or "round" => "Sourcing and RFQs",
             "invoice" => "Invoices",
             "payment" => "Payments",
             _ => "Other Procurement"
@@ -182,6 +189,11 @@ public static class ProcurementActionCatalog
         if (key == "procurement-sourcing-submit") return "Submit RFQ publication review";
         if (key == "procurement-sourcing-publish") return "Decide RFQ publication review";
         if (key == "procurement-sourcing-contact") return "Record outside supplier contact";
+        if (key == "procurement-round-plan-read") return "View commercial round plans";
+        if (key == "procurement-round-plan-manage") return "Create and revise commercial round drafts";
+        if (key == "procurement-round-plan-submit") return "Submit commercial round plans (unavailable)";
+        if (key == "procurement-round-plan-review") return "Review commercial round plans (unavailable)";
+        if (key == "procurement-round-plan-cancel") return "Cancel commercial round drafts";
         if (key == "procurement-quotation-read") return "View buyer-entered quotations";
         if (key == "procurement-quotation-capture") return "Create and revise quotation drafts";
         if (key == "procurement-quotation-cancel") return "Cancel quotation drafts";
