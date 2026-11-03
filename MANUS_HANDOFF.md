@@ -1,3 +1,17 @@
+# Current published prerequisites and release boundary — 3 November 2026, 16:11 UTC
+
+Fetch ERP main `826c81772d8582ae5ed69c6bb8d6644b4084f944` (PR159/164 merged) and Procurement UI main `1e7922ae178351fa006bdf4a9aaeb44bc903f94e` (PR102 merged), or reviewed descendants. Final backend source `53ed4d5486173580660cb3ea571c3703f227c85a` passed 361 focused Host cases. UI product `567e318105687b655a886e79c07eebd2b6bf4563` passed typecheck/live build and 172 unchanged tests plus actual normal-cookie human branch/status-label READ. These published source pins supersede earlier “PR159 unverified draft” guidance; they are not the deployed products.
+
+Private payment run03 passed policy/native HTTP, all six original-UI forms across four workerless Core accounts, finite-role/current-access revocation negatives and independent original-row/source preservation. That native cohort binds backend `d479eb29` / UI `ed044333`; latest label READ uses UI `567e3181` against `d479eb29`, while final `53ed4d54` has separate 361-case compiled proof. All four browser sessions logged out and the owned private runtime stopped. See [current UAT/evidence boundaries](docs/procurement/gap-closure/PROCUREMENT-UAT-AND-GAPS-20261027.md#current-source-private-acceptance-and-production-boundary--3-november-2026) and [PROC-PAY-01](docs/procurement/PROC-12-MANUAL-PAYMENT-WORKFLOW.md). Failed attempts remain retained; no raw identities, cookies, policy fixture values or business bodies belong in Git.
+
+**Production still runs backend `b61ddf73`, API `60c738a2f4b035fd798cbb376c326e7dd4f7b12a365c2aa82166b0da93b32ed7`, UI `ed044333`; `Procurement:ManualPayments:Enabled=false`.** Root is preparing the paired candidate upgrade; it is not executed at this checkpoint. Admission, rollout, signed-in production smoke and activation remain Root-owned. This is not Finance bank/ledger execution or approved production payment policy.
+
+**Issue145 remains NOT READY.** Sourcing [PR165](https://github.com/georgemunganga/erp/pull/165) / issue162 is source only: 59 new cases written, not run; genuine migration/SDK/native/finite-role/original-UI acceptance is pending with flags off. The adopted M7B1 technical baseline below permits bounded implementation, not commercial activation. Scanner issue153 remains external; verified attachment transport is unavailable. Wider payment/whole-module UAT and business-owner sign-off remain open; hosted CI stays billing-blocked. Do not merge held P32/P36/P38 or overlap Root's release/runtime/SDK ownership.
+
+Earlier sections below retain their dated baselines and evidence, superseded for current source/release status by this entry.
+
+---
+
 # M7B1 adopted engineering baseline — 3 November 2026
 
 Documentation-only draft against published ERP main `b42aa7355d196b5c3c678721890b6f1479851b63` and UI main `5dd51dff2ff74087d3f72682025ded071edd4782`: [PROC-06-M7B1 commercial round plan](docs/procurement/features/PROC-06-M7B1-COMMERCIAL-ROUND-PLAN.md), linked to [issue145](https://github.com/georgemunganga/erp/issues/145). Root and independent m6d review have adopted this 28-section engineering baseline for implementation under the user’s existing full-module authorization. Production business-policy settings remain unapproved; no implementation, runtime acceptance or activation is claimed. It uses the actual current principal capture2 / quote-evidence schema2 / commercial snapshot3 and existing `SupplierBid.Version` pin; no separate BidVersion entity or held branch merge is introduced.
