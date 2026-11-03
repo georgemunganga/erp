@@ -25,10 +25,7 @@ public sealed class ProcurementManualPaymentGovernanceReadinessTests
                 var required = "has_column_privilege(current_user,'" + projection.Key
                     + "','" + column + "','SELECT')";
                 Assert.Contains(required, sql);
-                // The Core-owner migration proof repeats this one current
-                // company-clock projection in its own schema assertion.
-                var expectedCount = projection.Key == "hrm.legal_entities" && column == "time_zone_id" ? 2 : 1;
-                Assert.Equal(expectedCount, sql.Split(required, StringSplitOptions.None).Length - 1);
+                Assert.Equal(1, sql.Split(required, StringSplitOptions.None).Length - 1);
             }
         }
         Assert.Contains("has_schema_privilege(current_user,'hrm','USAGE')", sql);
