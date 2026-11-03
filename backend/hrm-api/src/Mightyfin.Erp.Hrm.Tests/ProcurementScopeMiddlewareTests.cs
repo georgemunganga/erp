@@ -311,6 +311,31 @@ public sealed class ProcurementScopeMiddlewareTests
         Assert.True(reached);
     }
 
+    [Theory]
+    [InlineData("GET", "/api/procurement/v1/configuration/policies")]
+    [InlineData("GET", "/api/procurement/v1/configuration/policies/effective")]
+    [InlineData("GET", "/api/procurement/v1/configuration/policies/00000000-0000-0000-0000-000000000001")]
+    [InlineData("POST", "/api/procurement/v1/configuration/policies")]
+    [InlineData("POST", "/api/procurement/v1/configuration/policies/00000000-0000-0000-0000-000000000001/publish")]
+    public async Task Policy_All_scope_is_rejected_without_selecting_an_arbitrary_assigned_branch(string method, string path)
+    {
+        await using var db = TestDbContextFactory.Create("tenant-a");
+        var (user, company, _, branch) = await Seed(db);
+        db.UserBranchAssignments.Add(new HrUserBranchAssignment { UserId = user.Id, LocationId = branch.Id });
+        await db.SaveChangesAsync();
+        var (http, scope) = Request(user.Id);
+        http.Request.Method = method;
+        http.Request.Path = path;
+        http.Request.Headers["X-Shell-Entity"] = company.Id.ToString();
+        http.Request.Headers["X-Shell-Branch-Scope"] = "all";
+        await Middleware(_ => throw new Exception("Unsupported policy scope reached the handler"))
+            .InvokeAsync(http, scope, db);
+        Assert.Equal(StatusCodes.Status400BadRequest, http.Response.StatusCode);
+        Assert.Null(scope.WorkLocationId);
+        http.Response.Body.Position = 0;
+        Assert.Contains("invalid-scope", await new StreamReader(http.Response.Body).ReadToEndAsync());
+    }
+
     private static async Task<(LocalUser, LegalEntity, LegalEntity, WorkLocation)> Seed(HrmDbContext db)
     {
         var a = new LegalEntity { Code = "A", RegisteredName = "A", IsDefault = true };
