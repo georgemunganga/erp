@@ -103,6 +103,25 @@ public sealed class ProcurementPrincipalQuotationContractTests
             PrincipalInvitationView(new SourcingInvitation { Status = "SentByUnverifiedTransport" }));
     }
 
+    [Theory]
+    [InlineData("Reserved")]
+    [InlineData("Released")]
+    public void Handler_source_lines_keep_exact_bound_amounts_and_retained_allocation_meaning(string allocation)
+    {
+        var line = new SourcingLine { Description = "Quoted service", UnitCode = "HOUR", CategoryCode = "CONSULTING" };
+        var binding = new SourcingDemandBinding { Quantity = 99999999999999.9999m, UnitEstimate = .0001m,
+            EstimatedValue = .00000001m };
+        var view = JsonSerializer.SerializeToElement(QuotationSourceLine(line, binding, allocation), Json);
+        Assert.Equal(line.Id, view.GetProperty("id").GetGuid());
+        Assert.Equal("Quoted service", view.GetProperty("description").GetString());
+        Assert.Equal("HOUR", view.GetProperty("unitCode").GetString());
+        Assert.Equal("CONSULTING", view.GetProperty("categoryCode").GetString());
+        Assert.Equal(JsonValueKind.String, view.GetProperty("quantity").ValueKind);
+        Assert.Equal("99999999999999.9999", view.GetProperty("quantity").GetString());
+        Assert.Equal(ProcurementEvidenceEncoding.Decimal(binding.EstimatedValue), view.GetProperty("estimatedValue").GetString());
+        Assert.Equal(allocation, view.GetProperty("allocationState").GetString());
+    }
+
     private static QuotationDraftInput Valid() => new(3, 2, null, null, null,
         new(null, null, QuotationValidity.Unspecified, null, null, null, null, null, []),
         [new(Guid.Parse("abf33211-5997-42c0-884a-f741177dcd50"), 2m, 1.25m,

@@ -86,8 +86,23 @@ public static partial class ProcurementSourcingExecutionRoutes
             }
             return new(JsonSerializer.Serialize(new { source = new { id = source.Id, number = source.Number,
                 title = source.Title, status = source.Status, version = source.Version, branchId = source.BranchRef,
-                currency = source.CurrencyCode }, invitations, items }, Json));
+                currency = source.CurrencyCode,
+                lines = retained.Lines.OrderBy(x => x.Line.LineNumber)
+                    .Select(x => QuotationSourceLine(x.Line, x.Binding, x.Allocation.Status)).ToArray()
+            }, invitations, items }, Json));
         }, ct);
+
+    internal sealed record QuotationSourceLineView(Guid Id, string Description, string UnitCode,
+        string? CategoryCode, string Quantity, string ApprovedUnitEstimate, string EstimatedValue, string AllocationState);
+
+    // Project the already-verified retained publication, not a second maker-only
+    // lookup or mutable employee/catalog data. This also supports retained reads
+    // after cancellation without presenting released quantities as current holds.
+    internal static QuotationSourceLineView QuotationSourceLine(SourcingLine line,
+        SourcingDemandBinding binding, string allocationState) => new(line.Id, line.Description,
+            line.UnitCode, line.CategoryCode, ProcurementEvidenceEncoding.Decimal(binding.Quantity),
+            ProcurementEvidenceEncoding.Decimal(binding.UnitEstimate),
+            ProcurementEvidenceEncoding.Decimal(binding.EstimatedValue), allocationState);
 
     private static Task<IResult> QuotationRead(Guid id, Guid bidId, HttpContext http, ProcurementRequestScope scope, CancellationToken ct) =>
         RunQuotation(http, scope, async (db, cases, core, auth, token) =>
