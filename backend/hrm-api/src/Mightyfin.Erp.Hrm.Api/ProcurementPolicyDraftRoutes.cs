@@ -30,6 +30,7 @@ public static partial class ProcurementPolicyDraftRoutes
         group.MapGet("", List).RequireAuthorization("procurement-configuration-read");
         group.MapGet("/effective", Effective).RequireAuthorization("procurement-configuration-read");
         group.MapGet("/lookups/sourcing-reviewers", SourcingReviewers).RequireAuthorization("procurement-configuration-read");
+        group.MapGet("/lookups/plan-reviewers", PlanReviewers).RequireAuthorization("procurement-configuration-read");
         group.MapGet("/lookups/receiving/{kind}", ReceivingPolicyLookup).RequireAuthorization("procurement-configuration-read");
         group.MapGet("/lookups/invoice-unit-reviewers", UnitReviewers).RequireAuthorization("procurement-configuration-read");
         group.MapGet("/lookups/invoice-owner-baseline-reviewers", InvoiceOwnerBaselineReviewers).RequireAuthorization("procurement-configuration-read");
@@ -284,6 +285,11 @@ public static partial class ProcurementPolicyDraftRoutes
                 scope, "procurement-configuration-edit", ct);
             if (baselineIssue is not null) return baselineIssue;
         }
+        if (key == PlanReviewPolicyRules.PolicyKey)
+        {
+            var planIssue = await CheckPlanReviewCompanyRules(policy, organizationDb, scope, "procurement-configuration-edit", ct);
+            if (planIssue is not null) return planIssue;
+        }
         ProcurementPrincipalPeople.Person? operationalCreator = null;
         if (IsOperationalIdentityPolicy(key))
         {
@@ -344,6 +350,13 @@ public static partial class ProcurementPolicyDraftRoutes
                 { PolicyKey = policy.PolicyKey, RulesJson = input.Draft.RulesJson! },
                 organizationDb, scope, "procurement-configuration-edit", ct);
             if (baselineIssue is not null) return baselineIssue;
+        }
+        if (policy.PolicyKey == PlanReviewPolicyRules.PolicyKey)
+        {
+            var planIssue = await CheckPlanReviewCompanyRules(new PolicyVersion
+                { PolicyKey = policy.PolicyKey, RulesJson = input.Draft.RulesJson! },
+                organizationDb, scope, "procurement-configuration-edit", ct);
+            if (planIssue is not null) return planIssue;
         }
         if (IsOperationalIdentityPolicy(policy.PolicyKey))
             _ = await ProcurementOperationalPolicyWorkerIdentity.RequireAuthorAsync(organizationDb, db, scope, policy,
@@ -601,6 +614,8 @@ public static partial class ProcurementPolicyDraftRoutes
         ProcurementDbContext db, HrmDbContext organizationDb, ProcurementRequestScope scope,
         CancellationToken ct, string receivingPermission = "procurement-configuration-edit")
     {
+        if (policy.PolicyKey == PlanReviewPolicyRules.PolicyKey)
+            return await CheckPlanReviewCompanyRules(policy, organizationDb, scope, receivingPermission, ct);
         if (policy.PolicyKey == ManualPaymentReviewPolicyRules.PolicyKey)
         {
             var paymentIssues = ManualPaymentReviewPolicyRules.Validate(policy.RulesJson);
