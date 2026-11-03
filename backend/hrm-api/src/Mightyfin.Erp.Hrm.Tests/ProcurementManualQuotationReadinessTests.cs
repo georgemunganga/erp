@@ -1,3 +1,4 @@
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
@@ -100,6 +101,24 @@ public sealed class ProcurementManualQuotationReadinessTests
     }
 
     private sealed class EmptyModelContext(DbContextOptions<EmptyModelContext> options) : DbContext(options);
+
+    [Fact]
+    public void Host_registers_verified_scoped_provider_without_turning_on_commercial_capture()
+    {
+        var config = Config("Host=unopened.invalid;Database=erp;Username=record",
+            "Host=unopened.invalid;Database=erp;Username=execution");
+        var services = new ServiceCollection();
+        services.AddSingleton(config);
+        ProcurementHostIntegration.AddServices(services, "Host=unopened.invalid;Database=erp;Username=record", config);
+        using var provider = services.BuildServiceProvider();
+        using var scope = provider.CreateScope();
+        var readiness = scope.ServiceProvider.GetRequiredService<IProcurementManualQuotationReadiness>();
+        Assert.IsType<ProcurementManualQuotationSchemaReadiness>(readiness);
+        Assert.True(readiness.HasCapturedContract);
+        Assert.False(scope.ServiceProvider.GetRequiredService<ProcurementPrincipalSourcingPublicationOptions>().Enabled);
+        Assert.Equal(ServiceLifetime.Scoped, Assert.Single(services,
+            x => x.ServiceType == typeof(IProcurementManualQuotationReadiness)).Lifetime);
+    }
 
     private static IConfiguration Config(string? record, string? execution) => new ConfigurationBuilder()
         .AddInMemoryCollection(new Dictionary<string, string?> {
