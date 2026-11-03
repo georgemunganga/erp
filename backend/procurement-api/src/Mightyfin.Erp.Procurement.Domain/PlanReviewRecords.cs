@@ -9,6 +9,7 @@ public sealed class PlanReviewSubmission : ProcurementRecord
     public Guid CoreApprovalCaseId { get; set; }
     public Guid PolicyVersionId { get; set; }
     public int PolicyVersionNumber { get; set; }
+    public string PolicyRulesSha256 { get; set; } = null!;
     public string MakerSubjectId { get; set; } = null!;
     public string CurrencyCode { get; set; } = null!;
     public decimal EstimatedAmount { get; set; }

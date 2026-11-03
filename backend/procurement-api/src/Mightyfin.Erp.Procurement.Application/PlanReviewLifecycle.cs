@@ -12,16 +12,19 @@ public static class PlanReviewLifecycle
         return new("Submitted", "Pending");
     }
 
-    public static Result Review(string current, string decision, string coreCaseState)
+    public static Result Review(string current, string decision, string coreCaseState,
+        string activeStageState)
     {
         if (current is not ("Submitted" or "Reviewed"))
             throw new InvalidOperationException("PlanReviewNotPending");
-        return (current, decision, coreCaseState) switch
+        return (current, decision, coreCaseState, activeStageState) switch
         {
-            ("Submitted", "Approve", "Pending") => new("Reviewed", "Pending"),
-            ("Reviewed", "Approve", "Approved") => new("Active", "Approved"),
-            (_, "Return", "Returned") => new("Returned", "Returned"),
-            (_, "Reject", "Rejected") => new("Rejected", "Rejected"),
+            ("Submitted", "Approve", "Pending", "Active") => new("Submitted", "Pending"),
+            ("Submitted", "Approve", "Pending", "Approved") => new("Reviewed", "Pending"),
+            ("Reviewed", "Approve", "Pending", "Active") => new("Reviewed", "Pending"),
+            ("Reviewed", "Approve", "Approved", "Approved") => new("Active", "Approved"),
+            (_, "Return", "Returned", "Returned") => new("Returned", "Returned"),
+            (_, "Reject", "Rejected", "Rejected") => new("Rejected", "Rejected"),
             _ => throw new InvalidOperationException("PlanReviewCaseTransitionMismatch"),
         };
     }

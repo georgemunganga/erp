@@ -16,6 +16,7 @@ public sealed partial class ProcurementDbContext
             b.Property(x => x.EstimatedAmount).HasPrecision(18, 4);
             b.Property(x => x.SnapshotJson).HasColumnType("text");
             b.Property(x => x.SnapshotSha256).HasMaxLength(64);
+            b.Property(x => x.PolicyRulesSha256).HasMaxLength(64);
             b.Property(x => x.State).HasMaxLength(30);
             b.HasIndex(x => new { x.TenantId, x.LegalEntityId, x.CoreApprovalCaseId }).IsUnique();
             b.HasIndex(x => new { x.TenantId, x.LegalEntityId, x.ProcurementPlanId, x.SubmittedPlanVersion }).IsUnique();
@@ -28,7 +29,7 @@ public sealed partial class ProcurementDbContext
                 .HasPrincipalKey(x => new { x.TenantId, x.LegalEntityId, x.Id })
                 .OnDelete(DeleteBehavior.Restrict);
             b.ToTable(t => t.HasCheckConstraint("ck_plan_review_submission",
-                "submitted_plan_version > 0 AND estimated_amount >= 0 AND branch_ref <> '00000000-0000-0000-0000-000000000000'::uuid AND snapshot_sha256 ~ '^[0-9a-f]{64}$' AND state IN ('Pending','Returned','Rejected','Approved','Withdrawn')"));
+                "submitted_plan_version > 0 AND estimated_amount >= 0 AND branch_ref <> '00000000-0000-0000-0000-000000000000'::uuid AND snapshot_sha256 ~ '^[0-9a-f]{64}$' AND policy_rules_sha256 ~ '^[0-9a-f]{64}$' AND state IN ('Pending','Returned','Rejected','Approved','Withdrawn')"));
         });
         model.Entity<PlanReviewCommandReceipt>(b =>
         {
