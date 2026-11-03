@@ -420,6 +420,8 @@ public static partial class ProcurementPolicyDraftRoutes
         { return Problem("version-conflict", "Another setting changed. Refresh before saving.", 409); }
         catch (Exception error) when (error.GetBaseException() is PostgresException { SqlState: "40001" or "40P01" })
         { return Problem("version-conflict", "Another setting changed. Refresh before retiring this draft.", 409); }
+        catch (Exception error) when (error.GetBaseException() is PostgresException { SqlState: "42501" })
+        { return Problem("policy-retirement-unavailable", "Retirement checks are unavailable. No change was saved.", 503); }
         finally { if (transaction is not null) await transaction.DisposeAsync(); }
     }
 
