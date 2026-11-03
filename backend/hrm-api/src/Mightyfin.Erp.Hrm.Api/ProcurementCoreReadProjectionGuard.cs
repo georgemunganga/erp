@@ -47,6 +47,12 @@ internal static class ProcurementCoreReadProjectionGuard
             .Where(x => x.Key.StartsWith("hrm.", StringComparison.Ordinal)))
             Add(values, projection.Key, projection.Value);
 
+        // Existing principal approval uses department effective dates and the
+        // worker's manager relationship. These established shared reads remain
+        // optional here; no consumer's minimum or private HR projection grows.
+        Add(values, "hrm.org_units", "effective_from", "effective_to");
+        Add(values, "hrm.workers", "manager_id");
+
         // The existing invoice currency consumer reads company currency and the
         // Core-owned reference/version metadata; it does not read Core command
         // receipts, employee pay, credentials or recovery/session material.

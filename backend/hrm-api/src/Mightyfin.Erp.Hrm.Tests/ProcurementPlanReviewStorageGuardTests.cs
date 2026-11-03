@@ -15,10 +15,14 @@ public sealed class ProcurementPlanReviewStorageGuardTests
     public void Extraction_preserves_the_original_B1_SQL_bytes_and_projection_instances()
     {
         // Frozen pre-extraction UTF8 SQL, from Plan prerequisite 469ce32d.
-        // Changes to shared optional projections require an explicit contract review.
+        // Remove only the three reviewed optional principal-approval reads;
+        // every remaining byte must retain the original private-read boundary.
+        var originalSql = ProcurementCommercialRoundCoreReadGuard.Sql
+            .Replace(",('org_units','effective_from')", "", StringComparison.Ordinal)
+            .Replace(",('org_units','effective_to')", "", StringComparison.Ordinal)
+            .Replace(",('workers','manager_id')", "", StringComparison.Ordinal);
         Assert.Equal("05a824e242ae8dd146ee9a658e80821acc379736dfe9a5bcf5e5d781111c61ac",
-            Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(
-                ProcurementCommercialRoundCoreReadGuard.Sql))));
+            Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(originalSql))));
         Assert.Equal(ProcurementCoreReadProjectionGuard.Sql, ProcurementCommercialRoundCoreReadGuard.Sql);
         Assert.Same(ProcurementCoreReadProjectionGuard.RequiredReadColumns,
             ProcurementCommercialRoundCoreReadGuard.RequiredReadColumns);

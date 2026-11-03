@@ -1,4 +1,9 @@
 using Mightyfin.Erp.Hrm.Api;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Metadata;
+using Mightyfin.Erp.Hrm.Domain.Entities;
+using Mightyfin.Erp.Hrm.Infrastructure.Data;
 
 namespace Mightyfin.Erp.Hrm.Tests;
 
@@ -35,6 +40,35 @@ public sealed class ProcurementCommercialRoundCoreReadGuardTests
         Assert.True(ProcurementCommercialRoundCoreReadGuard.Allows("hrm.legal_entities", "currency"));
         Assert.True(ProcurementCommercialRoundCoreReadGuard.Allows("hrm.currency_precision_versions", "minor_units"));
         Assert.True(ProcurementCommercialRoundCoreReadGuard.Allows("hrm.__hrm_migrations", "ProductVersion"));
+    }
+
+    [Theory]
+    [InlineData(typeof(OrgUnit), nameof(OrgUnit.EffectiveFrom), "hrm.org_units", "effective_from")]
+    [InlineData(typeof(OrgUnit), nameof(OrgUnit.EffectiveTo), "hrm.org_units", "effective_to")]
+    [InlineData(typeof(Worker), nameof(Worker.ManagerId), "hrm.workers", "manager_id")]
+    public void Existing_principal_approval_reads_are_optional_without_admitting_private_or_unknown_columns(
+        Type type, string property, string table, string column)
+    {
+        using var core = new HrmDbContext(new DbContextOptionsBuilder<HrmDbContext>()
+            .UseNpgsql("Host=127.0.0.1;Database=design_only_not_opened;Username=invalid;Timeout=1").Options,
+            new FixedTenantAccessor("optional-core-projection"));
+        var entity = core.GetService<IDesignTimeModel>().Model.FindEntityType(type)!;
+        var store = StoreObjectIdentifier.Table(entity.GetTableName()!, entity.GetSchema());
+        Assert.Equal(table, store.Schema + "." + store.Name);
+        Assert.Equal(column, entity.FindProperty(property)!.GetColumnName(store));
+        Assert.Contains(property, ProcurementPrincipalApprovalStoreReadiness.CoreIdentityReadProperties[type]);
+        Assert.Contains("\"" + column + "\"", ProcurementPrincipalApprovalStoreReadiness.CoreIdentitySelectSql(entity));
+
+        Assert.True(ProcurementCoreReadProjectionGuard.Allows(table, column));
+        Assert.True(ProcurementCommercialRoundCoreReadGuard.Allows(table, column));
+        Assert.Contains("('" + table[4..] + "','" + column + "')", ProcurementCoreReadProjectionGuard.Sql);
+        Assert.False(ProcurementCoreReadProjectionGuard.RequiredReadColumns.TryGetValue(table, out var shared)
+            && shared.Contains(column, StringComparer.Ordinal));
+        Assert.False(ProcurementPlanReviewSchemaReadiness.CoreColumns.TryGetValue(table, out var plan)
+            && plan.Contains(column, StringComparer.Ordinal));
+        Assert.False(ProcurementCoreReadProjectionGuard.Allows(table, "future_private_column"));
+        Assert.False(ProcurementCoreReadProjectionGuard.Allows("hrm.local_users", "password_hash"));
+        Assert.False(ProcurementCoreReadProjectionGuard.Allows("hrm.payroll_items", "gross_pay"));
     }
 
     [Theory]
