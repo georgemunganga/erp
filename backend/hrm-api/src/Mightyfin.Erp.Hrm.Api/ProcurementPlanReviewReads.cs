@@ -121,11 +121,15 @@ public static class ProcurementPlanReviewReads
             var permission = plan.OwnerSubjectId == scope.SubjectId
                 ? "procurement-plan-read" : "procurement-plan-review-read";
             if (!(await authorization.AuthorizeAsync(http.User, permission)).Succeeded) return null;
+            if (!PlanReviewSnapshot.TryReadRetained(round, out var submittedSnapshot))
+                return new DetailRead(503, new { code = "plan-review-evidence-unavailable",
+                    message = "The submitted plan evidence could not be verified." });
             var decisions = await core.Decisions.AsNoTracking().Where(x => x.CaseId == approvalCase.Id)
                 .OrderBy(x => x.DecidedAt).ThenBy(x => x.Id).ToArrayAsync(token);
-            return new { planId = plan.Id, planNumber = plan.Number, planStatus = plan.Status,
+            return new DetailRead(200, new { planId = plan.Id, planNumber = plan.Number, planStatus = plan.Status,
                 planVersion = plan.Version, submissionId = round.Id, round.State,
                 round.SubmittedPlanVersion, round.CurrencyCode, round.EstimatedAmount,
+                submittedSnapshot, round.SnapshotSha256,
                 round.SubmittedAt, round.CompletedAt, caseId = approvalCase.Id,
                 caseState = approvalCase.State, caseVersion = approvalCase.Version,
                 stages = approvalCase.Stages.OrderBy(x => x.Sequence).Select(x => new
@@ -135,9 +139,9 @@ public static class ProcurementPlanReviewReads
                         a.State, a.Version }).ToArray(),
                 }).ToArray(),
                 decisions = decisions.Select(x => new { x.Id, x.StageId, x.AssignmentId,
-                    x.ActorSubjectId, x.Action, x.Reason, x.DecidedAt }).ToArray() };
+                    x.ActorSubjectId, x.Action, x.Reason, x.DecidedAt }).ToArray() });
         }, ct);
-        return result is null ? Missing() : Results.Ok(result);
+        return result is null ? Missing() : Results.Json(result.Payload, statusCode: result.Status);
     }
 
     private static async Task<IResult> Command(Guid commandKey, HttpContext http,
@@ -181,4 +185,5 @@ public static class ProcurementPlanReviewReads
         message = "Plan review is not ready in this workspace." }, statusCode: 503);
     private static IResult Missing() => Results.Json(new { code = "not-found",
         message = "Plan review not found." }, statusCode: 404);
+    private sealed record DetailRead(int Status, object Payload);
 }

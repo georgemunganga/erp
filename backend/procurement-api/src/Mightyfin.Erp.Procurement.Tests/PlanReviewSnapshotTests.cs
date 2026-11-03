@@ -17,15 +17,19 @@ public sealed class PlanReviewSnapshotTests
         {
             TenantId = plan.TenantId, LegalEntityId = plan.LegalEntityId,
             ProcurementPlanId = plan.Id, BranchRef = plan.BranchRef!.Value,
+            MakerSubjectId = plan.OwnerSubjectId,
             CurrencyCode = plan.CurrencyCode, SubmittedPlanVersion = 2,
             EstimatedAmount = original.EstimatedAmount,
             SnapshotJson = original.Json, SnapshotSha256 = original.Sha256,
         };
         Assert.True(PlanReviewSnapshot.Matches(plan, submission));
+        Assert.True(PlanReviewSnapshot.TryReadRetained(submission, out var submitted));
+        Assert.Equal("Goods", submitted.GetProperty("lines")[0].GetProperty("description").GetString());
         plan.Version = 3; // A later status transition need not alter the frozen business evidence.
         Assert.True(PlanReviewSnapshot.Matches(plan, submission));
         plan.Lines.First().EstimatedAmount += 0.0001m;
         Assert.False(PlanReviewSnapshot.Matches(plan, submission));
+        Assert.True(PlanReviewSnapshot.TryReadRetained(submission, out _));
     }
 
     [Fact]
@@ -34,6 +38,27 @@ public sealed class PlanReviewSnapshotTests
         var plan = Plan();
         plan.BranchRef = null;
         Assert.Throws<InvalidOperationException>(() => PlanReviewSnapshot.Create(plan, 2));
+    }
+
+    [Fact]
+    public void Historical_detail_rejects_tampered_payload_even_with_recomputed_digest()
+    {
+        var plan = Plan();
+        var sealedSnapshot = PlanReviewSnapshot.Create(plan, 2);
+        var round = new PlanReviewSubmission
+        {
+            TenantId = plan.TenantId, LegalEntityId = plan.LegalEntityId,
+            ProcurementPlanId = plan.Id, BranchRef = plan.BranchRef!.Value,
+            MakerSubjectId = plan.OwnerSubjectId, CurrencyCode = plan.CurrencyCode,
+            SubmittedPlanVersion = 2, EstimatedAmount = sealedSnapshot.EstimatedAmount,
+            SnapshotJson = sealedSnapshot.Json, SnapshotSha256 = sealedSnapshot.Sha256,
+        };
+        Assert.True(PlanReviewSnapshot.TryReadRetained(round, out _));
+        round.SnapshotJson = round.SnapshotJson.Replace("\"currencyCode\":\"ZMW\"",
+            "\"currencyCode\":\"USD\"");
+        Assert.False(PlanReviewSnapshot.TryReadRetained(round, out _));
+        round.SnapshotSha256 = ProcurementEvidenceEncoding.Digest(round.SnapshotJson);
+        Assert.False(PlanReviewSnapshot.TryReadRetained(round, out _));
     }
 
     private static ProcurementPlan Plan()
