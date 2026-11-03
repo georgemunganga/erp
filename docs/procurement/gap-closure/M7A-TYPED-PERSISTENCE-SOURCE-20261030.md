@@ -35,3 +35,9 @@ Entity Framework reported no pending model changes against the genuine generated
 Accepted source-binding SHA-256: `44fec65a63755bea7e6ea5edb29e84b0986bee3588c684332f880b217d5b7c20`. This is the actual full-suite/model/SQL result, not the earlier compile-only checkpoint. Earlier memory admission failures happened before SDK launch and remain preserved.
 
 This checkpoint does **not** apply the migration, activate quotation routes or a storage-readiness provider, establish native database/real-cookie UI acceptance, or deploy to production. The separate HTTP candidate and retained-payment-read candidate still require their own integration and verification. Whole-module completion remains tracked by ERP issue #145.
+
+## Native migration acceptance — 3 November 2026
+
+A new isolated restore of the retained 30 October encrypted archive passed the genuine M7A Up → unused Down → Up sequence. All original 220 tables’ row digests and sequence values were preserved, with the eleven newly introduced M6/M7 tables empty. The first genuine Down guard rejected a retained quotation audit marker with SQLSTATE 55000; the synthetic marker was rolled back and the complete state matched the pre-probe snapshot. Receipt: `1a5a8c8509792d412af7e7d3c86192f048502a93ad16d2067338b6e2458fcd40`.
+
+The earlier comparator assertion is retained: it mixed original-220 and expanded-229 field projections after a successful migration. The successor used the same original projection throughout and verified the current state before proceeding. This is native schema/rollback evidence; it does not claim genuine quotation API/browser UAT or populated business-version rollback coverage. The isolated database was explicitly stopped after verification. Production schema and UI were unchanged.
