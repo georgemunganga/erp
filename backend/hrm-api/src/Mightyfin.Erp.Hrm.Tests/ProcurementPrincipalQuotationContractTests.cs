@@ -4,6 +4,7 @@ using System.Text.Json.Nodes;
 using Mightyfin.Erp.Hrm.Api;
 using Mightyfin.Erp.Hrm.Application;
 using Mightyfin.Erp.Procurement.Application;
+using Mightyfin.Erp.Procurement.Domain;
 using static Mightyfin.Erp.Hrm.Api.ProcurementSourcingExecutionRoutes;
 
 namespace Mightyfin.Erp.Hrm.Tests;
@@ -80,6 +81,26 @@ public sealed class ProcurementPrincipalQuotationContractTests
         Assert.Equal("Cancel", command.Operation); Assert.Equal("No longer required", command.Reason);
         Assert.Null(command.Offer); Assert.Null(command.Lines);
         Assert.Throws<InvalidOperationException>(() => QuotationInput("Cancel", cancel with { Offer = Valid().Offer }));
+    }
+
+    [Theory]
+    [InlineData("ReadyForManualDelivery", false)]
+    [InlineData("ManualContactRecorded", true)]
+    public void Existing_publication_response_reports_the_verified_invitation_contact_state(string state, bool contacted)
+    {
+        var invitation = new SourcingInvitation { Status = state, Version = 2 };
+        var view = JsonSerializer.SerializeToElement(PrincipalInvitationView(invitation), Json);
+        Assert.Equal(state, view.GetProperty("status").GetString());
+        Assert.Equal(contacted, view.GetProperty("contactRecorded").GetBoolean());
+        Assert.Equal(invitation.Id, view.GetProperty("id").GetGuid());
+        Assert.Equal(invitation.Version, view.GetProperty("version").GetInt64());
+    }
+
+    [Fact]
+    public void Unknown_invitation_state_cannot_be_reported_as_ready_or_contacted()
+    {
+        Assert.Throws<ProcurementSourcingExecutionRoutes.Problem>(() =>
+            PrincipalInvitationView(new SourcingInvitation { Status = "SentByUnverifiedTransport" }));
     }
 
     private static QuotationDraftInput Valid() => new(3, 2, null, null, null,

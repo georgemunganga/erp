@@ -128,10 +128,22 @@ public static partial class ProcurementSourcingExecutionRoutes
                     estimatedValue = ProcurementEvidenceEncoding.Decimal(x.Binding.EstimatedValue),
                     allocationState = x.Allocation.Status,
                 }).ToArray(),
-                invitations = verified.Invitations.Select(x => new
-                { x.Id, x.SupplierId, x.Status, x.Version, contactRecorded = false }).ToArray(),
+                invitations = verified.Invitations.Select(PrincipalInvitationView).ToArray(),
             }, Json));
         }, ct);
+    }
+
+    // The surrounding publication proof verifies the matching immutable contact
+    // evidence before this projection is reached. Never report a recorded
+    // interaction as an uncontacted invitation to existing RFQ consumers.
+    internal static object PrincipalInvitationView(SourcingInvitation invitation)
+    {
+        var recorded = invitation.Status switch {
+            "ReadyForManualDelivery" => false,
+            "ManualContactRecorded" => true,
+            _ => throw new Problem("PublicationInvitationStateInvalid", 409)
+        };
+        return new { invitation.Id, invitation.SupplierId, invitation.Status, invitation.Version, contactRecorded = recorded };
     }
 
     private sealed record PublishedLine(SourcingDemandBinding Binding, SourcingLine Line,
