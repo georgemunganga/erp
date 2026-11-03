@@ -1,5 +1,7 @@
 # PROC-05A genuine generation and native verification plan — 3 November 2026
 
+> **Later actual checkpoint:** Published main556fbee2 is integrated without changing tested backend tree `c4d0703b357ba2674cd4baffd1e90e80a069ef7b`. Root actual548 Host / exact2004 Procurement reuse, model/SQL, dual-native providers, real shared policy lifecycle and bounded original-UI primary path are recorded in the [private integration checkpoint](PROC-05A-PRIVATE-INTEGRATION-CHECKPOINT-20261103.md). Earlier pending/not-run statements below are historical where that checkpoint explicitly supersedes them. Strict post-primary native owner/retention checks and production release remain pending; failures remain retained.
+
 **Status:** Inert plan only, issue169 / draft PR171. No generation, SDK, container, database, schema capture or runtime action is authorized by this document itself. Root owns those steps and their scheduling. There is no external Manus claim for issue169.
 
 ## 1. Freeze prerequisites before opening the SDK slot

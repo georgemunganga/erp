@@ -1,7 +1,7 @@
 # PROC-05A — Governed procurement plan review
 
-**Status:** Adopted source implementation under issue169 / draft PR171; genuine schema, executable verification and live activation remain pending.
-**Published prerequisite baseline:** ERP `950856f7e01e3e2d7c628ddbf67dbac846644803` (B1 PR165 and accepted PR176 merged); UI `9b5d02dcf971900289793f56e91895dd3747fd80`.
+**Status:** Implemented under issue169 / draft PR171; genuine schema, actual executable/provider verification and bounded normal-cookie original-UI primary flow are recorded. Strict post-primary native retention/side-effect acceptance and production release remain pending. See the [current private checkpoint](../gap-closure/PROC-05A-PRIVATE-INTEGRATION-CHECKPOINT-20261103.md).
+**Published prerequisite baseline:** ERP `556fbee2f8253f9803e627c70088421f81f4392e` (B1 PR165, PR176 and restored-CHECK PR179 merged). Tested Plan backend6e85/tree `c4d0703b357ba2674cd4baffd1e90e80a069ef7b`; actual private UI `3e2783b1f373857ba11681e73407c13ab09e30a8`. This source synchronization preserves that backend tree.
 **Hierarchy:** Procurement → Procurement Planning → Plan Review → Submit, review, decide, withdraw.
 
 This child feature completes the governance of an existing plan draft. It does not approve a budget, reserve money, create a requisition or authorize a purchase order. The approved plan-line-to-PR link is a separate follow-on contract.
@@ -120,13 +120,15 @@ Transaction failure leaves both plan and Core case unchanged. Lost response is r
 
 One workerless Core maker can submit a valid Draft under published configuration; one independent reviewer and final approver complete it; plan becomes Active only on final approval. Return permits a revised new round; rejection and withdrawal preserve prior history. Same-key replay is stable, changed payload conflicts, stale versions and concurrent decisions do not double-activate. Wrong actor/entity/branch/tenant and self-approval are denied without write. Finance budget/PO balances are unchanged.
 
+Actual bounded checkpoint: Root verified548 Host cases and exact2004 Procurement reuse, dual-native finite-role provider admission, real shared policy Create/Submit/Publish and original-UI Create201/Submit201/Review200/Final200. Reviewer-owner403, immutable historical view/currentActive and cookie/runtime cleanup were observed. Full post-primary native reconciliation, retained Down veto and production acceptance remain pending; the [checkpoint](../gap-closure/PROC-05A-PRIVATE-INTEGRATION-CHECKPOINT-20261103.md) separates these evidence levels.
+
 ## 26. Test Scenarios
 
 Unit tests: state matrix, exact decimal/snapshot hash, policy/assignee absence, SoD including linked aliases, legacy branch/currency claim, Withdraw→Draft→Edit→Resubmit, CAS and receipt fingerprint. If delegation is admitted later, add expiry/current authority tests first. Provider tests: Core/Procurement atomicity and finite role/column grants. Private real-cookie API and original UI: maker→reviewer→approver; return/resubmit; rejection/withdraw; current role/branch revocation; lost response/recovery; concurrent duplicate decisions; all-branch read versus concrete write; retained original rows, audit/outbox and no Finance mutation. Source tests alone do not establish live acceptance.
 
 ## 27. Ownership / Dependencies
 
-Procurement planning owns business states and submission pin; Core owns accounts, branch assignments, generic approval records and current delegation. Shared policy administration owns published configuration. UI consumes returned permissions/actions. The genuine additive schema must be generated after B1's published migration baseline, not in parallel with its in-progress snapshot.
+Procurement planning owns business states and submission pin; Core owns accounts, branch assignments, generic approval records and current delegation. Shared policy administration owns published configuration. UI consumes returned permissions/actions. The genuine additive migration was generated after B1's actual published migration and adopted with raw-identical designer/snapshot; no replacement or duplicate migration is permitted. Root owns remaining native and release acceptance.
 
 ## 28. Open Decisions / Assumptions
 

@@ -1,5 +1,7 @@
 # PROC-05A post-B1 source readiness — 3 November 2026
 
+> **Later actual checkpoint:** Published main556fbee2 is integrated without changing tested backend tree `c4d0703b357ba2674cd4baffd1e90e80a069ef7b`. Root actual548 Host / exact2004 Procurement reuse, model/SQL, dual-native providers, real shared policy lifecycle and bounded original-UI primary path are recorded in the [private integration checkpoint](PROC-05A-PRIVATE-INTEGRATION-CHECKPOINT-20261103.md). Earlier pending/not-run statements below are historical where that checkpoint explicitly supersedes them. Strict post-primary native owner/retention checks and production release remain pending; failures remain retained.
+
 Issue169 / draft ERP PR171 follows the [adopted 28-section feature](../features/PROC-05A-GOVERNED-PLAN-REVIEW.md) and GW-ENG-STD-001. This is a source integration record, not test, database or release acceptance.
 
 **Later genuine-generation checkpoint:** migration `20261103211606_ProcurementPlanGovernedReview` and raw-identical designer/snapshot are now adopted; the migration alone adds a reviewed Down retention prefix. Root observed2002 Procurement passes followed by Host CS0833 compile failure, now source-fixed with explicit audit names. New migration-operation cases and the fix remain unexecuted. [Raw/final provenance](PROC-05A-GENUINE-MIGRATION-PROVENANCE-20261103.md) supersedes the earlier ungenerated-model inventory below; actual parity/SQL, Host/provider/native and shared post-Plan CHECK capture/selector are still pending.
