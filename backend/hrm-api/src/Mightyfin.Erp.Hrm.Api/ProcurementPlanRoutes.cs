@@ -181,10 +181,11 @@ public static class ProcurementPlanRoutes
 
     private static async Task<IResult> ClaimScope(Guid id, ClaimPlanScope input, HttpContext http,
         IAuthorizationService authorization, ProcurementPlanReviewOptions options,
+        IProcurementPlanReviewReadiness readiness,
         ProcurementDbContext db, ProcurementRequestScope scope,
         CancellationToken ct)
     {
-        if (!options.Enabled || !options.ExecutionDatabaseConfigured)
+        if (!options.Enabled || !options.ExecutionDatabaseConfigured || !await readiness.IsReadyAsync(ct))
             return Problem("plan-review-unavailable", "Plan review is not ready in this workspace.", 503);
         if (scope.IsExplicitAllBranches || scope.WorkLocationId is not { } branch || scope.PrincipalId is null)
             return Problem("branch-required", "Choose a permitted branch to claim this plan.", 400);
