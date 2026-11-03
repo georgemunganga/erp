@@ -1,3 +1,7 @@
+using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Metadata;
+using Mightyfin.Erp.Procurement.Infrastructure.Data;
 using System.Text.Json.Nodes;
 using Microsoft.Extensions.Configuration;
 using Mightyfin.Erp.Hrm.Api;
@@ -77,6 +81,25 @@ public sealed class ProcurementManualQuotationReadinessTests
         Assert.False(ProcurementManualQuotationNativeShape.Matches(node.ToJsonString()));
         Assert.False(ProcurementManualQuotationNativeShape.Matches(null));
     }
+
+    [Fact]
+    public void Current_publication_model_remains_admitted_after_genuine_quotation_scaffold()
+    {
+        var scope = new ProcurementRequestScope();
+        var actor = Guid.NewGuid();
+        scope.Set("quotation-model", Guid.NewGuid(), actor.ToString("D"), null, null, false, "quotation-model");
+        scope.AssignPrincipal(actor);
+        using var db = new ProcurementDbContext(new DbContextOptionsBuilder<ProcurementDbContext>()
+            .UseNpgsql("Host=unopened.invalid;Database=never_opened;Username=invalid").Options, scope);
+        var model = db.GetService<IDesignTimeModel>().Model;
+        Assert.True(ProcurementPrincipalSourcingPublicationSchemaReadiness.PublicationModelCaptured(model));
+        using var unrelated = new EmptyModelContext(new DbContextOptionsBuilder<EmptyModelContext>()
+            .UseInMemoryDatabase("quotation-empty-model").Options);
+        Assert.False(ProcurementPrincipalSourcingPublicationSchemaReadiness.PublicationModelCaptured(
+            unrelated.GetService<IDesignTimeModel>().Model));
+    }
+
+    private sealed class EmptyModelContext(DbContextOptions<EmptyModelContext> options) : DbContext(options);
 
     private static IConfiguration Config(string? record, string? execution) => new ConfigurationBuilder()
         .AddInMemoryCollection(new Dictionary<string, string?> {
