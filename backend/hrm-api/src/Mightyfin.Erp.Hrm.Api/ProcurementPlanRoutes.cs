@@ -25,8 +25,10 @@ public static class ProcurementPlanRoutes
     }
 
     private static async Task<IResult> List(ProcurementDbContext db, ProcurementRequestScope scope,
+        IProcurementPlanReviewReadiness readiness,
         string? status, int? page, int? pageSize, CancellationToken ct)
     {
+        if (!await readiness.CanReadPlanAsync(db, ct)) return PlanStoreUnavailable();
         var number = Math.Clamp(page ?? 1, 1, 100000);
         var size = Math.Clamp(pageSize ?? 25, 1, 100);
         var branches = scope.PermittedWorkLocationIds;
@@ -47,8 +49,10 @@ public static class ProcurementPlanRoutes
     }
 
     private static async Task<IResult> Get(Guid id, ProcurementDbContext db, ProcurementRequestScope scope,
+        IProcurementPlanReviewReadiness readiness,
         CancellationToken ct)
     {
+        if (!await readiness.CanReadPlanAsync(db, ct)) return PlanStoreUnavailable();
         var plan = await db.ProcurementPlans.AsNoTracking().Include(x => x.Lines)
             .SingleOrDefaultAsync(x => x.Id == id && x.OwnerSubjectId == scope.SubjectId, ct);
         if (plan is not null && !VisibleBranch(plan, scope)) plan = null;
@@ -56,8 +60,10 @@ public static class ProcurementPlanRoutes
     }
 
     private static async Task<IResult> Create(JsonElement body, ProcurementDbContext db, HrmDbContext core,
+        IProcurementPlanReviewReadiness readiness,
         ProcurementRequestScope scope, CancellationToken ct)
     {
+        if (!await readiness.CanReadPlanAsync(db, ct)) return PlanStoreUnavailable();
         var parsed=ProcurementOriginalValueInput.Read<ProcurementPlanInput>(body);
         if(parsed.Error is not null) return parsed.Error;
         var input=parsed.Value!;
@@ -96,8 +102,10 @@ public static class ProcurementPlanRoutes
     }
 
     private static async Task<IResult> Update(Guid id, JsonElement body, ProcurementDbContext db,
+        IProcurementPlanReviewReadiness readiness,
         ProcurementRequestScope scope, CancellationToken ct)
     {
+        if (!await readiness.CanReadPlanAsync(db, ct)) return PlanStoreUnavailable();
         if (scope.IsExplicitAllBranches || scope.WorkLocationId is null)
             return Problem("branch-required", "Choose a permitted branch before changing a plan.", 400);
         var parsed=ProcurementOriginalValueInput.Read<UpdatePlan>(body);
@@ -152,8 +160,10 @@ public static class ProcurementPlanRoutes
     }
 
     private static async Task<IResult> Cancel(Guid id, CancelPlan input, ProcurementDbContext db,
+        IProcurementPlanReviewReadiness readiness,
         ProcurementRequestScope scope, CancellationToken ct)
     {
+        if (!await readiness.CanReadPlanAsync(db, ct)) return PlanStoreUnavailable();
         if (scope.IsExplicitAllBranches || scope.WorkLocationId is null)
             return Problem("branch-required", "Choose a permitted branch before cancelling a plan.", 400);
         var plan = await db.ProcurementPlans.Include(x => x.Lines)
@@ -285,6 +295,8 @@ public static class ProcurementPlanRoutes
             : scope.WorkLocationId.HasValue && plan.BranchRef == scope.WorkLocationId;
     private static IResult Problem(string code, string message, int status) =>
         Results.Json(new { code, message }, statusCode: status);
+    private static IResult PlanStoreUnavailable() => Problem("plan-store-unavailable",
+        "Planning is being updated. Try again after the workspace is ready.", 503);
 
     public sealed record UpdatePlan(long Version, ProcurementPlanInput Draft);
     public sealed record CancelPlan(long Version, string? Reason);

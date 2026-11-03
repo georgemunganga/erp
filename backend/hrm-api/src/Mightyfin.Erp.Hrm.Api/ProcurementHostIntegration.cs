@@ -28,7 +28,7 @@ public static class ProcurementHostIntegration
         var planReviewOptions = configuration.GetSection("Procurement:PlanReview").Get<ProcurementPlanReviewOptions>() ?? new();
         planReviewOptions.ExecutionDatabaseConfigured = !string.IsNullOrWhiteSpace(executionConnection);
         services.AddSingleton(planReviewOptions);
-        services.AddSingleton<IProcurementPlanReviewReadiness, UnavailableProcurementPlanReviewReadiness>();
+        services.AddScoped<IProcurementPlanReviewReadiness, ProcurementPlanReviewSchemaReadiness>();
         var approvalOptions = configuration.GetSection("Procurement:Approvals").Get<ProcurementApprovalExecutionOptions>()
             ?? new ProcurementApprovalExecutionOptions();
         approvalOptions.ExecutionDatabaseConfigured = !string.IsNullOrWhiteSpace(executionConnection);
@@ -133,6 +133,8 @@ public static class ProcurementHostIntegration
         ProcurementApprovalReadinessRoutes.Map(app);
         ProcurementApprovalExecutionRoutes.MapRoutes(app);
         ProcurementPlanRoutes.MapRoutes(app);
+        ProcurementPlanReviewRoutes.MapRoutes(app);
+        ProcurementPlanReviewReads.MapRoutes(app);
         ProcurementConfigurationRoutes.MapRoutes(app);
         ProcurementSpendingAuthorityRoutes.MapRoutes(app);
         ProcurementPolicyDraftRoutes.MapRoutes(app);
