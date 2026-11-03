@@ -42,14 +42,17 @@ public sealed class ProcurementManualPaymentReadSchemaReadiness : IProcurementMa
         "procurement.manual_payment_requests", "procurement.manual_payment_decisions",
         "procurement.manual_payment_receipts", "procurement.manual_payment_workflow_cases",
         "procurement.manual_payment_core_decisions", "procurement.__procurement_migrations",
-        "core_approval.cases", "core_approval.decisions", "core_approval.\"__EFMigrationsHistory\"",
-        "hrm.__hrm_migrations"
+        "core_approval.cases", "core_approval.decisions"
     ];
 
     // Actual projections used by current Core principal/scope resolution and labels;
     // no passwords, sessions, contact directory, payroll or supplier bank data.
     internal static readonly IReadOnlyDictionary<string, string[]> ReadColumns = new Dictionary<string, string[]>(StringComparer.Ordinal)
     {
+        // CoreOwnerSql reads only the migration ID. Do not require broader
+        // history-table SELECT from the accepted finite execution role.
+        ["core_approval.\"__EFMigrationsHistory\""] = ["MigrationId"],
+        ["hrm.__hrm_migrations"] = ["MigrationId"],
         ["hrm.local_users"] = ["id", "tenant_id", "is_active", "is_archived", "worker_id", "roles_csv", "locked_until", "display_name"],
         ["hrm.tenant_role_assignments"] = ["tenant_id", "active", "is_archived", "role_key", "permissions_csv"],
         ["hrm.hr_user_branch_assignments"] = ["tenant_id", "user_id", "location_id", "is_archived"],
@@ -81,7 +84,7 @@ public sealed class ProcurementManualPaymentReadSchemaReadiness : IProcurementMa
                 clauses.Add("has_column_privilege(current_user," + Literal(projection.Key) + "," + Literal(column) + ",'SELECT')");
         // Existing finite writer roles remain valid readers; no INSERT/UPDATE grant is
         // required. Retained evidence must still be protected against destructive edits.
-        foreach (var table in RecordReadTables)
+        foreach (var table in RecordReadTables.Append("core_approval.\"__EFMigrationsHistory\""))
             clauses.Add("NOT has_table_privilege(current_user," + Literal(table) + ",'DELETE,TRUNCATE,TRIGGER')");
         foreach (var table in new[] { "procurement.manual_payment_decisions", "procurement.manual_payment_receipts",
             "procurement.manual_payment_workflow_cases", "procurement.manual_payment_core_decisions", "core_approval.decisions" })

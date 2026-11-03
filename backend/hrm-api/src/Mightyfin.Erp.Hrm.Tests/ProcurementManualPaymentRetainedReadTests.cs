@@ -149,4 +149,22 @@ public sealed class ProcurementManualPaymentRetainedReadTests
         Assert.DoesNotContain("has_table_privilege(current_user,'hrm.local_users','SELECT')", sql);
         Assert.DoesNotContain("has_table_privilege(current_user,'procurement.suppliers','SELECT')", sql);
     }
+
+    [Fact]
+    public void Migration_history_reads_use_only_the_columns_queried_by_core_and_owner_checks()
+    {
+        var columns = ProcurementManualPaymentReadSchemaReadiness.ReadColumns;
+        Assert.Equal(new[] { "MigrationId" }, columns["core_approval.\"__EFMigrationsHistory\""]);
+        Assert.Equal(new[] { "MigrationId" }, columns["hrm.__hrm_migrations"]);
+        var sql = ProcurementManualPaymentReadSchemaReadiness.PrivilegeSql();
+        Assert.Contains("has_column_privilege(current_user,'core_approval.\"__EFMigrationsHistory\"','MigrationId','SELECT')", sql);
+        Assert.Contains("has_column_privilege(current_user,'hrm.__hrm_migrations','MigrationId','SELECT')", sql);
+        Assert.DoesNotContain("has_table_privilege(current_user,'core_approval.\"__EFMigrationsHistory\"','SELECT')", sql);
+        Assert.DoesNotContain("has_table_privilege(current_user,'hrm.__hrm_migrations','SELECT')", sql);
+        Assert.Contains("NOT has_table_privilege(current_user,'core_approval.\"__EFMigrationsHistory\"','DELETE,TRUNCATE,TRIGGER')", sql);
+        Assert.Contains(ProcurementSpendingAuthorityIdentitySchemaReadiness.NoCoreIdentityWritesSql, sql);
+        // EF's owning migration reader is separate and still needs its existing
+        // procurement history profile; this change does not weaken that gate.
+        Assert.Contains("has_table_privilege(current_user,'procurement.__procurement_migrations','SELECT')", sql);
+    }
 }
