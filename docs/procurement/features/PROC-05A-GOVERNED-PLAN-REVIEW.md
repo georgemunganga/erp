@@ -1,7 +1,7 @@
 # PROC-05A — Governed procurement plan review
 
 **Status:** Adopted source implementation under issue169 / draft PR171; genuine schema, executable verification and live activation remain pending.
-**Published prerequisite baseline:** ERP `dc6a082db74f9740104e2295988bc6f1f54027d8` (B1 PR165 merged); UI `9b5d02dcf971900289793f56e91895dd3747fd80`.
+**Published prerequisite baseline:** ERP `950856f7e01e3e2d7c628ddbf67dbac846644803` (B1 PR165 and accepted PR176 merged); UI `9b5d02dcf971900289793f56e91895dd3747fd80`.
 **Hierarchy:** Procurement → Procurement Planning → Plan Review → Submit, review, decide, withdraw.
 
 This child feature completes the governance of an existing plan draft. It does not approve a budget, reserve money, create a requisition or authorize a purchase order. The approved plan-line-to-PR link is a separate follow-on contract.

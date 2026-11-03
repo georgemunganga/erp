@@ -35,4 +35,4 @@ These are explicit baseline capability exclusions, not pending schema fields for
 
 ## Generation handoff hold
 
-The [inert genuine-generation/native plan](PROC-05A-GENUINE-GENERATION-AND-NATIVE-PLAN-20261103.md) inventories all four schema deltas and the required shared-readiness compatibility regressions. Root must integrate the accepted merged PR176 hotfix descendant and finish the active B1 technical release before allocating a Plan SDK slot. No external Manus claim exists. No migration/snapshot/capture bytes are fabricated by this source preparation.
+The [inert genuine-generation/native plan](PROC-05A-GENUINE-GENERATION-AND-NATIVE-PLAN-20261103.md) inventories all four schema deltas and the required shared-readiness compatibility regressions. Accepted merged PR176 main `950856f7e01e3e2d7c628ddbf67dbac846644803` is integrated through `6e4b61376e3e103ace3ecfa262cb5a3bb3ad2957`; Root must still finish active B1 artifact/cutover work before allocating a Plan SDK slot. No external Manus claim exists. No migration/snapshot/capture bytes are fabricated by this source preparation.
