@@ -53,3 +53,9 @@ History verification reads one full owned row per closed-reader keyset batch, re
 ## Acceptance still required
 
 Authored source tests cover exact JSON lexemes/overposting, explicit Core action grants, no-provider HTTP gates and real Core branch reassignment. They have not run. Positive source/contact/create/revise/cancel/replay, handler-B versus maker-A, alias changes, READ-without-INSERT, commercial-flags-off history/cancel, scope/CAS denials, owned effects and actual cookie/UI/native-owner reconciliation remain release gates. No HTTP activation or whole Procurement completion is claimed.
+
+## Native admission candidate — 3 November 2026
+
+The owning schema provider now has a named seven-table physical contract extracted from the genuine isolated M7A re-upgrade (`8ef2525d03f608d28da007f50a166019c579e1786980e4968b0de63ac53c9623`). It compares all named columns/types/defaults, constraints and indexes, rejects extra triggers/rules/RLS policies, and requires the configured execution login on the actual enlisted Serializable transaction. PostgreSQL attribute positions are excluded because an unused Down/Up legitimately leaves dropped slots; names and definitions stay exact.
+
+READ requires the retained source/evidence and controlled Core identity projections, without INSERT, business flags or an employee requirement. RECORD additionally requires individual INSERT and UPDATE privileges, append-only evidence, no DELETE on quotations, and no Finance settlement writes. The provider is deliberately not registered until its compiled/native role tests pass. This candidate is source-only; no production enablement or positive API/browser acceptance is claimed.
