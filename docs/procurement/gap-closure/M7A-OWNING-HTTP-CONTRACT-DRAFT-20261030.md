@@ -1,6 +1,6 @@
 # M7A owning HTTP contract — implementation draft
 
-Status: source-only candidate in the separate HTTP integration worktree. Not compiled, activated or native/browser accepted. The schema branch remains frozen separately. Existing quotation/RFQ screens will consume these contracts; no replacement UI is introduced.
+Status: compiled source and native store admission verified; complete positive quotation HTTP/UI workflow acceptance and production rollout remain open. Existing quotation/RFQ screens will consume these contracts; no replacement UI is introduced.
 
 ## Access and ownership
 
@@ -44,7 +44,7 @@ The original actor/key is checked with READ before new-work flags, mutable comme
 
 Fresh transactions lock command key, then event, invitation and existing bid in that order. Owning records/evidence are scope-stamped before AddScoped. A line-only revision explicitly marks the existing header modified, increments its existing version once, and stores a full immutable V3 snapshot plus command receipt and exact audit/outbox pair in the same transaction. Shared generic audits remain. Cancelled draft recreation is not offered because the existing submission-version uniqueness policy remains.
 
-Missing/unimplemented captured contracts fail 503 before coordinator resolution. Even a captured-contract startup check never replaces same-connection READ/RECORD inspection. No native shape/hash is invented. The default provider stays unavailable. The proposed optional metadata capability `manualQuotationRead` is not activated in this draft.
+Missing/unimplemented captured contracts fail 503 before coordinator resolution. Even a captured-contract startup check never replaces same-connection READ/RECORD inspection. No native shape/hash is invented. The verified scoped provider is registered after actual owning-transaction acceptance, as recorded below. The proposed optional metadata capability `manualQuotationRead` is not activated.
 
 Nonempty attachments require actual enlisted Core document-use transport and currently return unavailable. Empty sets work. Cancellation retains original pins; unavailable current transport never fabricates verification or discards retained document evidence.
 
@@ -52,7 +52,7 @@ History verification reads one full owned row per closed-reader keyset batch, re
 
 ## Acceptance still required
 
-Authored source tests cover exact JSON lexemes/overposting, explicit Core action grants, no-provider HTTP gates and real Core branch reassignment. They have not run. Positive source/contact/create/revise/cancel/replay, handler-B versus maker-A, alias changes, READ-without-INSERT, commercial-flags-off history/cancel, scope/CAS denials, owned effects and actual cookie/UI/native-owner reconciliation remain release gates. No HTTP activation or whole Procurement completion is claimed.
+Authored source tests cover exact JSON lexemes/overposting, explicit Core action grants, no-provider HTTP gates and real Core branch reassignment. These authored tests passed in the runs below. Positive source/contact/create/revise/cancel/replay, handler-B versus maker-A, alias changes, READ-without-INSERT, commercial-flags-off history/cancel, scope/CAS denials, owned effects and actual cookie/UI/native-owner reconciliation remain release gates. No HTTP activation or whole Procurement completion is claimed.
 
 ## Native admission candidate — 3 November 2026
 
@@ -71,3 +71,13 @@ Compiled assembly SQL, executed through the actual limited login on an isolated 
 A separate compiled probe called the real provider against the actual enlisted Serializable connection. It rejected unenlisted access, accepted READ in read-only and read-write transactions, accepted RECORD only in read-write, and verified the actual EF model, migration history, named physical schema and current finite-role profile. Receipt: `e9e5826419a6fcc293838adbf2e05eeb835463ab85327c84641aa243d94206ab`. No business records were written. The initial probe was rejected by OCI before startup because procfs socket bind mounts are unsupported; its successor used a bounded private Unix socket relay, with no TCP listener, stopped after the probe.
 
 This evidence permits registering the real scoped provider. Registration does not grant user actions or enable commercial capture; current identity, selected branch, policies and command-specific checks remain enforced. Final registration/model-compatibility regression tests, positive complete quotation HTTP workflows and original UI/browser acceptance remain required. Production is unchanged.
+
+## Final source and RFQ compatibility checkpoint — 3 November 2026
+
+Source `921bd7ea3e030d6ee05c2da614c22d18f6d36920`, including the published schema/role prerequisites and separate quotation switches, passed **218 focused Host tests**, with all prior stable cases retained and analyzers enabled (`a39a00c45ec220fe48085d5583b2fe7e57d61c2d600c8205b39ce86adcf2ad2c`). Earlier 216-case response-contract acceptance is retained as `516b0476ae0518512e6baafaa6920ef1c06ae4fef6bc7da4ecb1905757045a5c`. Existing compiler/analyzer warnings are not reported as zero warnings.
+
+`Procurement:ManualQuotations:RecordEnabled` and `CaptureEnabled` default to false independently of the existing RFQ publication flag. New contact/create/revise require both quotation switches and existing source publication eligibility. Cancellation needs recording authority but remains independent of new-capture enablement. Historical READ and original-key recovery do not depend on either switch. Complete business-write acceptance is still required before activating these switches.
+
+The existing RFQ response now reports the verified outside-contact state instead of always returning `contactRecorded=false`. UI PR98, merged at `c692611da5ca549ee00b1356cf7bc1e213b096da`, accepts the matching status/flag/version and retains the existing Related tab and ERP components. Ten adapter cases, TypeScript checking and all 22 RFQ Playwright cases passed on Node 22.23.3. Browser transport is mocked, separately from native database evidence, and is not positive quotation-CRUD persistence UAT.
+
+After the real owning-provider probe, a complete native snapshot matched the previous state exactly and the dedicated restore was stopped (`97124aa904cbadb686efd9951e061aba88ddfba9f6449aadc82b34529fa78db9`). No production schema, role, UI or workflow changed. GitHub Actions cannot start because the account is billing-locked; this does not turn local evidence into a green CI result.
