@@ -25,6 +25,9 @@ public static class ProcurementHostIntegration
         services.AddSingleton<IProcurementOperationalPolicyIdentitySchemaReadiness, ProcurementOperationalPolicyIdentitySchemaReadiness>();
         services.AddSingleton<IProcurementSourcingPolicyIdentitySchemaReadiness, ProcurementSourcingPolicyIdentitySchemaReadiness>();
         var executionConnection = configuration.GetConnectionString("ProcurementApprovalExecution");
+        var planReviewOptions = configuration.GetSection("Procurement:PlanReview").Get<ProcurementPlanReviewOptions>() ?? new();
+        planReviewOptions.ExecutionDatabaseConfigured = !string.IsNullOrWhiteSpace(executionConnection);
+        services.AddSingleton(planReviewOptions);
         var approvalOptions = configuration.GetSection("Procurement:Approvals").Get<ProcurementApprovalExecutionOptions>()
             ?? new ProcurementApprovalExecutionOptions();
         approvalOptions.ExecutionDatabaseConfigured = !string.IsNullOrWhiteSpace(executionConnection);

@@ -24,6 +24,8 @@ public sealed class ProcurementMethod : ProcurementRecord
 public sealed class ProcurementPlan : ProcurementRecord
 {
     public string Number { get; set; } = null!;
+    /// <summary>Null only for pre-governance drafts whose branch has not been claimed.</summary>
+    public Guid? BranchRef { get; set; }
     public string FinancialPeriodRef { get; set; } = null!;
     public Guid? DepartmentRef { get; set; }
     public string CurrencyCode { get; set; } = null!;

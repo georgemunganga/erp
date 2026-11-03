@@ -1,4 +1,7 @@
 using System.Text.Json;
+using System.Security.Cryptography;
+using System.Text;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.EntityFrameworkCore;
 using Mightyfin.Erp.Procurement.Application;
 using Mightyfin.Erp.Procurement.Domain;
@@ -18,6 +21,7 @@ public static class ProcurementPlanRoutes
         group.MapPost("", Create).Accepts<ProcurementPlanInput>("application/json").RequireAuthorization("procurement-plan-create");
         group.MapPut("/{id:guid}", Update).Accepts<UpdatePlan>("application/json").RequireAuthorization("procurement-plan-edit");
         group.MapPost("/{id:guid}/cancel", Cancel).RequireAuthorization("procurement-plan-edit");
+        group.MapPost("/{id:guid}/claim-scope", ClaimScope).RequireAuthorization("procurement-access");
     }
 
     private static async Task<IResult> List(ProcurementDbContext db, ProcurementRequestScope scope,
@@ -25,12 +29,17 @@ public static class ProcurementPlanRoutes
     {
         var number = Math.Clamp(page ?? 1, 1, 100000);
         var size = Math.Clamp(pageSize ?? 25, 1, 100);
-        var query = db.ProcurementPlans.AsNoTracking().Where(x => x.OwnerSubjectId == scope.SubjectId);
+        var branches = scope.PermittedWorkLocationIds;
+        var selected = scope.WorkLocationId;
+        var all = scope.IsExplicitAllBranches;
+        var query = db.ProcurementPlans.AsNoTracking().Where(x => x.OwnerSubjectId == scope.SubjectId
+            && (x.BranchRef == null || all && x.BranchRef.HasValue && branches.Contains(x.BranchRef.Value)
+                || !all && selected.HasValue && x.BranchRef == selected));
         if (!string.IsNullOrWhiteSpace(status)) query = query.Where(x => x.Status == status.Trim());
         var total = await query.CountAsync(ct);
         var items = await query.OrderByDescending(x => x.CreatedAt).ThenByDescending(x => x.Id)
             .Skip((number - 1) * size).Take(size)
-            .Select(x => new { x.Id, x.Number, x.FinancialPeriodRef, x.DepartmentRef,
+            .Select(x => new { x.Id, x.Number, x.FinancialPeriodRef, x.DepartmentRef, x.BranchRef,
                 x.CurrencyCode, x.Status, x.RevisionNumber, x.Version, x.CreatedAt,
                 LineCount = db.ProcurementPlanLines.Count(line => line.ProcurementPlanId == x.Id && line.Status == "Active") })
             .ToListAsync(ct);
@@ -42,6 +51,7 @@ public static class ProcurementPlanRoutes
     {
         var plan = await db.ProcurementPlans.AsNoTracking().Include(x => x.Lines)
             .SingleOrDefaultAsync(x => x.Id == id && x.OwnerSubjectId == scope.SubjectId, ct);
+        if (plan is not null && !VisibleBranch(plan, scope)) plan = null;
         return plan is null ? Problem("not-found", "Plan not found.", 404) : Results.Ok(Detail(plan));
     }
 
@@ -51,8 +61,14 @@ public static class ProcurementPlanRoutes
         var parsed=ProcurementOriginalValueInput.Read<ProcurementPlanInput>(body);
         if(parsed.Error is not null) return parsed.Error;
         var input=parsed.Value!;
-        input = input with { CurrencyCode = string.IsNullOrWhiteSpace(input.CurrencyCode)
-            ? await ProcurementCurrencyDefaults.ForSelectedCompanyAsync(core, scope, ct) : input.CurrencyCode };
+        if (scope.IsExplicitAllBranches || scope.WorkLocationId is null)
+            return Problem("branch-required", "Choose a permitted branch before creating a plan.", 400);
+        var coreCurrency = await ProcurementCurrencyDefaults.ForSelectedCompanyAsync(core, scope, ct);
+        if (coreCurrency is null) return Problem("currency-unavailable", "The company's currency is unavailable.", 503);
+        if (!string.IsNullOrWhiteSpace(input.CurrencyCode)
+            && !string.Equals(input.CurrencyCode.Trim(), coreCurrency, StringComparison.OrdinalIgnoreCase))
+            return Problem("currency-context-changed", "Refresh the company currency before saving this plan.", 409);
+        input = input with { CurrencyCode = coreCurrency };
         var issue = ProcurementPlanRules.Validate(input);
         if (issue is not null) return Problem("validation-failed", issue, 422);
         if (input.Lines!.Any(x => x.Id.HasValue))
@@ -62,6 +78,7 @@ public static class ProcurementPlanRoutes
         var plan = new ProcurementPlan
         {
             Number = "PLAN-" + Guid.CreateVersion7().ToString("N"),
+            BranchRef = scope.WorkLocationId,
             FinancialPeriodRef = input.FinancialPeriodRef!.Trim(),
             CurrencyCode = input.CurrencyCode!.Trim().ToUpperInvariant(),
             FundingSourceRef = Clean(input.FundingSourceRef),
@@ -81,16 +98,22 @@ public static class ProcurementPlanRoutes
     private static async Task<IResult> Update(Guid id, JsonElement body, ProcurementDbContext db,
         ProcurementRequestScope scope, CancellationToken ct)
     {
+        if (scope.IsExplicitAllBranches || scope.WorkLocationId is null)
+            return Problem("branch-required", "Choose a permitted branch before changing a plan.", 400);
         var parsed=ProcurementOriginalValueInput.Read<UpdatePlan>(body);
         if(parsed.Error is not null) return parsed.Error;
         var input=parsed.Value!;
         var plan = await db.ProcurementPlans.Include(x => x.Lines)
             .SingleOrDefaultAsync(x => x.Id == id && x.OwnerSubjectId == scope.SubjectId, ct);
         if (plan is null) return Problem("not-found", "Plan not found.", 404);
-        if (plan.Status != "Draft") return Problem("plan-locked", "Only a draft plan can be changed.", 409);
+        if (!VisibleBranch(plan, scope)) return Problem("not-found", "Plan not found.", 404);
+        if (plan.Status is not ("Draft" or "Returned"))
+            return Problem("plan-locked", "Only a draft or returned plan can be changed.", 409);
         if (plan.Version != input.Version) return Problem("version-conflict", "Refresh this plan before saving changes.", 409);
-        var draft = input.Draft with { CurrencyCode = string.IsNullOrWhiteSpace(input.Draft.CurrencyCode)
-            ? plan.CurrencyCode : input.Draft.CurrencyCode };
+        if (!string.IsNullOrWhiteSpace(input.Draft.CurrencyCode)
+            && !string.Equals(input.Draft.CurrencyCode.Trim(), plan.CurrencyCode, StringComparison.OrdinalIgnoreCase))
+            return Problem("currency-locked", "The saved forecast currency cannot be changed with an edit.", 409);
+        var draft = input.Draft with { CurrencyCode = plan.CurrencyCode };
         var issue = ProcurementPlanRules.Validate(draft);
         if (issue is not null) return Problem("validation-failed", issue, 422);
         var lines = draft.Lines!;
@@ -102,7 +125,6 @@ public static class ProcurementPlanRoutes
         var before = ProcurementDraftAudit.Snapshot(Detail(plan));
 
         plan.FinancialPeriodRef = draft.FinancialPeriodRef!.Trim();
-        plan.CurrencyCode = draft.CurrencyCode!.Trim().ToUpperInvariant();
         plan.FundingSourceRef = Clean(draft.FundingSourceRef);
         plan.UpdatedAt = DateTimeOffset.UtcNow; // conflict token also changes for line-only edits
         var included = lines.Where(x => x.Id.HasValue).Select(x => x.Id!.Value).ToHashSet();
@@ -132,9 +154,12 @@ public static class ProcurementPlanRoutes
     private static async Task<IResult> Cancel(Guid id, CancelPlan input, ProcurementDbContext db,
         ProcurementRequestScope scope, CancellationToken ct)
     {
+        if (scope.IsExplicitAllBranches || scope.WorkLocationId is null)
+            return Problem("branch-required", "Choose a permitted branch before cancelling a plan.", 400);
         var plan = await db.ProcurementPlans.Include(x => x.Lines)
             .SingleOrDefaultAsync(x => x.Id == id && x.OwnerSubjectId == scope.SubjectId, ct);
         if (plan is null) return Problem("not-found", "Plan not found.", 404);
+        if (!VisibleBranch(plan, scope)) return Problem("not-found", "Plan not found.", 404);
         if (plan.Status != "Draft") return Problem("plan-locked", "Only a draft plan can be cancelled here.", 409);
         if (plan.Version != input.Version) return Problem("version-conflict", "Refresh this plan before cancelling it.", 409);
         if (string.IsNullOrWhiteSpace(input.Reason) || input.Reason.Trim().Length > 1000)
@@ -152,6 +177,63 @@ public static class ProcurementPlanRoutes
         try { await db.SaveChangesAsync(ct); }
         catch (DbUpdateConcurrencyException) { return Problem("version-conflict", "Refresh this plan before cancelling it.", 409); }
         return Results.Ok(Detail(plan));
+    }
+
+    private static async Task<IResult> ClaimScope(Guid id, ClaimPlanScope input, HttpContext http,
+        IAuthorizationService authorization, ProcurementPlanReviewOptions options,
+        ProcurementDbContext db, ProcurementRequestScope scope,
+        CancellationToken ct)
+    {
+        if (!options.Enabled || !options.ExecutionDatabaseConfigured)
+            return Problem("plan-review-unavailable", "Plan review is not ready in this workspace.", 503);
+        if (scope.IsExplicitAllBranches || scope.WorkLocationId is not { } branch || scope.PrincipalId is null)
+            return Problem("branch-required", "Choose a permitted branch to claim this plan.", 400);
+        if (!Guid.TryParseExact(http.Request.Headers["X-Idempotency-Key"].ToString(), "D", out var key)
+            || key == Guid.Empty)
+            return Problem("command-key-required", "Send a valid command key for safe recovery.", 422);
+        var reason = input.Reason?.Trim();
+        if (string.IsNullOrWhiteSpace(reason) || reason.Length > 1000 ||
+            string.IsNullOrWhiteSpace(input.ConfirmStoredCurrencyCode))
+            return Problem("validation-failed", "Confirm the saved currency and give a claim reason.", 422);
+        var plan = await db.ProcurementPlans.SingleOrDefaultAsync(x => x.Id == id, ct);
+        if (plan is null) return Problem("not-found", "Plan not found.", 404);
+        var owner = plan.OwnerSubjectId == scope.SubjectId;
+        var permission = owner ? "procurement-plan-edit" : "procurement-plan-claim-scope-all";
+        if (!(await authorization.AuthorizeAsync(http.User, permission)).Succeeded)
+            return Problem("not-found", "Plan not found.", 404);
+        if (plan.BranchRef.HasValue && plan.BranchRef != branch)
+            return Problem("not-found", "Plan not found.", 404);
+        var fingerprint = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(
+            JsonSerializer.Serialize(new { id, actor = scope.SubjectId, input.Version,
+                currency = input.ConfirmStoredCurrencyCode.Trim().ToUpperInvariant(), reason, branch })))).ToLowerInvariant();
+        var prior = await db.PlanReviewCommandReceipts.AsNoTracking()
+            .SingleOrDefaultAsync(x => x.CommandKey == key, ct);
+        if (prior is not null)
+            return prior.ProcurementPlanId == id && prior.Operation == "ClaimScope"
+                && prior.ActorSubjectId == scope.SubjectId && prior.RequestSha256 == fingerprint
+                ? Results.Content(prior.ResponseJson, "application/json", statusCode: prior.ResponseStatus)
+                : Problem("command-key-conflict", "This command key belongs to another action.", 409);
+        if (plan.BranchRef.HasValue || plan.Status is not ("Draft" or "Returned"))
+            return Problem("plan-scope-locked", "Only a legacy unclaimed draft can be assigned to a branch.", 409);
+        if (plan.Version != input.Version)
+            return Problem("version-conflict", "Refresh this plan before claiming its branch.", 409);
+        if (!string.Equals(plan.CurrencyCode, input.ConfirmStoredCurrencyCode.Trim(), StringComparison.OrdinalIgnoreCase))
+            return Problem("currency-confirmation-mismatch", "Confirm the plan's saved currency without changing its estimates.", 409);
+        var before = ProcurementDraftAudit.Snapshot(Detail(plan));
+        plan.BranchRef = branch;
+        plan.UpdatedAt = DateTimeOffset.UtcNow;
+        ProcurementDraftAudit.Add(db, scope, "ProcurementPlan", plan.Id, "ScopeClaimed", before, Detail(plan));
+        var response = JsonSerializer.Serialize(new { plan.Id, branchRef = branch,
+            plan.CurrencyCode, version = checked(input.Version + 1), scopeClaimed = true });
+        db.AddScoped(new PlanReviewCommandReceipt { ProcurementPlanId = id, CommandKey = key,
+            Operation = "ClaimScope", ActorSubjectId = scope.SubjectId, RequestSha256 = fingerprint,
+            ResponseJson = response, ResponseStatus = 200 });
+        try { await db.SaveChangesAsync(ct); }
+        catch (DbUpdateConcurrencyException)
+        { return Problem("version-conflict", "Refresh this plan before claiming its branch.", 409); }
+        catch (DbUpdateException)
+        { return Problem("claim-unconfirmed", "Check this plan and the original command key before retrying.", 503); }
+        return Results.Content(response, "application/json", statusCode: 200);
     }
 
     private static async Task<string?> ValidateReferences(IReadOnlyList<ProcurementPlanLineInput> lines,
@@ -184,7 +266,7 @@ public static class ProcurementPlanRoutes
 
     private static object Detail(ProcurementPlan plan) => new
     {
-        plan.Id, plan.Number, plan.FinancialPeriodRef, plan.DepartmentRef,
+        plan.Id, plan.Number, plan.FinancialPeriodRef, plan.DepartmentRef, plan.BranchRef,
         plan.CurrencyCode, plan.Status, plan.StatusReason, plan.OwnerSubjectId,
         plan.RevisionNumber, plan.FundingSourceRef, plan.Version, plan.CreatedAt, plan.UpdatedAt,
         Lines = plan.Lines.OrderBy(x => x.LineNumber).Select(x => new
@@ -196,9 +278,14 @@ public static class ProcurementPlanRoutes
     };
 
     private static string? Clean(string? value) => string.IsNullOrWhiteSpace(value) ? null : value.Trim();
+    private static bool VisibleBranch(ProcurementPlan plan, ProcurementRequestScope scope) =>
+        plan.BranchRef is null || scope.IsExplicitAllBranches
+            ? plan.BranchRef is null || scope.PermittedWorkLocationIds.Contains(plan.BranchRef.Value)
+            : scope.WorkLocationId.HasValue && plan.BranchRef == scope.WorkLocationId;
     private static IResult Problem(string code, string message, int status) =>
         Results.Json(new { code, message }, statusCode: status);
 
     public sealed record UpdatePlan(long Version, ProcurementPlanInput Draft);
     public sealed record CancelPlan(long Version, string? Reason);
+    public sealed record ClaimPlanScope(long Version, string? ConfirmStoredCurrencyCode, string? Reason);
 }

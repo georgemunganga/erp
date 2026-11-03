@@ -14,7 +14,10 @@ public static class ProcurementActionCatalog
         or "procurement-quotation-capture" or "procurement-quotation-cancel"
         or "procurement-invoice-owner-baseline-open" or "procurement-invoice-owner-baseline-read"
         or "procurement-invoice-owner-baseline-review"
-        or "procurement-return-read" or "procurement-return-create" or "procurement-return-edit";
+        or "procurement-return-read" or "procurement-return-create" or "procurement-return-edit"
+        or "procurement-plan-claim-scope-all" or "procurement-plan-submit"
+        or "procurement-plan-review" or "procurement-plan-approve"
+        or "procurement-plan-withdraw" or "procurement-plan-review-read";
 
     public static readonly IReadOnlyDictionary<string, string[]> BootstrapGrants =
         new Dictionary<string, string[]>(StringComparer.Ordinal)
@@ -44,6 +47,12 @@ public static class ProcurementActionCatalog
             ["procurement-plan-read"] = ["manager", "procurement_buyer", "procurement_manager"],
             ["procurement-plan-create"] = ["manager", "procurement_buyer", "procurement_manager"],
             ["procurement-plan-edit"] = ["manager", "procurement_buyer", "procurement_manager"],
+            ["procurement-plan-claim-scope-all"] = [],
+            ["procurement-plan-submit"] = [],
+            ["procurement-plan-review"] = [],
+            ["procurement-plan-approve"] = [],
+            ["procurement-plan-withdraw"] = [],
+            ["procurement-plan-review-read"] = [],
             // These actions require explicit configured grants (or existing ERP administrator
             // governance access). Neither role bootstrap nor this catalog grants spending limits.
             ["procurement-receipt-view"] = [],

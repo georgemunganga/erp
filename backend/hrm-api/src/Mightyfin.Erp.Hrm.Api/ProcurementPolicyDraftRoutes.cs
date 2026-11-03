@@ -70,6 +70,10 @@ public static partial class ProcurementPolicyDraftRoutes
             return Results.Ok(new { isValid = InvoiceProcurementBaselineReviewPolicyRules.Validate(input.RulesJson).Count == 0,
                 issues = InvoiceProcurementBaselineReviewPolicyRules.Validate(input.RulesJson),
                 canPublish = false, isAuthority = false });
+        if (PlanReviewPolicyRules.IsDocument(input.RulesJson))
+            return Results.Ok(new { isValid = PlanReviewPolicyRules.Validate(input.RulesJson).Count == 0,
+                issues = PlanReviewPolicyRules.Validate(input.RulesJson),
+                canPublish = false, isAuthority = false });
         var issues = InvoiceMatchingPolicyRules.IsMatchingDocument(input.RulesJson) ? InvoiceMatchingPolicyRules.Validate(input.RulesJson) : ReceivingPolicyRules.IsReceivingDocument(input.RulesJson) ? (PrincipalReceivingPolicyRules.IsDocument(input.RulesJson) ? PrincipalReceivingPolicyRules.Validate(input.RulesJson) : ReceivingPolicyRules.Validate(input.RulesJson)) : PolicyRuleValidator.Validate(input.RulesJson);
         return Results.Ok(new { isValid = issues.Count == 0, issues });
     }
@@ -81,6 +85,8 @@ public static partial class ProcurementPolicyDraftRoutes
             .Select(message => new PolicyRuleIssue("stages", message)).ToArray(),
         SourcingPublicationPolicyRules.PolicyKey => SourcingPublicationPolicyRules.AnalyzeCoverage(policy.RulesJson),
         InvoiceMatchingPolicyRules.PolicyKey => InvoiceMatchingPolicyRules.Validate(policy.RulesJson),
+        PlanReviewPolicyRules.PolicyKey => PlanReviewPolicyRules.Validate(policy.RulesJson)
+            .Select(message => new PolicyRuleIssue("stages", message)).ToArray(),
         InvoiceProcurementBaselineReviewPolicyRules.PolicyKey => InvoiceProcurementBaselineReviewPolicyRules.Validate(policy.RulesJson)
             .Select(message => new PolicyRuleIssue("stages", message)).ToArray(),
         "RECEIVING" => PrincipalReceivingPolicyRules.IsDocument(policy.RulesJson) ? PrincipalReceivingPolicyRules.Validate(policy.RulesJson) : ReceivingPolicyRules.Validate(policy.RulesJson),
@@ -94,6 +100,8 @@ public static partial class ProcurementPolicyDraftRoutes
         if (policy is null) return Problem("not-found", "Buying policy not found.", 404);
         if (policy.PolicyKey == ManualPaymentReviewPolicyRules.PolicyKey) return Results.Ok(new { policyId = policy.Id, isAuthority = false,
             status = "PaymentReviewRequiresInvoiceAndIndependentCase", issues = ManualPaymentReviewPolicyRules.Validate(policy.RulesJson) });
+        if (policy.PolicyKey == PlanReviewPolicyRules.PolicyKey) return Results.Ok(new { policyId = policy.Id, isAuthority = false,
+            status = "PlanReviewRequiresPinnedPlanAndNamedCoreCase", issues = PlanReviewPolicyRules.Validate(policy.RulesJson) });
         if (policy.PolicyKey == InvoiceRetainedUnitReview.ReviewPolicyKey) return Results.Ok(new { policyId = policy.Id, isAuthority = false,
             status = "InvoiceUnitReviewRequiresOriginalDocumentAndNamedIndependentCase", issues = InvoiceUnitReviewPolicyRules.Validate(policy.RulesJson) });
         if (policy.PolicyKey == InvoiceProcurementBaselineReviewPolicyRules.PolicyKey) return Results.Ok(new { policyId = policy.Id, isAuthority = false,
@@ -116,7 +124,7 @@ public static partial class ProcurementPolicyDraftRoutes
         ProcurementDbContext db, HttpContext http, CancellationToken ct)
     {
         var normalized = key?.Trim().ToUpperInvariant();
-        if (normalized is not ("PURCHASE_REQUEST" or "PURCHASE_ORDER" or "RECEIVING" or "INVOICE_MATCHING" or "INVOICE_UNIT_REVIEW" or "SOURCING" or "MANUAL_PAYMENT_REVIEW" or "INVOICE_OWNER_BASELINE_REVIEW"))
+        if (normalized is not ("PURCHASE_REQUEST" or "PURCHASE_ORDER" or "RECEIVING" or "INVOICE_MATCHING" or "INVOICE_UNIT_REVIEW" or "SOURCING" or "MANUAL_PAYMENT_REVIEW" or "INVOICE_OWNER_BASELINE_REVIEW" or PlanReviewPolicyRules.PolicyKey))
             return Problem("validation-failed", "Choose purchase requests, purchase orders, receiving, invoice matching or sourcing.", 422);
         var instant = (at ?? DateTimeOffset.UtcNow).ToUniversalTime();
         if (normalized == SourcingPublicationPolicyRules.PolicyKey)
