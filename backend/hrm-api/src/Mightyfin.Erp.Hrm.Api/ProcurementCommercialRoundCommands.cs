@@ -84,17 +84,19 @@ public static partial class ProcurementSourcingExecutionRoutes
         // enrollment needs no UPDATE grant; lock its mutable plan only afterward.
         await db.Database.ExecuteSqlInterpolatedAsync($"SELECT id FROM procurement.commercial_round_plans WHERE tenant_id={scope.TenantId} AND legal_entity_id={scope.LegalEntityId} AND sourcing_event_id={id} FOR UPDATE", ct);
     }
+    private static IQueryable<Guid> RoundExposedSourceIds(ProcurementDbContext db) =>
+        db.SourcingPublicationOpenings.Select(x=>x.SourcingEventId)
+            .Union(db.SourcingPublicationDecisions.Select(x=>x.SourcingEventId))
+            .Union(db.SourcingPublicationReceipts.Select(x=>x.SourcingEventId))
+            .Union(db.SourcingInvitations.Select(x=>x.SourcingEventId))
+            .Union(db.SourcingManualContacts.Select(x=>x.SourcingEventId))
+            .Union(db.SourcingManualQuoteVersions.Select(x=>x.SourcingEventId))
+            .Union(db.SupplierBids.Select(x=>x.SourcingEventId))
+            .Union(db.SourcingAwards.Select(x=>x.SourcingEventId));
     private static async Task RequireRoundUntouched(ProcurementDbContext db, Guid id, CancellationToken ct)
     {
-        if (await db.SourcingPublicationOpenings.AsNoTracking().AnyAsync(x => x.SourcingEventId == id, ct)
-            || await db.SourcingPublicationDecisions.AsNoTracking().AnyAsync(x => x.SourcingEventId == id, ct)
-            || await db.SourcingPublicationReceipts.AsNoTracking().AnyAsync(x => x.SourcingEventId == id, ct)
-            || await db.SourcingInvitations.AsNoTracking().AnyAsync(x => x.SourcingEventId == id, ct)
-            || await db.SourcingManualContacts.AsNoTracking().AnyAsync(x => x.SourcingEventId == id, ct)
-            || await db.SourcingManualQuoteVersions.AsNoTracking().AnyAsync(x => x.SourcingEventId == id, ct)
-            || await db.SupplierBids.AsNoTracking().AnyAsync(x => x.SourcingEventId == id, ct)
-            || await db.SourcingAwards.AsNoTracking().AnyAsync(x => x.SourcingEventId == id, ct))
-            throw new Problem("RoundPlanSourceAlreadyExposed", 409);
+        if (await RoundExposedSourceIds(db).ContainsAsync(id,ct))
+            throw new Problem("RoundPlanSourceAlreadyExposed",409);
     }
     private static async Task<RoundPlanSource> RoundVerifyHeldSource(ProcurementDbContext db, ApprovalDbContext cases,
         ProcurementRequestScope scope, SourcingEvent source, CancellationToken ct)

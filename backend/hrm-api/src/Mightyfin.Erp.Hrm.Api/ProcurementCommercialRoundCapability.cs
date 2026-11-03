@@ -4,6 +4,8 @@ namespace Mightyfin.Erp.Hrm.Api;
 
 internal static class ProcurementCommercialRoundCapability
 {
+    internal static bool HasRecordAction(IReadOnlySet<string> permissions) =>
+        permissions.Contains("procurement-round-plan-manage") || permissions.Contains("procurement-round-plan-cancel");
     internal static async Task<(bool Read, bool Record)> ReadyAsync(IServiceProvider services,
         ProcurementRequestScope scope, bool pending, CancellationToken ct)
     {
@@ -20,7 +22,7 @@ internal static class ProcurementCommercialRoundCapability
                 && (scope.WorkLocationId is { } branch ? person.OrganisationWide || person.AllowedBranches.Contains(branch)
                     : person.OrganisationWide || person.AllowedBranches.Count > 0);
             var record = read && options.RecordEnabled && !scope.IsExplicitAllBranches && scope.WorkLocationId is not null
-                && person!.Permissions.Contains("procurement-round-plan-manage") && await readiness.ReadyAsync(db, true, token);
+                && HasRecordAction(person!.Permissions) && await readiness.ReadyAsync(db, true, token);
             return (read, record);
         }, ct);
     }

@@ -30,6 +30,8 @@ public static partial class ProcurementSourcingExecutionRoutes
     { PropertyNameCaseInsensitive = false, UnmappedMemberHandling = JsonUnmappedMemberHandling.Disallow, Converters = { new RoundScalarConverter() } };
     private static void MapCommercialRoundRoutes(RouteGroupBuilder group)
     {
+        group.MapGet("/round-plan-sources", RoundSources).RequireAuthorization("procurement-round-plan-read");
+        group.MapGet("/{id:guid}/round-plan/people", RoundPeople).RequireAuthorization("procurement-round-plan-read");
         group.MapGet("/round-plans", RoundList).RequireAuthorization("procurement-round-plan-read");
         group.MapGet("/{id:guid}/round-plan", RoundRead).RequireAuthorization("procurement-round-plan-read");
         group.MapGet("/{id:guid}/round-plan/history", RoundHistory).RequireAuthorization("procurement-round-plan-read");
@@ -53,9 +55,9 @@ public static partial class ProcurementSourcingExecutionRoutes
         if (p is not { Length: >= 5 } || !p[0].Equals("api", StringComparison.OrdinalIgnoreCase)
             || !p[1].Equals("procurement", StringComparison.OrdinalIgnoreCase) || !p[2].Equals("v1", StringComparison.OrdinalIgnoreCase)
             || !p[3].Equals("sourcing", StringComparison.OrdinalIgnoreCase)) return false;
-        if (p.Length == 5) return p[4].Equals("round-plans", StringComparison.OrdinalIgnoreCase);
+        if (p.Length == 5) return p[4].Equals("round-plans", StringComparison.OrdinalIgnoreCase) || p[4].Equals("round-plan-sources", StringComparison.OrdinalIgnoreCase);
         if (!Guid.TryParseExact(p[4], "D", out var id) || id == Guid.Empty || !p[5].Equals("round-plan", StringComparison.OrdinalIgnoreCase)) return false;
-        return p.Length == 6 || p.Length == 7 && p[6].Equals("history", StringComparison.OrdinalIgnoreCase)
+        return p.Length == 6 || p.Length == 7 && (p[6].Equals("history", StringComparison.OrdinalIgnoreCase) || p[6].Equals("people", StringComparison.OrdinalIgnoreCase))
             || p.Length == 8 && p[6].Equals("versions", StringComparison.OrdinalIgnoreCase) && long.TryParse(p[7], out var version) && version > 0
             || p.Length == 8 && p[6].Equals("commands", StringComparison.OrdinalIgnoreCase) && Guid.TryParseExact(p[7], "D", out var key) && key != Guid.Empty;
     }

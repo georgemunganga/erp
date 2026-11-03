@@ -90,7 +90,7 @@ public static partial class ProcurementSourcingExecutionRoutes
             {
                 try
                 {
-                    _=await PrincipalReadOwned(db,ev,token);
+                    _=await PrincipalReadOwned(db,ev,http,token);
                     items.Add(new{ev.Id,ev.Number,ev.Title,ev.CurrencyCode,ev.Status,ev.Version,
                         originalDraftFingerprint=ev.OriginalDraftFingerprint,state="VerifiedRetainedDraft",canPublish=false});
                 }
@@ -120,10 +120,14 @@ public static partial class ProcurementSourcingExecutionRoutes
         {
             var actor=await PrincipalReadActor(core,scope,http,auth,token);
             var ev=await PrincipalOwnedEvent(db,core,scope,http,auth,actor.Actor,actor.Permission,id,token);
-            return await PrincipalReadOwned(db,ev,token);
+            return await PrincipalReadOwned(db,ev,http,token);
         },ct);
     }
-    private static async Task<Reply> PrincipalReadOwned(ProcurementDbContext db,SourcingEvent ev,CancellationToken ct)
+    private sealed record PrincipalRetainedSource(SourcingDraftEvidence Original, RfqPrincipalDraft Snapshot,
+        SourcingDemandBinding[] Bindings, SourcingLine[] Lines, PurchaseRequestAllocation[] Allocations);
+    // Shared retained-source projection; callers independently authorize their own action/scope.
+    // This does not change M4's original-maker route or adopt a second source model.
+    private static async Task<PrincipalRetainedSource> PrincipalRetainedSourceData(ProcurementDbContext db,SourcingEvent ev,CancellationToken ct,bool verifyCurrentHoldState=true)
     {
         var evidence=await db.SourcingDraftEvidenceRecords.AsNoTracking().SingleAsync(x=>x.Id==ev.SourceEvidenceId,ct);
         var bindings=await db.SourcingDemandBindings.AsNoTracking().Where(x=>x.SourcingEventId==ev.Id)
@@ -131,7 +135,7 @@ public static partial class ProcurementSourcingExecutionRoutes
         var lines=await db.SourcingLines.AsNoTracking().Where(x=>x.SourcingEventId==ev.Id).Take(201).ToArrayAsync(ct);
         if(bindings.Length is <1 or >200 || lines.Length!=bindings.Length)
             throw new Problem("SourcingOriginalEvidenceUnavailable",409);
-        _=GovernedPrincipalRfqRestoration.RestoreVerified(evidence,ev,bindings);
+        var snapshot=GovernedPrincipalRfqRestoration.RestoreVerified(evidence,ev,bindings);
         var ids=bindings.Select(x=>x.AllocationId).ToArray();
         var allocations=await db.PurchaseRequestAllocations.AsNoTracking().Where(x=>ids.Contains(x.Id)).ToArrayAsync(ct);
         if(allocations.Length!=bindings.Length)throw new Problem("SourcingOriginalEvidenceUnavailable",409);
@@ -145,19 +149,27 @@ public static partial class ProcurementSourcingExecutionRoutes
                 || allocation.TargetType!="SourcingEvent" || allocation.TargetId!=ev.Id
                 || allocation.Quantity!=binding.Quantity || allocation.EstimatedValue!=binding.EstimatedValue
                 || allocation.CurrencyCode!=ev.CurrencyCode
-                || (ev.Status=="Draft"?line.Status!="Active"||allocation.Status!="Reserved"
+                || verifyCurrentHoldState&&(ev.Status=="Draft"?line.Status!="Active"||allocation.Status!="Reserved"
                     :ev.Status!="Cancelled"||line.Status!="Cancelled"||allocation.Status!="Released"))
                 throw new Problem("SourcingOriginalEvidenceUnavailable",409);
         }
+        return new(evidence,snapshot,bindings,lines,allocations);
+    }
+    private static object[] PrincipalRetainedLineViews(PrincipalRetainedSource data) => data.Bindings.Select(binding=>new {
+        id=binding.SourcingLineId,binding.PurchaseRequestId,binding.PurchaseRequestLineId,
+        description=data.Lines.Single(x=>x.Id==binding.SourcingLineId).Description,
+        binding.UnitCode,binding.CategoryCode,quantity=ProcurementEvidenceEncoding.Decimal(binding.Quantity),
+        approvedUnitEstimate=ProcurementEvidenceEncoding.Decimal(binding.UnitEstimate),
+        estimatedValue=ProcurementEvidenceEncoding.Decimal(binding.EstimatedValue),
+        allocationState=data.Allocations.Single(x=>x.Id==binding.AllocationId).Status }).Cast<object>().ToArray();
+    private static async Task<Reply> PrincipalReadOwned(ProcurementDbContext db,SourcingEvent ev,HttpContext http,CancellationToken ct)
+    {
+        var data=await PrincipalRetainedSourceData(db,ev,ct);
+        var roundPlan=await RoundLegacyHint(http,db,ev.Id,ct);
         return new Reply(JsonSerializer.Serialize(new{ev.Id,ev.Number,ev.Title,ev.Method,ev.CurrencyCode,
             ev.Status,ev.Version,originalDraftFingerprint=ev.OriginalDraftFingerprint,ev.CancellationReason,
             canPublish=false,supplierDeliveryState="NotStarted",financeReservationChanged=false,
-            lines=bindings.Select(binding=>new{id=binding.SourcingLineId,binding.PurchaseRequestId,
-                binding.PurchaseRequestLineId,description=lines.Single(x=>x.Id==binding.SourcingLineId).Description,
-                binding.UnitCode,binding.CategoryCode,quantity=ProcurementEvidenceEncoding.Decimal(binding.Quantity),
-                approvedUnitEstimate=ProcurementEvidenceEncoding.Decimal(binding.UnitEstimate),
-                estimatedValue=ProcurementEvidenceEncoding.Decimal(binding.EstimatedValue),
-                allocationState=allocations.Single(x=>x.Id==binding.AllocationId).Status}).ToArray()},Json));
+            lines=PrincipalRetainedLineViews(data),roundPlan},Json));
     }
     private static Task<IResult> PrincipalRecover(string operation,Guid key,HttpContext http,
         ProcurementRequestScope scope,CancellationToken ct)

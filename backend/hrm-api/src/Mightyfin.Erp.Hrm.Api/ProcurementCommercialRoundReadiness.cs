@@ -71,6 +71,7 @@ public sealed class ProcurementCommercialRoundReadiness(IConfiguration configura
     {
         var clauses = new List<string> { "session_user=current_user AND current_user=" + Literal(role),
             ProcurementSpendingAuthorityIdentitySchemaReadiness.NoCoreIdentityWritesSql,
+            ProcurementCommercialRoundCoreReadGuard.Sql,
             ProcurementSpendingAuthorityIdentitySchemaReadiness.NoOwnershipSql,
             "NOT has_schema_privilege(current_user,'procurement','CREATE')",
             "NOT has_schema_privilege(current_user,'core_approval','CREATE')" };
@@ -90,11 +91,9 @@ public sealed class ProcurementCommercialRoundReadiness(IConfiguration configura
         foreach (var table in ExistenceOnlyTables)
             foreach (var column in new[] { "tenant_id", "legal_entity_id", "sourcing_event_id" })
                 clauses.Add("has_column_privilege(current_user," + Literal("procurement." + table) + "," + Literal(column) + ",'SELECT')");
-        foreach (var projection in ProcurementInvoiceReplacementSchemaReadiness.CoreReadColumns)
+        foreach (var projection in ProcurementCommercialRoundCoreReadGuard.RequiredReadColumns)
             foreach (var column in projection.Value)
                 clauses.Add("has_column_privilege(current_user," + Literal(projection.Key) + "," + Literal(column) + ",'SELECT')");
-        clauses.Add("has_column_privilege(current_user,'hrm.local_users','display_name','SELECT')");
-        clauses.Add("has_column_privilege(current_user,'hrm.legal_entities','time_zone_id','SELECT')");
         foreach (var table in CommercialRoundPlanSchema.Tables)
         {
             var name = Literal("procurement." + table);

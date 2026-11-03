@@ -77,11 +77,13 @@ public static partial class ProcurementSourcingExecutionRoutes
     private static Task<IResult> RoundReadVersion(Guid id, long? version, HttpContext http, ProcurementRequestScope scope, CancellationToken ct)
         => RunRound(http, scope, async (db, cases, core, auth, token) => {
             var source = await RoundSource(db, core, scope, http, auth, "procurement-round-plan-read", id, token);
+            var retained=await PrincipalRetainedSourceData(db,source,token,verifyCurrentHoldState:false);
             if (!await db.CommercialRoundEnrollments.AsNoTracking().AnyAsync(x => x.SourcingEventId == id, token))
             {
                 if (version is not null) throw new Problem("RoundPlanNotFound", 404);
-                return new(JsonSerializer.Serialize(new { enrolled = false, source = RoundSourceView(source), plan = (object?)null,
-                    reviewAvailable = false, publicationAvailable = false }, RoundJson), 200);
+                var allowedActions=await RoundActions(http,db,cases,core,scope,auth,source,null,true,token);
+                return new(JsonSerializer.Serialize(new { enrolled = false, source = RoundSourceView(source,retained), plan = (object?)null,
+                    allowedActions,reviewAvailable = false, publicationAvailable = false }, RoundJson), 200);
             }
             var graph = await RoundGraph(db, source, version, tracked: false, token);
             var ids = graph.Participants.Select(x => Guid.Parse(x.PrincipalId)).Append(Guid.Parse(graph.Plan.MakerPrincipalId))
@@ -89,7 +91,9 @@ public static partial class ProcurementSourcingExecutionRoutes
             var names = await core.LocalUsers.AsNoTracking().Where(x => x.TenantId == scope.TenantId && ids.Contains(x.Id))
                 .Select(x => new { x.Id, x.DisplayName }).ToArrayAsync(token);
             using var content = JsonDocument.Parse(graph.Revision.ContentJson);
-            return new(JsonSerializer.Serialize(new { enrolled = true, source = RoundSourceView(source),
+            var actions=await RoundActions(http,db,cases,core,scope,auth,source,graph.Plan,
+                version is null||version==graph.Plan.Version,token);
+            return new(JsonSerializer.Serialize(new { enrolled = true, source = RoundSourceView(source,retained),allowedActions=actions,
                 plan = new { graph.Plan.Id, graph.Plan.Status, graph.Plan.Version, graph.Plan.MakerPrincipalId },
                 revision = new { graph.Revision.Id, version = graph.Revision.ResultVersion, graph.Revision.Operation,
                     status = graph.Revision.ResultStatus, graph.Revision.ActorPrincipalId, graph.Revision.RecordedAt, graph.Revision.Reason,
@@ -122,6 +126,4 @@ public static partial class ProcurementSourcingExecutionRoutes
             var rows = await query.OrderBy(x => x.Id).Skip((number - 1) * 25).Take(25).ToArrayAsync(token);
             return new(JsonSerializer.Serialize(new { items = rows, total = count, page = number, pageSize = 25 }, RoundJson), 200);
         }, ct);
-    private static object RoundSourceView(SourcingEvent source) => new { source.Id, source.Number, source.Title,
-        source.CurrencyCode, branchId = source.BranchRef, supplierFacingWorkflowAvailable = false };
 }

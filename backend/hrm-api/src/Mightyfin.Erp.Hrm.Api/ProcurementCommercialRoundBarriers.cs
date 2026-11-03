@@ -40,4 +40,26 @@ public static partial class ProcurementSourcingExecutionRoutes
         if (!cancelled)
             throw new Problem("CancelCommercialRoundPlanFirst", 409);
     }
+    private sealed record RoundLegacyBarrierHint(bool Enrolled,string? Status,bool PublicationBlocked,bool SourceCancellationBlocked);
+    // Invoked only after the original M4 caller/action/record scope is authorized.
+    // This minimal projection conveys no round criteria, participant or content access.
+    private static async Task<RoundLegacyBarrierHint> RoundLegacyHint(HttpContext http,ProcurementDbContext db,Guid eventId,CancellationToken ct)
+    {
+        if(!await RoundBarrierInstalled(http,db,ct))return new(false,null,false,false);
+        if(!await db.CommercialRoundEnrollments.AsNoTracking().AnyAsync(x=>x.SourcingEventId==eventId,ct))return new(false,null,false,false);
+        var plan=await db.CommercialRoundPlans.AsNoTracking().Where(x=>x.SourcingEventId==eventId)
+            .Select(x=>new{x.Id,x.Status,x.Version}).SingleOrDefaultAsync(ct)
+            ??throw new Problem("RoundPlanPublicationBarrierUnavailable",503);
+        if(plan.Status is not ("Draft" or "Cancelled"))throw new Problem("RoundPlanPublicationBarrierUnavailable",503);
+        var cancelled=plan.Status=="Cancelled"&&await (
+            from revision in db.CommercialRoundPlanRevisions.AsNoTracking()
+            join receipt in db.CommercialRoundPlanReceipts.AsNoTracking()
+                on new{revision.PlanId,RevisionId=revision.Id,ResultVersion=revision.ResultVersion}
+                equals new{receipt.PlanId,receipt.RevisionId,receipt.ResultVersion}
+            where revision.PlanId==plan.Id&&revision.ResultVersion==plan.Version&&revision.ResultStatus=="Cancelled"
+                &&revision.Operation=="Cancel"&&receipt.Operation=="Cancel"
+            select revision.Id).AnyAsync(ct);
+        return new(true,plan.Status,true,!cancelled);
+    }
+
 }
