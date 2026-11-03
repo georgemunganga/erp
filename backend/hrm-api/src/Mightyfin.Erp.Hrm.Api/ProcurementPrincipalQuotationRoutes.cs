@@ -34,6 +34,26 @@ public static partial class ProcurementSourcingExecutionRoutes
             .RequireAuthorization("procurement-quotation-read");
     }
 
+    // Admit only the retained quotation GET contracts to company All. Fresh
+    // writes still reject the raw All marker even when legacy middleware would
+    // resolve it to a concrete default branch.
+    internal static bool QuotationAllReadPath(PathString path, string method)
+    {
+        if (!HttpMethods.IsGet(method)) return false;
+        var parts = path.Value?.TrimEnd('/').Split('/', StringSplitOptions.RemoveEmptyEntries);
+        if (parts is not { Length: >= 5 } || !parts[0].Equals("api", StringComparison.OrdinalIgnoreCase)
+            || !parts[1].Equals("procurement", StringComparison.OrdinalIgnoreCase)
+            || !parts[2].Equals("v1", StringComparison.OrdinalIgnoreCase)
+            || !parts[3].Equals("sourcing", StringComparison.OrdinalIgnoreCase)) return false;
+        static bool Id(string value) => Guid.TryParseExact(value, "D", out var id) && id != Guid.Empty;
+        if (parts.Length == 5) return parts[4].Equals("quotation-sources", StringComparison.OrdinalIgnoreCase);
+        if (parts.Length == 6 && parts[4].Equals("quotation-commands", StringComparison.OrdinalIgnoreCase)) return Id(parts[5]);
+        if (!Id(parts[4]) || !parts[5].Equals("quotation-drafts", StringComparison.OrdinalIgnoreCase)) return false;
+        return parts.Length == 6 || parts.Length == 7 && Id(parts[6])
+            || parts.Length == 9 && Id(parts[6]) && parts[7].Equals("versions", StringComparison.OrdinalIgnoreCase)
+                && long.TryParse(parts[8], out var version) && version > 0;
+    }
+
     // GET and same-key replay deliberately avoid commercial-write flags and
     // RECORD privileges. Both profiles use this exact owning connection.
     private static async Task<IResult> RunQuotation(HttpContext http, ProcurementRequestScope scope,

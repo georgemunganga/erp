@@ -27,6 +27,34 @@ public sealed class ProcurementPrincipalQuotationScopeTests
     }
 
     [Fact]
+    public void Raw_All_cannot_become_a_default_branch_write()
+    {
+        var branch = Guid.NewGuid(); var scope = new ProcurementRequestScope();
+        scope.Set("tenant-a", Guid.NewGuid(), Guid.NewGuid().ToString("D"), branch, null, true, "quotation-all-fallback");
+        Assert.False(scope.IsExplicitAllBranches);
+        Assert.True(QuotationWriteContextAllowed(scope, branch));
+        Assert.False(QuotationWriteContextAllowed(scope, branch, rawAllHeader: true));
+    }
+
+    [Theory]
+    [InlineData("quotation-sources", true)]
+    [InlineData("quotation-commands/11111111-1111-1111-1111-111111111111", true)]
+    [InlineData("11111111-1111-1111-1111-111111111111/quotation-drafts", true)]
+    [InlineData("11111111-1111-1111-1111-111111111111/quotation-drafts/22222222-2222-2222-2222-222222222222", true)]
+    [InlineData("11111111-1111-1111-1111-111111111111/quotation-drafts/22222222-2222-2222-2222-222222222222/versions/1", true)]
+    [InlineData("11111111-1111-1111-1111-111111111111/quotation-drafts/22222222-2222-2222-2222-222222222222/versions/0", false)]
+    [InlineData("quotation-commands/not-an-id", false)]
+    [InlineData("quotation-sources/future", false)]
+    [InlineData("11111111-1111-1111-1111-111111111111/quotation-drafts/22222222-2222-2222-2222-222222222222/revise", false)]
+    public void Company_All_admits_only_named_retained_read_contracts(string suffix, bool expected)
+    {
+        var path = new Microsoft.AspNetCore.Http.PathString("/api/procurement/v1/sourcing/" + suffix);
+        Assert.Equal(expected, QuotationAllReadPath(path, "GET"));
+        Assert.False(QuotationAllReadPath(path, "POST"));
+        Assert.False(QuotationAllReadPath(path, "DELETE"));
+    }
+
+    [Fact]
     public async Task Current_workerless_handler_uses_existing_Core_branch_grants_and_loses_access_after_reassignment()
     {
         await using var core = TestDbContextFactory.Create("tenant-a");
