@@ -186,12 +186,10 @@ public static class ProcurementPlanReviewRoutes
                 await using var core = await ProcurementApprovalExecutionLocks.CoreAsync(db, scope, token);
                 var currentActor = await ProcurementPrincipalPeople.Resolve(core, scope.TenantId,
                     scope.LegalEntityId, scope.SubjectId, token);
-                var currentMaker = await ProcurementPrincipalPeople.Resolve(core, scope.TenantId,
-                    scope.LegalEntityId, plan.OwnerSubjectId, token);
-                if (currentActor is null || currentMaker is null
+                if (currentActor is null
                     || !currentActor.Permissions.Contains(assignment.PermissionKey)
                     || !await ProcurementPrincipalPeople.IndependentNow(core, scope.TenantId,
-                        currentMaker.PrincipalId, currentMaker.CoreLinkedWorkerId,
+                        plan.OwnerSubjectId, null,
                         currentActor.PrincipalId, currentActor.CoreLinkedWorkerId, token))
                     return new Reply(403, Json(new { code = "plan-review-denied", message = "This approval is unavailable." }));
                 var previous = await db.PlanReviewCommandReceipts.AsNoTracking()
@@ -220,7 +218,9 @@ public static class ProcurementPlanReviewRoutes
                 var beforeStatus = plan.Status;
                 var decisions = await workflow.Decisions.Where(x => x.CaseId == approvalCase.Id).ToListAsync(token);
                 var decision = PlanReviewCoreWorkflow.Decide(plan, submission, approvalCase, assignment,
-                    Convert(currentMaker, scope), Convert(currentActor, scope), input.Action,
+                    new(Guid.ParseExact(plan.OwnerSubjectId, "D"), null, scope.TenantId,
+                        scope.LegalEntityId, false, new HashSet<Guid>(), new HashSet<string>()),
+                    Convert(currentActor, scope), input.Action,
                     key.ToString("D"), reason, decisions, now);
                 workflow.Decisions.Add(decision);
                 var resultingPlanVersion = plan.Version + (plan.Status == beforeStatus ? 0 : 1);
