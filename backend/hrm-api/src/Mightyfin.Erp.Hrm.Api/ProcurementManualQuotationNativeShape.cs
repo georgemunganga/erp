@@ -32,7 +32,7 @@ AND NOT EXISTS(SELECT 1 FROM pg_policy p WHERE p.polrelid=c.oid)
 """;
     // Production retained the original M4 decision CHECK while pg_restore
     // re-parsed its constant array with explicit text casts. Both literal
-    // definitions are captured by M4; admit only these two complete contracts.
+    // definitions are captured by M4; retain both complete contracts unchanged.
     internal static readonly string ProductionJson = BuildProductionJson();
     private static string BuildProductionJson()
     {
@@ -42,19 +42,55 @@ AND NOT EXISTS(SELECT 1 FROM pg_policy p WHERE p.polrelid=c.oid)
             M4PrincipalRfqPhysicalChecks.Native["ck_sourcing_publication_decision_v2"];
         return value.ToJsonString();
     }
+    // Third complete seven-table contract: exact field projection of saved metadata
+    // from the 2026-11-03 authenticated production-backup restore. This is derived
+    // evidence until the frozen SQL and compiled matcher run in the next rehearsal.
+    // Source audit SHA-256: 93fad9d7a623cde40ae6a8a8fd07782fddaf04354db6cb7930a9b9e36e28d62e.
+    // Start with Json (including its restored M4 CHECK); replace only four exact
+    // PostgreSQL CHECK deparse spellings. Never normalize arbitrary SQL or literals.
+    internal static readonly string RestoredJson = BuildRestoredJson();
+    private static string BuildRestoredJson()
+    {
+        var value = JsonNode.Parse(Json)!;
+        value["procurement.sourcing_manual_contacts"]!["constraints"]!["ck_manual_contact_v2"]!["definition"] = """
+CHECK (((schema_version = 2) AND (event_version_at_capture > 0) AND (invitation_version_at_capture > 1) AND ((actor_principal_id)::text <> '00000000-0000-0000-0000-000000000000'::text) AND ((actor_principal_id)::text ~ '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'::text) AND ((command_sha256)::text ~ '^[0-9a-f]{64}$'::text) AND ((response_sha256)::text ~ '^[0-9a-f]{64}$'::text) AND ((channel)::text = ANY (ARRAY[('EmailOutsideSystem'::character varying)::text, ('Physical'::character varying)::text, ('Telephone'::character varying)::text, ('Other'::character varying)::text])) AND ((char_length(btrim((reference)::text)) >= 1) AND (char_length(btrim((reference)::text)) <= 200)) AND ((reference)::text = btrim((reference)::text)) AND isfinite(reported_contact_at) AND isfinite(recorded_at) AND (reported_contact_at <= recorded_at) AND (response_status_code = 201) AND ((octet_length(response_json) >= 2) AND (octet_length(response_json) <= 65536)) AND (id <> '00000000-0000-0000-0000-000000000000'::uuid) AND (sourcing_event_id <> '00000000-0000-0000-0000-000000000000'::uuid) AND (invitation_id <> '00000000-0000-0000-0000-000000000000'::uuid) AND (supplier_id <> '00000000-0000-0000-0000-000000000000'::uuid) AND (branch_id <> '00000000-0000-0000-0000-000000000000'::uuid) AND (publication_opening_id <> '00000000-0000-0000-0000-000000000000'::uuid) AND (publication_decision_id <> '00000000-0000-0000-0000-000000000000'::uuid) AND (command_key <> '00000000-0000-0000-0000-000000000000'::uuid) AND ((actor_core_linked_worker_id IS NULL) OR (actor_core_linked_worker_id <> '00000000-0000-0000-0000-000000000000'::uuid))))
+""";
+        value["procurement.sourcing_manual_quote_versions"]!["constraints"]!["ck_manual_quote_version_v3"]!["definition"] = """
+CHECK (((schema_version = 2) AND (snapshot_schema_version = ANY (ARRAY[2, 3])) AND (bid_version > 0) AND ((actor_principal_id)::text <> '00000000-0000-0000-0000-000000000000'::text) AND ((actor_principal_id)::text ~ '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'::text) AND ((command_sha256)::text ~ '^[0-9a-f]{64}$'::text) AND ((response_sha256)::text ~ '^[0-9a-f]{64}$'::text) AND ((snapshot_sha256)::text ~ '^[0-9a-f]{64}$'::text) AND ((request_sha256)::text ~ '^[0-9a-f]{64}$'::text) AND ((document_pin_set_sha256)::text ~ '^[0-9a-f]{64}$'::text) AND (event_version_at_capture > 0) AND (invitation_version_at_capture > 0) AND isfinite(recorded_at) AND ((octet_length(snapshot_json) >= 2) AND (octet_length(snapshot_json) <= 8388608)) AND ((octet_length(request_json) >= 2) AND (octet_length(request_json) <= 8388608)) AND ((octet_length(response_json) >= 2) AND (octet_length(response_json) <= 65536)) AND ((((operation)::text = 'Create'::text) AND (bid_version = 1) AND (previous_version_id IS NULL) AND (response_status_code = 201)) OR (((operation)::text = ANY (ARRAY[('Revise'::character varying)::text, ('Cancel'::character varying)::text])) AND (bid_version > 1) AND (previous_version_id IS NOT NULL) AND (response_status_code = 200))) AND ((previous_version_id IS NULL) OR (previous_version_id <> id)) AND (((document_pin_count = 0) AND (document_use_key IS NULL) AND ((document_pin_set_sha256)::text = '4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945'::text)) OR ((document_pin_count >= 1) AND (document_pin_count <= 100) AND (document_use_key IS NOT NULL) AND (document_use_key <> '00000000-0000-0000-0000-000000000000'::uuid))) AND (id <> '00000000-0000-0000-0000-000000000000'::uuid) AND (sourcing_event_id <> '00000000-0000-0000-0000-000000000000'::uuid) AND (invitation_id <> '00000000-0000-0000-0000-000000000000'::uuid) AND (supplier_id <> '00000000-0000-0000-0000-000000000000'::uuid) AND (supplier_bid_id <> '00000000-0000-0000-0000-000000000000'::uuid) AND (branch_id <> '00000000-0000-0000-0000-000000000000'::uuid) AND (manual_contact_id <> '00000000-0000-0000-0000-000000000000'::uuid) AND (command_key <> '00000000-0000-0000-0000-000000000000'::uuid) AND ((actor_core_linked_worker_id IS NULL) OR (actor_core_linked_worker_id <> '00000000-0000-0000-0000-000000000000'::uuid))))
+""";
+        value["procurement.supplier_bid_lines"]!["constraints"]!["ck_supplier_bid_line_capture_v2"]!["definition"] = """
+CHECK (((principal_capture_version = ANY (ARRAY[0, 2])) AND ((principal_capture_version = 0) OR ((quantity > (0)::numeric) AND (unit_price >= (0)::numeric) AND (tax_amount >= (0)::numeric) AND (delivery_amount >= (0)::numeric) AND (discount_kind IS NOT NULL) AND ((discount_kind)::text = ANY (ARRAY[('None'::character varying)::text, ('Amount'::character varying)::text, ('Percent'::character varying)::text])) AND (discount_value >= (0)::numeric) AND ((((discount_kind)::text = 'None'::text) AND (discount_value = (0)::numeric)) OR ((discount_kind)::text = 'Amount'::text) OR (((discount_kind)::text = 'Percent'::text) AND (discount_value <= (100)::numeric))) AND (tax_treatment IS NOT NULL) AND ((tax_treatment)::text = ANY (ARRAY[('Exclusive'::character varying)::text, ('Inclusive'::character varying)::text])) AND (
+CASE
+    WHEN ((discount_kind)::text = 'Percent'::text) THEN (((quantity * unit_price) * discount_value) / (100)::numeric)
+    ELSE discount_value
+END <= (quantity * unit_price)) AND (((tax_treatment)::text = 'Exclusive'::text) OR (tax_amount <= ((quantity * unit_price) -
+CASE
+    WHEN ((discount_kind)::text = 'Percent'::text) THEN (((quantity * unit_price) * discount_value) / (100)::numeric)
+    ELSE discount_value
+END)))))))
+""";
+        value["procurement.supplier_bids"]!["constraints"]!["ck_supplier_bid_capture_v2"]!["definition"] = """
+CHECK (((principal_capture_version = ANY (ARRAY[0, 2])) AND ((principal_capture_version = 0) OR ((source_channel = 'Manual'::text) AND ((status)::text = ANY (ARRAY[('Draft'::character varying)::text, ('Cancelled'::character varying)::text])) AND (submission_version = 1) AND (submitted_at IS NULL) AND (surrogate_entered_by IS NOT NULL) AND (surrogate_entered_by <> '00000000-0000-0000-0000-000000000000'::text) AND (surrogate_entered_by ~ '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'::text) AND (offer_validity_kind IS NOT NULL) AND ((offer_validity_kind)::text = ANY (ARRAY[('Unspecified'::character varying)::text, ('Fixed'::character varying)::text, ('OpenEnded'::character varying)::text])) AND ((((offer_validity_kind)::text = 'Fixed'::text) AND (valid_until IS NOT NULL) AND ((quote_date IS NULL) OR (valid_until >= quote_date))) OR (((offer_validity_kind)::text = ANY (ARRAY[('Unspecified'::character varying)::text, ('OpenEnded'::character varying)::text])) AND (valid_until IS NULL)))))))
+""";
+        return value.ToJsonString();
+    }
     internal static bool Matches(string? actual)
     {
         if (actual is null) return false;
         var digest = ProcurementEvidenceEncoding.PolicyJsonDigest(actual);
         return digest == ProcurementEvidenceEncoding.PolicyJsonDigest(Json)
-            || digest == ProcurementEvidenceEncoding.PolicyJsonDigest(ProductionJson);
+            || digest == ProcurementEvidenceEncoding.PolicyJsonDigest(ProductionJson)
+            || digest == ProcurementEvidenceEncoding.PolicyJsonDigest(RestoredJson);
     }
+    internal static string ReadinessSql => "SELECT actual=" + Literal(Json) + "::jsonb OR actual="
+        + Literal(ProductionJson) + "::jsonb OR actual=" + Literal(RestoredJson)
+        + "::jsonb FROM (" + Sql + ") AS captured(actual)";
+
     internal static async Task<bool> ReadyAsync(DbConnection connection, DbTransaction transaction, CancellationToken ct)
     {
         await using var command = connection.CreateCommand();
         command.Transaction = transaction; command.CommandTimeout = 15;
-        command.CommandText = "SELECT actual=" + Literal(Json) + "::jsonb OR actual="
-            + Literal(ProductionJson) + "::jsonb FROM (" + Sql + ") AS captured(actual)";
+        command.CommandText = ReadinessSql;
         return await command.ExecuteScalarAsync(ct) is true;
     }
 }
