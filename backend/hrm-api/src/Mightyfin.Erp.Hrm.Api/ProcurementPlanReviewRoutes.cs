@@ -206,12 +206,12 @@ public static class ProcurementPlanReviewRoutes
                     return new Reply(409, Json(new { code = "version-conflict", message = "Refresh this approval before deciding." }));
                 var now = DateTimeOffset.UtcNow;
                 var policy = await db.PolicyVersions.SingleOrDefaultAsync(x => x.Id == submission.PolicyVersionId, token);
-                if (policy is null || policy.State != "Published"
-                    || input.Action == "Approve" && (policy.EffectiveFrom > now || policy.EffectiveTo is { } until && now >= until)
-                    || policy.PolicyVersionNumber != submission.PolicyVersionNumber
-                    || ProcurementEvidenceEncoding.PolicyJsonDigest(policy.RulesJson) != submission.PolicyRulesSha256)
-                    return new Reply(409, Json(new { code = "plan-policy-changed", message = "The approved plan policy needs review." }));
-                _ = await ProcurementOperationalPolicyWorkerIdentity.VerifyPublicationAsync(db, scope, policy, token);
+                if (!PlanReviewPinnedPolicy.Matches(policy, submission))
+                    return new Reply(409, Json(new { code = "plan-policy-changed", message = "The submitted plan policy needs review." }));
+                // This is retained provenance for an already-open pinned case. Current
+                // account, action, branch, SoD and assignment checks still govern each vote.
+                _ = await ProcurementOperationalPolicyWorkerIdentity.VerifyPublicationAsync(db, scope, policy!, token,
+                    OperationalPolicyPublicationMode.RetainedHistorical);
                 static PlanReviewPrincipal Convert(ProcurementPrincipalPeople.Person person,
                     ProcurementRequestScope context) => new(Guid.ParseExact(person.PrincipalId, "D"),
                         person.CoreLinkedWorkerId, context.TenantId,

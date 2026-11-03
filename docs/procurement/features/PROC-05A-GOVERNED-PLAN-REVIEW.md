@@ -78,15 +78,15 @@ Show the exact forecast being approved, not a mutable current draft. Scope claim
 
 ## 15. Notifications & Communications
 
-After commit, outbox events trigger review/final tasks, return/reject/approval/withdrawal notices, and overdue task reminders when a configured SLA exists. No notification implies an approval. Recipients are the current authorized assignees or maker, and messages omit sensitive line values unless the channel is authorized.
+After commit, outbox events trigger review/final tasks, return/reject/approval/withdrawal notices, and overdue task reminders when a configured SLA exists. The initial policy schema has no SLA/reminder configuration and no Plan notification consumer is claimed; delivered notices and reminders remain unavailable pending adoption and verification of the existing shared delivery services. No notification implies an approval. Recipients are the current authorized assignees or maker, and messages omit sensitive line values unless the channel is authorized.
 
 ## 16. Documents & Attachments
 
-Existing attachment references may support the forecast; attachment-required policy must be configured and checked before submission. No invented proof file, upload or signature capability is claimed. Retain document IDs/version in the submitted snapshot where required.
+Existing attachment references may support the forecast; attachment-required policy must be configured and checked before submission. No invented proof file, upload or signature capability is claimed. Retain document IDs/version in the submitted snapshot where required. The initial schemaVersion 2 policy has no attachment requirement field and rejects unsupported fields; attachment-required policies remain unavailable until required Core document verification and snapshot contracts are adopted.
 
 ## 17. Exceptions & Edge Cases
 
-Missing/deactivated assignee; unclaimed legacy branchless Draft; maker also configured as reviewer; changed branch assignment; policy superseded before submit; policy changed after submit; duplicate command key with changed payload; concurrent decisions; changed line after pin; canceled Draft; returned plan resubmitted; current scope lost while a page is open; Finance outage. A policy change after submission does not rewrite the pinned case; current access/SoD is still checked at each action. Delegation requests remain unavailable until the shared Core resolver and denial tests exist.
+Missing/deactivated assignee; unclaimed legacy branchless Draft; maker also configured as reviewer; changed branch assignment; policy superseded before submit; policy changed after submit; duplicate command key with changed payload; concurrent decisions; changed line after pin; canceled Draft; returned plan resubmitted; current scope lost while a page is open; Finance outage. A policy change after submission does not rewrite the pinned case. Ordinary replacement closes the original effective window; an existing round retains that Published/Superseded version and its verified historical publication proof, even after expiry. New submissions still require a current Published/effective policy. Retired (currently unused Draft retirement only), Revoked or unknown states fail closed. Current access/SoD is still checked at each action. Delegation requests remain unavailable until the shared Core resolver and denial tests exist.
 
 ## 18. Integrations / APIs / Events / Sandbox
 

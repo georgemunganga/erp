@@ -4,6 +4,8 @@ Issue [169](https://github.com/georgemunganga/erp/issues/169), draft [ERP PR171]
 
 Source review additionally sealed each submitted line's version in the immutable snapshot, alongside its ID and exact four-place decimal values. A regression case covers a version change with unchanged values; it has not been executed. [The source readiness record](docs/procurement/gap-closure/PROC-05A-POST-B1-SOURCE-READINESS-20261103.md) distinguishes source checks from runtime evidence and records remaining schema and contract gates.
 
+Pinned-policy source correction now separates current submission eligibility from retained round provenance: existing rounds retain their exact Published/Superseded policy after replacement/expiry through shared historical proof; current Core authority and explicit denial states remain enforced. Added regressions remain unexecuted. Attachment requirements, delivered notices and SLA/reminders are explicitly unavailable in the initial strict stage-only policy schema pending adopted shared-service contracts.
+
 Root owns all SDK/scaffolding/native/finite-role/private runtime and production work. No SDK, migration generation/application, database, Docker or deployment action was run for this integration. Plan's model remains ahead of the B1 snapshot: two review tables plus nullable plan branch and its scoped index still require one genuine additive migration after B1. The unset readiness manifest intentionally blocks Plan review. Do not publish this branch as a schema-complete release or copy mappings into the snapshot by hand. No business assignees, quorum, policy publication or feature switch is activated.
 
 ---

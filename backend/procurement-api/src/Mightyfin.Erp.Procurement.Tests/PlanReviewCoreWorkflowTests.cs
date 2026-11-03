@@ -81,6 +81,71 @@ public sealed class PlanReviewCoreWorkflowTests
         Assert.Equal("Submitted", plan.Status);
     }
 
+    [Theory]
+    [InlineData("Published")]
+    [InlineData("Superseded")]
+    public void Replacement_closes_old_window_without_replacing_pinned_rules_or_current_authority(string retainedState)
+    {
+        var (plan, submission, policy, definition, maker, assignees) = Ready();
+        var now = DateTimeOffset.UtcNow;
+        var workflow = PlanReviewCoreWorkflow.Open(plan, submission, policy, definition, maker, assignees, now);
+        policy.State = retainedState;
+        policy.EffectiveTo = now.AddMinutes(-1); // Ordinary replacement closes new-submission eligibility.
+        policy.Version++;
+        Assert.True(PlanReviewPinnedPolicy.Matches(policy, submission));
+        Assert.Throws<InvalidOperationException>(() => PlanReviewCoreWorkflow.Open(plan, submission,
+            policy, definition, maker, assignees, now));
+        var replacement = new PolicyVersion
+        {
+            TenantId = policy.TenantId, LegalEntityId = policy.LegalEntityId,
+            PolicyKey = policy.PolicyKey, PolicyVersionNumber = policy.PolicyVersionNumber + 1,
+            State = "Published", RulesJson = policy.RulesJson, PublishedAt = now,
+            EffectiveFrom = now,
+        };
+        Assert.False(PlanReviewPinnedPolicy.Matches(replacement, submission));
+        var decisions = new List<Mightyfin.Erp.Core.Approvals.Domain.ApprovalDecision>();
+        var review = workflow.Stages.Single(x => x.Code == "Review").Assignments.Single();
+        var revoked = assignees[0] with { Permissions = new HashSet<string> { "procurement-access" } };
+        Assert.Throws<InvalidOperationException>(() => PlanReviewCoreWorkflow.Decide(plan, submission,
+            workflow, review, maker, revoked, "Approve", Guid.NewGuid().ToString("D"), null, decisions, now));
+        var wrongBranch = assignees[0] with { Branches = new HashSet<Guid>() };
+        Assert.Throws<InvalidOperationException>(() => PlanReviewCoreWorkflow.Decide(plan, submission,
+            workflow, review, maker, wrongBranch, "Approve", Guid.NewGuid().ToString("D"), null, decisions, now));
+        review.DelegatedFromSubjectId = Reviewer.ToString("D");
+        Assert.Throws<InvalidOperationException>(() => PlanReviewCoreWorkflow.Decide(plan, submission,
+            workflow, review, maker, assignees[0], "Approve", Guid.NewGuid().ToString("D"), null, decisions, now));
+        review.DelegatedFromSubjectId = null;
+        Assert.Empty(decisions);
+        Assert.Equal("Submitted", plan.Status);
+        _ = PlanReviewCoreWorkflow.Decide(plan, submission, workflow, review, maker, assignees[0],
+            "Approve", Guid.NewGuid().ToString("D"), null, decisions, now);
+        var final = workflow.Stages.Single(x => x.Code == "Final").Assignments.Single();
+        _ = PlanReviewCoreWorkflow.Decide(plan, submission, workflow, final, maker, assignees[1],
+            "Approve", Guid.NewGuid().ToString("D"), null, decisions, now);
+        Assert.Equal("Active", plan.Status);
+        Assert.Equal(policy.Id, workflow.PolicyVersionId);
+    }
+
+    [Theory]
+    [InlineData("Retired")]
+    [InlineData("Revoked")]
+    [InlineData("Draft")]
+    public void Unknown_or_nonpublished_retirement_is_not_retained_approval_authority(string state)
+    {
+        var (_, submission, policy, _, _, _) = Ready();
+        policy.State = state;
+        Assert.False(PlanReviewPinnedPolicy.Matches(policy, submission));
+    }
+
+    [Fact]
+    public void Changed_pinned_rules_are_denied_after_replacement()
+    {
+        var (_, submission, policy, _, _, _) = Ready();
+        policy.State = "Superseded";
+        policy.RulesJson = policy.RulesJson.Replace("\"Any\"", "\"All\"");
+        Assert.False(PlanReviewPinnedPolicy.Matches(policy, submission));
+    }
+
     [Fact]
     public void Pinned_maker_alias_blocks_later_same_person_decision()
     {
@@ -141,6 +206,7 @@ public sealed class PlanReviewCoreWorkflowTests
             TenantId = "tenant", LegalEntityId = Company,
             PolicyKey = PlanReviewPolicyRules.PolicyKey, PolicyVersionNumber = 1,
             State = "Published", EffectiveFrom = DateTimeOffset.UtcNow.AddDays(-1),
+            PublishedAt = DateTimeOffset.UtcNow.AddDays(-2),
             RulesJson = JsonSerializer.Serialize(new { schemaVersion = 2, stages = new object[]
             {
                 new { purpose = "Review", mode = "Any", requiredApprovals = 1,
@@ -155,7 +221,7 @@ public sealed class PlanReviewCoreWorkflowTests
             BranchRef = Branch, SubmittedPlanVersion = 2, CoreApprovalCaseId = Guid.NewGuid(),
             PolicyVersionId = policy.Id, PolicyVersionNumber = 1,
             PolicyRulesSha256 = ProcurementEvidenceEncoding.PolicyJsonDigest(policy.RulesJson),
-            MakerSubjectId = Maker.ToString("D"), CurrencyCode = "ZMW",
+            MakerSubjectId = Maker.ToString("D"), CurrencyCode = "ZMW", SubmittedAt = DateTimeOffset.UtcNow,
             EstimatedAmount = snapshot.EstimatedAmount,
             SnapshotJson = snapshot.Json, SnapshotSha256 = snapshot.Sha256,
         };
