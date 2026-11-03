@@ -64,7 +64,7 @@ public static partial class ProcurementSourcingExecutionRoutes
             var change = CommercialRoundPlanDraft.Revise(graph.Plan, graph.Revision, input.ExpectedPlanVersion,
                 new(scope.SubjectId, scope.CoreLinkedWorkerId), draft, zone, operation, input.Reason?.Trim(), key, hash,
                 ProcurementEvidenceEncoding.DatabaseTimestamp(DateTimeOffset.UtcNow)!.Value);
-           
+
             db.StageCommercialRoundPlan(change); RoundRecord(db, scope, change);
             await db.SaveChangesAsync(token);
             return new(change.Receipt.ResponseJson, change.Receipt.ResponseStatusCode);
