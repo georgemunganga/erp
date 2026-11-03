@@ -1,6 +1,6 @@
 # M7B1 private SQL-role acceptance — 3 November 2026
 
-Status: **bounded private database, Core-cookie API and current-access acceptance passed; actual original-UI browser acceptance and production activation remain open.** Parent issue #145 remains NOT READY. This checkpoint belongs to #162 / draft PR #165.
+Status: **bounded private database, Core-cookie API, current-access and corrected original-UI continuation acceptance passed; paired production release and activation remain open.** Parent issue #145 remains NOT READY. This checkpoint belongs to #162 / draft PR #165.
 
 ## Accepted source and database boundary
 
@@ -96,3 +96,16 @@ Independent native reconciliation passed the saved version1 graph, exact origina
 A separate rollback-only test then granted the exact22 minimal barrier read columns to the existing M4 execution role within a transaction, used `SET LOCAL ROLE`, and attempted the old-style Draft→Published transition. The installed trigger rejected it with SQLSTATE55000; all grants and row effects rolled back, with complete before/after UI-clone/source/protected-native equality. Receipt SHA-256: `9e1863dff7a93a60d076c5f685e26ca9a64ecc4abe21aee29bc15d3169b62eec`. This proves the trigger under that effective minimal role, not direct LOGIN, an actual old binary, or current compiled B1 provider results for that role.
 
 A successor UI build and a narrow continuation against the retained version1 are required: verify the fixed All read, then execute only the remaining Revise/Cancel commands. Actual browser/owner acceptance and release remain open.
+
+
+## Corrected original-UI continuation and cumulative acceptance
+
+The minimal shared-shell normalization fix is product `26d4ef1924b508a4ca33a184ec21500691003b3f`. Its actual-shell-shape regression/cohort passed37 focused cases, whole product type checking and a genuine offline Vite build. Successor artifact manifest SHA-256: `b32bbf80818649906aff993fbfa8666d0334899ecd4dcddec8358dd46777c61c`. The original8dca artifact and failed run remain unchanged.
+
+A separate actual Playwright continuation used the retained version1 rather than creating another record: B verified the original Create GET201/raw response hash, current All-branch view and history; C revised to version2, cancelled to version3 with a required reason, verified immutable historical views and retained All reads, and received404 for B's original command key. Both normal logouts succeeded; zero page errors and no unexpected business writes occurred. Durable protected intent records were flushed before the two commands, with exact raw response evidence saved before interpretation. Actual continuation receipt SHA-256: `b8041ebe50fa4a78cfcdd452927dd43f5f57b91c67ec9c303f634f88737fef6c`.
+
+Independent cumulative database reconciliation passed all three original commands, the B/C/C immutable revision chain, four criterion rows and three participant rows, 20 Procurement audits, three outboxes, nine Core authentication audits and three logout events. It reconstructed the earlier version1 snapshots and original B session/audit/outbox byte hashes, preserved unrelated business records and original sessions, and verified all three new sessions were revoked. Source and the separately protected earlier native graph remained exact. Receipt SHA-256: `1785d682717ce40a885810bda03bcf20606136dceba486f5fcade84a44321b6f`.
+
+The temporary three Core actions were then removed by exact restoration of the original single existing role row, retaining all business/history/authentication records. Restore receipt SHA-256: `fd9c452dfc6f5dc0085258446582bf780136fcf257c753075f73f953ab7561db`. Test API/proxy services are stopped. The finite private database role remains an isolated fixture, not a production grant or new identity.
+
+This is accepted corrected-continuation evidence, not a retroactive pass for the first browser run, not three fresh commands on the successor UI, and not whole Procurement UAT. No production source, schema, policy, permission or feature flag was changed by these tests. Cross-tenant native acceptance, marker-only retention and actual old-binary compatibility are not claimed; future formal submission/evaluation/award remains outside B1.
