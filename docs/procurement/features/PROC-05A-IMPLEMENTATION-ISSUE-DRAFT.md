@@ -1,6 +1,6 @@
-# Issue draft: PROC-05A governed plan review
+# PROC-05A governed plan review — implementation issue
 
-**Status:** Review before opening an implementation issue. **Source:** [28-section child specification](PROC-05A-GOVERNED-PLAN-REVIEW.md). **Baseline:** ERP `61d5a608f9cc6069bcf8d06ef51bdca036fd8d47`.
+**Status:** Source groundwork authorized; business configuration and live activation remain pending. **Source:** [28-section child specification](PROC-05A-GOVERNED-PLAN-REVIEW.md). **Baseline:** ERP `61d5a608f9cc6069bcf8d06ef51bdca036fd8d47`.
 
 ## Problem
 
