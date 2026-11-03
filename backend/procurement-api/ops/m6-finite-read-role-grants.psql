@@ -6,13 +6,15 @@
 \set ON_ERROR_STOP on
 \if :{?expected_database}
 \else
-\echo 'expected_database is required'
-\quit 3
+DO $required_database$ BEGIN
+  RAISE EXCEPTION 'expected_database is required' USING ERRCODE='22023';
+END $required_database$;
 \endif
 \if :{?expected_system_identifier}
 \else
-\echo 'expected_system_identifier is required'
-\quit 3
+DO $required_cluster$ BEGIN
+  RAISE EXCEPTION 'expected_system_identifier is required' USING ERRCODE='22023';
+END $required_cluster$;
 \endif
 BEGIN;
 SET LOCAL lock_timeout = '3s';
