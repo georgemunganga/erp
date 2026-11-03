@@ -98,6 +98,7 @@ public static class ProcurementHostIntegration
         services.AddScoped<IProcurementManualPaymentGovernanceReadiness>(sp => new ProcurementManualPaymentGovernanceReadiness(
             executionConnection ?? "", sp.GetRequiredService<ProcurementRequestScope>(),
             sp.GetRequiredService<ILogger<ProcurementManualPaymentGovernanceReadiness>>()));
+        services.AddScoped<IProcurementManualPaymentReadReadiness, ProcurementManualPaymentReadSchemaReadiness>();
         services.AddSingleton<IProcurementInvoiceUnitReviewSchemaReadiness, ProcurementInvoiceUnitReviewSchemaReadiness>();
         services.AddScoped<IInvoiceHistoricalExposureOwner, UnavailableInvoiceHistoricalExposureOwner>();
         services.AddScoped<IInvoiceMappingEvidenceReviewer, UnavailableInvoiceMappingEvidenceReviewer>();
@@ -315,6 +316,7 @@ public static class ProcurementHostIntegration
                             && app.Configuration.GetValue<bool>("Procurement:InvoiceCurrencyCalculation:CaptureEnabled")
                             && await ProcurementInvoiceIntakeRoutes.CurrencyCalculationReady(db, app.Configuration, ct, capture: true),
                         vendorCreditDraft = !pending,
+                        manualPaymentRead = await ProcurementManualPaymentRoutes.ReadCapability(scope, http, pending, ct),
                         manualPaymentWorkflow = !pending
                             && services.GetRequiredService<ProcurementManualPaymentOptions>().Enabled
                             && services.GetRequiredService<ProcurementManualPaymentOptions>().ExecutionDatabaseConfigured

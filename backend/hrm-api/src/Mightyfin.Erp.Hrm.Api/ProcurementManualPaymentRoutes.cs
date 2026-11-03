@@ -33,18 +33,26 @@ public static partial class ProcurementManualPaymentRoutes
     private static async Task<IResult> Run(HttpContext http, ProcurementRequestScope scope,
         ProcurementApprovalTransaction transaction, IAuthorizationService authorization,
         Func<ProcurementDbContext, ApprovalDbContext, HrmDbContext, ProcurementPrincipalPeople.Person,
-            Guid[], CancellationToken, Task<object>> read, CancellationToken ct)
+            Guid[], CancellationToken, Task<object>> read, CancellationToken ct, bool retainedRead = false)
     {
         http.Response.Headers.CacheControl = "no-store";
         try
         {
             var readiness = http.RequestServices.GetService<IProcurementManualPaymentGovernanceReadiness>();
             var options = http.RequestServices.GetService<ProcurementManualPaymentOptions>();
-            if (options is not { Enabled: true, ExecutionDatabaseConfigured: true }
-                || readiness is null || !await readiness.IsReadyAsync(ct))
+            if (retainedRead ? !RetainedReadConfigured(options)
+                    || http.RequestServices.GetService<IProcurementManualPaymentReadReadiness>() is null
+                : options is not { Enabled: true, ExecutionDatabaseConfigured: true }
+                    || readiness is null || !await readiness.IsReadyAsync(ct))
                 throw new ReadProblem("ManualPaymentGovernanceUnavailable", 503);
             var result = await transaction.ExecuteAsync(async (db, cases, token) =>
             {
+                if (retainedRead)
+                {
+                    if (!await RetainedStoreReadableAsync(db,
+                        http.RequestServices.GetRequiredService<IProcurementManualPaymentReadReadiness>(), token))
+                        throw new ReadProblem("ManualPaymentReadSchemaUnavailable", 503);
+                }
                 await using var core = await ProcurementApprovalExecutionLocks.CoreAsync(db, scope, token);
                 var person = await Actor(core, scope, http, authorization, "procurement-payment-read", token);
                 var branches = await ProcurementExecutionRecordScope.Branches(core, scope, null, false, token);
@@ -84,12 +92,15 @@ public static partial class ProcurementManualPaymentRoutes
         return person;
     }
 
-    private static IQueryable<ManualPaymentRequest> Visible(ProcurementDbContext db, ProcurementRequestScope scope,
+    internal static IQueryable<ManualPaymentRequest> Visible(IQueryable<ManualPaymentRequest> query, ProcurementRequestScope scope,
         ProcurementPrincipalPeople.Person person, Guid[] branches)
     {
+        if (person.PrincipalId != scope.SubjectId || scope.PrincipalId?.ToString("D") != scope.SubjectId
+            || !person.Permissions.Contains("procurement-payment-read"))
+            throw new UnauthorizedAccessException("ManualPaymentCurrentReadRequired");
         if (scope.OrgUnitId is not null || scope.IsConfined && scope.WorkLocationId is null && !scope.IsExplicitAllBranches)
             throw new UnauthorizedAccessException("ManualPaymentCurrentScopeRequired");
-        var query = db.ManualPaymentRequests.AsNoTracking();
+        query = query.Where(x => x.TenantId == scope.TenantId && x.LegalEntityId == scope.LegalEntityId);
         if (scope.WorkLocationId is { } selected) query = query.Where(x => x.BranchId == selected);
         // Core account grants are applied before count/search/page. An account with no
         // branch assignments has the existing organisation-wide Core read scope.
@@ -113,7 +124,7 @@ public static partial class ProcurementManualPaymentRoutes
                 || status is { Length: > 40 } || status is not null && status.Any(char.IsControl)
                 || invoiceId == Guid.Empty || supplierId == Guid.Empty)
                 throw new ArgumentException("ManualPaymentQueryInvalid");
-            var query = Visible(db, scope, person, branches);
+            var query = Visible(db.ManualPaymentRequests.AsNoTracking(), scope, person, branches);
             if (status is not null) query = query.Where(x => x.Status == status);
             if (invoiceId is { } invoice) query = query.Where(x => x.SupplierInvoiceId == invoice);
             if (supplierId is { } supplier) query = query.Where(x => x.SupplierId == supplier);
@@ -128,13 +139,13 @@ public static partial class ProcurementManualPaymentRoutes
                 .Skip((number - 1) * size).Take(size).ToArrayAsync(token);
             var labels = await PaymentInvoiceLabels(db, scope, rows, token);
             return new { items = rows.Select(x => Summary(x, labels[x.SupplierInvoiceId])).ToArray(), total, page = number, pageSize = size };
-        }, ct);
+        }, ct, retainedRead: true);
 
     private static async Task<IResult> Detail(Guid id, HttpContext http, ProcurementRequestScope scope,
         ProcurementApprovalTransaction transaction, IAuthorizationService authorization, CancellationToken ct)
         => await Run(http, scope, transaction, authorization, async (db, cases, core, person, branches, token) =>
         {
-            var request = await Visible(db, scope, person, branches).SingleOrDefaultAsync(x => x.Id == id, token)
+            var request = await Visible(db.ManualPaymentRequests.AsNoTracking(), scope, person, branches).SingleOrDefaultAsync(x => x.Id == id, token)
                 ?? throw new KeyNotFoundException();
             var invoiceLabels = await PaymentInvoiceLabels(db, scope, [request], token);
             var invoiceLabel = invoiceLabels[request.SupplierInvoiceId];
@@ -178,6 +189,9 @@ public static partial class ProcurementManualPaymentRoutes
                     : x.ManualAction is "Reject" or "Dispute" ? "Reject" : x.ManualAction == "Return" ? "Return" : "Cancel")))
                 throw new ReadProblem("ManualPaymentCoreHistoryUnavailable", 503);
             var people = await DetailPeople(core, scope, request, decisions, links, linkedDecisions, token);
+            var branchLabel = await core.WorkLocations.AsNoTracking().Where(x => x.TenantId == scope.TenantId
+                && x.LegalEntityId == scope.LegalEntityId && x.Id == request.BranchId)
+                .Select(x => new { x.Id, x.Code, x.Name }).SingleOrDefaultAsync(token);
             // This is a display hint from the current Core company setting. Record and
             // Confirm obtain a fresh independent observation in their command transaction.
             var observedClock = await new CoreCompanyBusinessDateProvider(core,
@@ -210,6 +224,9 @@ public static partial class ProcurementManualPaymentRoutes
                     x.CoreApprovalDecisionId, x.ManualAction, x.ActorPrincipalId, x.DecidedAt,
                     coreAction = coreDecisionById[x.CoreApprovalDecisionId].Action }).ToArray(),
                 people,
+                currentAccount = new { principalId = scope.SubjectId,
+                    displayName = people.SingleOrDefault(x => x.PrincipalId == scope.SubjectId)?.DisplayName },
+                branch = branchLabel,
                 companyClock = new { date = observedClock.Date, timeZoneId = observedClock.TimeZoneId,
                     observedAtUtc = observedClock.ObservedAtUtc },
                 sourceInvoice = new { invoiceId = invoiceLabel.InvoiceId, invoiceLabel.InvoiceNumber,
@@ -217,7 +234,7 @@ public static partial class ProcurementManualPaymentRoutes
                     invoiceLabel.CurrencyCode, grossExact = ProcurementEvidenceEncoding.Decimal(invoiceLabel.GrossAmount),
                     invoiceLabel.InvoiceDate, branchId = request.BranchId }
             };
-        }, ct);
+        }, ct, retainedRead: true);
 
     private static Task<IResult> Receipt(Guid id, Guid key, HttpContext http, ProcurementRequestScope scope,
         ProcurementApprovalTransaction transaction, IAuthorizationService authorization, CancellationToken ct)
@@ -232,16 +249,13 @@ public static partial class ProcurementManualPaymentRoutes
         => await Run(http, scope, transaction, authorization, async (db, cases, core, person, branches, token) =>
         {
             if (key == Guid.Empty) throw new ArgumentException("ManualPaymentCommandKeyInvalid");
-            var visible = Visible(db, scope, person, branches);
-            var found = await (from candidateReceipt in db.ManualPaymentReceipts.AsNoTracking()
-                join candidateRequest in visible on candidateReceipt.ManualPaymentRequestId equals candidateRequest.Id
-                where candidateReceipt.CommandKey == key && candidateReceipt.ActorPrincipalId == scope.SubjectId
-                    && candidateReceipt.BranchId == candidateRequest.BranchId && (id == null || candidateRequest.Id == id)
-                select new { receipt = candidateReceipt, request = candidateRequest }).SingleOrDefaultAsync(token) ?? throw new KeyNotFoundException();
+            var found = await RetainedReceiptQuery(db.ManualPaymentRequests.AsNoTracking(), db.ManualPaymentReceipts.AsNoTracking(),
+                scope, person, branches, id, key).SingleOrDefaultAsync(token) ?? throw new KeyNotFoundException();
             var receipt = found.receipt;
             var request = found.request;
-            var action = CommandAction(receipt.Action);
-            await Actor(core, scope, http, authorization, action, token);
+            // Reading an original result executes no original command. Current read
+            // authority and the actor/record query above replace the old write grant.
+            _ = CommandAction(receipt.Action);
             var decision = await db.ManualPaymentDecisions.AsNoTracking().SingleOrDefaultAsync(x =>
                 x.ManualPaymentRequestId == request.Id && x.BranchId == request.BranchId
                 && x.ToVersion == receipt.ResultVersion && x.Action == receipt.Action
@@ -259,7 +273,7 @@ public static partial class ProcurementManualPaymentRoutes
             // a body hash, bank details, or a later current request state.
             return new { id = request.Id, version = receipt.ResultVersion, status = decision.ToStatus,
                 action = receipt.Action, commandKey = key };
-        }, ct);
+        }, ct, retainedRead: true);
 
     private static object Summary(ManualPaymentRequest x, PaymentInvoiceLabel label) => new
     {

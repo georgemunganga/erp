@@ -4,6 +4,18 @@ Status: implementation in progress; not deployed. Supersedes the earlier assumpt
 
 The historical filename is retained for existing links. The canonical feature ID is `PROC-PAY-01`; `PROC-12` remains the supplier-portal feature in the module map. Domain/storage/Core-clock implementation does not mean a live payment API or completed UI integration.
 
+**Retained-read source milestone (3 November 2026):** Separate `manualPaymentRead` metadata is computed from the configured execution database, current Core read authority and scope, and the actual finite SELECT-ready profile. It is independent of `Procurement:ManualPayments:Enabled`; no second read feature switch is needed. This source change does not establish SDK, native-role, real-cookie, production or feature activation. The UI's compatibility boundary will be integrated separately.
+
+## Retained payment READ verification — 3 November 2026
+
+Backend prerequisite for ERP issue #155 / PR #156: tested source `b61ddf7311d2e3f8d34d826ce59a66c11f287638` passed 253 focused Host cases, offline publication and independent review. The shared ownership guard now also rejects Core Approval namespace owners in both read and full-governance inspection. No new migration, administrator toggle, employee requirement or Finance execution is introduced.
+
+Actual normal Core-cookie acceptance passed on a separately upgraded synthetic fixture with seven retained requests and 28 command receipts. Both accounts were workerless and granted only Procurement access/payment READ. Payment/approval processing was disabled; the general module connection could not read payment receipts, while the separate finite execution connection had the required SELECT projections and no business/Core identity writes. List, detail, Company All filtering and original-actor command recovery passed, including the original version-1 Draft acknowledgment after the request advanced. Another reader could inspect the permitted business record but received 404 for the first actor's command key. Wrong branch/company requests were denied. Revoking current READ denied the existing session; reassigning its branch filtered Company All and denied the original key. All temporary role/scope changes were restored.
+
+Actual unsafe-namespace-owner and revoked-receipt-SELECT checks each made `manualPaymentRead=false` and retained detail return 503. Restoring the original owner, full semantic ACL (including grantor), effective rights and receipt SELECT restored true/200. The owner negative had CREATE revoked and owned no contained objects. The 100 original Procurement/Core Approval table projections, including all seven requests and 28 receipts, remained unchanged; actual read-only transactions and no-write SQL roles additionally protect the newly migrated tables. Core authentication/session writes are reported separately.
+
+Private evidence: final SDK binding SHA `feb516186a2d8a2a12cf6dd5de84a779ea202bad51e84ef03338ee51f6c730aa`; `procurement-manual-payment-read-native-http-20261103_run02`; `procurement-manual-payment-read-native-negatives-20261103_run04`. Failed harness/migration attempts remain retained. The older source snapshot required genuine missing-migration upgrades, including the explicitly reviewed P25 history gap; no migration history was fabricated and all 197 original-source table fingerprints remained unchanged. This is private backend acceptance. Existing-screen UI integration, Playwright, native UI acceptance, test-session cleanup and production deployment remain required; payment processing and whole-module UAT are not certified by it.
+
 ## 1. Feature Identification
 PROC-PAY-01; Procurement manual payment requests, assigned review and external-payment recording.
 ## 2. Purpose & Business Outcome
@@ -24,6 +36,8 @@ Draft → Pending Approval → Approved → Payment Recorded → Confirmed Manua
 Draft, PendingApproval, Approved, PaymentRecorded, ConfirmedManually, Rejected, Cancelled, Disputed. PaymentRecorded can be disputed; disputed/confirmed history is retained, never deleted or silently overwritten. Refunds/corrections require a separately linked controlled record; disputing never claims money returned.
 ## 10. Permissions & Data Scope
 Core actions `procurement-payment-read/create/edit/submit/approve/record/confirm/cancel` (each suffix forms a separate hyphenated action ID). Company and allowed branch constraints apply to list/detail/mutation/search/export and every assignment. Header All branches is a read context, not permission. Transaction branch is required. Initial branch defaults from authorized Core settings; never manufacture access.
+Retained list/detail/history and original-key GET require a current active Core account, `procurement-payment-read` and current tenant/company/branch record scope. A key additionally requires the original command actor. Historical write grants are not read authority: losing `create`, `record` or another original action grant does not by itself erase access to its own recorded result when current read/scope remain valid. Revoked read, another actor, another company/branch and malformed evidence remain denied. No employment link is required.
+
 ## 11. Business Rules
 Exact positive amount, at most four fractional places, same supplier/invoice/currency, one approved amount per request. Creator cannot approve own request; assigned recorder cannot confirm own payment. A creator cannot be assigned as approver and recorder cannot be assigned as confirmer. Approval alone creates no payment. Record must equal approved amount; smaller installments use separate requests. The current Core company business date bounds the entered payment date; UTC server timestamps record approval and recording actions. Every mutation requires current CAS version; denied actions produce no payment mutation.
 
@@ -34,6 +48,8 @@ Capacity exclusions are bound to the exact updated payment request and are forbi
 Procurement owns request ID, optional title (200 characters), tenant/company/branch, invoice/supplier refs, currency/amount, creator and assigned Core principals, status/version, approval decision, actual recorded date/method/reference, confirmation/dispute reason and audit. Core owns account/grants/branch. Finance owns posting, bank reconciliation and imported outcomes. No raw banking credentials.
 ## 13. Screens & Data Views
 Keep Payments and Batch Payments navigation. Reuse existing list, empty state, detail and editor. Display manual records as Manual; display imported outcomes as Finance-synced. Draft, approval, record and confirm actions depend on server action flags. Unavailable batch bank execution must not disable individual manual recording.
+Retained detail adds purpose-limited `currentAccount` principal/display-name and `branch` ID/code/name projections, together with the existing participant name map. They come from Core only after the payment record is authorized; account/password/session directories and unrelated HR records are not exposed. IDs remain in relationships. These labels create no new permission and do not synthesize a missing name.
+
 ## 14. User Experience / Human Behaviour
 Plain labels: Request payment, Send for approval, Record payment, Confirm payment, Report a problem. Explain Record payment saves details of a payment already made; it does not send money. Preserve inputs after validation/conflict. Show a company/branch summary before save.
 ## 15. Notifications & Communications
@@ -50,6 +66,10 @@ Append-only decisions and original values; server principal/time/scope, delegati
 Requested/approved/recorded/confirmed totals by branch, supplier, currency and period; pending tasks and age; manual and Finance totals must not double count matched outcomes. No estimated ledger balance.
 ## 21. Configuration & Localization
 Core company currency/default branch and trusted company business date; module-specific manual-payment enablement and assignment rules. ISO dates/exact decimal storage, localized display. No hard-coded Lusaka ID, time zone, currency or spend threshold.
+The configured execution database and actual read readiness permit retained GETs only, independently of `Enabled`. `Enabled` and the existing full governance profile remain required for mutations and draft/assignment lookups; no current policy, supplier eligibility or document-uploader state is needed to inspect retained history. Optional `manualPaymentRead` is false when absent in clients; older enabled `manualPaymentWorkflow` clients retain their existing behavior. The new finite profile requires the exact installed P28/owner-baseline catalog and restored-check alternatives plus required SELECT/Core-column projections, without positive INSERT/UPDATE requirements. It rejects powerful/owner roles, Core identity writes, destructive retained-evidence privileges and Finance payment writes. Existing finite writer roles may also satisfy the read profile without changing their write controls.
+
+Retained GETs and their `manualPaymentRead` metadata check enter the same execution-connection coordinator and shared session fences, set PostgreSQL `transaction_read_only=on` before record/Core queries, and use no tracked business mutations. The general module connection still supplies the endpoint's pending-model check; its database role does not establish the payment read capability. No generic approval engine is changed. Actual provider/role/flags-off and current-access tests are required before this source can be described as integrated or live.
+
 ## 22. Non-Functional Requirements
 Atomic transitions, concurrency control, scoped pagination, actionable errors, accessible shared controls and retained recovery receipts. Never rely on frontend permission hiding.
 ## 23. Postconditions
@@ -62,6 +82,8 @@ Once manual-payment data exists, application rollback must retain the payment-aw
 A system-only user completes a properly assigned manual request through independent confirmation; absent Finance and attachments do not block it. Self-approval, self-confirmation, unauthorized branch/account/action, stale version and overpayment are denied. Reload reproduces actual persisted values and history. No AP, payment rail or Finance-synced row is fabricated.
 ## 26. Test Scenarios
 Actual domain rule tests; mapped authorization/API and owning-store tests; genuine migration and PostgreSQL constraints/concurrency/receipt tests; actual Playwright create/edit/submit/approve/record/confirm/reload, empty/denied/conflict and interrupted-response recovery. Mocked browser tests are labelled separately.
+Retained-read focused source tests cover enabled/read-only configuration, workerless read-only original actors, changed current state versus original acknowledgment, foreign actors/branches/company/tenant, revoked read, wrong targets/keys, and the finite SELECT/label projections. They do not substitute for actual PostgreSQL SQL admission, strict privilege withdrawal, normal-cookie UI/GET recovery, or independent no-effect owner reconciliation. Those remain separate acceptance gates.
+
 ## 27. Ownership / Dependencies
 Procurement owns manual business decisions; Core provides real identity/access/workflow/audit infrastructure. Future Finance adapter owns reconciliation. Preserve P24 published baseline; no P25 dependency is required for this slice.
 ## 28. Open Decisions / Assumptions
