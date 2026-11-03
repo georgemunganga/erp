@@ -26,6 +26,28 @@ public sealed class ProcurementPrincipalQuotationScopeTests
         // Context selection is not a permission or branch-assignment grant.
     }
 
+    [Theory]
+    [InlineData("selected", true)]
+    [InlineData("all-permitted", true)]
+    [InlineData("all-other", false)]
+    [InlineData("wrong-selected", false)]
+    [InlineData("unconfined-all", true)]
+    public void Retained_demand_binds_only_the_currently_admitted_source_branch(string mode, bool allowed)
+    {
+        var branch = Guid.NewGuid(); var other = Guid.NewGuid(); var parent = new ProcurementRequestScope();
+        var all = mode.Contains("all");
+        parent.Set("tenant-a", Guid.NewGuid(), Guid.NewGuid().ToString("D"),
+            all ? null : mode == "wrong-selected" ? other : branch, null,
+            mode != "unconfined-all", "quotation-retained", all,
+            mode == "all-permitted" ? new[] { branch } : new[] { other });
+        if (!allowed) { Assert.Throws<UnauthorizedAccessException>(() => QuotationRetainedDemandScope(parent, branch)); return; }
+        var bound = QuotationRetainedDemandScope(parent, branch);
+        Assert.Equal(branch, bound.WorkLocationId); Assert.True(bound.IsConfined); Assert.False(bound.IsExplicitAllBranches);
+        Assert.Equal(parent.TenantId, bound.TenantId); Assert.Equal(parent.LegalEntityId, bound.LegalEntityId);
+        Assert.Equal(parent.SubjectId, bound.SubjectId); Assert.Null(bound.WorkerId);
+        Assert.Equal(all, parent.IsExplicitAllBranches); // Parent context is not changed.
+    }
+
     [Fact]
     public void Raw_All_cannot_become_a_default_branch_write()
     {

@@ -127,6 +127,32 @@ public static partial class ProcurementSourcingExecutionRoutes
         return ev;
     }
 
+    // A retained demand loader expects a concrete branch. Bind only the source
+    // branch already admitted by current record authorization; never widen the
+    // shared loader or turn a company All read into fresh-write authority.
+    internal static IProcurementScope QuotationRetainedDemandScope(ProcurementRequestScope parent, Guid? branch)
+    {
+        if (branch is null || parent.OrgUnitId is not null
+            || parent.WorkLocationId is { } selected && selected != branch
+            || parent.IsConfined && (parent.IsExplicitAllBranches
+                ? !parent.PermittedWorkLocationIds.Contains(branch.Value) : parent.WorkLocationId != branch))
+            throw new UnauthorizedAccessException("Quotation source is outside the current branch scope.");
+        return new QuotationSourceBranchScope(parent, branch.Value);
+    }
+
+    private sealed record QuotationSourceBranchScope(ProcurementRequestScope Parent, Guid Branch) : IProcurementScope
+    {
+        public string TenantId => Parent.TenantId;
+        public Guid LegalEntityId => Parent.LegalEntityId;
+        public string SubjectId => Parent.SubjectId;
+        public Guid? WorkLocationId => Branch;
+        public Guid? OrgUnitId => null;
+        public bool IsConfined => true;
+        public Guid? WorkerId => Parent.WorkerId;
+        public Guid? CoreLinkedWorkerId => Parent.CoreLinkedWorkerId;
+        public string? CorrelationId => Parent.CorrelationId;
+    }
+
     private static async Task<PublishedEvidence> QuotationRetainedSource(ProcurementDbContext db, ApprovalDbContext cases,
         ProcurementRequestScope scope, SourcingEvent source, CancellationToken ct)
     {
@@ -135,8 +161,9 @@ public static partial class ProcurementSourcingExecutionRoutes
         var bindings = retained.Lines.Select(x => x.Binding).ToArray();
         var draft = GovernedPrincipalRfqRestoration.RestoreVerified(original, source, bindings);
         var sources = new List<ApprovedPurchaseSource>();
+        var demandScope = QuotationRetainedDemandScope(scope, source.BranchRef);
         foreach (var binding in bindings)
-            sources.Add(await ApprovedDemandSourceLoader.LoadRetainedAsync(db, cases, scope,
+            sources.Add(await ApprovedDemandSourceLoader.LoadRetainedAsync(db, cases, demandScope,
                 binding.PurchaseRequestId, binding.PurchaseRequestLineId,
                 new(binding.SubmissionId, binding.ApprovalOutcomeId, binding.MethodId), ct));
         GovernedPrincipalRfqRestoration.VerifyHistorical(draft, sources);
