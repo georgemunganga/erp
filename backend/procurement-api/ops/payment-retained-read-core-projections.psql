@@ -35,7 +35,7 @@ BEGIN
     RAISE EXCEPTION 'A limited, non-owner execution role is required';
   END IF;
   IF EXISTS(SELECT 1 FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace
-    WHERE n.nspname='hrm' AND c.relkind IN ('r','p')
+    WHERE n.nspname='hrm' AND c.relkind IN ('r','p','v','f')
       AND (has_table_privilege('erp_proc_execute_finite_v1',c.oid,'INSERT,UPDATE,DELETE,TRUNCATE')
         OR has_any_column_privilege('erp_proc_execute_finite_v1',c.oid,'INSERT,UPDATE'))) THEN
     RAISE EXCEPTION 'Execution must not write Core/HRM records';
