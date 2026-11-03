@@ -130,6 +130,8 @@ public sealed class ProcurementPlanReviewSchemaReadiness(IConfiguration configur
         "NOT EXISTS(SELECT 1 FROM pg_roles WHERE rolname=current_user AND (rolsuper OR rolcreatedb OR rolcreaterole OR rolreplication OR rolbypassrls))",
         ProcurementSpendingAuthorityIdentitySchemaReadiness.NoOwnershipSql,
         ProcurementSpendingAuthorityIdentitySchemaReadiness.NoCoreIdentityWritesSql,
+        ProcurementCoreReadProjectionGuard.Sql,
+        SubmissionImmutableColumnsSql,
         "has_schema_privilege(current_user,'hrm','USAGE')",
         "NOT EXISTS(SELECT 1 FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname IN ('procurement','core_approval') AND (pg_has_role(current_user,c.relowner,'MEMBER') OR pg_has_role(current_user,c.relowner,'SET')))"
     }.Concat(new[] { "procurement.procurement_plans", "procurement.procurement_plan_lines",
@@ -152,6 +154,8 @@ public sealed class ProcurementPlanReviewSchemaReadiness(IConfiguration configur
         "NOT EXISTS(SELECT 1 FROM pg_roles WHERE rolname=current_user AND (rolsuper OR rolcreatedb OR rolcreaterole OR rolreplication OR rolbypassrls))",
         ProcurementSpendingAuthorityIdentitySchemaReadiness.NoOwnershipSql,
         ProcurementSpendingAuthorityIdentitySchemaReadiness.NoCoreIdentityWritesSql,
+        ProcurementCoreReadProjectionGuard.Sql,
+        SubmissionImmutableColumnsSql,
         "NOT EXISTS(SELECT 1 FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace WHERE ((n.nspname='procurement' AND c.relname IN ('procurement_plans','procurement_plan_lines','plan_review_submissions','plan_review_command_receipts','policy_versions','operational_policy_identity_evidence')) OR n.nspname='core_approval') AND (pg_has_role(current_user,c.relowner,'MEMBER') OR pg_has_role(current_user,c.relowner,'SET')))",
         "has_schema_privilege(current_user,'hrm','USAGE')",
     }.Concat(new[] { "procurement.procurement_plans", "procurement.procurement_plan_lines",
@@ -160,9 +164,12 @@ public sealed class ProcurementPlanReviewSchemaReadiness(IConfiguration configur
             "core_approval.cases", "core_approval.stages", "core_approval.assignments",
             "core_approval.decisions" }
         .Select(x => "has_table_privilege(current_user," + Literal(x) + ",'SELECT')"))
-      .Concat(new[] { "procurement.procurement_plans", "procurement.plan_review_submissions",
+      .Concat(new[] { "procurement.procurement_plans",
             "core_approval.cases", "core_approval.stages", "core_approval.assignments" }
         .Select(x => "has_table_privilege(current_user," + Literal(x) + ",'UPDATE')"))
+      .Concat(SubmissionUpdateColumns.Select(column =>
+          "has_column_privilege(current_user,'procurement.plan_review_submissions',"
+              + Literal(column) + ",'UPDATE')"))
       .Concat(new[] { "procurement.plan_review_submissions", "procurement.plan_review_command_receipts",
             "procurement.audit_events", "procurement.outbox_events", "core_approval.cases",
             "core_approval.stages", "core_approval.assignments", "core_approval.decisions" }
@@ -185,6 +192,24 @@ public sealed class ProcurementPlanReviewSchemaReadiness(IConfiguration configur
       .Concat(CoreColumns.SelectMany(projection => projection.Value.Select(column =>
           "has_column_privilege(current_user," + Literal(projection.Key) + ","
               + Literal(column) + ",'SELECT')"))));
+
+    // Tracked terminal transitions change State/CompletedAt; the shared DbContext
+    // stamps UpdatedAt/UpdatedBy/Version. No source, policy, maker or snapshot
+    // column needs UPDATE, including for INSERT or the parent plan's row lock.
+    internal static readonly IReadOnlyList<string> SubmissionUpdateColumns = Array.AsReadOnly(new[]
+    {
+        "state", "completed_at", "updated_at", "updated_by", "version",
+    });
+
+    // Inspect effective privileges, not just direct ACL rows: a table-level,
+    // PUBLIC or inherited UPDATE on any current/future sealed column fails.
+    // Apply to readers too, without requiring any transition UPDATE authority.
+    internal static readonly string SubmissionImmutableColumnsSql =
+        "NOT EXISTS(SELECT 1 FROM pg_attribute a "
+        + "WHERE a.attrelid='procurement.plan_review_submissions'::regclass "
+        + "AND a.attnum>0 AND NOT a.attisdropped "
+        + "AND a.attname NOT IN (" + string.Join(",", SubmissionUpdateColumns.Select(Literal)) + ") "
+        + "AND has_column_privilege(current_user,a.attrelid,a.attnum,'UPDATE'))";
 
     // Exact projection used by current Core people and optional worker alias
     // resolution. No password, session, payroll or unrelated HR fields.
