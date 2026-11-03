@@ -33,3 +33,14 @@ The two committed test fixtures contain only the B1 catalog projection, includin
 ## Release holds
 
 Root must independently review the exact pairs and code, run the focused/new and affected Host tests, emit the actual new compiled fingerprint SQL, and prove it returns the original captured hash on both existing direct and true-restored native databases. Actual malformed-definition/disabled-trigger/finite-role checks remain required before shipping or claiming restored-provider acceptance. Preserve the original pub29 `f7d9...` failure and all existing native evidence. Keep feature flags and current permission/grant boundaries unchanged. No build, SQL execution, runtime, deployment or production change is authorized by this source document.
+
+
+## Subsequent Root verification — 3 November 2026
+
+The six backend/test files from hotfix `e6d87c5c` are byte-identical in the combined Plan candidate `6e85bdc8`. That actual candidate passed all 548 Host cases with zero failures/skips, including all 20 `ProcurementCommercialRoundRestoredShapeTests` cases. The source binding is `f970f4bd64c4f2795eea5b18e8bcb60988090add3a635b4eb0944ea29ed6dc8a`; the candidate's immutable publication manifest is `377ef9a50cdaef70af62ec9a27a7ea3f9cc6dd55b79f7d2807255d046c91c9e0`.
+
+The actual newly compiled B1 catalog SQL returned the original `24e096...` fingerprint on both the direct and genuinely restored private databases. Completion receipt SHA-256: `0c705b38c511630fc8421087f077ccc9f75440c5426299fd99d584a8451252a2`. Full native captures proved all protected original237 and both239-table databases unchanged during that read-only observation.
+
+Actual finite direct-LOGIN provider checks subsequently passed B1 read and its shared barrier on both databases, alongside Plan read/record and policy-identity admission. Completion SHA-256: `9f282cb6d45b65dc6f1cfcb895d710a9e7cb6a33f610ae8e2cd03b0186096597`. The owner-role denial cohort also passed; its results SHA-256 is `ab349c97fe142f286aa721e8e50372e3649a7253364fcc4277392865c7b4c70d`. This is private native evidence for the combined candidate; legacy-purpose providers were not relabeled as accepted under the Plan execution role.
+
+These later results supersede the earlier not-run status for the 20 exact hotfix tests. They do not establish standalone hotfix build execution, signed-in workflow UAT, native malformed-CHECK/disabled-trigger mutation acceptance, deployment, or overall Procurement completion. Production remains on the previously recorded release; release holds above remain relevant wherever not explicitly satisfied by this evidence.
