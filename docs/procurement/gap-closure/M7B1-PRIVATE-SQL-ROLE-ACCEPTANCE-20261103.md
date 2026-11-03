@@ -1,6 +1,6 @@
 # M7B1 private SQL-role acceptance — 3 November 2026
 
-Status: **bounded private database acceptance passed; API/UI workflow acceptance and production activation remain open.** Parent issue #145 remains NOT READY. This checkpoint belongs to #162 / draft PR #165.
+Status: **bounded private database, Core-cookie API and current-access acceptance passed; actual original-UI browser acceptance and production activation remain open.** Parent issue #145 remains NOT READY. This checkpoint belongs to #162 / draft PR #165.
 
 ## Accepted source and database boundary
 
@@ -43,12 +43,36 @@ The first receipt's relative plan argument is explicitly resolved by a separate 
 
 ## Remaining acceptance
 
-Publication 26 checks Core writes/ownership and its required positive read projections; it **does not reject every additional sensitive Core SELECT privilege**. No such negative result is claimed here. A successor B1-only safe-read guard is being implemented and requires its own compiled/native tests, including credential columns, payroll reads and unlisted views. Its allowed safe union must preserve legitimate shared execution-role projections without permitting a general HRM read role.
+Publication26 established the initial role profile. The successor B1-only safe-read guard is now compiled and privately tested. Publication28, source `0f9bbc0bc9a2c236b40613d46538751323b78eaf`, passed 411 Host checks. Actual direct-login grants of SELECT on credential/password and payroll gross-pay columns made READ and RECORD unavailable. Withdrawing schema USAGE from the referenced-table owner made RECORD unavailable while READ remained available. Each case restored exact native/semantic metadata and healthy profiles; no credential or payroll values were read.
 
-Next gates are actual workerless Core-cookie create/revise/cancel and actor-key recovery, current permission/branch/tenant denials, retained legacy-publication barriers, populated downgrade vetoes, the rich RFQ/people/source-picker DTOs, and Playwright acceptance through the existing imported screens. These checks do not establish formal RFQ review, sealed submissions, bid opening, scoring or award, and they do not complete whole-module UAT.
+Actual workerless Core-cookie create/revise/cancel, original-key recovery and same-cookie current permission/branch denials have now passed, as detailed below. Outstanding gates include cross-tenant acceptance, retained legacy-publication barriers, populated downgrade vetoes, actual Playwright acceptance through the imported screens and paired release. These checks do not establish formal RFQ review, sealed submissions, bid opening, scoring or award, and do not complete whole-module UAT.
 
 ## Preserved first Core-cookie command failure and owner prerequisite
 
-The first pub27 real-cookie journey authenticated both existing Core handlers successfully, but the initial Create returned503. PostgreSQL reported that its internal referential-integrity SELECT against `commercial_round_enrollments` lacked procurement schema access under the referenced table's owner. All six new tables are owned by the existing NOLOGIN `erp` role, while this private clone's schema remains owned by `postgres`; table ownership did not implicitly grant schema USAGE. The finite execution role already had schema USAGE. No round business rows persisted (all six new tables remain empty); both session cleanups succeeded and old cookies were denied afterward. This failed attempt remains separate evidence, not a successful CRUD result.
+The first pub27 real-cookie journey authenticated both existing Core handlers successfully, but the initial Create returned503. PostgreSQL reported that its internal referential-integrity SELECT against `commercial_round_enrollments` lacked procurement schema access under the referenced table's owner. All six new tables are owned by the existing NOLOGIN `erp` role, while this private clone's schema remains owned by `postgres`; table ownership did not implicitly grant schema USAGE. The finite execution role already had schema USAGE. At that failed checkpoint no round business rows persisted (all six new tables were empty); both session cleanups succeeded and old cookies were denied afterward. This failed attempt remains separate evidence, not a successful CRUD result.
 
-The successor source adds an explicit **record-only** prerequisite checking schema USAGE for all six referenced-table owners. Retained READ does not acquire this write prerequisite. The proposed private correction grants only `USAGE ON SCHEMA procurement TO erp`, with no CREATE, LOGIN, membership, ownership, Core, Finance or business-data change; exact native/semantic proof and Root review are required before applying it. The ordinary production ownership arrangement must satisfy the same prerequisite. The original Create key/body stays retained for explicit recovery/resumption after the failed outcome is independently reconciled; no automatic repost or new key is inferred from503.
+The now-tested successor source adds an explicit **record-only** prerequisite checking schema USAGE for all six referenced-table owners. Retained READ does not acquire this write prerequisite. The separately completed private correction granted only `USAGE ON SCHEMA procurement TO erp`, with no CREATE, LOGIN, membership, ownership, Core, Finance or business-data change; exact native/semantic proof and Root review were completed before applying it. The ordinary production ownership arrangement must satisfy the same prerequisite. The original Create key/body was retained for the explicit recovery/resumption recorded below after the failed outcome was independently reconciled; no automatic repost or new key was inferred from503.
+
+
+## Completed owner correction and normal-cookie API continuation
+
+The private schema-USAGE correction was applied with exactly one declared semantic privilege edge and no CREATE, LOGIN, membership or ownership expansion. The original failed command remains retained. A separately reviewed continuation first verified the original key was absent and all six tables remained empty, then used that same original Create key and equivalent typed body: B Create201, independent authorized C Revise200/version2, B Cancel200/version3. Original wire-byte ordering differed on the retained JSON checkpoint; typed command values and the original key were preserved. This is not a claim of byte-identical request replay.
+
+All three historical versions and original actor-key responses remained recoverable after cancellation. Another actor could not retrieve the owner's key. Source Draft/version and held demand remained unchanged. Strict native reconciliation verified one enrollment, one Cancelled/version3 plan, three immutable revisions/receipts, stable logical child IDs with new physical revision rows, 19 owning audit records and three outboxes; unrelated business rows and original authentication rows remained exact.
+
+A subsequent real-cookie test withdrew only current READ from the existing Core role: the same cookie changed from200 to403, and recovered200 after exact restoration. Reassigning only B's current branch denied selected-branch403 and Company-All404; exact restoration recovered200. A final strict owner check admitted only the declared authentication effects. All six newly created synthetic sessions were revoked, the three temporary Core actions were removed by exact original-row restoration, and the private API stopped. Production was not touched.
+
+| Later receipt | SHA-256 |
+|---|---|
+| One-edge owner schema-USAGE correction | `5f0ee9f9361082fbd6585aae426cdb680f22d007a3de3d981d5885a23c8110a6` |
+| Strict API graph/auth owner reconciliation | `bd9d84889054cbcef35a69be9b7aab8477e1210cad7b403d8efc4f4df3d3a588` |
+| Same-cookie READ withdrawal HTTP result | `e338af897dc151b61440f458e23f5dafcfe585a76d29ffb9b041b1abe3c2db67` |
+| Same-cookie branch-confined HTTP result | `3ffe55b2d201d011b98b70d42a9cb734de7c76c584b27090f16ab4adde33a889` |
+| Publication28 credential/payroll/owner-access negatives | `922fe283970d56f170457013df7f6b85553b3332637c02de3c228ead15ffbd20` |
+| Fresh UI clone, genuine upgrade, empty237/owner proof | `477e1ff7a5e21f028eb799f4b971e28f89045b25d89a8ee319d7d920dd08cc8f` |
+
+## Existing UI artifact and next browser gate
+
+The preserved imported UI product `8dca4943bbe5b5ea4993a7eecb0e7a40fecb53c1` passed an actual offline typecheck/Vite build. Its five artifacts total1,736,230 bytes; manifest SHA-256 is `73398ef763aa3d32fefce3c0e8dfbb8740b23d1c30566a494d2bceb46472247c`. The harness separately passed syntax/strict type checks. No actual browser pass is inferred from either result.
+
+A separate fresh clone of the untouched original231-table source passed the genuine migration to237 tables, with all six new tables empty, actual schema fingerprint matching, expected ownership and schema USAGE. The source and earlier populated Cancelled/version3 native graph remained exact. This prepares a new actual-screen Create/Revise/Cancel journey without copying or SQL-seeding the previously accepted business graph. Browser, independent post-browser owner reconciliation and release remain pending.
