@@ -1,3 +1,13 @@
+# Plan review source integration — 3 November 2026
+
+Issue [169](https://github.com/georgemunganga/erp/issues/169), draft [ERP PR171](https://github.com/georgemunganga/erp/pull/171), now includes actual published ERP main `dc6a082db74f9740104e2295988bc6f1f54027d8` through merge `01fb35a7632944215cf8e9a7bfffb4c0fa399b8f`. Published UI main is `9b5d02dcf971900289793f56e91895dd3747fd80`; Plan UI PR103 has separate ownership. The single B1 genuine migration `20261103163108_M7b1CommercialRoundDraftPlans`, designer and snapshot remain byte-identical to ERP main. The host All-reader merge retains both Plan review and B1 round-plan routes.
+
+Source review additionally sealed each submitted line's version in the immutable snapshot, alongside its ID and exact four-place decimal values. A regression case covers a version change with unchanged values; it has not been executed. [The source readiness record](docs/procurement/gap-closure/PROC-05A-POST-B1-SOURCE-READINESS-20261103.md) distinguishes source checks from runtime evidence and records remaining schema and contract gates.
+
+Root owns all SDK/scaffolding/native/finite-role/private runtime and production work. No SDK, migration generation/application, database, Docker or deployment action was run for this integration. Plan's model remains ahead of the B1 snapshot: two review tables plus nullable plan branch and its scoped index still require one genuine additive migration after B1. The unset readiness manifest intentionally blocks Plan review. Do not publish this branch as a schema-complete release or copy mappings into the snapshot by hand. No business assignees, quorum, policy publication or feature switch is activated.
+
+---
+
 # Current published prerequisites and release boundary — 3 November 2026
 
 Fetch ERP main `7b3be5414f74bb754e3721c59a1861efffd9061f` (PR159/164/166/167 merged) and Procurement UI main `1e7922ae178351fa006bdf4a9aaeb44bc903f94e` (PR102 merged), or reviewed descendants. Backend product `53ed4d5486173580660cb3ea571c3703f227c85a` and preserved UI product `567e318105687b655a886e79c07eebd2b6bf4563` are now deployed. The final backend 361/UI 172 checks and private run03 six-form/native/security/owner evidence remain distinct as recorded in the [current paired release](docs/procurement/gap-closure/MANUAL-PAYMENT-PAIRED-TECHNICAL-RELEASE-20261103.md).

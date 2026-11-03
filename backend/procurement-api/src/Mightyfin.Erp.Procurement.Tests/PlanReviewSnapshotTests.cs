@@ -33,6 +33,25 @@ public sealed class PlanReviewSnapshotTests
     }
 
     [Fact]
+    public void Line_version_change_invalidates_the_frozen_round_even_when_values_are_unchanged()
+    {
+        var plan = Plan();
+        var snapshot = PlanReviewSnapshot.Create(plan, 2);
+        var round = new PlanReviewSubmission
+        {
+            TenantId = plan.TenantId, LegalEntityId = plan.LegalEntityId,
+            ProcurementPlanId = plan.Id, BranchRef = plan.BranchRef!.Value,
+            MakerSubjectId = plan.OwnerSubjectId, CurrencyCode = plan.CurrencyCode,
+            SubmittedPlanVersion = 2, EstimatedAmount = snapshot.EstimatedAmount,
+            SnapshotJson = snapshot.Json, SnapshotSha256 = snapshot.Sha256,
+        };
+        Assert.True(PlanReviewSnapshot.Matches(plan, round));
+        plan.Lines.First().Version++;
+        Assert.False(PlanReviewSnapshot.Matches(plan, round));
+        Assert.True(PlanReviewSnapshot.TryReadRetained(round, out _));
+    }
+
+    [Fact]
     public void Branchless_legacy_plan_cannot_produce_approval_evidence()
     {
         var plan = Plan();

@@ -19,7 +19,7 @@ public static class PlanReviewSnapshot
         var lines = plan.Lines.Where(x => x.Status == "Active").OrderBy(x => x.LineNumber).ThenBy(x => x.Id).ToArray();
         if (lines.Length == 0 || lines.Select(x => x.Id).Distinct().Count() != lines.Length
             || lines.Select(x => x.LineNumber).Distinct().Count() != lines.Length
-            || lines.Any(x => x.Id == Guid.Empty || x.EstimatedQuantity <= 0 || x.EstimatedAmount < 0
+            || lines.Any(x => x.Id == Guid.Empty || x.Version < 1 || x.EstimatedQuantity <= 0 || x.EstimatedAmount < 0
                 || decimal.Round(x.EstimatedQuantity, 4) != x.EstimatedQuantity
                 || decimal.Round(x.EstimatedAmount, 4) != x.EstimatedAmount))
             throw new InvalidOperationException("PlanReviewLinesUnavailable");
@@ -45,7 +45,7 @@ public static class PlanReviewSnapshot
             estimatedAmount = Decimal(amount),
             lines = lines.Select(x => new
             {
-                id = x.Id, lineNumber = x.LineNumber, catalogItemId = x.CatalogItemId,
+                id = x.Id, version = x.Version, lineNumber = x.LineNumber, catalogItemId = x.CatalogItemId,
                 description = x.Description, categoryCode = x.CategoryCode, unitCode = x.UnitCode,
                 estimatedQuantity = Decimal(x.EstimatedQuantity),
                 estimatedAmount = Decimal(x.EstimatedAmount),
@@ -110,6 +110,9 @@ public static class PlanReviewSnapshot
                     || idValue.ValueKind != JsonValueKind.String
                     || !idValue.TryGetGuid(out var lineId) || lineId == Guid.Empty
                     || !lineIds.Add(lineId)
+                    || !line.TryGetProperty("version", out var versionValue)
+                    || versionValue.ValueKind != JsonValueKind.Number
+                    || !versionValue.TryGetInt64(out var lineVersion) || lineVersion < 1
                     || !line.TryGetProperty("lineNumber", out var numberValue)
                     || numberValue.ValueKind != JsonValueKind.Number
                     || !numberValue.TryGetInt32(out var lineNumber) || lineNumber < 1
