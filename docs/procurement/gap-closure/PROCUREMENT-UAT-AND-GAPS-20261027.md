@@ -4,6 +4,10 @@
 
 The audit preserves the imported Procurement UI and shared ERP components. Core owns organisation/company, identity, role grants, record scope, branding and shared platform configuration. A permitted Core user need not be an employee. The organisation is the legal entity and its selected currency is the default; test policy amounts are not approved Amizo purchasing thresholds. Finance owns the ledger and payment execution; its absence does not prevent separately governed manual payment recording.
 
+## Payment retained READ backend — 3 November 2026
+
+ERP PR156 / issue155 separates retained payment reads from processing availability. Source `b61ddf73` passed 253 focused Host cases and actual finite-role/Core-cookie private checks against seven saved requests/28 original receipts, including workerless accounts, Company All, original-actor recovery, current READ/branch withdrawal, and schema-owner/SELECT denial with restoration. Existing owning rows and all 197 original-source fingerprints were preserved. See [the bounded feature evidence](../PROC-12-MANUAL-PAYMENT-WORKFLOW.md). UI capability integration, Playwright/native browser acceptance, session cleanup and deployment remain open. This does not change the overall NOT READY decision or enable payment execution.
+
 ## Quotation draft integration — 3 November 2026
 
 The [native draft-workflow acceptance](M7A-NATIVE-DRAFT-WORKFLOW-ACCEPTANCE-20261103.md) closes private contact/create/revise/cancel/history/recovery integration in the preserved ERP screens. Source7f25 passed236 focused Host checks. The actual UI saved exactly four commands across B/C Core users, with no employee requirement, and native owner reconciliation matched every original key and raw response hash. Two integration defects found by genuine tests—raw All write fallback and confined All retained-demand loading—are corrected. Original failed tests remain retained.
