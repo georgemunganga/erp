@@ -1,3 +1,17 @@
+# Current integration ownership — 3 November 2026
+
+Published prerequisites: ERP main `2a2d29eef4d68897e7a5ca920186058ad9f96336` and existing ERP Procurement UI main `c692611da5ca549ee00b1356cf7bc1e213b096da` (`georgemunganga/module-connect`), or current main descendants. ERP PR144/146/147 and UI PR98 are merged. Fetch both current main branches and verify these ancestors before starting; production remains on its earlier release and is not the development baseline.
+
+**Manus: take the complete [M7A quotation UI milestone](docs/procurement/gap-closure/MANUS-M7A-QUOTATION-UI-MILESTONE-20261103.md), tracked in [issue 148](https://github.com/georgemunganga/erp/issues/148).** Connect the published contact/draft/revision/cancellation/history/recovery contracts to the existing ERP screens and shared components. Preserve the supplied UI. Quotation handlers may differ from RFQ makers and need no employee link. Do not duplicate Core infrastructure or fall back to browser-local saves. Read the full milestone before coding; its acceptance includes exact money, current scope, interrupted saves and original-key recovery.
+
+Root retains positive database-backed quotation workflow verification, schema/finite-role operations, full UAT closeout and paired production deployment. New quotation record/capture switches default off independently from RFQ publishing. Existing independent document-scanner ownership is unchanged; quotation nonempty document transport is not available yet.
+
+Evidence: typed persistence passed 1,927 Procurement tests and 167 focused Host cases; the final API integration passed 218 focused Host cases. Genuine isolated migration/rollback guards, exact ACL changes and real enlisted READ/RECORD admission passed; dedicated restore instances stopped with original data retained. The preserved RFQ UI passed ten adapter cases, TypeScript checking and 22 transport-mocked Playwright cases. These are bounded results, not complete quotation CRUD or whole-module UAT acceptance. See [the owning contract](docs/procurement/gap-closure/M7A-OWNING-HTTP-CONTRACT-DRAFT-20261030.md) and [whole-module gaps](docs/procurement/gap-closure/PROCUREMENT-UAT-AND-GAPS-20261027.md).
+
+No production migration, grant or UI deployment occurred in this checkpoint. A current backup, reviewed paired rollout, signed-in production checks and the remaining bid/evaluation/award/returns/contracts/payment/portal acceptance remain open under [issue 145](https://github.com/georgemunganga/erp/issues/145). GitHub Actions is account-billing blocked; local/private test evidence is separate. Historical entries below are retained and superseded for current ownership by this section.
+
+---
+
 # Current integration ownership — 30 October 2026
 
 Published code prerequisites: ERP main `a3381969581c613e2e583036d3d3e8bf176440f2` and Procurement UI main `06347d3029361533962b972556ab1d1952d68602` (`georgemunganga/module-connect`). These contain the complete merged M6 source cohort: ERP PRs #135–#139 and UI PRs #93–#96. Start from these published main commits or their descendants. Before starting collaborator work, fetch both current main branches and verify they include the complete cohort; do not start from an old deployment SHA or a held experiment. Tested backend `f1e5102e` and UI `9c56b492` identify the retained candidate publications. A source merge does not activate a production workflow.
