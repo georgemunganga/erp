@@ -148,6 +148,21 @@ public sealed class ProcurementManualQuotationReadinessTests
         Assert.True(options.RecordEnabled); Assert.False(options.CaptureEnabled);
     }
 
+    [Fact]
+    public void Native_contract_admits_only_captured_production_and_restored_M4_check_spellings()
+    {
+        Assert.NotEqual(ProcurementManualQuotationNativeShape.Json, ProcurementManualQuotationNativeShape.ProductionJson);
+        Assert.True(ProcurementManualQuotationNativeShape.Matches(ProcurementManualQuotationNativeShape.Json));
+        Assert.True(ProcurementManualQuotationNativeShape.Matches(ProcurementManualQuotationNativeShape.ProductionJson));
+        var modified = JsonNode.Parse(ProcurementManualQuotationNativeShape.ProductionJson)!;
+        var constraint = modified["procurement.sourcing_publication_decisions"]!["constraints"]!
+            ["ck_sourcing_publication_decision_v2"]!;
+        Assert.Equal(M4PrincipalRfqPhysicalChecks.Native["ck_sourcing_publication_decision_v2"],
+            constraint["definition"]!.GetValue<string>());
+        constraint["definition"] = constraint["definition"]!.GetValue<string>() + " AND TRUE";
+        Assert.False(ProcurementManualQuotationNativeShape.Matches(modified.ToJsonString()));
+    }
+
     private static IConfiguration Config(string? record, string? execution) => new ConfigurationBuilder()
         .AddInMemoryCollection(new Dictionary<string, string?> {
             ["ConnectionStrings:Procurement"] = record,

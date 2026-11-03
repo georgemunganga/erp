@@ -1,3 +1,4 @@
+using System.Text.Json.Nodes;
 using System.Data.Common;
 using Mightyfin.Erp.Procurement.Application;
 using static Mightyfin.Erp.Hrm.Api.ProcurementSchemaInspectionSql;
@@ -29,13 +30,31 @@ AND NOT EXISTS(SELECT 1 FROM pg_trigger t WHERE t.tgrelid=c.oid AND NOT t.tgisin
 AND NOT EXISTS(SELECT 1 FROM pg_rewrite r WHERE r.ev_class=c.oid)
 AND NOT EXISTS(SELECT 1 FROM pg_policy p WHERE p.polrelid=c.oid)
 """;
-    internal static bool Matches(string? actual) => actual is not null
-        && ProcurementEvidenceEncoding.PolicyJsonDigest(actual) == ProcurementEvidenceEncoding.PolicyJsonDigest(Json);
+    // Production retained the original M4 decision CHECK while pg_restore
+    // re-parsed its constant array with explicit text casts. Both literal
+    // definitions are captured by M4; admit only these two complete contracts.
+    internal static readonly string ProductionJson = BuildProductionJson();
+    private static string BuildProductionJson()
+    {
+        var value = JsonNode.Parse(Json)!;
+        value["procurement.sourcing_publication_decisions"]!["constraints"]!
+            ["ck_sourcing_publication_decision_v2"]!["definition"] =
+            M4PrincipalRfqPhysicalChecks.Native["ck_sourcing_publication_decision_v2"];
+        return value.ToJsonString();
+    }
+    internal static bool Matches(string? actual)
+    {
+        if (actual is null) return false;
+        var digest = ProcurementEvidenceEncoding.PolicyJsonDigest(actual);
+        return digest == ProcurementEvidenceEncoding.PolicyJsonDigest(Json)
+            || digest == ProcurementEvidenceEncoding.PolicyJsonDigest(ProductionJson);
+    }
     internal static async Task<bool> ReadyAsync(DbConnection connection, DbTransaction transaction, CancellationToken ct)
     {
         await using var command = connection.CreateCommand();
         command.Transaction = transaction; command.CommandTimeout = 15;
-        command.CommandText = "SELECT (" + Sql + ")=" + Literal(Json) + "::jsonb";
+        command.CommandText = "SELECT actual=" + Literal(Json) + "::jsonb OR actual="
+            + Literal(ProductionJson) + "::jsonb FROM (" + Sql + ") AS captured(actual)";
         return await command.ExecuteScalarAsync(ct) is true;
     }
 }
