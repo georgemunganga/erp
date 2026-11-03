@@ -192,9 +192,17 @@ public static partial class ProcurementPolicyDraftRoutes
         var eligible = new List<Guid>();
         if (canEdit)
         {
-            var candidates = await RetirableDrafts(db).AsNoTracking().Where(x => ids.Contains(x.Id)).ToArrayAsync(ct);
-            foreach (var candidate in candidates)
-                if (await CanRetirePolicyAuthorHint(candidate, db, organizationDb, scope, http, ct)) eligible.Add(candidate.Id);
+            try
+            {
+                var candidates = await RetirableDrafts(db).AsNoTracking().Where(x => ids.Contains(x.Id)).ToArrayAsync(ct);
+                foreach (var candidate in candidates)
+                    if (await CanRetirePolicyAuthorHint(candidate, db, organizationDb, scope, http, ct)) eligible.Add(candidate.Id);
+            }
+            // Retirement is an optional hint. A finite read role may lack one of
+            // the cross-module reference reads; the command still checks them.
+            catch (Exception error) when (error is not OperationCanceledException
+                && error.GetBaseException() is PostgresException { SqlState: "42501" })
+            { eligible.Clear(); }
         }
         return Results.Ok(new { items = items.Select(x => new { x.Id, x.PolicyKey, x.PolicyVersionNumber,
             x.State, x.EffectiveFrom, x.EffectiveTo, x.Version, x.CreatedAt,
@@ -222,9 +230,18 @@ public static partial class ProcurementPolicyDraftRoutes
                 && reason.ValueKind == JsonValueKind.String)
                 lastReturnReason = reason.GetString();
         }
-        var canRetire = (await authorization.AuthorizeAsync(http.User, "procurement-configuration-edit")).Succeeded
-            && await RetirableDrafts(db).AnyAsync(x => x.Id == id, ct)
-            && await CanRetirePolicyAuthorHint(policy, db, organizationDb, scope, http, ct);
+        var canRetire = false;
+        if ((await authorization.AuthorizeAsync(http.User, "procurement-configuration-edit")).Succeeded)
+        {
+            try
+            {
+                canRetire = await RetirableDrafts(db).AnyAsync(x => x.Id == id, ct)
+                    && await CanRetirePolicyAuthorHint(policy, db, organizationDb, scope, http, ct);
+            }
+            catch (Exception error) when (error is not OperationCanceledException
+                && error.GetBaseException() is PostgresException { SqlState: "42501" })
+            { canRetire = false; }
+        }
         return Results.Ok(View(policy, lastReturnReason, canRetire));
     }
 
