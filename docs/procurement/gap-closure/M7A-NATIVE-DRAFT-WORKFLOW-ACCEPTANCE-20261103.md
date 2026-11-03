@@ -1,6 +1,6 @@
 # Quotation draft workflow verification — 3 November 2026
 
-Status: isolated API and complete normal-cookie UI command journey passed with native owner reconciliation. Retained B/C Company All browser reads and test-cohort cleanup passed. Paired production release remains a separate step. This is bounded quotation-draft evidence, not whole Procurement UAT or business-owner acceptance.
+Status: isolated API and complete normal-cookie UI command journey passed with native owner reconciliation. Retained B/C Company All browser reads and test-cohort cleanup passed. The [paired production technical release](M7A-PRODUCTION-WORKFLOW-RELEASE-20261103.md) is deployed. This is bounded quotation-draft evidence, not whole Procurement UAT or business-owner acceptance.
 
 ## Implemented behaviour
 
@@ -30,7 +30,7 @@ The browser used a separate untouched template clone, real Core login/session co
 
 ## Scope and remaining gates
 
-Production quotation recording/capture switches remain off at this checkpoint. No production data, permissions, migrations, publisher or API/UI release changed as part of the private tests. Test policies are not approved company spending rules.
+Production quotation recording/capture switches remain off in the deployed code release. The private tests changed no production records or permissions; the separate technical release changed API/UI artifacts without schema or workflow-switch changes. Test policies are not approved company spending rules.
 
 Nonempty quotation attachments remain unavailable pending the actual shared Core document-use integration; no verified file evidence is fabricated. Supplier portal submission, sealed opening, evaluation, award and award-to-PO are later M7 milestones. Finance ledger/bank execution remains Finance-owned. Whole-module UAT retains the additional gaps in [the master assessment](PROCUREMENT-UAT-AND-GAPS-20261027.md).
 

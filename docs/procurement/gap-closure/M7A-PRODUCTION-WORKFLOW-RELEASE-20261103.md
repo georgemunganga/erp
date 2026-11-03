@@ -1,0 +1,19 @@
+# Quotation workflow technical release — 3 November 2026
+
+The paired API and preserved Procurement UI release is deployed. This is a technical release with private signed-in workflow acceptance and public production verification; whole Procurement UAT remains NOT READY.
+
+Published prerequisites: ERP main `da6e3bdf76111a132ea01279c581f5f291e961fa` (PR152), UI main `91db0c62caa2c7012718db0daa92619000ff42b5` (PR99). Tested backend publication `7f25efefebd7215151d318159a56dae00d9703c3`; tested UI application `86f3f1614f84edcd2945b650c739d1fdbfb6f900`. Test-only UI followup552 fixes a locator and diagnostics without changing application bytes.
+
+Production API: `2fdaafe1cc80135361b7c59cb689e88c540f1e155e13bf570d1963cb8ed9da70`. Image: `sha256:0c45bf8c47fec4d479468f63ed6421c7596d07d049ebbcd2314f008c4038d763`. Procurement alias: `/home/amizo/procurement-ui/releases/m7a-quotation-86f3-20261103/`. Previous API94dc/imagebce and previous UI release remain available for code rollback.
+
+A fresh encrypted production database/global backup passed authenticated decryption and archive-integrity checks. No database migration, permission change or new workflow activation was performed. Startup migrations remain disabled; quotation recording/capture switches remain false. The database and existing publisher continued running with their exact prior configuration. The live table count remains231, checked read-only. This release does not claim a new full backup-restore rehearsal; the preceding M7 release retains that evidence and this release changes code only.
+
+A bounded candidate used all four actual production DSNs in read-only mode, no public ports and the genuine enlisted quotation provider. Health/authentication and native provider admission passed before API replacement. After replacement, public13 route/auth checks, five managed UI asset hashes and all34 retained compatibility asset hashes passed. Four anonymous production browser renders had no uncaught page errors. Every deployed API publication file matched its tested hash; only the Procurement Nginx alias changed. Signed-in production CRUD or business-owner sign-off is not claimed.
+
+[Private native acceptance](M7A-NATIVE-DRAFT-WORKFLOW-ACCEPTANCE-20261103.md) includes actual contact/create as B, independent revise/history/cancel as C, original-key recovery, scope/CAS denials, read without INSERT, optional worker-link changes, capture-disabled cancellation, exact owner/audit/outbox reconciliation and retained B/C Company All browser reads. Failed harness attempts remain distinct evidence; no business save was repeated. Test sessions were cleaned up and private services stopped.
+
+The UI-only mixed-role followup is deployed through UI PR100, main `b91a5db3fa6d88ef7a373dce91acabe88d6852f6`, product `407c0f0fbd1d3c8a92d8435c6daa53dbcb24be0d`. Generic RFQ permissions retain ordinary draft list/new/edit and switchback access; quotation-only users retain their assigned-work default. TypeScript/build and54 relevant browser cases passed. Current alias: `/home/amizo/procurement-ui/releases/m7a-rfq-routing-407c-20261103/`. Five current and35 retained compatibility assets matched their public hashes. API, schema and workflow switches were unchanged.
+
+Remaining scope includes nonempty shared document transport/scanning, formal offer submission/opening/evaluation/award/award-to-PO, retained payment-read integration, and the other [whole-module gaps](PROCUREMENT-UAT-AND-GAPS-20261027.md). Finance execution remains outside Procurement. GitHub Actions is billing-blocked; local/private evidence is recorded separately.
+
+Protected release evidence: `/home/amizo/erp-backups/procurement-m7a-workflow-release-20261103_run01/`. Only the reproducible62MB build context was removed after verifying the deployed file hashes; image, primary publication, backups, keys and acceptance evidence remain retained.
