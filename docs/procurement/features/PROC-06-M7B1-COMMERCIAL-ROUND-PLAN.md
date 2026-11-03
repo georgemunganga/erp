@@ -6,7 +6,7 @@ Inspected published baselines: ERP main `b42aa7355d196b5c3c678721890b6f1479851b6
 
 ## 1. Feature Identification
 
-`PROC-06-M7B1`, Procurement → Strategic Sourcing → Commercial round planning. Tier3 under [GW-ENG-STD-001](../../engineering/GW-ENG-STD-001.md). Procurement owns the plan and its commercial rules; Core owns identities, permissions, organisation, approval execution, document access and platform audit contracts. Business policy owner/approver and final feature approval remain to be named in section28.
+`PROC-06-M7B1`, Procurement → Strategic Sourcing → Commercial round planning. Tier3 under [GW-ENG-STD-001](../../engineering/GW-ENG-STD-001.md). Procurement owns the plan and its commercial rules; Core owns identities, permissions, organisation, approval execution, document access and platform audit contracts. Business policy owner/approver remains to be named in section28. The user has authorized completion of Procurement: Engineering may select and independently review the technical baseline under that authorization, with Root review before the next build. This is not a request for blanket management permission to design or implement draft CRUD.
 
 “Publish plan” below means freezing an approved **internal plan**. It does not mean publishing the RFQ, delivering invitations, opening bidding, accepting an offer or opening commercial content.
 
@@ -294,16 +294,16 @@ Scoring/late-bid/opening/award acceptance is explicitly deferred to later child 
 
 Proposed bounded implementation packages, each requiring owner review before enabling its surfaces:
 
-- **B1a contract/adoption:** resolve blocking section28 choices, typed plan/policy/Core review/document contracts, confidentiality threat review and event-publication barrier; independently approve this specification. No adoption is implied by merging a documentation PR.
+- **B1a technical baseline:** Engineering selects and records the typed draft/configuration/enrollment contracts, schema/version choices, scope and publication barrier under the existing implementation authorization. Independent technical review and Root review can adopt that baseline for the next build. Unresolved production policy is recorded as unavailable; it does not prevent design, configuration or draft CRUD implementation. Review-dependent Submit/Publish contracts stay closed until their actual business policy/Core/document prerequisites exist. Merging this proposal alone makes no business-policy approval claim.
 - **B1b owner persistence:** current-model generated plan/enrollment/revision/receipt schema, complete constraints, native finite-role/read-write profiles and retention/rollback barrier proof. No seeded business approvals/grants and no bid/evaluation migration.
 - **B1c scoped HTTP/Core review:** one current-principal owning transaction per command, authentic shared Core links, existing M4 publication barrier integration, immutable history/receipt recovery, bounded purpose-specific lookups and adversarial endpoint tests.
 - **B1d existing UI + acceptance:** wire the imported RFQ sections/shared controls to those published APIs, then normal-cookie multi-actor/native reconciliation and separate paired release review. No frontend rewrite or production activation in this document task.
 
-Root retains active payment issue158/native/SDK/deployment ownership; scanner task153 stays independent. Before B1 work is assigned, publish reviewed prerequisite ERP/UI merges and exact baselines. Coordinate independent review and sufficient isolated hardware; do not interrupt another SDK/runtime cohort. Core owners must accept approval/document/identity contracts; Procurement business owner approves policy/disclosure. Operations owns backup/restore/rollback/monitoring evidence. No held branch wholesale merge is allowed.
+Root retains active payment issue158/native/SDK/deployment ownership; scanner task153 stays independent. Before assigning a dependent build, publish reviewed technical prerequisite ERP/UI merges and exact baselines. Engineering technical adoption does not require production business policy to exist first; incomplete drafts remain allowed, while Submit/Publish guards cannot be bypassed. Coordinate independent review and sufficient isolated hardware; do not interrupt another SDK/runtime cohort. Core owners must accept approval/document/identity contracts; Procurement business owner approves policy/disclosure. Operations owns backup/restore/rollback/monitoring evidence. No held branch wholesale merge is allowed.
 
 ## 28. Open Decisions / Assumptions
 
-These decisions are **unapproved**, not values to fill with defaults. Record owner, approval reference/date and adopted version before dependent implementation/publication:
+Technical choices below remain proposed until Engineering/Root review records their selected baseline; the existing full-module implementation authorization permits that work. Production business-policy inputs remain **unapproved**, not values to fill with defaults. Record the responsible owner, decision/review reference/date and adopted technical version as applicable. Business approval/evidence is mandatory before the dependent Submit/Publish action, not before configuration or draft CRUD code:
 
 | Decision | Proposed safe boundary / required decision |
 | --- | --- |
@@ -318,4 +318,4 @@ These decisions are **unapproved**, not values to fill with defaults. Record own
 | BidVersion / later submissions | Confirm future exact v3 version-pin and line/document lineage, formal submission/withdrawal/revision keys and uniqueness without overloading existing `SubmissionVersion` or rewriting M7A drafts |
 | Technical contracts | Final action/capability/route/entity names, numeric storage/snapshot/query limits, migration/finite-role profiles, source-scope access rules and measurable SLO/RPO/RTO |
 
-**Ready boundary:** domain/policy/ownership/publication-barrier choices must be adopted before B1 implementation begins; document/approval choices must be resolved before their dependent routes publish anything. This document is an actionable proposal and acceptance checklist, not approval to invent the unresolved policy, claim sealing, merge held code, or activate production.
+**Ready boundary:** Engineering and the independent reviewer may adopt a concrete technical baseline after Root review for configuration, schema/adapters and draft CRUD under the existing full-module implementation authorization. Record unresolved business choices as explicit unavailable/incomplete inputs; they do not impose a blanket management-approval prerequisite on that work. Actual approved policy, current independent Core review and required genuine document/disclosure capabilities are gates on Submit/Publish and later commercial activation. This proposed document makes no business-approval claim and does not authorize invented policy, sealing claims, held-code merges or production activation.
