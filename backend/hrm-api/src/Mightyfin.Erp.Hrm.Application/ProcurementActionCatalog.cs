@@ -10,6 +10,8 @@ public static class ProcurementActionCatalog
         "procurement-vendor-export" or "procurement-item-export"
         or "procurement-vendor-import" or "procurement-item-import"
         or "procurement-sourcing-submit" or "procurement-sourcing-publish"
+        or "procurement-sourcing-contact" or "procurement-quotation-read"
+        or "procurement-quotation-capture" or "procurement-quotation-cancel"
         or "procurement-invoice-owner-baseline-open" or "procurement-invoice-owner-baseline-read"
         or "procurement-invoice-owner-baseline-review"
         or "procurement-return-read" or "procurement-return-create" or "procurement-return-edit";
@@ -80,6 +82,10 @@ public static class ProcurementActionCatalog
             ["procurement-sourcing-submit"] = [],
             // Explicit configured grant only; catalog registration adds no publication endpoint or limit.
             ["procurement-sourcing-publish"] = [],
+            ["procurement-sourcing-contact"] = [],
+            ["procurement-quotation-read"] = [],
+            ["procurement-quotation-capture"] = [],
+            ["procurement-quotation-cancel"] = [],
             ["procurement-invoice-read"] = ["ap_processor", "procurement_buyer", "procurement_manager"],
             // Payment recording/review is controlled by explicit Core grants. Registering
             // these actions neither activates a route nor grants ordinary roles authority.
@@ -151,7 +157,7 @@ public static class ProcurementActionCatalog
             "configuration" => "Configuration",
             "contract" => "Contracts",
             "recurring" => "Recurring purchases",
-            "sourcing" => "Sourcing and RFQs",
+            "sourcing" or "quotation" => "Sourcing and RFQs",
             "invoice" => "Invoices",
             "payment" => "Payments",
             _ => "Other Procurement"
@@ -166,6 +172,10 @@ public static class ProcurementActionCatalog
         if (key == "procurement-item-import") return "Import items";
         if (key == "procurement-sourcing-submit") return "Submit RFQ publication review";
         if (key == "procurement-sourcing-publish") return "Decide RFQ publication review";
+        if (key == "procurement-sourcing-contact") return "Record outside supplier contact";
+        if (key == "procurement-quotation-read") return "View buyer-entered quotations";
+        if (key == "procurement-quotation-capture") return "Create and revise quotation drafts";
+        if (key == "procurement-quotation-cancel") return "Cancel quotation drafts";
         var words = key["procurement-".Length..].Split('-').Select(word => word switch
         {
             "po" => "PO", "rfq" => "RFQ", "api" => "API", _ => char.ToUpperInvariant(word[0]) + word[1..]

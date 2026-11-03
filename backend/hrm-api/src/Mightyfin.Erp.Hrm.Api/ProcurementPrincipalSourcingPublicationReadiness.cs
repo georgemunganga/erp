@@ -82,10 +82,10 @@ public sealed class ProcurementPrincipalSourcingPublicationSchemaReadiness(
 
             var model = owner.GetService<IDesignTimeModel>().Model;
             var entities = OwnedTypes.Select(model.FindEntityType).ToArray();
-            if (entities.Any(x => x is null)
-                || entities.Sum(x => x!.GetKeys().Count()) != 6
-                || entities.Sum(x => x!.GetForeignKeys().Count()) != 8
-                || entities.Sum(x => x!.GetIndexes().Count()) != 11) return false;
+            // Genuine M7A adds scoped opening/decision keys and replaces the
+            // redundant decision index. Keep publication admission aligned with
+            // the current model while retaining exact native per-object checks.
+            if (!PublicationModelCaptured(model)) return false;
             var checks = new HashSet<string>(StringComparer.Ordinal);
             foreach (var entity in entities.Select(x => x!))
             {
@@ -124,6 +124,15 @@ public sealed class ProcurementPrincipalSourcingPublicationSchemaReadiness(
         }
         catch (Exception error) when (error is not OperationCanceledException) { return false; }
         finally { if (opened) await owner.Database.CloseConnectionAsync(); }
+    }
+
+    internal static bool PublicationModelCaptured(IModel model)
+    {
+        var entities = OwnedTypes.Select(model.FindEntityType).ToArray();
+        return entities.All(x => x is not null)
+            && entities.Sum(x => x!.GetKeys().Count()) == 8
+            && entities.Sum(x => x!.GetForeignKeys().Count()) == 8
+            && entities.Sum(x => x!.GetIndexes().Count()) == 10;
     }
 
     private bool ConnectionBoundary(out string executionRole)
