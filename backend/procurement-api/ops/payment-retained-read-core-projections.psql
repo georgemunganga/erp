@@ -1,0 +1,49 @@
+-- Core-owned projections needed by retained Procurement payment reads.
+-- Explicit reviewed owner operation, never application startup or automatic repair.
+-- Supply expected_database and expected_system_identifier from the release plan.
+-- Capture initial ACLs; reconcile the exact after-state. No user/role membership,
+-- business row, workflow setting, schema, Finance or write privilege is changed.
+\set ON_ERROR_STOP on
+\if :{?expected_database}
+\else
+DO $required$ BEGIN RAISE EXCEPTION 'expected_database is required'; END $required$;
+\endif
+\if :{?expected_system_identifier}
+\else
+DO $required$ BEGIN RAISE EXCEPTION 'expected_system_identifier is required'; END $required$;
+\endif
+BEGIN;
+SET LOCAL lock_timeout = '3s';
+SET LOCAL statement_timeout = '30s';
+SELECT set_config('greenwebb.expected_database', :'expected_database', true);
+SELECT set_config('greenwebb.expected_system_identifier', :'expected_system_identifier', true);
+DO $payment_projection_preflight$
+BEGIN
+  IF current_user <> session_user OR current_user <> 'erp'
+    OR current_database() <> current_setting('greenwebb.expected_database')
+    OR (SELECT system_identifier::text FROM pg_control_system())
+       <> current_setting('greenwebb.expected_system_identifier') THEN
+    RAISE EXCEPTION 'Reviewed owner and exact database/cluster are required';
+  END IF;
+  IF NOT EXISTS(SELECT 1 FROM pg_roles WHERE rolname='erp_proc_execute_finite_v1')
+    OR EXISTS(SELECT 1 FROM pg_roles WHERE rolname='erp_proc_execute_finite_v1'
+      AND (rolsuper OR rolcreatedb OR rolcreaterole OR rolreplication OR rolbypassrls))
+    OR EXISTS(SELECT 1 FROM pg_namespace n WHERE n.nspname IN ('hrm','procurement','core_approval')
+      AND (has_schema_privilege('erp_proc_execute_finite_v1',n.oid,'CREATE')
+        OR pg_has_role('erp_proc_execute_finite_v1',n.nspowner,'MEMBER')
+        OR pg_has_role('erp_proc_execute_finite_v1',n.nspowner,'SET'))) THEN
+    RAISE EXCEPTION 'A limited, non-owner execution role is required';
+  END IF;
+  IF EXISTS(SELECT 1 FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace
+    WHERE n.nspname='hrm' AND c.relkind IN ('r','p')
+      AND (has_table_privilege('erp_proc_execute_finite_v1',c.oid,'INSERT,UPDATE,DELETE,TRUNCATE')
+        OR has_any_column_privilege('erp_proc_execute_finite_v1',c.oid,'INSERT,UPDATE'))) THEN
+    RAISE EXCEPTION 'Execution must not write Core/HRM records';
+  END IF;
+END
+$payment_projection_preflight$;
+
+GRANT SELECT (display_name) ON hrm.local_users TO erp_proc_execute_finite_v1;
+GRANT SELECT (time_zone_id) ON hrm.legal_entities TO erp_proc_execute_finite_v1;
+GRANT SELECT (code) ON hrm.work_locations TO erp_proc_execute_finite_v1;
+COMMIT;
