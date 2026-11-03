@@ -121,10 +121,6 @@ public sealed class ProcurementPlanReviewSchemaReadiness(IConfiguration configur
         ProcurementSpendingAuthorityIdentitySchemaReadiness.NoOwnershipSql,
         ProcurementSpendingAuthorityIdentitySchemaReadiness.NoCoreIdentityWritesSql,
         "NOT EXISTS(SELECT 1 FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace WHERE ((n.nspname='procurement' AND c.relname IN ('procurement_plans','procurement_plan_lines','plan_review_submissions','plan_review_command_receipts','policy_versions','operational_policy_identity_evidence')) OR n.nspname='core_approval') AND (pg_has_role(current_user,c.relowner,'MEMBER') OR pg_has_role(current_user,c.relowner,'SET')))",
-        "NOT has_table_privilege(current_user,'procurement.finance_payment_status_refs','INSERT')",
-        "NOT has_table_privilege(current_user,'procurement.finance_payment_status_refs','UPDATE')",
-        "NOT has_any_column_privilege(current_user,'procurement.finance_payment_status_refs','INSERT')",
-        "NOT has_any_column_privilege(current_user,'procurement.finance_payment_status_refs','UPDATE')",
         "has_schema_privilege(current_user,'hrm','USAGE')",
     }.Concat(new[] { "procurement.procurement_plans", "procurement.procurement_plan_lines",
             "procurement.plan_review_submissions", "procurement.plan_review_command_receipts",
@@ -147,6 +143,13 @@ public sealed class ProcurementPlanReviewSchemaReadiness(IConfiguration configur
             "procurement.audit_events", "procurement.outbox_events", "core_approval.cases",
             "core_approval.stages", "core_approval.assignments", "core_approval.decisions" }
         .Select(x => "NOT has_table_privilege(current_user," + Literal(x) + ",'DELETE,TRUNCATE,TRIGGER')"))
+      .Concat(new[] { "procurement.budget_check_snapshots", "procurement.finance_invoice_handoffs",
+            "procurement.finance_payment_status_refs" }
+        .SelectMany(x => new[]
+        {
+            "NOT has_table_privilege(current_user," + Literal(x) + ",'INSERT,UPDATE,DELETE,TRUNCATE,TRIGGER')",
+            "NOT has_any_column_privilege(current_user," + Literal(x) + ",'INSERT,UPDATE')",
+        }))
       .Concat(CoreColumns.SelectMany(projection => projection.Value.Select(column =>
           "has_column_privilege(current_user," + Literal(projection.Key) + ","
               + Literal(column) + ",'SELECT')"))));
