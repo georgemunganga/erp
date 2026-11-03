@@ -316,7 +316,7 @@ public static class ProcurementHostIntegration
                             && app.Configuration.GetValue<bool>("Procurement:InvoiceCurrencyCalculation:CaptureEnabled")
                             && await ProcurementInvoiceIntakeRoutes.CurrencyCalculationReady(db, app.Configuration, ct, capture: true),
                         vendorCreditDraft = !pending,
-                        manualPaymentRead = await ProcurementManualPaymentRoutes.ReadCapability(db, scope, http, pending, ct),
+                        manualPaymentRead = await ProcurementManualPaymentRoutes.ReadCapability(scope, http, pending, ct),
                         manualPaymentWorkflow = !pending
                             && services.GetRequiredService<ProcurementManualPaymentOptions>().Enabled
                             && services.GetRequiredService<ProcurementManualPaymentOptions>().ExecutionDatabaseConfigured

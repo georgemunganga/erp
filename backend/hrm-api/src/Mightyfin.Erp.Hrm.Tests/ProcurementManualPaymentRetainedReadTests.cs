@@ -1,3 +1,5 @@
+using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.DependencyInjection;
 using Mightyfin.Erp.Hrm.Api;
 using Mightyfin.Erp.Procurement.Domain;
 
@@ -55,6 +57,17 @@ public sealed class ProcurementManualPaymentRetainedReadTests
     {
         Assert.False(ProcurementManualPaymentRoutes.RetainedReadConfigured(null));
         Assert.False(ProcurementManualPaymentRoutes.RetainedReadConfigured(new()));
+    }
+
+    [Fact]
+    public async Task Metadata_read_is_false_without_verified_execution_readiness_even_when_database_is_configured()
+    {
+        using var services = new ServiceCollection()
+            .AddSingleton(new ProcurementManualPaymentOptions { ExecutionDatabaseConfigured = true })
+            .BuildServiceProvider();
+        var http = new DefaultHttpContext { RequestServices = services };
+        Assert.False(await ProcurementManualPaymentRoutes.ReadCapability(Scope(), http, pending: true, ct: CancellationToken.None));
+        Assert.False(await ProcurementManualPaymentRoutes.ReadCapability(Scope(), http, pending: false, ct: CancellationToken.None));
     }
 
     [Fact]

@@ -1,8 +1,8 @@
-using System.Data;
 using System.Data.Common;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.EntityFrameworkCore;
 using Mightyfin.Erp.Procurement.Domain;
+using Mightyfin.Erp.Procurement.Infrastructure.Approvals;
 using Mightyfin.Erp.Procurement.Infrastructure.Data;
 
 namespace Mightyfin.Erp.Hrm.Api;
@@ -11,6 +11,14 @@ public static partial class ProcurementManualPaymentRoutes
 {
     internal static bool RetainedReadConfigured(ProcurementManualPaymentOptions? options)
         => options is { ExecutionDatabaseConfigured: true };
+
+    internal static async Task<bool> RetainedStoreReadableAsync(ProcurementDbContext db,
+        IProcurementManualPaymentReadReadiness readiness, CancellationToken ct)
+    {
+        if (!db.Database.IsNpgsql()) return false;
+        await db.Database.ExecuteSqlRawAsync("SET LOCAL transaction_read_only=on", ct);
+        return await readiness.CanReadAsync(db, ct);
+    }
 
     internal sealed record RetainedPaymentReceipt(ManualPaymentCommandReceipt receipt, ManualPaymentRequest request);
 
@@ -32,13 +40,12 @@ public static partial class ProcurementManualPaymentRoutes
 
     // Optional metadata: older clients can continue using the existing workflow
     // capability. This does not enable any mutation or require write privileges.
-    internal static async Task<bool> ReadCapability(ProcurementDbContext db, ProcurementRequestScope scope,
+    internal static async Task<bool> ReadCapability(ProcurementRequestScope scope,
         HttpContext http, bool pending, CancellationToken ct)
     {
         var services = http.RequestServices;
         if (pending || !RetainedReadConfigured(services.GetService<ProcurementManualPaymentOptions>())
             || services.GetService<IProcurementManualPaymentReadReadiness>() is not { } readiness
-            || !db.Database.IsNpgsql() || db.Database.CurrentTransaction is not null
             || scope.OrgUnitId is not null || scope.IsConfined && scope.WorkLocationId is null && !scope.IsExplicitAllBranches)
             return false;
         var authorization = services.GetService<IAuthorizationService>();
@@ -46,18 +53,22 @@ public static partial class ProcurementManualPaymentRoutes
             return false;
         try
         {
-            await using var tx = await db.Database.BeginTransactionAsync(IsolationLevel.Serializable, ct);
-            await db.Database.ExecuteSqlRawAsync("SET LOCAL transaction_read_only=on", ct);
-            if (!await readiness.CanReadAsync(db, ct)) return false;
-            await using var core = await ProcurementApprovalExecutionLocks.CoreAsync(db, scope, ct);
-            var person = await Actor(core, scope, http, authorization, "procurement-payment-read", ct);
-            _ = await ProcurementExecutionRecordScope.Branches(core, scope, null, false, ct);
-            return !scope.IsConfined || !person.OrganisationWide;
+            var transaction = services.GetService<ProcurementApprovalTransaction>();
+            if (transaction is null) return false;
+            return await transaction.ExecuteAsync(async (db, _, token) =>
+            {
+                if (!await RetainedStoreReadableAsync(db, readiness, token)) return false;
+                await using var core = await ProcurementApprovalExecutionLocks.CoreAsync(db, scope, token);
+                var person = await Actor(core, scope, http, authorization, "procurement-payment-read", token);
+                _ = await ProcurementExecutionRecordScope.Branches(core, scope, null, false, token);
+                return !scope.IsConfined || !person.OrganisationWide;
+            }, ct);
         }
+        catch (OperationCanceledException) { throw; }
         catch (Exception error) when (error is UnauthorizedAccessException or DbException or InvalidOperationException)
         {
-            // A missing catalog or insufficient SELECT grant is an unavailable read
-            // capability, not a reason to fail the whole module metadata response.
+            // The execution role, not the general module context, defines GET
+            // availability. Missing services/catalog/grants only hide this capability.
             return false;
         }
     }

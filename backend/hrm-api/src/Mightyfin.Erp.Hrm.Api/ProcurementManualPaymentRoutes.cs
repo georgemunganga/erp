@@ -49,9 +49,9 @@ public static partial class ProcurementManualPaymentRoutes
             {
                 if (retainedRead)
                 {
-                    await db.Database.ExecuteSqlRawAsync("SET LOCAL transaction_read_only=on", token);
-                    if (!await http.RequestServices.GetRequiredService<IProcurementManualPaymentReadReadiness>()
-                        .CanReadAsync(db, token)) throw new ReadProblem("ManualPaymentReadSchemaUnavailable", 503);
+                    if (!await RetainedStoreReadableAsync(db,
+                        http.RequestServices.GetRequiredService<IProcurementManualPaymentReadReadiness>(), token))
+                        throw new ReadProblem("ManualPaymentReadSchemaUnavailable", 503);
                 }
                 await using var core = await ProcurementApprovalExecutionLocks.CoreAsync(db, scope, token);
                 var person = await Actor(core, scope, http, authorization, "procurement-payment-read", token);
