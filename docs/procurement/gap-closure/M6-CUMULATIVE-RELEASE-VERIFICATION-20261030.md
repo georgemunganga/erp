@@ -25,6 +25,20 @@ Generation receipt SHA-256: `4bda4ce3d250a6882c07e3b2560e2ca291db1962d8fd9b97f16
 
 The initial wrapper attempt failed during offline restore because its NuGet configuration contained an invalid credential section. It generated no SQL or application build. That failure is retained separately; the corrected successor is the successful result above.
 
+## Verified restore and upgrade rehearsal
+
+The fresh encrypted backup and independent full restore comparison passed. Receipt `05e69d33fd79fc81a3b0f3241b09f2a055bb033e48a54799eb1d64b6dad05fa0` binds all original 220 tables' row digests, sequence values, named permissions, roles and schema. Exactly 36 constant-array CHECK deparse differences and three built-in monitor-membership grantor differences were reviewed for the isolated bootstrap; the comparator does not accept arbitrary normalization.
+
+The complete Core-first plus seven-Procurement Up → unused Down → Up rehearsal passed on that isolated restore: receipt `96b2a44c872905d7979e1bdcbd2d053ca99036e47f00cbf49b82273460d5905d`. All original rows, sequence values, security and original column positions were retained. The exact eleven dropped-column tombstones and subsequent column positions were checked explicitly. The first genuine M6E downgrade guard also refused retained audit/outbox markers with SQLSTATE 55000; the synthetic probes rolled back, preserving the full 229-table state (`0e033927db4373f02b17656336495f8cc031997a1f8bd132187633091ba8c8b0`). This marker test does not replace the separately recorded genuine replacement-workflow evidence or prove every populated downgrade path.
+
+## Open finite-role correction — 3 November 2026
+
+The isolated ACL run applied its exact 42 SELECT grants and 28 legacy privilege revocations. Its full before/after snapshot allowed only those intended ACL changes. The execution role passed the actual compiled read profile; the purchasing record role still failed. The run remains failed and its original artifacts are retained.
+
+Independent inspection of the saved after-state and compiled predicate found a pre-existing INSERT grant on `procurement.finance_payment_status_refs` for `erp_proc_record_finite_v1`. The compiled profile correctly rejects that grant: Finance owns settlement facts. Manual external-payment reporting does not write this table.
+
+[The release permission script](../../../backend/procurement-api/ops/m6-finite-read-role-grants.psql) retains the 42 read grants and seven new-table legacy revocations, then removes this one incorrect existing INSERT grant. It requires explicit database/cluster parameters, the actual database owner, installed migrations and existing limited roles, and runs transactionally. It changes no business rows, application permission CSVs, role memberships or global default ACLs. It still requires fresh isolated rehearsal of both actual role profiles and independent before/after comparison; it has not been applied to production.
+
 ## Remaining release gates
 
-Fresh encrypted backup and independent restore verification; cumulative upgrade against the restored production baseline; exact production finite-role permissions; unused downgrade/re-upgrade checks and populated downgrade refusal; paired backend/UI rollout; signed-in verification and post-release monitoring remain required. Generate scripts alone does not satisfy these gates. The original database, UI, workflow settings and permissions have not been changed by this preparation.
+A fresh rehearsal of the corrected permission script, reviewed paired backend/UI rollout, signed-in production verification and post-release monitoring remain required. The isolated restore expired at its finite lease and stopped; it is not a running job. The live services resumed on the same images after the backup window. Production schema, application permissions and UI remain on their earlier release. Whole-module UAT remains open.
