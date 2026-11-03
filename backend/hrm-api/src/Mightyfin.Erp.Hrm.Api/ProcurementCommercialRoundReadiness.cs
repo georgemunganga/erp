@@ -55,8 +55,9 @@ public sealed class ProcurementCommercialRoundReadiness(IConfiguration configura
         + " AND " + ProcurementSpendingAuthorityIdentitySchemaReadiness.NoOwnershipSql + " AND "
         + string.Join(" AND ", BarrierColumns.SelectMany(x=>x.Value.Select(column=>
             "has_column_privilege(current_user,"+Literal("procurement."+x.Key)+","+Literal(column)+",'SELECT')")))
-        + " AND " + string.Join(" AND ", BarrierColumns.Keys.Select(table => "NOT EXISTS(SELECT 1 FROM pg_class c WHERE c.oid="
-            + Literal("procurement."+table)+"::regclass AND (pg_has_role(current_user,c.relowner,'MEMBER') OR pg_has_role(current_user,c.relowner,'SET')))") );
+        + " AND " + string.Join(" AND ", CommercialRoundPlanSchema.Tables.Select(table => "NOT EXISTS(SELECT 1 FROM pg_class c WHERE c.oid="
+            + Literal("procurement."+table)+"::regclass AND (pg_has_role(current_user,c.relowner,'MEMBER') OR pg_has_role(current_user,c.relowner,'SET')))") )
+        + " AND NOT EXISTS(SELECT 1 FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace WHERE n.nspname='procurement' AND p.proname IN ('commercial_round_immutable','commercial_round_enroll_guard','commercial_round_event_barrier','commercial_round_complete','commercial_round_plan_update') AND (pg_has_role(current_user,p.proowner,'SET') OR pg_has_role(current_user,p.proowner,'MEMBER')))";
     internal static readonly string[] SourceReadTables = [ "sourcing_events", "sourcing_lines", "sourcing_draft_evidence", "sourcing_demand_bindings",
         "__procurement_migrations", "purchase_requests", "purchase_request_lines", "purchase_request_allocations",
         "purchase_request_approval_submissions", "purchase_request_approval_outcomes", "policy_versions", "policy_evaluations",
@@ -117,14 +118,14 @@ public sealed class ProcurementCommercialRoundReadiness(IConfiguration configura
     // trigger and all named owner functions. No guessed constraint text/hash.
     internal static readonly string FingerprintSql = """
 WITH wanted(name) AS (VALUES ('commercial_round_enrollments'),('commercial_round_plans'),('commercial_round_plan_revisions'),('commercial_round_criteria'),('commercial_round_participants'),('commercial_round_plan_receipts')),
-r AS (SELECT c.oid,c.relname,c.relkind,c.relrowsecurity,c.relforcerowsecurity FROM wanted w JOIN pg_class c ON c.relname=w.name JOIN pg_namespace n ON n.oid=c.relnamespace AND n.nspname='procurement')
+r AS (SELECT c.oid,c.relname,c.relkind,c.relrowsecurity,c.relforcerowsecurity,pg_get_userbyid(c.relowner) AS owner_name FROM wanted w JOIN pg_class c ON c.relname=w.name JOIN pg_namespace n ON n.oid=c.relnamespace AND n.nspname='procurement')
 SELECT encode(sha256(convert_to(jsonb_build_object(
- 'relations',(SELECT jsonb_agg(jsonb_build_array(relname,relkind,relrowsecurity,relforcerowsecurity) ORDER BY relname) FROM r),
+ 'relations',(SELECT jsonb_agg(jsonb_build_array(relname,relkind,relrowsecurity,relforcerowsecurity,owner_name) ORDER BY relname) FROM r),
  'columns',(SELECT jsonb_agg(jsonb_build_array(r.relname,a.attname,format_type(a.atttypid,a.atttypmod),a.attnotnull,a.attidentity,a.attgenerated,pg_get_expr(d.adbin,d.adrelid)) ORDER BY r.relname,a.attname) FROM r JOIN pg_attribute a ON a.attrelid=r.oid AND a.attnum>0 AND NOT a.attisdropped LEFT JOIN pg_attrdef d ON d.adrelid=r.oid AND d.adnum=a.attnum),
  'constraints',(SELECT jsonb_agg(jsonb_build_array(r.relname,c.conname,c.contype,c.convalidated,c.condeferrable,c.condeferred,pg_get_constraintdef(c.oid)) ORDER BY r.relname,c.conname) FROM r JOIN pg_constraint c ON c.conrelid=r.oid),
- 'indexes',(SELECT jsonb_agg(jsonb_build_array(r.relname,pg_get_indexdef(i.indexrelid)) ORDER BY r.relname,pg_get_indexdef(i.indexrelid)) FROM r JOIN pg_index i ON i.indrelid=r.oid),
+ 'indexes',(SELECT jsonb_agg(jsonb_build_array(r.relname,i.indisvalid,i.indisready,i.indislive,i.indimmediate,pg_get_indexdef(i.indexrelid)) ORDER BY r.relname,pg_get_indexdef(i.indexrelid)) FROM r JOIN pg_index i ON i.indrelid=r.oid),
  'triggers',(SELECT jsonb_agg(jsonb_build_array(c.relname,t.tgname,t.tgenabled,pg_get_triggerdef(t.oid)) ORDER BY c.relname,t.tgname) FROM pg_trigger t JOIN pg_class c ON c.oid=t.tgrelid JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname='procurement' AND NOT t.tgisinternal AND (c.oid IN(SELECT oid FROM r) OR t.tgname='commercial_round_event_barrier')),
- 'functions',(SELECT jsonb_agg(pg_get_functiondef(p.oid) ORDER BY p.proname) FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace WHERE n.nspname='procurement' AND p.proname IN ('commercial_round_immutable','commercial_round_enroll_guard','commercial_round_event_barrier','commercial_round_complete','commercial_round_plan_update'))
+ 'functions',(SELECT jsonb_agg(jsonb_build_array(p.proname,pg_get_userbyid(p.proowner),pg_get_functiondef(p.oid)) ORDER BY p.proname) FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace WHERE n.nspname='procurement' AND p.proname IN ('commercial_round_immutable','commercial_round_enroll_guard','commercial_round_event_barrier','commercial_round_complete','commercial_round_plan_update'))
 )::text,'UTF8')),'hex')
 """;
 }
