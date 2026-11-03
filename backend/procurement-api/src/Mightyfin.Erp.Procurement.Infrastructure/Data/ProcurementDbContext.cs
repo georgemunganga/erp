@@ -80,7 +80,8 @@ public sealed partial class ProcurementDbContext(DbContextOptions<ProcurementDbC
     {
         // Evidence was constructed for a specific source scope. Never relabel it
         // as belonging to another company when attaching it to this context.
-        if ((record is SourcingManualContact or SourcingManualQuoteVersion
+        if ((record is CommercialRoundEnrollment or CommercialRoundPlan or CommercialRoundPlanRevision or CommercialRoundCriterion or CommercialRoundParticipant or CommercialRoundPlanReceipt
+                or SourcingManualContact or SourcingManualQuoteVersion
                 or InvoiceReplacementLink or InvoiceReplacementCommandReceipt or InvoiceIntakeCommandReceipt or InvoiceAmountCalculation or InvoiceProcurementOwnerBaseline or InvoiceProcurementOwnerBaselineRow or InvoiceProcurementOwnerCommandReceipt
                 or PrincipalGoodsReturnDraft or PrincipalGoodsReturnRevision or PrincipalGoodsReturnCommandReceipt
                 or PrincipalReceivingDraftLineBinding or PrincipalReceivingSourceState or PrincipalReceivingFact or PrincipalReceivingDraftHead
@@ -571,6 +572,7 @@ public sealed partial class ProcurementDbContext(DbContextOptions<ProcurementDbC
         ConfigureSourcingPolicyIdentity(modelBuilder);
         ConfigureSourcingPublication(modelBuilder);
         ConfigureManualQuotations(modelBuilder);
+        ConfigureCommercialRoundPlans(modelBuilder);
         ConfigureOperationalPolicyIdentity(modelBuilder);
         ConfigureInvoiceUnitReview(modelBuilder);
         ConfigureRecurringPurchaseCommitments(modelBuilder);
@@ -836,6 +838,7 @@ public sealed partial class ProcurementDbContext(DbContextOptions<ProcurementDbC
         GuardInvoiceIntakeCommandReceipts();
         GuardInvoiceReplacement();
         GuardManualQuotations();
+        GuardCommercialRoundPlans();
     }
 
     private void GuardMasterImportChanges()

@@ -62,6 +62,8 @@ public static class ProcurementHostIntegration
         // Native owning READ/RECORD acceptance: e9e5826419a6fcc293838adbf2e05eeb835463ab85327c84641aa243d94206ab.
         // Registration grants no action and never bypasses same-transaction admission.
         services.AddScoped<IProcurementManualQuotationReadiness, ProcurementManualQuotationSchemaReadiness>();
+        services.AddSingleton(configuration.GetSection("Procurement:CommercialRoundPlan").Get<ProcurementCommercialRoundOptions>() ?? new());
+        services.AddScoped<IProcurementCommercialRoundReadiness, ProcurementCommercialRoundReadiness>();
         services.AddSingleton(configuration.GetSection("Procurement:SourcingPublication")
             .Get<ProcurementPrincipalSourcingPublicationOptions>() ?? new());
         services.AddScoped<IProcurementPrincipalSourcingPublicationReadiness,
@@ -241,6 +243,7 @@ public static class ProcurementHostIntegration
                 var principalSourcingPublication = ProcurementPrincipalSourcingPublicationCapability.NewWork(
                     principalSourcingPublicationRead, sourcingSourceDrafts,
                     publicationOptions is { Enabled: true }, publicationApprovalStoreReady);
+                var roundPlan = await ProcurementCommercialRoundCapability.ReadyAsync(services, scope, pending, ct);
                 return Results.Ok(new
                 {
                     module = "procurement",
@@ -269,6 +272,8 @@ public static class ProcurementHostIntegration
                         principalSourcingSourceDrafts,
                         principalSourcingPublication,
                         principalSourcingPublicationRead,
+                        roundPlanRead = roundPlan.Read,
+                        roundPlanRecord = roundPlan.Record,
                         // Capability describes configured availability; each command still
                         // checks current identity, record scope, policy, authority and Finance.
                         budgetEvidence = financeCheckerReads,
@@ -671,7 +676,7 @@ public sealed class ProcurementScopeMiddleware(RequestDelegate next, IWebHostEnv
             && Guid.TryParseExact(parts[4],"D",out var invoiceId) && invoiceId!=Guid.Empty
             && string.Equals(parts[5],"matching",StringComparison.OrdinalIgnoreCase)
             && string.Equals(parts[6],"principal-sources",StringComparison.OrdinalIgnoreCase);
-        return principalInvoiceSources || ProcurementSourcingExecutionRoutes.QuotationAllReadPath(path, method) || string.Equals(value, "/api/procurement/v1/manual-invoice-unit-reviews/tasks", StringComparison.OrdinalIgnoreCase)
+        return principalInvoiceSources || ProcurementSourcingExecutionRoutes.QuotationAllReadPath(path, method) || ProcurementSourcingExecutionRoutes.RoundPlanAllReadPath(path, method) || string.Equals(value, "/api/procurement/v1/manual-invoice-unit-reviews/tasks", StringComparison.OrdinalIgnoreCase)
             || string.Equals(value, "/api/procurement/v1/requests", StringComparison.OrdinalIgnoreCase)
             || string.Equals(value, "/api/procurement/v1/plans", StringComparison.OrdinalIgnoreCase)
             || string.Equals(value, "/api/procurement/v1/contracts", StringComparison.OrdinalIgnoreCase)

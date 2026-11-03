@@ -43,7 +43,7 @@ public static partial class ProcurementSourcingExecutionRoutes
                 {
                     if (ev.Status is "PublicationReview" or "Published")
                         _ = await PrincipalPublicationEvidence(db, cases, ev, token);
-                    else _ = await PrincipalReadOwned(db, ev, token);
+                    else _ = await PrincipalReadOwned(db, ev, http, token);
                     items.Add(new { ev.Id, ev.Number, ev.Title, ev.CurrencyCode, ev.Status,
                         ev.Version, originalDraftFingerprint = ev.OriginalDraftFingerprint,
                         state = "VerifiedRetainedSourcing", supplierDeliveryState = ev.Status == "Published"
@@ -97,15 +97,16 @@ public static partial class ProcurementSourcingExecutionRoutes
             if (ev.Status is "Draft" or "Cancelled")
             {
                 if (!author) throw new Problem("SourcingNotFound", 404);
-                return await PrincipalReadOwned(db, ev, token);
+                return await PrincipalReadOwned(db, ev, http, token);
             }
             if (ev.Status is not ("PublicationReview" or "Published"))
                 throw new Problem("SourcingPublicationEvidenceNeedsReview", 409);
             var verified = await PrincipalPublicationEvidence(db, cases, ev, token);
+            var roundPlan = await RoundLegacyHint(http, db, ev.Id, token);
             ReadOnly(db, cases, core);
             return new Reply(JsonSerializer.Serialize(new
             {
-                ev.Id, ev.Number, ev.Title, ev.Method, ev.CurrencyCode, ev.Status, ev.Version,
+                ev.Id, ev.Number, ev.Title, ev.Method, ev.CurrencyCode, ev.Status, ev.Version, roundPlan,
                 originalDraftFingerprint = ev.OriginalDraftFingerprint,
                 canPublish = false, financeReservationChanged = false,
                 publication = new { openingId = verified.Opening.Id,
