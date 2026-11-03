@@ -76,7 +76,7 @@ public sealed class ProcurementPrincipalQuotationGateHttpTests
     {
         protected override Task<AuthenticateResult> HandleAuthenticateAsync()
         {
-            var claims = new List<Claim> { new(ClaimTypes.NameIdentifier, Actor), new(ClaimTypes.Role, "erp_admin") };
+            var claims = new List<Claim> { new(ClaimTypes.NameIdentifier, Actor), new("tenant", "quotation-gate"), new(ClaimTypes.Role, "erp_admin") };
             if (Request.Headers["X-Quotation-Test-Reader"] == "yes") claims.AddRange([
                 new(ProcurementPermissions.ConfiguredClaim, "true"),
                 new(ProcurementPermissions.ActionClaim, "procurement-access"),
