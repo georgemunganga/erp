@@ -92,7 +92,7 @@ public static partial class ProcurementSourcingExecutionRoutes
                 .Select(x => new { x.Id, x.DisplayName }).ToArrayAsync(token);
             using var content = JsonDocument.Parse(graph.Revision.ContentJson);
             var actions=await RoundActions(http,db,cases,core,scope,auth,source,graph.Plan,
-                version is null||version==graph.Plan.Version,token);
+                ProcurementCommercialRoundActions.IsEditableRoute(version),token);
             return new(JsonSerializer.Serialize(new { enrolled = true, source = RoundSourceView(source,retained),allowedActions=actions,
                 plan = new { graph.Plan.Id, graph.Plan.Status, graph.Plan.Version, graph.Plan.MakerPrincipalId },
                 revision = new { graph.Revision.Id, version = graph.Revision.ResultVersion, graph.Revision.Operation,

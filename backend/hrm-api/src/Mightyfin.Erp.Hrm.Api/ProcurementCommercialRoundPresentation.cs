@@ -10,6 +10,7 @@ namespace Mightyfin.Erp.Hrm.Api;
 
 internal static class ProcurementCommercialRoundActions
 {
+    internal static bool IsEditableRoute(long? requestedVersion)=>requestedVersion is null;
     // Presentation hints only. Every command rechecks current authority/state under owning locks.
     internal static string[] ForRecord(bool recordReady,bool explicitBranch,bool sourceDraft,bool currentView,
         bool enrolled,string? planStatus,bool untouched,bool verifiedHolds,bool manage,bool cancel)

@@ -18,6 +18,15 @@ public sealed class ProcurementCommercialRoundPresentationTests
         bool draft,bool current,bool enrolled,string? state,bool untouched,bool holds,bool manage,bool cancel)
         =>Assert.Empty(ProcurementCommercialRoundActions.ForRecord(ready,branch,draft,current,enrolled,state,untouched,holds,manage,cancel));
     [Fact]
+    public void Every_explicit_version_route_is_read_only_including_the_latest_snapshot()
+    {
+        Assert.True(ProcurementCommercialRoundActions.IsEditableRoute(null));
+        Assert.False(ProcurementCommercialRoundActions.IsEditableRoute(1));
+        Assert.False(ProcurementCommercialRoundActions.IsEditableRoute(long.MaxValue));
+        Assert.Empty(ProcurementCommercialRoundActions.ForRecord(true,true,true,
+            ProcurementCommercialRoundActions.IsEditableRoute(3),true,"Draft",true,true,true,true));
+    }
+    [Fact]
     public void Incomplete_source_create_requires_manage_and_verified_current_holds()
     {
         Assert.Equal(["Create"],ProcurementCommercialRoundActions.ForRecord(true,true,true,true,false,null,true,true,true,false));
