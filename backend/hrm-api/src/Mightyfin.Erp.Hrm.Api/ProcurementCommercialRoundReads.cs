@@ -63,7 +63,7 @@ public static partial class ProcurementSourcingExecutionRoutes
         return new(receipt.ResponseJson, receipt.ResponseStatusCode);
     }
     private static Task<IResult> RoundRecover(Guid id, Guid key, HttpContext http, ProcurementRequestScope scope, CancellationToken ct)
-        => RunRound(http, scope, async (db, _, core, auth, token) => {
+        => RunRound(http, scope, async (db, cases, core, auth, token) => {
             _ = await RoundSource(db, core, scope, http, auth, "procurement-round-plan-read", id, token);
             var receipt = await db.CommercialRoundPlanReceipts.AsNoTracking().SingleOrDefaultAsync(x =>
                 x.ActorPrincipalId == scope.SubjectId && x.CommandKey == key && x.SourcingEventId == id, token);
@@ -75,7 +75,7 @@ public static partial class ProcurementSourcingExecutionRoutes
     private static Task<IResult> RoundVersion(Guid id, long version, HttpContext http, ProcurementRequestScope scope, CancellationToken ct)
         => RoundReadVersion(id, version, http, scope, ct);
     private static Task<IResult> RoundReadVersion(Guid id, long? version, HttpContext http, ProcurementRequestScope scope, CancellationToken ct)
-        => RunRound(http, scope, async (db, _, core, auth, token) => {
+        => RunRound(http, scope, async (db, cases, core, auth, token) => {
             var source = await RoundSource(db, core, scope, http, auth, "procurement-round-plan-read", id, token);
             if (!await db.CommercialRoundEnrollments.AsNoTracking().AnyAsync(x => x.SourcingEventId == id, token))
             {
@@ -97,7 +97,7 @@ public static partial class ProcurementSourcingExecutionRoutes
                 reviewAvailable = false, publicationAvailable = false, contentIsIncompleteProposal = true }, RoundJson), 200);
         }, ct);
     private static Task<IResult> RoundHistory(Guid id, long? afterVersion, int? limit, HttpContext http, ProcurementRequestScope scope, CancellationToken ct)
-        => RunRound(http, scope, async (db, _, core, auth, token) => {
+        => RunRound(http, scope, async (db, cases, core, auth, token) => {
             var after = afterVersion ?? 0; var size = limit ?? 25;
             if (after < 0 || size is < 1 or > 50) throw new Problem("RoundPlanPageInvalid", 422);
             var source = await RoundSource(db, core, scope, http, auth, "procurement-round-plan-read", id, token);
@@ -110,7 +110,7 @@ public static partial class ProcurementSourcingExecutionRoutes
                 nextVersion = rows.Length > size ? (long?)page[^1].ResultVersion : null }, RoundJson), 200);
         }, ct);
     private static Task<IResult> RoundList(int? page, HttpContext http, ProcurementRequestScope scope, CancellationToken ct)
-        => RunRound(http, scope, async (db, _, core, auth, token) => {
+        => RunRound(http, scope, async (db, cases, core, auth, token) => {
             var number = page ?? 1; if (number is < 1 or > 10000) throw new Problem("RoundPlanPageInvalid", 422);
             var actor = await PrincipalActor(core, scope, http, auth, "procurement-round-plan-read", null, false, token);
             var query = from plan in db.CommercialRoundPlans.AsNoTracking()

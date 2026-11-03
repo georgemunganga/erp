@@ -1,0 +1,37 @@
+-- Metadata-only capture for before/after/rollback. No business rows/passwords.
+\set ON_ERROR_STOP on
+\if :{?expected_database}
+\else
+DO $$ BEGIN RAISE EXCEPTION 'expected_database required'; END $$;
+\endif
+\if :{?expected_system_identifier}
+\else
+DO $$ BEGIN RAISE EXCEPTION 'expected_system_identifier required'; END $$;
+\endif
+BEGIN READ ONLY;
+SELECT set_config('greenwebb.expected_database', :'expected_database', true);
+SELECT set_config('greenwebb.expected_system_identifier', :'expected_system_identifier', true);
+DO $f$ BEGIN
+ IF current_database()<>current_setting('greenwebb.expected_database')
+  OR(SELECT system_identifier::text FROM pg_control_system())<>current_setting('greenwebb.expected_system_identifier') THEN
+  RAISE EXCEPTION 'Exact database/cluster required';
+ END IF;
+END $f$;
+WITH wanted(name)AS(VALUES('manual_payment_decisions'),('manual_payment_receipts'),
+ ('manual_payment_workflow_cases'),('manual_payment_core_decisions'),('manual_payment_date_observations'),
+ ('operational_policy_identity_evidence'),('manual_payment_requests'),('policy_versions'),('supplier_invoices')),
+ targets AS(SELECT c.oid,c.relname,c.relowner,c.relacl FROM wanted w JOIN pg_namespace n ON n.nspname='procurement' JOIN pg_class c ON c.relnamespace=n.oid AND c.relname=w.name)
+SELECT jsonb_build_object('database',current_database(),'system',(SELECT system_identifier::text FROM pg_control_system()),
+ 'role','erp_proc_execute_finite_v1',
+ 'tables',(SELECT jsonb_agg(jsonb_build_object('table','procurement.'||relname,'owner',pg_get_userbyid(relowner),'acl',relacl,
+  'effectiveInsert',has_table_privilege('erp_proc_execute_finite_v1',oid,'INSERT'),
+  'effectiveUpdate',has_table_privilege('erp_proc_execute_finite_v1',oid,'UPDATE'))ORDER BY relname)FROM targets),
+ 'columns',(SELECT jsonb_agg(jsonb_build_object('table','procurement.'||t.relname,'column',a.attname,'acl',a.attacl,
+  'effectiveInsert',has_column_privilege('erp_proc_execute_finite_v1',t.oid,a.attnum,'INSERT'),
+  'effectiveUpdate',has_column_privilege('erp_proc_execute_finite_v1',t.oid,a.attnum,'UPDATE'))ORDER BY t.relname,a.attnum)
+  FROM targets t JOIN pg_attribute a ON a.attrelid=t.oid AND a.attnum>0 AND NOT a.attisdropped),
+ 'roleMemberships',(SELECT coalesce(jsonb_agg(jsonb_build_array(roleid,member,grantor,admin_option,inherit_option,set_option)ORDER BY roleid,member),'[]'::jsonb)FROM pg_auth_members WHERE member='erp_proc_execute_finite_v1'::regrole OR roleid='erp_proc_execute_finite_v1'::regrole),
+ 'coreAndFinanceDenials',NOT EXISTS(SELECT 1 FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname='hrm'AND c.relkind IN('r','p','v','f')AND(has_table_privilege('erp_proc_execute_finite_v1',c.oid,'INSERT,UPDATE,DELETE,TRUNCATE')OR has_any_column_privilege('erp_proc_execute_finite_v1',c.oid,'INSERT,UPDATE')))
+  AND NOT has_table_privilege('erp_proc_execute_finite_v1','procurement.finance_payment_status_refs','INSERT,UPDATE,DELETE,TRUNCATE')
+  AND NOT has_any_column_privilege('erp_proc_execute_finite_v1','procurement.finance_payment_status_refs','INSERT,UPDATE'));
+ROLLBACK;

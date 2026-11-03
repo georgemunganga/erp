@@ -1,0 +1,59 @@
+-- Explicit reviewed owner operation for ERP issue #158; never startup repair.
+-- Capture payment-write-finite-grants-acl.psql before/after. Require all eleven
+-- rights absent before this atomic operation; do not rerun over a changed ACL.
+-- Only Technical SQL admission: does not publish policy/assign people/enable API.
+\set ON_ERROR_STOP on
+\if :{?expected_database}
+\else
+DO $$ BEGIN RAISE EXCEPTION 'expected_database required'; END $$;
+\endif
+\if :{?expected_system_identifier}
+\else
+DO $$ BEGIN RAISE EXCEPTION 'expected_system_identifier required'; END $$;
+\endif
+BEGIN;
+SET LOCAL lock_timeout='3s';
+SET LOCAL statement_timeout='30s';
+SELECT set_config('greenwebb.expected_database', :'expected_database', true);
+SELECT set_config('greenwebb.expected_system_identifier', :'expected_system_identifier', true);
+DO $preflight$
+DECLARE role_name constant text := 'erp_proc_execute_finite_v1';
+BEGIN
+ IF current_user<>session_user OR current_user<>'erp'
+  OR current_database()<>current_setting('greenwebb.expected_database')
+  OR (SELECT system_identifier::text FROM pg_control_system())<>current_setting('greenwebb.expected_system_identifier') THEN
+  RAISE EXCEPTION 'Reviewed owner and exact database/cluster required';
+ END IF;
+ IF NOT EXISTS(SELECT 1 FROM pg_roles WHERE rolname=role_name)
+  OR EXISTS(SELECT 1 FROM pg_roles WHERE rolname=role_name AND(rolsuper OR rolcreatedb OR rolcreaterole OR rolreplication OR rolbypassrls))
+  OR EXISTS(SELECT 1 FROM pg_roles r WHERE(r.rolsuper OR r.rolcreatedb OR r.rolcreaterole OR r.rolreplication OR r.rolbypassrls)AND pg_has_role(role_name,r.oid,'SET'))
+  OR EXISTS(SELECT 1 FROM pg_namespace n WHERE n.nspname IN('hrm','procurement','core_approval')AND(has_schema_privilege(role_name,n.oid,'CREATE')OR pg_has_role(role_name,n.nspowner,'MEMBER')OR pg_has_role(role_name,n.nspowner,'SET')))
+  OR EXISTS(SELECT 1 FROM pg_database d WHERE d.datname=current_database()AND(pg_has_role(role_name,d.datdba,'MEMBER')OR pg_has_role(role_name,d.datdba,'SET')))
+  OR EXISTS(SELECT 1 FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname IN('hrm','procurement','core_approval')AND(pg_has_role(role_name,c.relowner,'MEMBER')OR pg_has_role(role_name,c.relowner,'SET'))) THEN
+  RAISE EXCEPTION 'Existing finite non-owner execution role required';
+ END IF;
+ IF EXISTS(SELECT 1 FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname='hrm'AND c.relkind IN('r','p','v','f')AND(has_table_privilege(role_name,c.oid,'INSERT,UPDATE,DELETE,TRUNCATE')OR has_any_column_privilege(role_name,c.oid,'INSERT,UPDATE')))
+  OR has_table_privilege(role_name,'procurement.finance_payment_status_refs','INSERT,UPDATE,DELETE,TRUNCATE')
+  OR has_any_column_privilege(role_name,'procurement.finance_payment_status_refs','INSERT,UPDATE') THEN
+  RAISE EXCEPTION 'Execution role must not write Core identity/HRM or Finance status';
+ END IF;
+ IF EXISTS(SELECT 1 FROM(VALUES
+  ('procurement.manual_payment_decisions','INSERT'),('procurement.manual_payment_receipts','INSERT'),
+  ('procurement.manual_payment_workflow_cases','INSERT'),('procurement.manual_payment_core_decisions','INSERT'),
+  ('procurement.manual_payment_date_observations','INSERT'),('procurement.operational_policy_identity_evidence','INSERT'),
+  ('procurement.manual_payment_requests','INSERT'),('procurement.manual_payment_requests','UPDATE'),
+  ('procurement.policy_versions','INSERT'),('procurement.policy_versions','UPDATE'))v(relation_name,privilege_name)
+  WHERE has_table_privilege(role_name,v.relation_name,v.privilege_name))
+  OR has_column_privilege(role_name,'procurement.supplier_invoices','id','UPDATE') THEN
+  RAISE EXCEPTION 'Baseline changed: exactly reviewed eleven missing rights must be absent';
+ END IF;
+END $preflight$;
+GRANT INSERT ON procurement.manual_payment_decisions,procurement.manual_payment_receipts,
+ procurement.manual_payment_workflow_cases,procurement.manual_payment_core_decisions,
+ procurement.manual_payment_date_observations,procurement.operational_policy_identity_evidence TO erp_proc_execute_finite_v1;
+GRANT INSERT,UPDATE ON procurement.manual_payment_requests,procurement.policy_versions TO erp_proc_execute_finite_v1;
+-- SELECT FOR UPDATE needs UPDATE on one column; no commercial-field UPDATE.
+GRANT UPDATE(id) ON procurement.supplier_invoices TO erp_proc_execute_finite_v1;
+COMMIT;
+-- Independently reconcile exact ACL delta, then rerun actual full-governance
+-- provider with all DSNs READ ONLY under a NEW canary name. No automatic grants.

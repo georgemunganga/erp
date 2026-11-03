@@ -1,0 +1,37 @@
+-- Owner-only rollback of the exact eleven NEW grants from the paired forward
+-- script. Require retained before/after ACL evidence: forward refuses any of
+-- these effective rights already present. Do not use for an unrelated role ACL.
+\set ON_ERROR_STOP on
+\if :{?expected_database}
+\else
+DO $$ BEGIN RAISE EXCEPTION 'expected_database required'; END $$;
+\endif
+\if :{?expected_system_identifier}
+\else
+DO $$ BEGIN RAISE EXCEPTION 'expected_system_identifier required'; END $$;
+\endif
+\if :{?reviewed_forward_delta_only}
+\else
+DO $$ BEGIN RAISE EXCEPTION 'reviewed_forward_delta_only=confirmed required'; END $$;
+\endif
+BEGIN;
+SET LOCAL lock_timeout='3s';
+SET LOCAL statement_timeout='30s';
+SELECT set_config('greenwebb.expected_database', :'expected_database', true);
+SELECT set_config('greenwebb.expected_system_identifier', :'expected_system_identifier', true);
+SELECT set_config('greenwebb.reviewed_forward_delta_only', :'reviewed_forward_delta_only', true);
+DO $f$ BEGIN
+ IF current_user<>session_user OR current_user<>'erp'
+  OR current_database()<>current_setting('greenwebb.expected_database')
+  OR (SELECT system_identifier::text FROM pg_control_system())<>current_setting('greenwebb.expected_system_identifier')
+  OR current_setting('greenwebb.reviewed_forward_delta_only')<>'confirmed' THEN
+  RAISE EXCEPTION 'Exact owner/database/cluster and reviewed original delta required';
+ END IF;
+END $f$;
+REVOKE INSERT ON procurement.manual_payment_decisions,procurement.manual_payment_receipts,
+ procurement.manual_payment_workflow_cases,procurement.manual_payment_core_decisions,
+ procurement.manual_payment_date_observations,procurement.operational_policy_identity_evidence FROM erp_proc_execute_finite_v1;
+REVOKE INSERT,UPDATE ON procurement.manual_payment_requests,procurement.policy_versions FROM erp_proc_execute_finite_v1;
+REVOKE UPDATE(id) ON procurement.supplier_invoices FROM erp_proc_execute_finite_v1;
+COMMIT;
+-- No CASCADE; any dependency or changed baseline requires independent review.
