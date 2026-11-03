@@ -67,6 +67,11 @@ public sealed class ProcurementCommercialRoundReadiness(IConfiguration configura
         "budget_check_snapshots", "procurement_methods" ];
     internal static readonly string[] ExistenceOnlyTables = [ "sourcing_publication_openings", "sourcing_publication_decisions",
         "sourcing_publication_receipts", "sourcing_invitations", "sourcing_manual_contacts", "sourcing_manual_quote_versions", "supplier_bids", "sourcing_awards" ];
+    // PostgreSQL RI checks run as referenced-table owner; schema ownership is
+    // separate from table ownership. A NOLOGIN table owner still needs USAGE.
+    // This is a write prerequisite only, never a new condition for retained READ.
+    internal static readonly string ReferencedOwnersSchemaUsageSql = "(SELECT count(*)=6 AND COALESCE(bool_and(has_schema_privilege(c.relowner,n.oid,'USAGE')),false) FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname='procurement' AND c.relkind='r' AND c.relname IN ("
+        + string.Join(',',CommercialRoundPlanSchema.Tables.Select(Literal)) + "))";
     internal static string PrivilegeSql(bool record, string role)
     {
         var clauses = new List<string> { "session_user=current_user AND current_user=" + Literal(role),
@@ -105,6 +110,7 @@ public sealed class ProcurementCommercialRoundReadiness(IConfiguration configura
         }
         if (record)
         {
+            clauses.Add(ReferencedOwnersSchemaUsageSql);
             clauses.Add("current_setting('transaction_read_only')='off' AND NOT pg_is_in_recovery()");
             clauses.Add("has_table_privilege(current_user,'procurement.commercial_round_plans','UPDATE')");
             clauses.Add("has_any_column_privilege(current_user,'procurement.sourcing_events','UPDATE')");

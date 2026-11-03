@@ -75,4 +75,18 @@ public sealed class ProcurementCommercialRoundContractTests
         Assert.Contains("p.prosecdef,pg_get_functiondef(p.oid)",sql);
         Assert.Contains("i.indisvalid,i.indisready,i.indislive,i.indimmediate",sql);
     }
+    [Fact]
+    public void Record_requires_all_referenced_table_owners_schema_usage_but_retained_read_does_not()
+    {
+        var prerequisite=ProcurementCommercialRoundReadiness.ReferencedOwnersSchemaUsageSql;
+        Assert.Contains("count(*)=6",prerequisite);
+        Assert.Contains("has_schema_privilege(c.relowner,n.oid,'USAGE')",prerequisite);
+        Assert.Contains("c.relkind='r'",prerequisite);
+        foreach(var table in Mightyfin.Erp.Procurement.Infrastructure.Data.CommercialRoundPlanSchema.Tables)
+            Assert.Contains("'"+table+"'",prerequisite);
+        Assert.Contains(prerequisite,ProcurementCommercialRoundReadiness.PrivilegeSql(true,"bounded_round_role"));
+        Assert.DoesNotContain(prerequisite,ProcurementCommercialRoundReadiness.PrivilegeSql(false,"bounded_round_role"));
+        Assert.DoesNotContain("'CREATE'",prerequisite);
+    }
+
 }
