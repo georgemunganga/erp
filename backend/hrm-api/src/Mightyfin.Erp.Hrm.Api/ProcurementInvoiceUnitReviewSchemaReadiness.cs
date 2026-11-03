@@ -126,10 +126,11 @@ public sealed class ProcurementInvoiceUnitReviewSchemaReadiness : IProcurementIn
             var expectedOperational = ownerBaselineInstalled ? ProcurementInvoiceOwnerBaselineSchemaCapture.OperationalCheckDefinition
                 : paymentInstalled ? ProcurementManualPaymentGovernanceReadiness.OperationalCheckDefinition : OperationalCheckDefinition;
             if (await command.ExecuteScalarAsync(ct) is not string operational
-                || (ownerBaselineInstalled
-                    ? !ProcurementInvoiceOwnerBaselineSchemaCapture.CheckMatches("procurement.operational_policy_identity_evidence.ck_operational_policy_identity",operational)
-                    : operational != expectedOperational && !ProcurementRestoreCheckAlternatives.Matches(
-                        "procurement.operational_policy_identity_evidence.ck_operational_policy_identity",expectedOperational,operational))) return false;
+                || !ProcurementPlanReviewSchemaCapture.OperationalCheckMatches(applied, operational,
+                    value => ownerBaselineInstalled
+                        ? ProcurementInvoiceOwnerBaselineSchemaCapture.CheckMatches("procurement.operational_policy_identity_evidence.ck_operational_policy_identity", value)
+                        : value == expectedOperational || ProcurementRestoreCheckAlternatives.Matches(
+                            "procurement.operational_policy_identity_evidence.ck_operational_policy_identity", expectedOperational, value))) return false;
             if (!await True("SELECT " + ProcurementSpendingAuthorityIdentitySchemaReadiness.NoCoreIdentityWritesSql)
                 || !await True("SELECT " + ProcurementSpendingAuthorityIdentitySchemaReadiness.NoOwnershipSql)
                 || !await True(CoreReadBoundarySql)) return false;

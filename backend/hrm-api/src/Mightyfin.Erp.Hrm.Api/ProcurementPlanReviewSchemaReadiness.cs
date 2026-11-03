@@ -10,17 +10,21 @@ using static Mightyfin.Erp.Hrm.Api.ProcurementSchemaInspectionSql;
 
 namespace Mightyfin.Erp.Hrm.Api;
 
-/// <summary>Actual read-only catalog/finite-role inspection. The new physical CHECK
-/// fingerprints and migration ID remain absent until a genuine post-B1 migration
-/// and private PostgreSQL capture; configuration alone cannot admit commands.</summary>
+/// <summary>Actual read-only catalog/finite-role inspection against the genuine
+/// Plan migration and exact observed direct/restore CHECK definitions.
+/// Configuration alone cannot admit commands.</summary>
 public sealed class ProcurementPlanReviewSchemaReadiness(IConfiguration configuration,
     IProcurementScope scope, IProcurementOperationalPolicyIdentitySchemaReadiness policyIdentity)
     : IProcurementPlanReviewReadiness
 {
-    internal const string RequiredMigrationId = "";
+    internal const string RequiredMigrationId = ProcurementPlanReviewSchemaCapture.MigrationId;
     internal static readonly IReadOnlyDictionary<string, string> CheckDefinitions =
-        new Dictionary<string, string>();
-    internal static bool ManifestCaptured => RequiredMigrationId.Length > 0
+        new Dictionary<string, string>
+        {
+            ["ck_plan_review_submission"] = ProcurementPlanReviewSchemaCapture.Checks["procurement.plan_review_submissions.ck_plan_review_submission"],
+            ["ck_plan_review_receipt"] = ProcurementPlanReviewSchemaCapture.Checks["procurement.plan_review_command_receipts.ck_plan_review_receipt"],
+        };
+    internal static bool ManifestCaptured => ProcurementPlanReviewSchemaCapture.Populated && RequiredMigrationId.Length > 0
         && CheckDefinitions.Keys.ToHashSet(StringComparer.Ordinal)
             .SetEquals(new[] { "ck_plan_review_submission", "ck_plan_review_receipt" });
 
@@ -99,9 +103,10 @@ public sealed class ProcurementPlanReviewSchemaReadiness(IConfiguration configur
                     if (checks.Length != 1) return false;
                     foreach (var check in checks)
                     {
-                        if (!CheckDefinitions.TryGetValue(check.Name!, out var expected)) return false;
+                        if (!CheckDefinitions.ContainsKey(check.Name!)) return false;
                         command.CommandText = CheckSql(table, check.Name!);
-                        if (await command.ExecuteScalarAsync(ct) is not string actual || actual != expected) return false;
+                        if (await command.ExecuteScalarAsync(ct) is not string actual
+                            || !ProcurementPlanReviewSchemaCapture.CheckMatches("procurement." + table.Name + "." + check.Name, actual)) return false;
                     }
                     foreach (var index in entity.GetIndexes().Where(x => x.IsUnique))
                         if (!await True(command, UniqueIndexSql(table,

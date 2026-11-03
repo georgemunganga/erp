@@ -86,10 +86,11 @@ public sealed class ProcurementOperationalPolicyIdentitySchemaReadiness : IProcu
                 : paymentInstalled ? ProcurementManualPaymentGovernanceReadiness.OperationalCheckDefinition
                 : unitInstalled ? ProcurementInvoiceUnitReviewSchemaReadiness.OperationalCheckDefinition : CheckDefinition;
             if (unitInstalled && !ProcurementInvoiceUnitReviewSchemaReadiness.ManifestCaptured
-                || (ownerBaselineInstalled
-                    ? !ProcurementInvoiceOwnerBaselineSchemaCapture.CheckMatches("procurement.operational_policy_identity_evidence.ck_operational_policy_identity",actual)
-                    : actual != expectedCheck && !ProcurementRestoreCheckAlternatives.Matches(
-                        "procurement.operational_policy_identity_evidence.ck_operational_policy_identity", expectedCheck, actual))) return false;
+                || !ProcurementPlanReviewSchemaCapture.OperationalCheckMatches(applied, actual,
+                    value => ownerBaselineInstalled
+                        ? ProcurementInvoiceOwnerBaselineSchemaCapture.CheckMatches("procurement.operational_policy_identity_evidence.ck_operational_policy_identity", value)
+                        : value == expectedCheck || ProcurementRestoreCheckAlternatives.Matches(
+                            "procurement.operational_policy_identity_evidence.ck_operational_policy_identity", expectedCheck, value))) return false;
             var foreigns = identity.GetForeignKeys().ToArray();
             if (foreigns.Length != ForeignNames.Count || !foreigns.Select(x => x.GetConstraintName()!).ToHashSet(StringComparer.Ordinal).SetEquals(ForeignNames)) return false;
             foreach (var foreign in foreigns)

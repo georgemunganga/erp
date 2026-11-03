@@ -35,9 +35,9 @@ public sealed class ProcurementInvoiceOwnerBaselineReadiness(IConfiguration conf
                 || !ProcurementPrincipalGoodsReturnStoreReadiness.OwnsSerializable(
                     db.Database.CurrentTransaction?.GetDbTransaction(),db.Database.GetDbConnection())
                 || ProcurementCompiledModelParity.HasPendingModelChanges(db)
-                || (await db.Database.GetPendingMigrationsAsync(ct)).Any()
-                || !(await db.Database.GetAppliedMigrationsAsync(ct)).Contains(
-                    ProcurementInvoiceOwnerBaselineSchemaCapture.MigrationId,StringComparer.Ordinal))return false;
+                || (await db.Database.GetPendingMigrationsAsync(ct)).Any())return false;
+            var applied = (await db.Database.GetAppliedMigrationsAsync(ct)).ToArray();
+            if(!applied.Contains(ProcurementInvoiceOwnerBaselineSchemaCapture.MigrationId,StringComparer.Ordinal))return false;
             await using var command=db.Database.GetDbConnection().CreateCommand();
             command.Transaction=db.Database.CurrentTransaction!.GetDbTransaction();command.CommandTimeout=10;
             async Task<bool> True(string sql){command.CommandText=sql;return await command.ExecuteScalarAsync(ct)is true;}
@@ -100,7 +100,10 @@ public sealed class ProcurementInvoiceOwnerBaselineReadiness(IConfiguration conf
             {
                 command.CommandText=CheckSql(StoreObjectIdentifier.Table(table,"procurement"),name);
                 if(await command.ExecuteScalarAsync(ct)is not string actual
-                    || !ProcurementInvoiceOwnerBaselineSchemaCapture.CheckMatches("procurement."+table+"."+name,actual))return false;
+                    || !(name == "ck_operational_policy_identity"
+                        ? ProcurementPlanReviewSchemaCapture.OperationalCheckMatches(applied, actual,
+                            value => ProcurementInvoiceOwnerBaselineSchemaCapture.CheckMatches("procurement."+table+"."+name,value))
+                        : ProcurementInvoiceOwnerBaselineSchemaCapture.CheckMatches("procurement."+table+"."+name,actual)))return false;
             }
             return true;
         }
