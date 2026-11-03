@@ -102,7 +102,7 @@ Counts by submitted/reviewed/active/returned/rejected status, turnaround and agi
 
 ## 21. Configuration & Localization
 
-Published effective plan-review policy defines required stages, assignee resolution, quorum, optional SLA and mandatory documents by entity/branch/department; no hard-coded monetary threshold or role-name authority. Store canonical dates/decimals; display company timezone/currency. If no valid configuration exists, submission stays unavailable with a reason.
+Published effective plan-review policy defines required stages, assignee resolution and quorum; no hard-coded monetary threshold or role-name authority. The initial schemaVersion2 is entity-global with no branch conditions: current Core organization-wide configuration actors and named Review/Final assignees are required, independently of shell branch/department/All selection. Branch-specific policy conditions, SLA and mandatory-document configuration require separately adopted extensions and remain unavailable in this baseline. Store canonical dates/decimals; display company timezone/currency. If no valid configuration exists, submission stays unavailable with a reason.
 
 ## 22. Non-Functional Requirements
 

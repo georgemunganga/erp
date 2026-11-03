@@ -415,6 +415,31 @@ public sealed class ProcurementScopeMiddlewareTests
         Assert.Contains("invalid-scope", await new StreamReader(http.Response.Body).ReadToEndAsync());
     }
 
+    [Theory]
+    [InlineData("GET", "/api/procurement/v1/configuration/policies")]
+    [InlineData("GET", "/api/procurement/v1/configuration/policies/effective")]
+    [InlineData("GET", "/api/procurement/v1/configuration/policies/00000000-0000-0000-0000-000000000001")]
+    [InlineData("POST", "/api/procurement/v1/configuration/policies")]
+    [InlineData("POST", "/api/procurement/v1/configuration/policies/00000000-0000-0000-0000-000000000001/publish")]
+    public async Task Organisation_wide_policy_All_selection_keeps_company_context_without_transaction_aggregation(string method, string path)
+    {
+        await using var db = TestDbContextFactory.Create("tenant-a");
+        var (user, company, _, _) = await Seed(db); // No Core branch assignments.
+        var (http, scope) = Request(user.Id);
+        http.Request.Method = method; http.Request.Path = path;
+        http.Request.Headers["X-Shell-Entity"] = company.Id.ToString();
+        http.Request.Headers["X-Shell-Branch-Scope"] = "all";
+        var reached = false;
+        await Middleware(_ => { reached = true; return Task.CompletedTask; }).InvokeAsync(http, scope, db);
+        Assert.True(reached);
+        Assert.Equal(company.Id, scope.LegalEntityId);
+        Assert.False(scope.IsConfined);
+        Assert.False(scope.IsExplicitAllBranches);
+        Assert.Null(scope.WorkLocationId);
+        // This scope-only test grants no configuration action; mapped endpoints
+        // still require current configuration permissions and owning guards.
+    }
+
     private static async Task<(LocalUser, LegalEntity, LegalEntity, WorkLocation)> Seed(HrmDbContext db)
     {
         var a = new LegalEntity { Code = "A", RegisteredName = "A", IsDefault = true };

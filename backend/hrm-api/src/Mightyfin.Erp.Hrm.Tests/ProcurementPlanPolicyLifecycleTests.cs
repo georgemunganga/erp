@@ -88,7 +88,7 @@ public sealed class ProcurementPlanPolicyLifecycleTests
     }
 
     [Fact]
-    public async Task Review_and_final_alias_collision_or_disjoint_branch_scope_denies_creation()
+    public async Task Review_and_final_alias_collision_or_branch_confined_assignee_denies_global_creation()
     {
         await using var f = await Fixture.Start();
         var alias = Guid.NewGuid(); f.Author.WorkerId = alias; f.Final.WorkerId = alias;
@@ -97,8 +97,7 @@ public sealed class ProcurementPlanPolicyLifecycleTests
         f.Author.WorkerId = null; f.Final.WorkerId = null;
         var second = new WorkLocation { TenantId = Fixture.Tenant, LegalEntityId = f.Company.Id, Code = "B", Name = "Other" };
         f.Core.WorkLocations.Add(second);
-        f.Core.UserBranchAssignments.AddRange(
-            new HrUserBranchAssignment { TenantId = Fixture.Tenant, UserId = f.Author.Id, LocationId = f.Branch.Id },
+        f.Core.UserBranchAssignments.Add(
             new HrUserBranchAssignment { TenantId = Fixture.Tenant, UserId = f.Final.Id, LocationId = second.Id });
         await f.Core.SaveChangesAsync();
         Assert.Equal(422, Status(await f.Create(f.Rules())));
@@ -156,6 +155,76 @@ public sealed class ProcurementPlanPolicyLifecycleTests
         Assert.Equal(422, Status(await f.Picker("Review", string.Join(',', Enumerable.Range(0, 51).Select(_ => Guid.NewGuid().ToString("D"))))));
     }
 
+    [Theory]
+    [InlineData("All")]
+    [InlineData("Department")]
+    public async Task Current_global_configuration_authority_survives_shell_All_or_department(string shell)
+    {
+        await using var f = await Fixture.Start(); f.ShellContext = shell;
+        var picker = Body(await f.Picker("Review"));
+        Assert.Equal(1, picker.GetProperty("candidateTotal").GetInt32());
+        Assert.Equal(f.Author.Id, picker.GetProperty("items")[0].GetProperty("principalId").GetGuid());
+        var created = await f.Create(f.Rules()); Assert.Equal(201, Status(created));
+        var id = Body(created).GetProperty("id").GetGuid();
+        Assert.Equal(200, Status(await f.Command("SubmitReviewPolicy", id,
+            new ProcurementPolicyDraftRoutes.ReviewSubmission(1, "Review"))));
+        Assert.Equal(200, Status(await f.Command("PublishPolicy", id,
+            new ProcurementPolicyDraftRoutes.PublicationInput(2, "Publish"), f.Publisher.Id)));
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task Current_branch_confined_actor_cannot_change_global_policy_even_with_configuration_permission(bool publish)
+    {
+        await using var f = await Fixture.Start();
+        var id = Body(await f.Create(f.Rules())).GetProperty("id").GetGuid();
+        if (publish) Assert.Equal(200, Status(await f.Command("SubmitReviewPolicy", id,
+            new ProcurementPolicyDraftRoutes.ReviewSubmission(1, "Review"))));
+        var actor = publish ? f.Publisher.Id : f.Author.Id;
+        f.Core.UserBranchAssignments.Add(new HrUserBranchAssignment { TenantId = Fixture.Tenant,
+            UserId = actor, LocationId = f.Branch.Id });
+        await f.Core.SaveChangesAsync();
+        var denied = publish
+            ? await f.Command("PublishPolicy", id, new ProcurementPolicyDraftRoutes.PublicationInput(2, "Publish"), actor)
+            : await f.Command("SubmitReviewPolicy", id, new ProcurementPolicyDraftRoutes.ReviewSubmission(1, "Review"), actor);
+        Assert.Equal(403, Status(denied));
+        using var db = f.Context(actor);
+        Assert.Equal(publish ? "PendingReview" : "Draft", (await db.PolicyVersions.SingleAsync()).State);
+        Assert.Equal(publish ? 2 : 1, await db.OperationalPolicyIdentityRecords.CountAsync());
+    }
+
+    [Fact]
+    public async Task Branch_confined_creator_cannot_create_an_entity_global_policy()
+    {
+        await using var f = await Fixture.Start();
+        f.Core.UserBranchAssignments.Add(new HrUserBranchAssignment { TenantId = Fixture.Tenant,
+            UserId = f.Author.Id, LocationId = f.Branch.Id }); await f.Core.SaveChangesAsync();
+        Assert.Equal(403, Status(await f.Create(f.Rules())));
+        using var db = f.Context(f.Author.Id); Assert.Empty(await db.PolicyVersions.ToArrayAsync());
+    }
+
+    [Fact]
+    public async Task Global_assignee_must_cover_company_even_if_confined_to_the_selected_branch()
+    {
+        await using var f = await Fixture.Start();
+        f.Core.UserBranchAssignments.Add(new HrUserBranchAssignment { TenantId = Fixture.Tenant,
+            UserId = f.Final.Id, LocationId = f.Branch.Id }); await f.Core.SaveChangesAsync();
+        Assert.Equal(422, Status(await f.Create(f.Rules())));
+        var picker = Body(await f.Picker("Final", f.Final.Id.ToString("D")));
+        Assert.Equal(0, picker.GetProperty("candidateTotal").GetInt32());
+        Assert.Empty(picker.GetProperty("items").EnumerateArray());
+    }
+
+    [Fact]
+    public async Task Confined_configuration_reader_does_not_gain_global_people_directory_access()
+    {
+        await using var f = await Fixture.Start();
+        f.Core.UserBranchAssignments.Add(new HrUserBranchAssignment { TenantId = Fixture.Tenant,
+            UserId = f.Author.Id, LocationId = f.Branch.Id }); await f.Core.SaveChangesAsync();
+        Assert.IsType<Microsoft.AspNetCore.Http.HttpResults.ForbidHttpResult>(await f.Picker("Review"));
+    }
+
     private static int? Status(IResult result) => ((IStatusCodeHttpResult)result).StatusCode;
     private static JsonElement Body(IResult result) => JsonSerializer.SerializeToElement(((IValueHttpResult)result).Value,
         new JsonSerializerOptions(JsonSerializerDefaults.Web));
@@ -173,11 +242,15 @@ public sealed class ProcurementPlanPolicyLifecycleTests
         internal required LocalUser Publisher;
         internal required LocalUser Final;
         internal required TenantRoleAssignment FinalRole;
+        internal string ShellContext = "";
         private readonly DbContextOptions<ProcurementDbContext> procurement = new DbContextOptionsBuilder<ProcurementDbContext>()
             .UseInMemoryDatabase(Guid.NewGuid().ToString(), new InMemoryDatabaseRoot()).Options;
         internal ProcurementRequestScope Scope(Guid actor)
         {
-            var scope = new ProcurementRequestScope(); scope.Set(Tenant, Company.Id, actor.ToString("D"), Branch.Id, null, false, "handler-test");
+            var scope = new ProcurementRequestScope();
+            scope.Set(Tenant, Company.Id, actor.ToString("D"), ShellContext == "" ? Branch.Id : null,
+                ShellContext == "Department" ? Guid.NewGuid() : null, false, "handler-test",
+                explicitAllBranches: ShellContext == "All", permittedWorkLocationIds: new[] { Branch.Id });
             scope.AssignPrincipal(actor); return scope;
         }
         internal ProcurementDbContext Context(Guid actor) => new(procurement, Scope(actor));
