@@ -45,7 +45,7 @@ The first receipt's relative plan argument is explicitly resolved by a separate 
 
 Publication26 established the initial role profile. The successor B1-only safe-read guard is now compiled and privately tested. Publication28, source `0f9bbc0bc9a2c236b40613d46538751323b78eaf`, passed 411 Host checks. Actual direct-login grants of SELECT on credential/password and payroll gross-pay columns made READ and RECORD unavailable. Withdrawing schema USAGE from the referenced-table owner made RECORD unavailable while READ remained available. Each case restored exact native/semantic metadata and healthy profiles; no credential or payroll values were read.
 
-Actual workerless Core-cookie create/revise/cancel, original-key recovery and same-cookie current permission/branch denials have now passed, as detailed below. Outstanding gates include cross-tenant acceptance, retained legacy-publication barriers, populated downgrade vetoes, actual Playwright acceptance through the imported screens and paired release. These checks do not establish formal RFQ review, sealed submissions, bid opening, scoring or award, and do not complete whole-module UAT.
+Actual workerless Core-cookie create/revise/cancel, original-key recovery and same-cookie current permission/branch denials have now passed, as detailed below. Outstanding gates include cross-tenant acceptance, retained legacy-publication barriers, marker-only retention coverage, actual Playwright acceptance through the imported screens and paired release. The actual populated-evidence Down guard passed the bounded read-only probe below. These checks do not establish formal RFQ review, sealed submissions, bid opening, scoring or award, and do not complete whole-module UAT.
 
 ## Preserved first Core-cookie command failure and owner prerequisite
 
@@ -76,3 +76,23 @@ A subsequent real-cookie test withdrew only current READ from the existing Core 
 The preserved imported UI product `8dca4943bbe5b5ea4993a7eecb0e7a40fecb53c1` passed an actual offline typecheck/Vite build. Its five artifacts total1,736,230 bytes; manifest SHA-256 is `73398ef763aa3d32fefce3c0e8dfbb8740b23d1c30566a494d2bceb46472247c`. The harness separately passed syntax/strict type checks. No actual browser pass is inferred from either result.
 
 A separate fresh clone of the untouched original231-table source passed the genuine migration to237 tables, with all six new tables empty, actual schema fingerprint matching, expected ownership and schema USAGE. The source and earlier populated Cancelled/version3 native graph remained exact. This prepares a new actual-screen Create/Revise/Cancel journey without copying or SQL-seeding the previously accepted business graph. Browser, independent post-browser owner reconciliation and release remain pending.
+
+
+## Populated retention guard: bounded native result
+
+The exact first guard statement from the genuinely generated Down script (SHA-256 `71bf93bab78b1837dc32910d81ee996a2e1350eb6266294149db40a058ef6530`) ran inside an enforced READ ONLY transaction against the retained Cancelled/version3 native graph. It raised PostgreSQL SQLSTATE `55000` with the retained-evidence error. No full downgrade, DROP or other DDL ran. Independent counts showed the six retained business tables and audit/outbox markers; full source and populated-target row/catalog/trigger/history snapshots were identical before and after.
+
+Receipt SHA-256: `8a9f60ba7552e96b180f68f2a7dd3048beba332a248e4ec660cf893f6f5a0390`. This proves the exact populated guard rejects current retained evidence. It does not prove a marker-only fixture, the full destructive Down on populated data, or old-binary HTTP compatibility. The first transport attempt stopped before guard execution at the protected helper's read-only allowlist and remains retained separately.
+
+
+## First original-UI run: successful save, failed All-branch render
+
+The actual signed-in Playwright run on UI8dca completed B's normal login, source discovery, existing RFQ detail/Items, Create201, reload/version1 history and original saved-result GET201 recovery. It then failed at the active-Draft All-branch step with one page error. Exactly one business command persisted; B logged out successfully. This is a failed UI run, not full acceptance.
+
+Source investigation identified the real defect: the shared ERP shell stores an empty branch string for All, while the round context's nullish conversion preserved that string and failed GUID validation during rendering. The correction normalizes this actual shell shape for retained All reads while preserving selected-branch requirements for writes. The original saved version and failure are retained; no fresh Create or database reset is authorized as a test retry.
+
+Independent native reconciliation passed the saved version1 graph, exact original key/receipt hash, seven entity audits plus one command audit/outbox, one revoked B session and only its declared authentication effects. Source and protected earlier native graph remained exact. Receipt SHA-256: `8751520e5c05c859c7c321b23d5a9113918851527713c1e12064139d08509bb9`; it explicitly records `wholeUiPassed:false`.
+
+A separate rollback-only test then granted the exact22 minimal barrier read columns to the existing M4 execution role within a transaction, used `SET LOCAL ROLE`, and attempted the old-style Draft→Published transition. The installed trigger rejected it with SQLSTATE55000; all grants and row effects rolled back, with complete before/after UI-clone/source/protected-native equality. Receipt SHA-256: `9e1863dff7a93a60d076c5f685e26ca9a64ecc4abe21aee29bc15d3169b62eec`. This proves the trigger under that effective minimal role, not direct LOGIN, an actual old binary, or current compiled B1 provider results for that role.
+
+A successor UI build and a narrow continuation against the retained version1 are required: verify the fixed All read, then execute only the remaining Revise/Cancel commands. Actual browser/owner acceptance and release remain open.
