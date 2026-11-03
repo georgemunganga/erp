@@ -8,7 +8,7 @@ using Mightyfin.Erp.Procurement.Infrastructure.Data;
 
 namespace Mightyfin.Erp.Procurement.Tests;
 
-public sealed class PrincipalManualQuotationEvidenceTests
+public sealed partial class PrincipalManualQuotationEvidenceTests
 {
     [Fact]
     public void Contact_factory_pins_scope_and_real_M4_receipt_without_changing_invitation_or_sending()
@@ -93,9 +93,10 @@ public sealed class PrincipalManualQuotationEvidenceTests
         Assert.Equal(f.Event.TenantId, draft.Bid.TenantId);Assert.Equal(f.Event.LegalEntityId, draft.Bid.LegalEntityId);
         Assert.Equal(1, await db.SupplierBids.CountAsync());Assert.Equal(1, await db.SupplierBidLines.CountAsync());
         Assert.Equal(draft.Bid.Id, (await db.SupplierBidLines.SingleAsync()).SupplierBidId);
-        // This slice does not register sidecars or claim they can be saved yet.
-        Assert.Null(db.Model.FindEntityType(typeof(SourcingManualContact)));
-        Assert.Null(db.Model.FindEntityType(typeof(SourcingManualQuoteVersion)));
+        // Legacy factory rows remain legacy; mapped sidecars never adopt them.
+        Assert.Equal(0, draft.Bid.PrincipalCaptureVersion);
+        Assert.NotNull(db.Model.FindEntityType(typeof(SourcingManualContact)));
+        Assert.NotNull(db.Model.FindEntityType(typeof(SourcingManualQuoteVersion)));
     }
 
     [Theory]

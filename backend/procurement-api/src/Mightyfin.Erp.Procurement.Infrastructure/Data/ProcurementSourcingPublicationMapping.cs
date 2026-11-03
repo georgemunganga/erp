@@ -172,6 +172,27 @@ public sealed partial class ProcurementDbContext
                 ?? SourcingEvents.SingleOrDefault(x => x.Id == entry.Entity.SourcingEventId);
             if (ev?.ExecutionVersion != 2) continue;
             var invite = entry.Entity;
+            if (entry.State == EntityState.Modified
+                && entry.OriginalValues.GetValue<string>(nameof(SourcingInvitation.Status)) == "ReadyForManualDelivery"
+                && invite.Status == "ManualContactRecorded")
+            {
+                var pending = ChangeTracker.Entries<SourcingManualContact>().Where(x => x.State == EntityState.Added
+                    && x.Entity.InvitationId == invite.Id).Select(x => x.Entity).ToArray();
+                if (ev.Status != "Published" || pending.Length != 1
+                    || invite.TenantId != scope.TenantId || invite.LegalEntityId != scope.LegalEntityId
+                    || invite.SentAt is not null || invite.ViewedAt is not null || invite.DeliveryRef is not null
+                    || pending[0].TenantId != invite.TenantId || pending[0].LegalEntityId != invite.LegalEntityId
+                    || pending[0].SourcingEventId != ev.Id || pending[0].SupplierId != invite.SupplierId
+                    || pending[0].InvitationVersionAtCapture != checked(entry.OriginalValues.GetValue<long>(nameof(SourcingInvitation.Version)) + 1)
+                    || entry.Properties.Any(p => p.IsModified && p.Metadata.Name is not
+                        (nameof(SourcingInvitation.Status) or nameof(SourcingInvitation.Version)
+                        or nameof(SourcingInvitation.UpdatedAt) or nameof(SourcingInvitation.UpdatedBy))))
+                    throw new InvalidOperationException("ManualContactInvitationTransitionInvalid");
+                PrincipalManualQuotationEvidence.VerifyContact(pending[0]);
+                // The post-version owning guard verifies the complete retained
+                // M4 receipt and resulting invitation version before persistence.
+                continue;
+            }
             var approval = SourcingPublicationDecisions.Local.SingleOrDefault(x => x.SourcingEventId == ev.Id
                 && x.CoreApprovalCaseId.ToString("D") == ev.ApprovalInstanceRef && x.CaseState == "Approved");
             var supplier = Suppliers.Include(x => x.Qualifications).SingleOrDefault(x => x.Id == invite.SupplierId);

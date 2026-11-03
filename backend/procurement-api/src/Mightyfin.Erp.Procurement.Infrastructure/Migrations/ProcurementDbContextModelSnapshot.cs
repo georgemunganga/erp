@@ -12432,6 +12432,9 @@ namespace Mightyfin.Erp.Procurement.Infrastructure.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasAlternateKey("TenantId", "LegalEntityId", "SourcingEventId", "SupplierId", "Id")
+                        .HasName("ak_quote_invitation_source");
+
                     b.HasIndex("TenantId", "LegalEntityId", "CreatedAt");
 
                     b.HasIndex("TenantId", "LegalEntityId", "SupplierId");
@@ -12545,6 +12548,364 @@ namespace Mightyfin.Erp.Procurement.Infrastructure.Migrations
                         .HasDatabaseName("ux_rfq_line_exact_source");
 
                     b.ToTable("sourcing_lines", "procurement");
+                });
+
+            modelBuilder.Entity("Mightyfin.Erp.Procurement.Domain.SourcingManualContact", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<Guid?>("ActorCoreLinkedWorkerId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("actor_core_linked_worker_id");
+
+                    b.Property<string>("ActorPrincipalId")
+                        .IsRequired()
+                        .HasMaxLength(36)
+                        .HasColumnType("character varying(36)")
+                        .HasColumnName("actor_principal_id");
+
+                    b.Property<Guid>("BranchId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("branch_id");
+
+                    b.Property<string>("Channel")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)")
+                        .HasColumnName("channel");
+
+                    b.Property<Guid>("CommandKey")
+                        .HasColumnType("uuid")
+                        .HasColumnName("command_key");
+
+                    b.Property<string>("CommandSha256")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("command_sha256");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("CreatedBy")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("created_by");
+
+                    b.Property<long>("EventVersionAtCapture")
+                        .HasColumnType("bigint")
+                        .HasColumnName("event_version_at_capture");
+
+                    b.Property<Guid>("InvitationId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("invitation_id");
+
+                    b.Property<long>("InvitationVersionAtCapture")
+                        .HasColumnType("bigint")
+                        .HasColumnName("invitation_version_at_capture");
+
+                    b.Property<Guid>("LegalEntityId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("legal_entity_id");
+
+                    b.Property<Guid>("PublicationDecisionId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("publication_decision_id");
+
+                    b.Property<Guid>("PublicationOpeningId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("publication_opening_id");
+
+                    b.Property<DateTimeOffset>("RecordedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("recorded_at");
+
+                    b.Property<string>("Reference")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("reference");
+
+                    b.Property<DateTimeOffset>("ReportedContactAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("reported_contact_at");
+
+                    b.Property<string>("ResponseJson")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("response_json");
+
+                    b.Property<string>("ResponseSha256")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("response_sha256");
+
+                    b.Property<int>("ResponseStatusCode")
+                        .HasColumnType("integer")
+                        .HasColumnName("response_status_code");
+
+                    b.Property<int>("SchemaVersion")
+                        .HasColumnType("integer")
+                        .HasColumnName("schema_version");
+
+                    b.Property<Guid>("SourcingEventId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("sourcing_event_id");
+
+                    b.Property<Guid>("SupplierId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("supplier_id");
+
+                    b.Property<string>("TenantId")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)")
+                        .HasColumnName("tenant_id");
+
+                    b.Property<DateTimeOffset?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("updated_by");
+
+                    b.Property<long>("Version")
+                        .IsConcurrencyToken()
+                        .HasColumnType("bigint")
+                        .HasColumnName("version");
+
+                    b.HasKey("Id");
+
+                    b.HasAlternateKey("TenantId", "LegalEntityId", "Id");
+
+                    b.HasAlternateKey("TenantId", "LegalEntityId", "SourcingEventId", "InvitationId", "SupplierId", "BranchId", "Id")
+                        .HasName("ak_quote_contact_source");
+
+                    b.HasIndex("TenantId", "LegalEntityId", "InvitationId")
+                        .IsUnique()
+                        .HasDatabaseName("ux_quote_contact_invitation");
+
+                    b.HasIndex("TenantId", "LegalEntityId", "SupplierId");
+
+                    b.HasIndex("TenantId", "LegalEntityId", "ActorPrincipalId", "CommandKey")
+                        .IsUnique()
+                        .HasDatabaseName("ux_quote_contact_actor_command");
+
+                    b.HasIndex("TenantId", "LegalEntityId", "SourcingEventId", "PublicationOpeningId", "PublicationDecisionId");
+
+                    b.HasIndex("TenantId", "LegalEntityId", "SourcingEventId", "SupplierId", "InvitationId")
+                        .HasDatabaseName("IX_sourcing_manual_contacts_tenant_id_legal_entity_id_sourcin~1");
+
+                    b.ToTable("sourcing_manual_contacts", "procurement", t =>
+                        {
+                            t.HasCheckConstraint("ck_manual_contact_v2", "schema_version=2 AND event_version_at_capture>0 AND invitation_version_at_capture>1 AND actor_principal_id<>'00000000-0000-0000-0000-000000000000' AND actor_principal_id ~ '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$' AND command_sha256 ~ '^[0-9a-f]{64}$' AND response_sha256 ~ '^[0-9a-f]{64}$' AND channel IN ('EmailOutsideSystem','Physical','Telephone','Other') AND char_length(btrim(reference)) BETWEEN 1 AND 200 AND reference=btrim(reference) AND isfinite(reported_contact_at) AND isfinite(recorded_at) AND reported_contact_at<=recorded_at AND response_status_code=201 AND octet_length(response_json) BETWEEN 2 AND 65536 AND id <> '00000000-0000-0000-0000-000000000000'::uuid AND sourcing_event_id <> '00000000-0000-0000-0000-000000000000'::uuid AND invitation_id <> '00000000-0000-0000-0000-000000000000'::uuid AND supplier_id <> '00000000-0000-0000-0000-000000000000'::uuid AND branch_id <> '00000000-0000-0000-0000-000000000000'::uuid AND publication_opening_id <> '00000000-0000-0000-0000-000000000000'::uuid AND publication_decision_id <> '00000000-0000-0000-0000-000000000000'::uuid AND command_key <> '00000000-0000-0000-0000-000000000000'::uuid AND (actor_core_linked_worker_id IS NULL OR actor_core_linked_worker_id <> '00000000-0000-0000-0000-000000000000'::uuid)");
+                        });
+                });
+
+            modelBuilder.Entity("Mightyfin.Erp.Procurement.Domain.SourcingManualQuoteVersion", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<Guid?>("ActorCoreLinkedWorkerId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("actor_core_linked_worker_id");
+
+                    b.Property<string>("ActorPrincipalId")
+                        .IsRequired()
+                        .HasMaxLength(36)
+                        .HasColumnType("character varying(36)")
+                        .HasColumnName("actor_principal_id");
+
+                    b.Property<long>("BidVersion")
+                        .HasColumnType("bigint")
+                        .HasColumnName("bid_version");
+
+                    b.Property<Guid>("BranchId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("branch_id");
+
+                    b.Property<Guid>("CommandKey")
+                        .HasColumnType("uuid")
+                        .HasColumnName("command_key");
+
+                    b.Property<string>("CommandSha256")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("command_sha256");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("CreatedBy")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("created_by");
+
+                    b.Property<int>("DocumentPinCount")
+                        .HasColumnType("integer")
+                        .HasColumnName("document_pin_count");
+
+                    b.Property<string>("DocumentPinSetSha256")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("document_pin_set_sha256");
+
+                    b.Property<Guid?>("DocumentUseKey")
+                        .HasColumnType("uuid")
+                        .HasColumnName("document_use_key");
+
+                    b.Property<long>("EventVersionAtCapture")
+                        .HasColumnType("bigint")
+                        .HasColumnName("event_version_at_capture");
+
+                    b.Property<Guid>("InvitationId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("invitation_id");
+
+                    b.Property<long>("InvitationVersionAtCapture")
+                        .HasColumnType("bigint")
+                        .HasColumnName("invitation_version_at_capture");
+
+                    b.Property<Guid>("LegalEntityId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("legal_entity_id");
+
+                    b.Property<Guid>("ManualContactId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("manual_contact_id");
+
+                    b.Property<string>("Operation")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("operation");
+
+                    b.Property<Guid?>("PreviousVersionId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("previous_version_id");
+
+                    b.Property<DateTimeOffset>("RecordedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("recorded_at");
+
+                    b.Property<string>("RequestJson")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("request_json");
+
+                    b.Property<string>("RequestSha256")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("request_sha256");
+
+                    b.Property<string>("ResponseJson")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("response_json");
+
+                    b.Property<string>("ResponseSha256")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("response_sha256");
+
+                    b.Property<int>("ResponseStatusCode")
+                        .HasColumnType("integer")
+                        .HasColumnName("response_status_code");
+
+                    b.Property<int>("SchemaVersion")
+                        .HasColumnType("integer")
+                        .HasColumnName("schema_version");
+
+                    b.Property<string>("SnapshotJson")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("snapshot_json");
+
+                    b.Property<int>("SnapshotSchemaVersion")
+                        .HasColumnType("integer")
+                        .HasColumnName("snapshot_schema_version");
+
+                    b.Property<string>("SnapshotSha256")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("snapshot_sha256");
+
+                    b.Property<Guid>("SourcingEventId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("sourcing_event_id");
+
+                    b.Property<Guid>("SupplierBidId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("supplier_bid_id");
+
+                    b.Property<Guid>("SupplierId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("supplier_id");
+
+                    b.Property<string>("TenantId")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)")
+                        .HasColumnName("tenant_id");
+
+                    b.Property<DateTimeOffset?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("updated_by");
+
+                    b.Property<long>("Version")
+                        .IsConcurrencyToken()
+                        .HasColumnType("bigint")
+                        .HasColumnName("version");
+
+                    b.HasKey("Id");
+
+                    b.HasAlternateKey("TenantId", "LegalEntityId", "Id");
+
+                    b.HasAlternateKey("TenantId", "LegalEntityId", "SupplierBidId", "Id")
+                        .HasName("ak_quote_version_bid");
+
+                    b.HasIndex("TenantId", "LegalEntityId", "ActorPrincipalId", "CommandKey")
+                        .IsUnique()
+                        .HasDatabaseName("ux_quote_version_actor_command");
+
+                    b.HasIndex("TenantId", "LegalEntityId", "SupplierBidId", "BidVersion")
+                        .IsUnique()
+                        .HasDatabaseName("ux_quote_version_bid_version");
+
+                    b.HasIndex("TenantId", "LegalEntityId", "SupplierBidId", "PreviousVersionId");
+
+                    b.HasIndex("TenantId", "LegalEntityId", "SupplierBidId", "SchemaVersion")
+                        .HasDatabaseName("IX_sourcing_manual_quote_versions_tenant_id_legal_entity_id_s~1");
+
+                    b.HasIndex("TenantId", "LegalEntityId", "SourcingEventId", "InvitationId", "SupplierId", "BranchId", "ManualContactId");
+
+                    b.ToTable("sourcing_manual_quote_versions", "procurement", t =>
+                        {
+                            t.HasCheckConstraint("ck_manual_quote_version_v3", "schema_version=2 AND snapshot_schema_version IN (2,3) AND bid_version>0 AND actor_principal_id<>'00000000-0000-0000-0000-000000000000' AND actor_principal_id ~ '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$' AND command_sha256 ~ '^[0-9a-f]{64}$' AND response_sha256 ~ '^[0-9a-f]{64}$' AND snapshot_sha256 ~ '^[0-9a-f]{64}$' AND request_sha256 ~ '^[0-9a-f]{64}$' AND document_pin_set_sha256 ~ '^[0-9a-f]{64}$' AND event_version_at_capture>0 AND invitation_version_at_capture>0 AND isfinite(recorded_at) AND octet_length(snapshot_json) BETWEEN 2 AND 8388608 AND octet_length(request_json) BETWEEN 2 AND 8388608 AND octet_length(response_json) BETWEEN 2 AND 65536 AND ((operation='Create' AND bid_version=1 AND previous_version_id IS NULL AND response_status_code=201) OR (operation IN ('Revise','Cancel') AND bid_version>1 AND previous_version_id IS NOT NULL AND response_status_code=200)) AND (previous_version_id IS NULL OR previous_version_id<>id) AND ((document_pin_count=0 AND document_use_key IS NULL AND document_pin_set_sha256='4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945') OR (document_pin_count BETWEEN 1 AND 100 AND document_use_key IS NOT NULL AND document_use_key <> '00000000-0000-0000-0000-000000000000'::uuid)) AND id <> '00000000-0000-0000-0000-000000000000'::uuid AND sourcing_event_id <> '00000000-0000-0000-0000-000000000000'::uuid AND invitation_id <> '00000000-0000-0000-0000-000000000000'::uuid AND supplier_id <> '00000000-0000-0000-0000-000000000000'::uuid AND supplier_bid_id <> '00000000-0000-0000-0000-000000000000'::uuid AND branch_id <> '00000000-0000-0000-0000-000000000000'::uuid AND manual_contact_id <> '00000000-0000-0000-0000-000000000000'::uuid AND command_key <> '00000000-0000-0000-0000-000000000000'::uuid AND (actor_core_linked_worker_id IS NULL OR actor_core_linked_worker_id <> '00000000-0000-0000-0000-000000000000'::uuid)");
+                        });
                 });
 
             modelBuilder.Entity("Mightyfin.Erp.Procurement.Domain.SourcingPolicyIdentityEvidence", b =>
@@ -12784,10 +13145,11 @@ namespace Mightyfin.Erp.Procurement.Infrastructure.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasAlternateKey("TenantId", "LegalEntityId", "SourcingEventId", "OpeningId", "Id")
+                        .HasName("ak_quote_publication_decision");
+
                     b.HasIndex("TenantId", "LegalEntityId", "CoreApprovalDecisionId")
                         .IsUnique();
-
-                    b.HasIndex("TenantId", "LegalEntityId", "SourcingEventId");
 
                     b.HasIndex("TenantId", "LegalEntityId", "OpeningId", "CoreAssignmentId")
                         .IsUnique();
@@ -12905,6 +13267,9 @@ namespace Mightyfin.Erp.Procurement.Infrastructure.Migrations
                         .HasColumnName("version");
 
                     b.HasKey("Id");
+
+                    b.HasAlternateKey("TenantId", "LegalEntityId", "SourcingEventId", "Id")
+                        .HasName("ak_quote_publication_opening");
 
                     b.HasIndex("TenantId", "LegalEntityId", "CoreApprovalCaseId")
                         .IsUnique();
@@ -13538,6 +13903,15 @@ namespace Mightyfin.Erp.Procurement.Infrastructure.Migrations
                         .HasColumnType("character varying(3)")
                         .HasColumnName("currency_code");
 
+                    b.Property<DateOnly?>("DeliveryDate")
+                        .HasColumnType("date")
+                        .HasColumnName("delivery_date");
+
+                    b.Property<string>("DeliveryTermsText")
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)")
+                        .HasColumnName("delivery_terms_text");
+
                     b.Property<Guid?>("EvidenceDocumentRefId")
                         .HasColumnType("uuid")
                         .HasColumnName("evidence_document_ref_id");
@@ -13549,6 +13923,21 @@ namespace Mightyfin.Erp.Procurement.Infrastructure.Migrations
                     b.Property<Guid>("LegalEntityId")
                         .HasColumnType("uuid")
                         .HasColumnName("legal_entity_id");
+
+                    b.Property<string>("OfferValidityKind")
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("offer_validity_kind");
+
+                    b.Property<int>("PrincipalCaptureVersion")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasDefaultValue(0)
+                        .HasColumnName("principal_capture_version");
+
+                    b.Property<DateOnly?>("QuoteDate")
+                        .HasColumnType("date")
+                        .HasColumnName("quote_date");
 
                     b.Property<DateTimeOffset?>("ReceivedAt")
                         .HasColumnType("timestamp with time zone")
@@ -13581,6 +13970,21 @@ namespace Mightyfin.Erp.Procurement.Infrastructure.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("supplier_id");
 
+                    b.Property<string>("SupplierOfferedPaymentCode")
+                        .HasMaxLength(80)
+                        .HasColumnType("character varying(80)")
+                        .HasColumnName("supplier_offered_payment_code");
+
+                    b.Property<string>("SupplierOfferedPaymentText")
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)")
+                        .HasColumnName("supplier_offered_payment_text");
+
+                    b.Property<string>("SupplierQuoteReference")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("supplier_quote_reference");
+
                     b.Property<string>("SurrogateEnteredBy")
                         .HasColumnType("text")
                         .HasColumnName("surrogate_entered_by");
@@ -13600,12 +14004,24 @@ namespace Mightyfin.Erp.Procurement.Infrastructure.Migrations
                         .HasColumnType("character varying(200)")
                         .HasColumnName("updated_by");
 
+                    b.Property<DateOnly?>("ValidUntil")
+                        .HasColumnType("date")
+                        .HasColumnName("valid_until");
+
                     b.Property<long>("Version")
                         .IsConcurrencyToken()
                         .HasColumnType("bigint")
                         .HasColumnName("version");
 
+                    b.Property<string>("WarrantyText")
+                        .HasMaxLength(4000)
+                        .HasColumnType("character varying(4000)")
+                        .HasColumnName("warranty_text");
+
                     b.HasKey("Id");
+
+                    b.HasAlternateKey("TenantId", "LegalEntityId", "Id", "PrincipalCaptureVersion")
+                        .HasName("ak_quote_bid_protocol");
 
                     b.HasIndex("TenantId", "LegalEntityId", "CreatedAt");
 
@@ -13616,7 +14032,10 @@ namespace Mightyfin.Erp.Procurement.Infrastructure.Migrations
                     b.HasIndex("TenantId", "LegalEntityId", "SourcingEventId", "SupplierId", "SubmissionVersion")
                         .IsUnique();
 
-                    b.ToTable("supplier_bids", "procurement");
+                    b.ToTable("supplier_bids", "procurement", t =>
+                        {
+                            t.HasCheckConstraint("ck_supplier_bid_capture_v2", "principal_capture_version IN (0,2) AND (principal_capture_version=0 OR (source_channel='Manual' AND status IN ('Draft','Cancelled') AND submission_version=1 AND submitted_at IS NULL AND surrogate_entered_by IS NOT NULL AND surrogate_entered_by<>'00000000-0000-0000-0000-000000000000' AND surrogate_entered_by ~ '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$' AND offer_validity_kind IS NOT NULL AND offer_validity_kind IN ('Unspecified','Fixed','OpenEnded') AND ((offer_validity_kind='Fixed' AND valid_until IS NOT NULL AND (quote_date IS NULL OR valid_until>=quote_date)) OR (offer_validity_kind IN ('Unspecified','OpenEnded') AND valid_until IS NULL))))");
+                        });
                 });
 
             modelBuilder.Entity("Mightyfin.Erp.Procurement.Domain.SupplierBidLine", b =>
@@ -13641,6 +14060,24 @@ namespace Mightyfin.Erp.Procurement.Infrastructure.Migrations
                         .HasColumnType("numeric(18,4)")
                         .HasColumnName("delivery_amount");
 
+                    b.Property<string>("DiscountKind")
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("discount_kind");
+
+                    b.Property<decimal>("DiscountValue")
+                        .ValueGeneratedOnAdd()
+                        .HasPrecision(18, 4)
+                        .HasColumnType("numeric(18,4)")
+                        .HasDefaultValue(0m)
+                        .HasColumnName("discount_value");
+
+                    b.Property<bool>("IsActive")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(true)
+                        .HasColumnName("is_active");
+
                     b.Property<string>("LeadTimeText")
                         .HasColumnType("text")
                         .HasColumnName("lead_time_text");
@@ -13652,6 +14089,12 @@ namespace Mightyfin.Erp.Procurement.Infrastructure.Migrations
                     b.Property<string>("Notes")
                         .HasColumnType("text")
                         .HasColumnName("notes");
+
+                    b.Property<int>("PrincipalCaptureVersion")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasDefaultValue(0)
+                        .HasColumnName("principal_capture_version");
 
                     b.Property<decimal>("Quantity")
                         .HasPrecision(18, 4)
@@ -13666,10 +14109,20 @@ namespace Mightyfin.Erp.Procurement.Infrastructure.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("supplier_bid_id");
 
+                    b.Property<string>("SupplierOfferedTaxCode")
+                        .HasMaxLength(80)
+                        .HasColumnType("character varying(80)")
+                        .HasColumnName("supplier_offered_tax_code");
+
                     b.Property<decimal>("TaxAmount")
                         .HasPrecision(18, 4)
                         .HasColumnType("numeric(18,4)")
                         .HasColumnName("tax_amount");
+
+                    b.Property<string>("TaxTreatment")
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("tax_treatment");
 
                     b.Property<string>("TenantId")
                         .IsRequired()
@@ -13704,10 +14157,16 @@ namespace Mightyfin.Erp.Procurement.Infrastructure.Migrations
 
                     b.HasIndex("TenantId", "LegalEntityId", "SourcingLineId");
 
-                    b.HasIndex("TenantId", "LegalEntityId", "SupplierBidId", "SourcingLineId")
-                        .IsUnique();
+                    b.HasIndex("TenantId", "LegalEntityId", "SupplierBidId", "PrincipalCaptureVersion");
 
-                    b.ToTable("supplier_bid_lines", "procurement");
+                    b.HasIndex("TenantId", "LegalEntityId", "SupplierBidId", "SourcingLineId")
+                        .IsUnique()
+                        .HasDatabaseName("IX_supplier_bid_lines_tenant_id_legal_entity_id_supplier_bid_~1");
+
+                    b.ToTable("supplier_bid_lines", "procurement", t =>
+                        {
+                            t.HasCheckConstraint("ck_supplier_bid_line_capture_v2", "principal_capture_version IN (0,2) AND (principal_capture_version=0 OR (quantity>0 AND unit_price>=0 AND tax_amount>=0 AND delivery_amount>=0 AND discount_kind IS NOT NULL AND discount_kind IN ('None','Amount','Percent') AND discount_value>=0 AND ((discount_kind='None' AND discount_value=0) OR discount_kind='Amount' OR (discount_kind='Percent' AND discount_value<=100)) AND tax_treatment IS NOT NULL AND tax_treatment IN ('Exclusive','Inclusive') AND (CASE WHEN discount_kind='Percent' THEN quantity*unit_price*discount_value/100 ELSE discount_value END)<=quantity*unit_price AND (tax_treatment='Exclusive' OR tax_amount<=quantity*unit_price-(CASE WHEN discount_kind='Percent' THEN quantity*unit_price*discount_value/100 ELSE discount_value END))))");
+                        });
                 });
 
             modelBuilder.Entity("Mightyfin.Erp.Procurement.Domain.SupplierCategory", b =>
@@ -16948,6 +17407,73 @@ namespace Mightyfin.Erp.Procurement.Infrastructure.Migrations
                         .IsRequired();
                 });
 
+            modelBuilder.Entity("Mightyfin.Erp.Procurement.Domain.SourcingManualContact", b =>
+                {
+                    b.HasOne("Mightyfin.Erp.Procurement.Domain.SourcingEvent", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId", "LegalEntityId", "SourcingEventId")
+                        .HasPrincipalKey("TenantId", "LegalEntityId", "Id")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Mightyfin.Erp.Procurement.Domain.Supplier", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId", "LegalEntityId", "SupplierId")
+                        .HasPrincipalKey("TenantId", "LegalEntityId", "Id")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Mightyfin.Erp.Procurement.Domain.SourcingPublicationOpening", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId", "LegalEntityId", "SourcingEventId", "PublicationOpeningId")
+                        .HasPrincipalKey("TenantId", "LegalEntityId", "SourcingEventId", "Id")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_quote_contact_opening");
+
+                    b.HasOne("Mightyfin.Erp.Procurement.Domain.SourcingPublicationDecision", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId", "LegalEntityId", "SourcingEventId", "PublicationOpeningId", "PublicationDecisionId")
+                        .HasPrincipalKey("TenantId", "LegalEntityId", "SourcingEventId", "OpeningId", "Id")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_quote_contact_decision");
+
+                    b.HasOne("Mightyfin.Erp.Procurement.Domain.SourcingInvitation", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId", "LegalEntityId", "SourcingEventId", "SupplierId", "InvitationId")
+                        .HasPrincipalKey("TenantId", "LegalEntityId", "SourcingEventId", "SupplierId", "Id")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_quote_contact_invitation");
+                });
+
+            modelBuilder.Entity("Mightyfin.Erp.Procurement.Domain.SourcingManualQuoteVersion", b =>
+                {
+                    b.HasOne("Mightyfin.Erp.Procurement.Domain.SourcingManualQuoteVersion", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId", "LegalEntityId", "SupplierBidId", "PreviousVersionId")
+                        .HasPrincipalKey("TenantId", "LegalEntityId", "SupplierBidId", "Id")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .HasConstraintName("fk_quote_version_previous");
+
+                    b.HasOne("Mightyfin.Erp.Procurement.Domain.SupplierBid", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId", "LegalEntityId", "SupplierBidId", "SchemaVersion")
+                        .HasPrincipalKey("TenantId", "LegalEntityId", "Id", "PrincipalCaptureVersion")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_quote_version_protocol");
+
+                    b.HasOne("Mightyfin.Erp.Procurement.Domain.SourcingManualContact", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId", "LegalEntityId", "SourcingEventId", "InvitationId", "SupplierId", "BranchId", "ManualContactId")
+                        .HasPrincipalKey("TenantId", "LegalEntityId", "SourcingEventId", "InvitationId", "SupplierId", "BranchId", "Id")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_quote_version_contact");
+                });
+
             modelBuilder.Entity("Mightyfin.Erp.Procurement.Domain.SourcingPolicyIdentityEvidence", b =>
                 {
                     b.HasOne("Mightyfin.Erp.Procurement.Domain.PolicyVersion", null)
@@ -17110,6 +17636,14 @@ namespace Mightyfin.Erp.Procurement.Infrastructure.Migrations
                         .HasPrincipalKey("TenantId", "LegalEntityId", "Id")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
+
+                    b.HasOne("Mightyfin.Erp.Procurement.Domain.SupplierBid", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId", "LegalEntityId", "SupplierBidId", "PrincipalCaptureVersion")
+                        .HasPrincipalKey("TenantId", "LegalEntityId", "Id", "PrincipalCaptureVersion")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_quote_line_protocol");
                 });
 
             modelBuilder.Entity("Mightyfin.Erp.Procurement.Domain.SupplierCategory", b =>

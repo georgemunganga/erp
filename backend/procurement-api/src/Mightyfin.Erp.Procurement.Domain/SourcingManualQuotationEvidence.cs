@@ -1,6 +1,6 @@
 namespace Mightyfin.Erp.Procurement.Domain;
 
-/// <summary>Proposed append-only principal capture contract, not yet EF-registered.
+/// <summary>Proposed append-only principal capture contract, owned by Procurement.
 /// Records a buyer's report of contact outside the ERP; it never sends a message.</summary>
 public sealed class SourcingManualContact : ProcurementRecord
 {
@@ -12,6 +12,7 @@ public sealed class SourcingManualContact : ProcurementRecord
     public Guid PublicationOpeningId { get; init; }
     public Guid PublicationDecisionId { get; init; }
     public long EventVersionAtCapture { get; init; }
+    public long InvitationVersionAtCapture { get; init; }
     public string ActorPrincipalId { get; init; } = "";
     public Guid? ActorCoreLinkedWorkerId { get; init; }
     public string Channel { get; init; } = "";
@@ -39,6 +40,16 @@ public sealed class SourcingManualQuoteVersion : ProcurementRecord
     public Guid ManualContactId { get; init; }
     public Guid? PreviousVersionId { get; init; }
     public long BidVersion { get; init; }
+    public int SnapshotSchemaVersion { get; init; } = 2;
+    public long EventVersionAtCapture { get; init; }
+    public long InvitationVersionAtCapture { get; init; }
+    // Canonical typed command/immutable snapshot are owned receipt evidence,
+    // never an extensible substitute for the typed live header/line columns.
+    public string RequestJson { get; init; } = "";
+    public string RequestSha256 { get; init; } = "";
+    public Guid? DocumentUseKey { get; init; }
+    public int DocumentPinCount { get; init; }
+    public string DocumentPinSetSha256 { get; init; } = "";
     public string Operation { get; init; } = "";
     public string ActorPrincipalId { get; init; } = "";
     public Guid? ActorCoreLinkedWorkerId { get; init; }

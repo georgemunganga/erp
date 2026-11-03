@@ -4,8 +4,8 @@ using Mightyfin.Erp.Procurement.Domain;
 namespace Mightyfin.Erp.Procurement.Application;
 
 /// <summary>
-/// Unregistered storage factories, not authorization or persistence. The future
-/// owner transaction must use its retained M4 loader (including live demand holds,
+/// Scoped storage factories, not authorization. The owning transaction must
+/// use its retained M4 loader (including live demand holds,
 /// original publication snapshot/Core outcome), current Core grants/branch scope,
 /// source locks and original-key-first recovery. No employee link is required.
 /// Nothing here mutates a supplied commercial record, sends mail or submits a bid.
@@ -70,15 +70,15 @@ public static class PrincipalManualQuotationEvidence
         var id = Guid.CreateVersion7(); var text = reference.Trim();
         var command = ContactCommand(source.TenantId, source.LegalEntityId, source.Id, invitation.Id,
             invitation.SupplierId, source.BranchRef!.Value, opening.Id, decision.Id, source.Version,
-            actor, linkedWorker, channel, text, observed, key);
-        var response = ContactResponse(id, source.Id, invitation.Id, invitation.SupplierId, key);
+            actor, linkedWorker, channel, text, observed, checked(invitation.Version + 1), key);
+        var response = ContactResponse(id, source.Id, invitation.Id, invitation.SupplierId, checked(invitation.Version + 1), key);
         return new SourcingManualContact
         {
             Id = id, TenantId = source.TenantId, LegalEntityId = source.LegalEntityId,
             CreatedBy = actor, CreatedAt = at, SourcingEventId = source.Id,
             InvitationId = invitation.Id, SupplierId = invitation.SupplierId, BranchId = source.BranchRef.Value,
             PublicationOpeningId = opening.Id, PublicationDecisionId = decision.Id,
-            EventVersionAtCapture = source.Version, ActorPrincipalId = actor,
+            EventVersionAtCapture = source.Version, InvitationVersionAtCapture = checked(invitation.Version + 1), ActorPrincipalId = actor,
             ActorCoreLinkedWorkerId = linkedWorker, Channel = channel, Reference = text,
             ReportedContactAt = observed, RecordedAt = at, CommandKey = key,
             CommandSha256 = ProcurementEvidenceEncoding.Digest(command), ResponseJson = response,
@@ -93,16 +93,17 @@ public static class PrincipalManualQuotationEvidence
         SourcingManualContact contact, SupplierBid candidate, IReadOnlyList<SupplierBidLine> lines,
         IReadOnlyList<SourcingLine> sourceLines, string actor, Guid? linkedWorker, Guid key,
         DateTimeOffset recordedAt, string operation, SourcingManualQuoteVersion? previous = null,
-        SupplierBid? before = null, IReadOnlyList<SupplierBidLine>? beforeLines = null)
+        SupplierBid? before = null, IReadOnlyList<SupplierBidLine>? beforeLines = null,
+        PrincipalQuotationCommand? command = null, IReadOnlyList<PrincipalQuotationStorage.Pin>? documentPins = null)
     {
         Actor(actor, linkedWorker);
         VerifyContact(contact);
-        if (source is null || source.ExecutionVersion != 2 || source.Status != "Published"
+        if (source is null || source.ExecutionVersion != 2 || (operation != "Cancel" && source.Status != "Published")
             || source.BranchRef is null || source.BranchRef == Guid.Empty
             || !SameScope(contact, source) || contact.SourcingEventId != source.Id
             || source.Version < contact.EventVersionAtCapture
             || invitation is null || !SameScope(invitation, source) || invitation.SourcingEventId != source.Id
-            || invitation.Status != "ManualContactRecorded"
+            || (operation != "Cancel" && invitation.Status != "ManualContactRecorded")
             || contact.InvitationId != invitation.Id || contact.SupplierId != invitation.SupplierId
             || contact.BranchId != source.BranchRef || recordedAt == default || At(recordedAt) < contact.RecordedAt
             || key == Guid.Empty || operation is not ("Create" or "Revise" or "Cancel"))
@@ -124,7 +125,7 @@ public static class PrincipalManualQuotationEvidence
                 throw new InvalidOperationException("ManualQuotationRevisionBackdated");
             if (before.Status != "Draft" || candidate is null || candidate.Id != before.Id
                 || candidate.Version != before.Version || previous.BidVersion != before.Version
-                || previous.ActorPrincipalId != actor || candidate.SurrogateEnteredBy != actor
+                || candidate.SurrogateEnteredBy != actor
                 || candidate.SourcingEventId != source.Id || candidate.SupplierId != contact.SupplierId
                 || candidate.InvitationId != contact.InvitationId || !SameScope(candidate, source))
                 throw new InvalidOperationException("ManualQuotationPriorEvidenceChanged");
@@ -138,15 +139,42 @@ public static class PrincipalManualQuotationEvidence
                     throw new InvalidOperationException("ManualQuotationCancellationInvalid");
                 // Cancellation may change only state/reason, never disguise a
                 // commercial revision as a cancellation of the recorded draft.
-                var cancelled = CopyForCancellation(before, candidate.CorrectionReason);
+                var cancelled = CopyForCancellation(before, candidate.CorrectionReason, actor);
                 if (PrincipalManualQuotationSnapshot.Build(candidate, lines)
                     != PrincipalManualQuotationSnapshot.Build(cancelled, beforeLines))
                     throw new InvalidOperationException("ManualQuotationCancellationChangedTerms");
             }
         }
-        var snapshot = PrincipalManualQuotationSnapshot.Build(candidate!, lines);
+        string snapshot; string request = ""; var pins = documentPins ?? [];
+        var snapshotVersion = candidate!.PrincipalCaptureVersion == 2 ? 3 : 2;
+        if (snapshotVersion == 3)
+        {
+            if (command is null) throw new InvalidOperationException("QuotationTypedCommandRequired");
+            command = PrincipalQuotationCommandEvidence.Normalize(command);
+            if (command.Operation != operation || command.ExpectedBidVersion != (operation == "Create" ? (long?)null : before!.Version)
+                || operation != "Cancel" && (command.ExpectedEventVersion != source.Version
+                    || command.ExpectedInvitationVersion != invitation.Version))
+                throw new InvalidOperationException("QuotationCommandVersionChanged");
+            var selections = command.Offer?.Documents;
+            if (operation == "Cancel")
+            {
+                if (previous!.SnapshotSchemaVersion != 3) throw new InvalidOperationException("QuotationLegacyVersionCannotBeAdopted");
+                var prior = PrincipalQuotationStorage.Restore(previous.SnapshotJson);
+                selections = prior.Offer.Documents;
+                if (PrincipalQuotationStorage.PinDigest(pins) != previous.DocumentPinSetSha256
+                    || PrincipalQuotationStorage.Build(candidate, lines, resultVersion, selections!, pins)
+                    != PrincipalQuotationStorage.Build(CopyForCancellation(before!, candidate.CorrectionReason!, actor),
+                        beforeLines!, resultVersion, selections!, pins))
+                    throw new InvalidOperationException("ManualQuotationCancellationChangedTerms");
+            }
+            snapshot = PrincipalQuotationStorage.Build(candidate, lines, resultVersion, selections!, pins);
+            request = PrincipalQuotationCommandEvidence.Build(source.TenantId, source.LegalEntityId,
+                contact.BranchId, actor, key, source.Id, invitation.Id,
+                operation == "Create" ? null : candidate.Id, command);
+        }
+        else snapshot = PrincipalManualQuotationSnapshot.Build(candidate, lines);
         var snapshotSha = ProcurementEvidenceEncoding.Digest(snapshot); var id = Guid.CreateVersion7();
-        var command = QuoteCommand(source.TenantId, source.LegalEntityId, source.Id, invitation.Id,
+        var sealedCommand = QuoteCommand(source.TenantId, source.LegalEntityId, source.Id, invitation.Id,
             contact.SupplierId, candidate!.Id, contact.BranchId, contact.Id, previous?.Id,
             resultVersion, operation, actor, linkedWorker, key, snapshotSha);
         var response = QuoteResponse(id, source.Id, candidate.Id, resultVersion, operation,
@@ -157,12 +185,73 @@ public static class PrincipalManualQuotationEvidence
             CreatedBy = actor, CreatedAt = At(recordedAt), SourcingEventId = source.Id,
             InvitationId = invitation.Id, SupplierId = contact.SupplierId, SupplierBidId = candidate.Id,
             BranchId = contact.BranchId, ManualContactId = contact.Id, PreviousVersionId = previous?.Id,
-            BidVersion = resultVersion, Operation = operation, ActorPrincipalId = actor,
+            BidVersion = resultVersion, SnapshotSchemaVersion = snapshotVersion,
+            EventVersionAtCapture = source.Version, InvitationVersionAtCapture = invitation.Version,
+            RequestJson = request, RequestSha256 = ProcurementEvidenceEncoding.Digest(request),
+            DocumentUseKey = pins.Count == 0 ? null : pins[0].Source.Key,
+            DocumentPinCount = pins.Count, DocumentPinSetSha256 = PrincipalQuotationStorage.PinDigest(pins),
+            Operation = operation, ActorPrincipalId = actor,
             ActorCoreLinkedWorkerId = linkedWorker, SnapshotJson = snapshot, SnapshotSha256 = snapshotSha,
-            CommandKey = key, CommandSha256 = ProcurementEvidenceEncoding.Digest(command),
+            CommandKey = key, CommandSha256 = ProcurementEvidenceEncoding.Digest(sealedCommand),
             ResponseJson = response, ResponseSha256 = ProcurementEvidenceEncoding.Digest(response),
             ResponseStatusCode = operation == "Create" ? 201 : 200, RecordedAt = At(recordedAt),
         };
+    }
+
+    /// <summary>Retained M4 invitations remain readable after an outside-contact
+    /// report only when that exact transition has owned immutable evidence.
+    /// Status strings alone never prove a delivery or supplier submission.</summary>
+    public static void VerifyPublishedInvitation(SourcingEvent source, SourcingInvitation invitation,
+        SourcingPublicationOpening opening, SourcingPublicationDecision decision,
+        SourcingPublicationReceipt receipt, SourcingManualContact? contact)
+    {
+        Publication(source, opening, decision, receipt);
+        if (invitation is null || !SameScope(invitation, source)
+            || invitation.SourcingEventId != source.Id || invitation.SupplierId == Guid.Empty
+            || invitation.SentAt is not null || invitation.ViewedAt is not null || invitation.DeliveryRef is not null)
+            throw new InvalidOperationException("ManualContactInvitationChanged");
+        if (invitation.Status == "ReadyForManualDelivery")
+        {
+            if (contact is not null) throw new InvalidOperationException("ManualContactTransitionMissing");
+            return;
+        }
+        if (invitation.Status != "ManualContactRecorded" || contact is null)
+            throw new InvalidOperationException("ManualContactEvidenceRequired");
+        VerifyContact(contact);
+        if (!SameScope(contact, source) || contact.SourcingEventId != source.Id
+            || contact.InvitationId != invitation.Id || contact.SupplierId != invitation.SupplierId
+            || contact.BranchId != source.BranchRef || contact.PublicationOpeningId != opening.Id
+            || contact.PublicationDecisionId != decision.Id || contact.EventVersionAtCapture != source.Version
+            || contact.InvitationVersionAtCapture != invitation.Version
+            || contact.ReportedContactAt < At(decision.DecidedAt))
+            throw new InvalidOperationException("ManualContactSourceChanged");
+    }
+
+    public static void VerifyRetainedInvitation(SourcingEvent source, SourcingInvitation invitation,
+        SourcingPublicationOpening opening, SourcingPublicationDecision decision,
+        SourcingPublicationReceipt receipt, SourcingManualContact? contact)
+    {
+        Publication(source, opening, decision, receipt, retained: true);
+        if (invitation is null || !SameScope(invitation, source)
+            || invitation.SourcingEventId != source.Id || invitation.SupplierId == Guid.Empty
+            || invitation.SentAt is not null || invitation.ViewedAt is not null || invitation.DeliveryRef is not null)
+            throw new InvalidOperationException("ManualContactInvitationChanged");
+        if (contact is null)
+        {
+            if (invitation.Status != "ReadyForManualDelivery")
+                throw new InvalidOperationException("ManualContactEvidenceRequired");
+            return;
+        }
+        VerifyContact(contact);
+        if (invitation.Status is not ("ManualContactRecorded" or "Cancelled")
+            || !SameScope(contact, source) || contact.SourcingEventId != source.Id
+            || contact.InvitationId != invitation.Id || contact.SupplierId != invitation.SupplierId
+            || contact.BranchId != source.BranchRef || contact.PublicationOpeningId != opening.Id
+            || contact.PublicationDecisionId != decision.Id || contact.EventVersionAtCapture > source.Version
+            || contact.EventVersionAtCapture < decision.EventVersionAtDecision
+            || contact.InvitationVersionAtCapture > invitation.Version
+            || contact.ReportedContactAt < At(decision.DecidedAt))
+            throw new InvalidOperationException("ManualContactRetainedSourceChanged");
     }
 
     public static void VerifyContact(SourcingManualContact row)
@@ -170,7 +259,7 @@ public static class PrincipalManualQuotationEvidence
         if (row is null || row.SchemaVersion != 2 || !Scope(row) || row.Id == Guid.Empty
             || row.SourcingEventId == Guid.Empty || row.InvitationId == Guid.Empty || row.SupplierId == Guid.Empty
             || row.BranchId == Guid.Empty || row.PublicationOpeningId == Guid.Empty
-            || row.PublicationDecisionId == Guid.Empty || row.EventVersionAtCapture < 1
+            || row.PublicationDecisionId == Guid.Empty || row.EventVersionAtCapture < 1 || row.InvitationVersionAtCapture < 2
             || row.Channel is not ("EmailOutsideSystem" or "Physical" or "Telephone" or "Other")
             || string.IsNullOrWhiteSpace(row.Reference) || row.Reference != row.Reference.Trim()
             || row.Reference.Length > 200 || row.ReportedContactAt == default || row.RecordedAt == default
@@ -181,8 +270,8 @@ public static class PrincipalManualQuotationEvidence
         var command = ContactCommand(row.TenantId, row.LegalEntityId, row.SourcingEventId,
             row.InvitationId, row.SupplierId, row.BranchId, row.PublicationOpeningId,
             row.PublicationDecisionId, row.EventVersionAtCapture, row.ActorPrincipalId,
-            row.ActorCoreLinkedWorkerId, row.Channel, row.Reference, row.ReportedContactAt, row.CommandKey);
-        var response = ContactResponse(row.Id, row.SourcingEventId, row.InvitationId, row.SupplierId, row.CommandKey);
+            row.ActorCoreLinkedWorkerId, row.Channel, row.Reference, row.ReportedContactAt, row.InvitationVersionAtCapture, row.CommandKey);
+        var response = ContactResponse(row.Id, row.SourcingEventId, row.InvitationId, row.SupplierId, row.InvitationVersionAtCapture, row.CommandKey);
         if (row.CommandSha256 != ProcurementEvidenceEncoding.Digest(command) || row.ResponseJson != response
             || row.ResponseSha256 != ProcurementEvidenceEncoding.Digest(response))
             throw new InvalidOperationException("ManualContactReceiptChanged");
@@ -216,7 +305,23 @@ public static class PrincipalManualQuotationEvidence
                 || ownedVersion.CorrectionReason.Length > 1000)))
             throw new InvalidOperationException("ManualQuotationEvidenceInvalid");
         Actor(row.ActorPrincipalId, row.ActorCoreLinkedWorkerId);
-        var snapshot = PrincipalManualQuotationSnapshot.Build(ownedVersion, ownedLines);
+        string snapshot;
+        if (row.SnapshotSchemaVersion == 3)
+        {
+            var restored = PrincipalQuotationStorage.Restore(row.SnapshotJson);
+            snapshot = PrincipalQuotationStorage.Build(ownedVersion, ownedLines, row.BidVersion,
+                restored.Offer.Documents!, restored.Pins);
+            var request = PrincipalQuotationCommandEvidence.FromStored(row, restored);
+            if (row.RequestJson != request || row.RequestSha256 != ProcurementEvidenceEncoding.Digest(request)
+                || row.DocumentPinCount != restored.Pins.Count
+                || row.DocumentPinSetSha256 != PrincipalQuotationStorage.PinDigest(restored.Pins)
+                || row.DocumentUseKey != (restored.Pins.Count == 0 ? null : restored.Pins[0].Source.Key)
+                || row.EventVersionAtCapture < 1 || row.InvitationVersionAtCapture < 1)
+                throw new InvalidOperationException("QuotationTypedCommandChanged");
+        }
+        else if (row.SnapshotSchemaVersion == 2)
+            snapshot = PrincipalManualQuotationSnapshot.Build(ownedVersion, ownedLines);
+        else throw new InvalidOperationException("QuotationSnapshotSchemaUnsupported");
         var snapshotSha = ProcurementEvidenceEncoding.Digest(snapshot);
         var command = QuoteCommand(row.TenantId, row.LegalEntityId, row.SourcingEventId,
             row.InvitationId, row.SupplierId, row.SupplierBidId, row.BranchId, row.ManualContactId,
@@ -228,6 +333,22 @@ public static class PrincipalManualQuotationEvidence
             || row.CommandSha256 != ProcurementEvidenceEncoding.Digest(command)
             || row.ResponseJson != response || row.ResponseSha256 != ProcurementEvidenceEncoding.Digest(response))
             throw new InvalidOperationException("ManualQuotationReceiptChanged");
+    }
+
+    public static bool ContactRequestMatches(SourcingManualContact row, long expectedEventVersion,
+        long expectedInvitationVersion, string channel, string reference, DateTimeOffset reportedAt)
+    {
+        VerifyContact(row);
+        if (expectedEventVersion < 1 || expectedInvitationVersion < 1 || expectedInvitationVersion == long.MaxValue
+            || reference is null || reference.Trim().Length is < 1 or > 200 || reportedAt == default
+            || channel is not ("EmailOutsideSystem" or "Physical" or "Telephone" or "Other")) return false;
+        // Reuse the stored historical alias in the old command seal. A current
+        // employee link changing is not a changed original private request.
+        var request = ContactCommand(row.TenantId, row.LegalEntityId, row.SourcingEventId,
+            row.InvitationId, row.SupplierId, row.BranchId, row.PublicationOpeningId, row.PublicationDecisionId,
+            expectedEventVersion, row.ActorPrincipalId, row.ActorCoreLinkedWorkerId, channel,
+            reference.Trim(), At(reportedAt), checked(expectedInvitationVersion + 1), row.CommandKey);
+        return row.CommandSha256 == ProcurementEvidenceEncoding.Digest(request);
     }
 
     public static string RecoverContact(SourcingManualContact row, string actor,
@@ -250,10 +371,11 @@ public static class PrincipalManualQuotationEvidence
     }
 
     private static void Publication(SourcingEvent source, SourcingPublicationOpening opening,
-        SourcingPublicationDecision decision, SourcingPublicationReceipt receipt)
+        SourcingPublicationDecision decision, SourcingPublicationReceipt receipt, bool retained = false)
     {
         if (source is null || !Scope(source) || source.Id == Guid.Empty || source.ExecutionVersion != 2
-            || source.Status != "Published" || source.Version < 1 || source.BranchRef is null
+            || (!retained && source.Status != "Published" || retained && source.Status is not ("Published" or "Cancelled"))
+            || source.Version < 1 || source.BranchRef is null
             || source.BranchRef == Guid.Empty || opening is null || decision is null || receipt is null
             || !SameScope(opening, source) || !SameScope(decision, source) || !SameScope(receipt, source)
             || opening.SchemaVersion != 2 || decision.SchemaVersion != 2 || receipt.SchemaVersion != 2
@@ -268,14 +390,18 @@ public static class PrincipalManualQuotationEvidence
             || !PrincipalRfqPublicationReceiptResult.Matches(receipt, opening, decision))
             throw new InvalidOperationException("ManualContactPublicationEvidenceRequired");
     }
-    private static SupplierBid CopyForCancellation(SupplierBid before, string reason) => new()
+    private static SupplierBid CopyForCancellation(SupplierBid before, string reason, string actor) => new()
     {
         Id = before.Id, TenantId = before.TenantId, LegalEntityId = before.LegalEntityId,
         SourcingEventId = before.SourcingEventId, SupplierId = before.SupplierId, InvitationId = before.InvitationId,
         SubmissionVersion = before.SubmissionVersion, Version = before.Version, Status = "Cancelled",
         SourceChannel = before.SourceChannel, CurrencyCode = before.CurrencyCode, ReceivedAt = before.ReceivedAt,
-        SubmittedAt = before.SubmittedAt, SurrogateEnteredBy = before.SurrogateEnteredBy,
+        SubmittedAt = before.SubmittedAt, SurrogateEnteredBy = actor,
         EvidenceDocumentRefId = before.EvidenceDocumentRefId, CorrectionReason = reason,
+        PrincipalCaptureVersion = before.PrincipalCaptureVersion, SupplierQuoteReference = before.SupplierQuoteReference,
+        QuoteDate = before.QuoteDate, OfferValidityKind = before.OfferValidityKind, ValidUntil = before.ValidUntil,
+        SupplierOfferedPaymentCode = before.SupplierOfferedPaymentCode, SupplierOfferedPaymentText = before.SupplierOfferedPaymentText,
+        WarrantyText = before.WarrantyText, DeliveryTermsText = before.DeliveryTermsText, DeliveryDate = before.DeliveryDate,
     };
     private static void Actor(string actor, Guid? linkedWorker)
     {
@@ -289,12 +415,12 @@ public static class PrincipalManualQuotationEvidence
     private static DateTimeOffset At(DateTimeOffset value) => ProcurementEvidenceEncoding.DatabaseTimestamp(value)!.Value;
     private static string ContactCommand(string tenant, Guid company, Guid source, Guid invitation, Guid supplier,
         Guid branch, Guid opening, Guid decision, long version, string actor, Guid? worker,
-        string channel, string reference, DateTimeOffset reportedAt, Guid key) => JsonSerializer.Serialize(new
+        string channel, string reference, DateTimeOffset reportedAt, long invitationVersion, Guid key) => JsonSerializer.Serialize(new
         { schemaVersion = 2, operation = "RecordManualContact", tenant, company, source, invitation,
-            supplier, branch, opening, decision, version, actor, worker, channel, reference, reportedAt, key });
-    private static string ContactResponse(Guid id, Guid source, Guid invitation, Guid supplier, Guid key) =>
+            supplier, branch, opening, decision, version, invitationVersion, actor, worker, channel, reference, reportedAt, key });
+    private static string ContactResponse(Guid id, Guid source, Guid invitation, Guid supplier, long invitationVersion, Guid key) =>
         JsonSerializer.Serialize(new { schemaVersion = 2, manualContactId = id, eventId = source,
-            invitationId = invitation, supplierId = supplier, status = "ManualContactRecorded", commandKey = key,
+            invitationId = invitation, supplierId = supplier, invitationVersion, status = "ManualContactRecorded", commandKey = key,
             supplierDeliveryReported = true, emailSentBySystem = false });
     private static string QuoteCommand(string tenant, Guid company, Guid source, Guid invitation, Guid supplier,
         Guid bid, Guid branch, Guid contact, Guid? previous, long version, string operation,
