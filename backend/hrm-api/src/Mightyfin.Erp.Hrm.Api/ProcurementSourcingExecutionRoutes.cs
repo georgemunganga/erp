@@ -36,6 +36,7 @@ public static partial class ProcurementSourcingExecutionRoutes
         MapPrincipalSourceRoutes(group);
         MapPrincipalPublicationRoutes(group);
         MapPrincipalQuotationRoutes(group);
+        MapCommercialRoundRoutes(group);
     }
     private static async Task<IResult> Run(HttpContext http, ProcurementRequestScope scope,
         Func<ProcurementDbContext, ApprovalDbContext, HrmDbContext, IAuthorizationService, CancellationToken, Task<Reply>> command, CancellationToken ct)

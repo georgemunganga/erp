@@ -88,6 +88,7 @@ public static partial class ProcurementSourcingExecutionRoutes
             await db.Database.ExecuteSqlInterpolatedAsync($"SELECT id FROM procurement.sourcing_events WHERE tenant_id={scope.TenantId} AND legal_entity_id={scope.LegalEntityId} AND id={id} FOR UPDATE", token);
             var ev = await PrincipalOwnedEvent(db, core, scope, http, auth, actor,
                 "procurement-sourcing-submit", id, token);
+            await RequireRoundPublicationAllowed(http, db, ev.Id, token);
             if (ev.Status != "Draft" || ev.Version != input.ExpectedEventVersion
                 || ev.OriginalDraftFingerprint != input.OriginalDraftFingerprint)
                 throw new Problem("SourcingDraftChanged", 409);
@@ -235,6 +236,7 @@ public static partial class ProcurementSourcingExecutionRoutes
             throw new Problem("SourcingReceiptNotFound", 404);
         _ = await PrincipalOwnedEvent(db, core, scope, http, auth, actor, permission,
             receipt.SourcingEventId, ct);
+        await RequireRoundPublicationAllowed(http, db, receipt.SourcingEventId, ct);
         if (receipt.Operation != "Open" || receipt.SourcingEventId != target
             || receipt.CommandSha256 != fingerprint)
             throw new Problem("SourcingCommandKeyConflict", 409);
@@ -304,6 +306,7 @@ public static partial class ProcurementSourcingExecutionRoutes
                     ?? throw new Problem("SourcingReceiptNotFound", 404);
                 _ = await PrincipalActor(core, scope, http, auth,
                     PrincipalRfqPublicationCoreWorkflow.Permission, retained.BranchRef, true, token);
+                await RequireRoundPublicationAllowed(http, db, retained.Id, token);
                 if (previous.Operation != "Decide" || previous.SourcingEventId != id
                     || previous.CommandSha256 != fingerprint || previous.DecisionId is null)
                     throw new Problem("SourcingCommandKeyConflict", 409);
@@ -318,6 +321,7 @@ public static partial class ProcurementSourcingExecutionRoutes
                 ?? throw new Problem("SourcingNotFound", 404);
             _ = await PrincipalActor(core, scope, http, auth,
                 PrincipalRfqPublicationCoreWorkflow.Permission, ev.BranchRef, true, token);
+            await RequireRoundPublicationAllowed(http, db, ev.Id, token);
             if (ev.Status != "PublicationReview" || ev.Version != input.ExpectedEventVersion
                 || ev.ApprovalInstanceRef != caseId.ToString("D"))
                 throw new Problem("SourcingPublicationReviewChanged", 409);
