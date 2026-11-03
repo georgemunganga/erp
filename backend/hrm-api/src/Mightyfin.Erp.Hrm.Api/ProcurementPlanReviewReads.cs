@@ -257,7 +257,7 @@ public static class ProcurementPlanReviewReads
             : Results.Content(result.ResponseJson, "application/json", statusCode: result.ResponseStatus);
     }
 
-    private static bool BranchVisible(Guid? branch, ProcurementRequestScope scope) => branch is { } id
+    internal static bool BranchVisible(Guid? branch, ProcurementRequestScope scope) => branch is { } id
         && (scope.IsExplicitAllBranches ? scope.PermittedWorkLocationIds.Contains(id)
             : scope.WorkLocationId == id);
     internal static Guid PendingTaskSubmissionId(PlanReviewSubmission round, Guid planId,

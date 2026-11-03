@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Http;
+using System.Text.Json;
 using Mightyfin.Erp.Hrm.Api;
 using Mightyfin.Erp.Procurement.Domain;
 using Mightyfin.Erp.Procurement.Application;
@@ -7,6 +8,20 @@ namespace Mightyfin.Erp.Hrm.Tests;
 
 public sealed class ProcurementPlanReviewReadContractTests
 {
+    [Fact]
+    public void Scope_claim_receipt_uses_the_same_camel_case_raw_wire_as_review_commands()
+    {
+        var plan = Guid.NewGuid();
+        var branch = Guid.NewGuid();
+        using var json = JsonDocument.Parse(ProcurementPlanRoutes.ClaimScopeResponse(plan, branch, "ZMW", 3));
+        Assert.Equal(plan, json.RootElement.GetProperty("id").GetGuid());
+        Assert.Equal(branch, json.RootElement.GetProperty("branchRef").GetGuid());
+        Assert.Equal("ZMW", json.RootElement.GetProperty("currencyCode").GetString());
+        Assert.Equal(3, json.RootElement.GetProperty("version").GetInt64());
+        Assert.True(json.RootElement.GetProperty("scopeClaimed").GetBoolean());
+        Assert.False(json.RootElement.TryGetProperty("Id", out _));
+    }
+
     [Fact]
     public void Original_command_key_uses_one_modern_header_and_rejects_conflicting_legacy_header()
     {

@@ -534,6 +534,11 @@ public sealed class ProcurementScopeMiddleware(RequestDelegate next, IWebHostEnv
 
         // An explicit company-wide view must never silently post a request to
         // an arbitrary assigned branch. Preserve legacy non-All commands.
+        if (validAllHeader && PlanWriteRequiresBranch(http.Request.Path, http.Request.Method))
+        {
+            await Deny(http, StatusCodes.Status400BadRequest, "Choose a permitted branch before changing a purchase plan.");
+            return;
+        }
         if (validAllHeader && RequestWriteRequiresBranch(http.Request.Path, http.Request.Method))
         {
             await Deny(http, StatusCodes.Status400BadRequest, "Choose a permitted branch before changing a purchase request.");
@@ -668,8 +673,8 @@ public sealed class ProcurementScopeMiddleware(RequestDelegate next, IWebHostEnv
             http.RequestAborted);
     }
 
-    // These exact collections have reviewed All readers. Detail/review and
-    // mutation routes retain their separate branch requirements.
+    // These exact collections and finite plan-review GETs have reviewed All
+    // readers. Mutations retain their separate selected-branch requirements.
     internal static bool AllOperationalListReadPath(PathString path, string method)
     {
         if (!HttpMethods.IsGet(method)) return false;
@@ -683,7 +688,8 @@ public sealed class ProcurementScopeMiddleware(RequestDelegate next, IWebHostEnv
             && Guid.TryParseExact(parts[4],"D",out var invoiceId) && invoiceId!=Guid.Empty
             && string.Equals(parts[5],"matching",StringComparison.OrdinalIgnoreCase)
             && string.Equals(parts[6],"principal-sources",StringComparison.OrdinalIgnoreCase);
-        return principalInvoiceSources || ProcurementSourcingExecutionRoutes.QuotationAllReadPath(path, method) || string.Equals(value, "/api/procurement/v1/manual-invoice-unit-reviews/tasks", StringComparison.OrdinalIgnoreCase)
+        return principalInvoiceSources || PlanReviewAllReadPath(path, method)
+            || ProcurementSourcingExecutionRoutes.QuotationAllReadPath(path, method) || string.Equals(value, "/api/procurement/v1/manual-invoice-unit-reviews/tasks", StringComparison.OrdinalIgnoreCase)
             || string.Equals(value, "/api/procurement/v1/requests", StringComparison.OrdinalIgnoreCase)
             || string.Equals(value, "/api/procurement/v1/plans", StringComparison.OrdinalIgnoreCase)
             || string.Equals(value, "/api/procurement/v1/contracts", StringComparison.OrdinalIgnoreCase)
@@ -701,11 +707,35 @@ public sealed class ProcurementScopeMiddleware(RequestDelegate next, IWebHostEnv
             || string.Equals(value, "/api/procurement/v1/returns/principal-drafts/eligible-goods", StringComparison.OrdinalIgnoreCase);
     }
 
+    // Only these completed review GET contracts aggregate the caller's permitted
+    // branches. Mutations and arbitrary plan children still require a selected branch.
+    internal static bool PlanReviewAllReadPath(PathString path, string method)
+    {
+        if (!HttpMethods.IsGet(method)) return false;
+        var parts = path.Value?.TrimEnd('/').Split('/', StringSplitOptions.RemoveEmptyEntries);
+        if (parts is null || parts.Length is not (5 or 6)
+            || !parts[0].Equals("api", StringComparison.OrdinalIgnoreCase)
+            || !parts[1].Equals("procurement", StringComparison.OrdinalIgnoreCase)
+            || !parts[2].Equals("v1", StringComparison.OrdinalIgnoreCase)
+            || !parts[3].Equals("plans", StringComparison.OrdinalIgnoreCase)) return false;
+        if (parts.Length == 5)
+            return parts[4].Equals("review-tasks", StringComparison.OrdinalIgnoreCase);
+        static bool Id(string text) => Guid.TryParseExact(text, "D", out var id) && id != Guid.Empty;
+        return Id(parts[4]) && parts[5].Equals("review-history", StringComparison.OrdinalIgnoreCase)
+            || parts[4].Equals("review-submissions", StringComparison.OrdinalIgnoreCase) && Id(parts[5])
+            || parts[4].Equals("commands", StringComparison.OrdinalIgnoreCase) && Id(parts[5]);
+    }
+
     internal static bool RequestWriteRequiresBranch(PathString path, string method) =>
         path.StartsWithSegments("/api/procurement/v1/requests", StringComparison.OrdinalIgnoreCase)
             && (HttpMethods.IsPost(method) || HttpMethods.IsPut(method) || HttpMethods.IsPatch(method) || HttpMethods.IsDelete(method))
         || HttpMethods.IsPost(method) && string.Equals(path.Value?.TrimEnd('/'),
             "/api/procurement/v1/orders/from-approved-principal-direct-sources", StringComparison.OrdinalIgnoreCase);
+
+    internal static bool PlanWriteRequiresBranch(PathString path, string method) =>
+        path.StartsWithSegments("/api/procurement/v1/plans", StringComparison.OrdinalIgnoreCase)
+            && (HttpMethods.IsPost(method) || HttpMethods.IsPut(method)
+                || HttpMethods.IsPatch(method) || HttpMethods.IsDelete(method));
 
     // Only current company-master reads use explicit All in this P24 backport.
     // A future child or write route must receive its own scope review.

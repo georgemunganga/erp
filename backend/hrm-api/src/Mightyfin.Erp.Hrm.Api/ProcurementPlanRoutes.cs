@@ -270,8 +270,7 @@ public static class ProcurementPlanRoutes
         plan.BranchRef = branch;
         plan.UpdatedAt = DateTimeOffset.UtcNow;
         ProcurementDraftAudit.Add(db, scope, "ProcurementPlan", plan.Id, "ScopeClaimed", before, Detail(plan));
-        var response = JsonSerializer.Serialize(new { plan.Id, branchRef = branch,
-            plan.CurrencyCode, version = checked(input.Version + 1), scopeClaimed = true });
+        var response = ClaimScopeResponse(plan.Id, branch, plan.CurrencyCode, checked(input.Version + 1));
         db.AddScoped(new PlanReviewCommandReceipt { ProcurementPlanId = id, CommandKey = key,
             Operation = "ClaimScope", ActorSubjectId = scope.SubjectId, RequestSha256 = fingerprint,
             ResponseJson = response, ResponseStatus = 200 });
@@ -326,6 +325,9 @@ public static class ProcurementPlanRoutes
     };
 
     private static string? Clean(string? value) => string.IsNullOrWhiteSpace(value) ? null : value.Trim();
+    internal static string ClaimScopeResponse(Guid id, Guid branchRef, string currencyCode, long version)
+        => JsonSerializer.Serialize(new { id, branchRef, currencyCode, version, scopeClaimed = true },
+            new JsonSerializerOptions(JsonSerializerDefaults.Web));
     internal static bool ReturnedReviewClosed(ProcurementPlan plan, IReadOnlyList<PlanReviewSubmission> rounds)
     {
         var latest = rounds.OrderByDescending(x => x.SubmittedPlanVersion).FirstOrDefault();
