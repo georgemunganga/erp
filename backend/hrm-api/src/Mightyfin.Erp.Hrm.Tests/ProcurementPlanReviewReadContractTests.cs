@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Http;
 using Mightyfin.Erp.Hrm.Api;
 using Mightyfin.Erp.Procurement.Domain;
+using Mightyfin.Erp.Procurement.Application;
 
 namespace Mightyfin.Erp.Hrm.Tests;
 
@@ -50,5 +51,53 @@ public sealed class ProcurementPlanReviewReadContractTests
         Assert.False(ProcurementPlanRoutes.ReturnedReviewClosed(plan,
             [new PlanReviewSubmission { State = "Returned", CoreApprovalCaseId = caseId,
                 SubmittedAt = returned.SubmittedAt }]));
+    }
+
+    [Fact]
+    public void Reviewer_task_links_to_the_verified_submission_id_not_its_core_case_id()
+    {
+        var tenant = "tenant-test";
+        var entity = Guid.NewGuid();
+        var branch = Guid.NewGuid();
+        var caseId = Guid.NewGuid();
+        var policyId = Guid.NewGuid();
+        var owner = Guid.NewGuid().ToString("D");
+        var plan = new ProcurementPlan
+        {
+            Id = Guid.NewGuid(), TenantId = tenant, LegalEntityId = entity, BranchRef = branch,
+            OwnerSubjectId = owner, Number = "PLAN-1", FinancialPeriodRef = "2027",
+            CurrencyCode = "ZMW", Status = "Submitted", ApprovalInstanceRef = caseId.ToString("D"),
+            Lines = [new ProcurementPlanLine { Id = Guid.NewGuid(), LineNumber = 1,
+                Description = "Equipment", UnitCode = "EA", EstimatedQuantity = 1,
+                EstimatedAmount = 10m }],
+        };
+        var prepared = PlanReviewSnapshot.Create(plan, 2);
+        var round = new PlanReviewSubmission
+        {
+            Id = Guid.NewGuid(), TenantId = tenant, LegalEntityId = entity,
+            ProcurementPlanId = plan.Id, BranchRef = branch, SubmittedPlanVersion = 2,
+            CoreApprovalCaseId = caseId, MakerSubjectId = owner, CurrencyCode = "ZMW",
+            EstimatedAmount = prepared.EstimatedAmount, SnapshotJson = prepared.Json,
+            SnapshotSha256 = prepared.Sha256, PolicyVersionId = policyId,
+            PolicyVersionNumber = 1, State = "Pending",
+        };
+        var link = Link(round);
+        Assert.Equal(round.Id, link);
+        Assert.NotEqual(caseId, link);
+        Assert.Equal(Guid.Empty, Link(WithWrongCase()));
+
+        Guid Link(PlanReviewSubmission candidate) => ProcurementPlanReviewReads.PendingTaskSubmissionId(
+            candidate, plan.Id, caseId, 2, tenant, entity, branch, owner, plan.Status,
+            plan.ApprovalInstanceRef, policyId, 1);
+        PlanReviewSubmission WithWrongCase() => new()
+        {
+            Id = round.Id, TenantId = round.TenantId, LegalEntityId = round.LegalEntityId,
+            ProcurementPlanId = round.ProcurementPlanId, BranchRef = round.BranchRef,
+            SubmittedPlanVersion = round.SubmittedPlanVersion, CoreApprovalCaseId = Guid.NewGuid(),
+            MakerSubjectId = round.MakerSubjectId, CurrencyCode = round.CurrencyCode,
+            EstimatedAmount = round.EstimatedAmount, SnapshotJson = round.SnapshotJson,
+            SnapshotSha256 = round.SnapshotSha256, PolicyVersionId = round.PolicyVersionId,
+            PolicyVersionNumber = round.PolicyVersionNumber, State = round.State,
+        };
     }
 }

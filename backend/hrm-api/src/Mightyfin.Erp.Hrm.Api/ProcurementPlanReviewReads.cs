@@ -87,27 +87,51 @@ public static class ProcurementPlanReviewReads
                 join approvalCase in core.Cases.AsNoTracking() on assignment.CaseId equals approvalCase.Id
                 where assignment.AssigneeSubjectId == scope.SubjectId && assignment.State == "Pending"
                     && stage.State == "Active" && approvalCase.State == "Pending"
+                    && approvalCase.TenantId == scope.TenantId
+                    && approvalCase.LegalEntityId == scope.LegalEntityId
                     && approvalCase.SourceModule == "procurement"
                     && approvalCase.SourceType == PlanReviewCoreWorkflow.SourceType
                 orderby approvalCase.OpenedAt descending, approvalCase.Id descending
                 select new { planId = approvalCase.SourceId, caseId = approvalCase.Id,
-                    caseVersion = approvalCase.Version, stage.Code, assignmentId = assignment.Id,
+                    caseVersion = approvalCase.Version, approvalCase.SourceVersion,
+                    approvalCase.TenantId, approvalCase.LegalEntityId,
+                    approvalCase.PolicyVersionId, approvalCase.PolicyVersionNumber,
+                    stage.Code, assignmentId = assignment.Id,
                     assignmentVersion = assignment.Version }).Take(1000).ToArrayAsync(token);
             var ids = pending.Select(x => x.planId).Distinct().ToArray();
             var plans = await db.ProcurementPlans.AsNoTracking().Where(x => ids.Contains(x.Id)
+                && x.TenantId == scope.TenantId && x.LegalEntityId == scope.LegalEntityId
                 && (scope.IsExplicitAllBranches && x.BranchRef.HasValue
                         && scope.PermittedWorkLocationIds.Contains(x.BranchRef.Value)
                     || !scope.IsExplicitAllBranches && x.BranchRef == scope.WorkLocationId))
                 .Select(x => new { x.Id, x.Number, x.BranchRef, x.Status, x.CurrencyCode,
-                    x.OwnerSubjectId, x.Version }).ToArrayAsync(token);
+                    x.OwnerSubjectId, x.ApprovalInstanceRef, x.Version }).ToArrayAsync(token);
             var byId = plans.ToDictionary(x => x.Id);
-            var items = pending.Where(x => byId.ContainsKey(x.planId)
+            var eligible = pending.Where(x => byId.ContainsKey(x.planId)
                     && current.Permissions.Contains(x.Code == "Review"
                         ? PlanReviewCoreWorkflow.ReviewPermission : PlanReviewCoreWorkflow.FinalPermission)
                     && (current.OrganisationWide || byId[x.planId].BranchRef is { } allowed
-                        && current.AllowedBranches.Contains(allowed)))
-                .Select(x => new { x.planId, x.caseId, x.caseVersion, x.Code, x.assignmentId,
-                    x.assignmentVersion, plan = byId[x.planId],
+                        && current.AllowedBranches.Contains(allowed))).ToArray();
+            var caseIds = eligible.Select(x => x.caseId).Distinct().ToArray();
+            var rounds = await db.PlanReviewSubmissions.AsNoTracking()
+                .Where(x => caseIds.Contains(x.CoreApprovalCaseId)).ToArrayAsync(token);
+            var roundByCase = rounds.GroupBy(x => x.CoreApprovalCaseId)
+                .ToDictionary(x => x.Key, x => x.ToArray());
+            var linked = eligible.Select(x =>
+            {
+                if (!roundByCase.TryGetValue(x.caseId, out var candidates) || candidates.Length != 1)
+                    throw new ReviewReadUnavailable();
+                var plan = byId[x.planId];
+                var submissionId = PendingTaskSubmissionId(candidates[0], x.planId, x.caseId,
+                    x.SourceVersion, x.TenantId, x.LegalEntityId, plan.BranchRef,
+                    plan.OwnerSubjectId, plan.Status, plan.ApprovalInstanceRef,
+                    x.PolicyVersionId, x.PolicyVersionNumber);
+                if (submissionId == Guid.Empty) throw new ReviewReadUnavailable();
+                return new { task = x, submissionId };
+            }).ToArray();
+            var items = linked.Select(x => new { x.task.planId, x.task.caseId,
+                    x.submissionId, x.task.caseVersion, x.task.Code, x.task.assignmentId,
+                    x.task.assignmentVersion, plan = byId[x.task.planId],
                     allowedActions = writeReady ? new[] { "Approve", "Return", "Reject" } : Array.Empty<string>() }).ToArray();
             return new { items = items.Skip((number - 1) * size).Take(size)
                     .Select(x => (object)x).ToArray(),
@@ -235,6 +259,22 @@ public static class ProcurementPlanReviewReads
     private static bool BranchVisible(Guid? branch, ProcurementRequestScope scope) => branch is { } id
         && (scope.IsExplicitAllBranches ? scope.PermittedWorkLocationIds.Contains(id)
             : scope.WorkLocationId == id);
+    internal static Guid PendingTaskSubmissionId(PlanReviewSubmission round, Guid planId,
+        Guid caseId, long sourceVersion, string tenantId, Guid legalEntityId, Guid? branch,
+        string ownerSubjectId, string planStatus, string? activeCaseRef,
+        Guid policyVersionId, int policyVersionNumber)
+        => round.Id != Guid.Empty && round.Id != caseId
+            && round.CoreApprovalCaseId == caseId && round.ProcurementPlanId == planId
+            && round.SubmittedPlanVersion == sourceVersion && round.TenantId == tenantId
+            && round.LegalEntityId == legalEntityId && branch is { } claimed
+            && round.BranchRef == claimed && round.MakerSubjectId == ownerSubjectId
+            && round.PolicyVersionId == policyVersionId
+            && round.PolicyVersionNumber == policyVersionNumber
+            && round.State == "Pending" && round.CompletedAt is null
+            && (planStatus is "Submitted" or "Reviewed")
+            && activeCaseRef == caseId.ToString("D")
+            && PlanReviewSnapshot.TryReadRetained(round, out _)
+                ? round.Id : Guid.Empty;
     private static Task<TResult> ReadAsync<TResult>(ProcurementApprovalTransaction transaction,
         IProcurementPlanReviewReadiness readiness,
         Func<ProcurementDbContext, ApprovalDbContext, CancellationToken, Task<TResult>> read,
