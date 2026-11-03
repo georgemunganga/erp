@@ -2,6 +2,8 @@
 
 Issue169 / draft ERP PR171 follows the [adopted 28-section feature](../features/PROC-05A-GOVERNED-PLAN-REVIEW.md) and GW-ENG-STD-001. This is a source integration record, not test, database or release acceptance.
 
+**Later genuine-generation checkpoint:** migration `20261103211606_ProcurementPlanGovernedReview` and raw-identical designer/snapshot are now adopted; the migration alone adds a reviewed Down retention prefix. Root observed2002 Procurement passes followed by Host CS0833 compile failure, now source-fixed with explicit audit names. New migration-operation cases and the fix remain unexecuted. [Raw/final provenance](PROC-05A-GENUINE-MIGRATION-PROVENANCE-20261103.md) supersedes the earlier ungenerated-model inventory below; actual parity/SQL, Host/provider/native and shared post-Plan CHECK capture/selector are still pending.
+
 The Plan branch merged published main `dc6a082db74f9740104e2295988bc6f1f54027d8` in `01fb35a7632944215cf8e9a7bfffb4c0fa399b8f`. Its only conflict was host All-reader admission; resolution retains PlanReviewAllReadPath and B1 RoundPlanAllReadPath. The entire migration directory is unchanged relative to that main, including B1's genuine `20261103163108` migration, designer and snapshot. No duplicate Plan migration or manually modified snapshot exists.
 
 ## Source contract review

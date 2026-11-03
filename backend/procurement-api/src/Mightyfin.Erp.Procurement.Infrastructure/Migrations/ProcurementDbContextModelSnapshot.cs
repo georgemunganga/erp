@@ -5223,7 +5223,7 @@ namespace Mightyfin.Erp.Procurement.Infrastructure.Migrations
 
                     b.ToTable("operational_policy_identity_evidence", "procurement", t =>
                         {
-                            t.HasCheckConstraint("ck_operational_policy_identity", "schema_version IN (1,2) AND policy_key IN ('RECEIVING','INVOICE_MATCHING','INVOICE_UNIT_REVIEW','MANUAL_PAYMENT_REVIEW','INVOICE_OWNER_BASELINE_REVIEW') AND (policy_key NOT IN ('MANUAL_PAYMENT_REVIEW','INVOICE_OWNER_BASELINE_REVIEW') OR schema_version=2)\nAND id <> '00000000-0000-0000-0000-000000000000'::uuid\nAND policy_version_id <> '00000000-0000-0000-0000-000000000000'::uuid\nAND policy_version_number>0 AND policy_record_version_at_action>0\nAND (actor_worker_id IS NULL OR actor_worker_id <> '00000000-0000-0000-0000-000000000000'::uuid)\nAND (schema_version=2 OR actor_worker_id IS NOT NULL)\nAND actor_principal_id ~ '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'\nAND actor_principal_id <> '00000000-0000-0000-0000-000000000000'\nAND rules_sha256 IS NOT NULL AND rules_sha256 ~ '^[0-9a-f]{64}$'\nAND evidence_sha256 IS NOT NULL AND evidence_sha256 ~ '^[0-9a-f]{64}$'\nAND isfinite(action_at) AND created_at=action_at AND created_by=actor_principal_id\nAND version=1 AND updated_at IS NULL AND updated_by IS NULL\nAND ((stage='Created' AND policy_record_version_at_action=1\n    AND created_evidence_id IS NULL AND created_evidence_stage IS NULL\n    AND submitted_evidence_id IS NULL AND submitted_evidence_stage IS NULL)\nOR (stage='Submitted' AND policy_record_version_at_action>1\n    AND created_evidence_id IS NOT NULL AND created_evidence_id<>id\n    AND created_evidence_stage IS NOT NULL AND created_evidence_stage='Created'\n    AND submitted_evidence_id IS NULL AND submitted_evidence_stage IS NULL)\nOR (stage='Published' AND policy_record_version_at_action>2\n    AND created_evidence_id IS NOT NULL AND created_evidence_id<>id\n    AND created_evidence_stage IS NOT NULL AND created_evidence_stage='Created'\n    AND submitted_evidence_id IS NOT NULL AND submitted_evidence_id<>id AND submitted_evidence_id<>created_evidence_id\n    AND submitted_evidence_stage IS NOT NULL AND submitted_evidence_stage='Submitted'))");
+                            t.HasCheckConstraint("ck_operational_policy_identity", "schema_version IN (1,2) AND policy_key IN ('RECEIVING','INVOICE_MATCHING','INVOICE_UNIT_REVIEW','MANUAL_PAYMENT_REVIEW','INVOICE_OWNER_BASELINE_REVIEW','PROCUREMENT_PLAN_REVIEW') AND (policy_key NOT IN ('MANUAL_PAYMENT_REVIEW','INVOICE_OWNER_BASELINE_REVIEW','PROCUREMENT_PLAN_REVIEW') OR schema_version=2)\nAND id <> '00000000-0000-0000-0000-000000000000'::uuid\nAND policy_version_id <> '00000000-0000-0000-0000-000000000000'::uuid\nAND policy_version_number>0 AND policy_record_version_at_action>0\nAND (actor_worker_id IS NULL OR actor_worker_id <> '00000000-0000-0000-0000-000000000000'::uuid)\nAND (schema_version=2 OR actor_worker_id IS NOT NULL)\nAND actor_principal_id ~ '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'\nAND actor_principal_id <> '00000000-0000-0000-0000-000000000000'\nAND rules_sha256 IS NOT NULL AND rules_sha256 ~ '^[0-9a-f]{64}$'\nAND evidence_sha256 IS NOT NULL AND evidence_sha256 ~ '^[0-9a-f]{64}$'\nAND isfinite(action_at) AND created_at=action_at AND created_by=actor_principal_id\nAND version=1 AND updated_at IS NULL AND updated_by IS NULL\nAND ((stage='Created' AND policy_record_version_at_action=1\n    AND created_evidence_id IS NULL AND created_evidence_stage IS NULL\n    AND submitted_evidence_id IS NULL AND submitted_evidence_stage IS NULL)\nOR (stage='Submitted' AND policy_record_version_at_action>1\n    AND created_evidence_id IS NOT NULL AND created_evidence_id<>id\n    AND created_evidence_stage IS NOT NULL AND created_evidence_stage='Created'\n    AND submitted_evidence_id IS NULL AND submitted_evidence_stage IS NULL)\nOR (stage='Published' AND policy_record_version_at_action>2\n    AND created_evidence_id IS NOT NULL AND created_evidence_id<>id\n    AND created_evidence_stage IS NOT NULL AND created_evidence_stage='Created'\n    AND submitted_evidence_id IS NOT NULL AND submitted_evidence_id<>id AND submitted_evidence_id<>created_evidence_id\n    AND submitted_evidence_stage IS NOT NULL AND submitted_evidence_stage='Submitted'))");
                         });
                 });
 
@@ -5324,6 +5324,242 @@ namespace Mightyfin.Erp.Procurement.Infrastructure.Migrations
                         .IsUnique();
 
                     b.ToTable("outbox_events", "procurement");
+                });
+
+            modelBuilder.Entity("Mightyfin.Erp.Procurement.Domain.PlanReviewCommandReceipt", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<Guid?>("ActorCoreLinkedWorkerId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("actor_core_linked_worker_id");
+
+                    b.Property<string>("ActorSubjectId")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("actor_subject_id");
+
+                    b.Property<Guid>("CommandKey")
+                        .HasColumnType("uuid")
+                        .HasColumnName("command_key");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("CreatedBy")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("created_by");
+
+                    b.Property<Guid?>("DecisionId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("decision_id");
+
+                    b.Property<Guid>("LegalEntityId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("legal_entity_id");
+
+                    b.Property<string>("Operation")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)")
+                        .HasColumnName("operation");
+
+                    b.Property<Guid>("ProcurementPlanId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("procurement_plan_id");
+
+                    b.Property<string>("RequestSha256")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("request_sha256");
+
+                    b.Property<string>("ResponseJson")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("response_json");
+
+                    b.Property<int>("ResponseStatus")
+                        .HasColumnType("integer")
+                        .HasColumnName("response_status");
+
+                    b.Property<string>("TenantId")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)")
+                        .HasColumnName("tenant_id");
+
+                    b.Property<DateTimeOffset?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("updated_by");
+
+                    b.Property<long>("Version")
+                        .IsConcurrencyToken()
+                        .HasColumnType("bigint")
+                        .HasColumnName("version");
+
+                    b.HasKey("Id");
+
+                    b.HasAlternateKey("TenantId", "LegalEntityId", "Id");
+
+                    b.HasIndex("TenantId", "LegalEntityId", "CommandKey")
+                        .IsUnique();
+
+                    b.HasIndex("TenantId", "LegalEntityId", "DecisionId");
+
+                    b.HasIndex("TenantId", "LegalEntityId", "ProcurementPlanId");
+
+                    b.ToTable("plan_review_command_receipts", "procurement", t =>
+                        {
+                            t.HasCheckConstraint("ck_plan_review_receipt", "command_key <> '00000000-0000-0000-0000-000000000000'::uuid AND operation IN ('ClaimScope','Submit','Decide','Withdraw') AND (decision_id IS NULL OR decision_id <> '00000000-0000-0000-0000-000000000000'::uuid) AND (actor_core_linked_worker_id IS NULL OR actor_core_linked_worker_id <> '00000000-0000-0000-0000-000000000000'::uuid) AND ((operation IN ('Decide','Withdraw') AND decision_id IS NOT NULL) OR (operation IN ('ClaimScope','Submit') AND decision_id IS NULL)) AND request_sha256 ~ '^[0-9a-f]{64}$' AND response_status BETWEEN 200 AND 299");
+                        });
+                });
+
+            modelBuilder.Entity("Mightyfin.Erp.Procurement.Domain.PlanReviewSubmission", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<Guid>("BranchRef")
+                        .HasColumnType("uuid")
+                        .HasColumnName("branch_ref");
+
+                    b.Property<DateTimeOffset?>("CompletedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("completed_at");
+
+                    b.Property<Guid>("CoreApprovalCaseId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("core_approval_case_id");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("CreatedBy")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("created_by");
+
+                    b.Property<string>("CurrencyCode")
+                        .IsRequired()
+                        .HasMaxLength(3)
+                        .HasColumnType("character varying(3)")
+                        .HasColumnName("currency_code");
+
+                    b.Property<decimal>("EstimatedAmount")
+                        .HasPrecision(18, 4)
+                        .HasColumnType("numeric(18,4)")
+                        .HasColumnName("estimated_amount");
+
+                    b.Property<Guid>("LegalEntityId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("legal_entity_id");
+
+                    b.Property<Guid?>("MakerCoreLinkedWorkerId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("maker_core_linked_worker_id");
+
+                    b.Property<string>("MakerSubjectId")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("maker_subject_id");
+
+                    b.Property<string>("PolicyRulesSha256")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("policy_rules_sha256");
+
+                    b.Property<Guid>("PolicyVersionId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("policy_version_id");
+
+                    b.Property<int>("PolicyVersionNumber")
+                        .HasColumnType("integer")
+                        .HasColumnName("policy_version_number");
+
+                    b.Property<Guid>("ProcurementPlanId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("procurement_plan_id");
+
+                    b.Property<string>("SnapshotJson")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("snapshot_json");
+
+                    b.Property<string>("SnapshotSha256")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("snapshot_sha256");
+
+                    b.Property<string>("State")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)")
+                        .HasColumnName("state");
+
+                    b.Property<DateTimeOffset>("SubmittedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("submitted_at");
+
+                    b.Property<long>("SubmittedPlanVersion")
+                        .HasColumnType("bigint")
+                        .HasColumnName("submitted_plan_version");
+
+                    b.Property<string>("TenantId")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)")
+                        .HasColumnName("tenant_id");
+
+                    b.Property<DateTimeOffset?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("updated_by");
+
+                    b.Property<long>("Version")
+                        .IsConcurrencyToken()
+                        .HasColumnType("bigint")
+                        .HasColumnName("version");
+
+                    b.HasKey("Id");
+
+                    b.HasAlternateKey("TenantId", "LegalEntityId", "Id");
+
+                    b.HasIndex("TenantId", "LegalEntityId", "CoreApprovalCaseId")
+                        .IsUnique();
+
+                    b.HasIndex("TenantId", "LegalEntityId", "PolicyVersionId");
+
+                    b.HasIndex("TenantId", "LegalEntityId", "ProcurementPlanId", "SubmittedPlanVersion")
+                        .IsUnique();
+
+                    b.ToTable("plan_review_submissions", "procurement", t =>
+                        {
+                            t.HasCheckConstraint("ck_plan_review_submission", "submitted_plan_version > 0 AND estimated_amount >= 0 AND branch_ref <> '00000000-0000-0000-0000-000000000000'::uuid AND (maker_core_linked_worker_id IS NULL OR maker_core_linked_worker_id <> '00000000-0000-0000-0000-000000000000'::uuid) AND snapshot_sha256 ~ '^[0-9a-f]{64}$' AND policy_rules_sha256 ~ '^[0-9a-f]{64}$' AND state IN ('Pending','Returned','Rejected','Approved','Withdrawn')");
+                        });
                 });
 
             modelBuilder.Entity("Mightyfin.Erp.Procurement.Domain.PolicyEvaluation", b =>
@@ -8587,6 +8823,10 @@ namespace Mightyfin.Erp.Procurement.Infrastructure.Migrations
                         .HasColumnType("text")
                         .HasColumnName("approval_instance_ref");
 
+                    b.Property<Guid?>("BranchRef")
+                        .HasColumnType("uuid")
+                        .HasColumnName("branch_ref");
+
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("created_at");
@@ -8671,6 +8911,8 @@ namespace Mightyfin.Erp.Procurement.Infrastructure.Migrations
 
                     b.HasIndex("TenantId", "LegalEntityId", "Number")
                         .IsUnique();
+
+                    b.HasIndex("TenantId", "LegalEntityId", "BranchRef", "Status");
 
                     b.ToTable("procurement_plans", "procurement");
                 });
@@ -17104,6 +17346,33 @@ namespace Mightyfin.Erp.Procurement.Infrastructure.Migrations
                         .HasPrincipalKey("TenantId", "LegalEntityId", "PolicyVersionId", "PolicyKey", "Id", "Stage")
                         .OnDelete(DeleteBehavior.Restrict)
                         .HasConstraintName("fk_operational_policy_identity_submitted");
+                });
+
+            modelBuilder.Entity("Mightyfin.Erp.Procurement.Domain.PlanReviewCommandReceipt", b =>
+                {
+                    b.HasOne("Mightyfin.Erp.Procurement.Domain.ProcurementPlan", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId", "LegalEntityId", "ProcurementPlanId")
+                        .HasPrincipalKey("TenantId", "LegalEntityId", "Id")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Mightyfin.Erp.Procurement.Domain.PlanReviewSubmission", b =>
+                {
+                    b.HasOne("Mightyfin.Erp.Procurement.Domain.PolicyVersion", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId", "LegalEntityId", "PolicyVersionId")
+                        .HasPrincipalKey("TenantId", "LegalEntityId", "Id")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Mightyfin.Erp.Procurement.Domain.ProcurementPlan", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId", "LegalEntityId", "ProcurementPlanId")
+                        .HasPrincipalKey("TenantId", "LegalEntityId", "Id")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
                 });
 
             modelBuilder.Entity("Mightyfin.Erp.Procurement.Domain.PolicyEvaluation", b =>

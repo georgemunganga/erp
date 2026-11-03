@@ -118,8 +118,9 @@ public static class ProcurementPlanReviewRoutes
                 workflow.AddCase(approvalCase);
                 plan.ApprovalInstanceRef = approvalCase.Id.ToString("D");
                 ProcurementDraftAudit.Add(db, scope, "ProcurementPlan", plan.Id, "PlanSubmitted",
-                    previousState, new { plan.Status, submittedVersion, submission.Id, approvalCase.Id,
-                        snapshot.Sha256, policy.Id, policy.PolicyVersionNumber });
+                    previousState, new { plan.Status, submittedVersion, submissionId = submission.Id,
+                        caseId = approvalCase.Id, snapshotSha256 = snapshot.Sha256,
+                        policyVersionId = policy.Id, policy.PolicyVersionNumber });
                 db.AddScoped(new OutboxEvent
                 {
                     AggregateType = "ProcurementPlan", AggregateId = plan.Id,
