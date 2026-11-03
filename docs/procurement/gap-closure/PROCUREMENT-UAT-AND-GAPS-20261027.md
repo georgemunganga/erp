@@ -4,6 +4,12 @@
 
 The audit preserves the imported Procurement UI and shared ERP components. Core owns organisation/company, identity, role grants, record scope, branding and shared platform configuration. A permitted Core user need not be an employee. The organisation is the legal entity and its selected currency is the default; test policy amounts are not approved Amizo purchasing thresholds. Finance owns the ledger and payment execution; its absence does not prevent separately governed manual payment recording.
 
+## Quotation draft integration — 3 November 2026
+
+The [native draft-workflow acceptance](M7A-NATIVE-DRAFT-WORKFLOW-ACCEPTANCE-20261103.md) closes private contact/create/revise/cancel/history/recovery integration in the preserved ERP screens. Source7f25 passed236 focused Host checks. The actual UI saved exactly four commands across B/C Core users, with no employee requirement, and native owner reconciliation matched every original key and raw response hash. Two integration defects found by genuine tests—raw All write fallback and confined All retained-demand loading—are corrected. Original failed tests remain retained.
+
+PR152 and UI PR99 carry the completed source. The final retained B/C Company All browser checks passed with no business writes; private test-cohort cleanup completed. Paired production rollout remains separate. Nonempty quotation document transport, formal submission/opening/evaluation/award/award-to-PO, and the other whole-module gaps remain open. This checkpoint does not change the overall NOT READY assessment or claim business-owner sign-off. Earlier dated status below is historical.
+
 ## Production deployment — 3 November 2026
 
 The [verified M7 API/schema/preserved-UI technical release](M7-PRODUCTION-TECHNICAL-RELEASE-20261103.md) is now deployed. The fresh-backup restore/upgrade rehearsal, original-220 data preservation, real production read-only provider check, 13 public route/auth probes, five asset hashes and three anonymous browser renders passed. Quotation writes remain off. This supersedes earlier source-only deployment status; signed-in production business workflow and whole-module acceptance remain open.

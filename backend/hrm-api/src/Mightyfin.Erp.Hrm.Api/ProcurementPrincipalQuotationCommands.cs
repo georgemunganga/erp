@@ -33,7 +33,7 @@ public static partial class ProcurementSourcingExecutionRoutes
             }
             await RequireQuotationKeyUnused(db, key, token);
             var source = await QuotationSource(db, core, scope, http, auth, "procurement-sourcing-contact", id, token);
-            RequireQuotationBranch(scope, source);
+            RequireQuotationBranch(http, scope, source);
             await RequireQuotationRecord(http, db, newCommercial: true, token);
             await LockQuotationSource(db, scope, id, invitationId, null, token);
             await db.Entry(source).ReloadAsync(token);
@@ -96,7 +96,7 @@ public static partial class ProcurementSourcingExecutionRoutes
             await RequireQuotationKeyUnused(db, key, token);
             var permission = operation == "Cancel" ? "procurement-quotation-cancel" : "procurement-quotation-capture";
             var source = await QuotationSource(db, core, scope, http, auth, permission, id, token);
-            RequireQuotationBranch(scope, source);
+            RequireQuotationBranch(http, scope, source);
             await RequireQuotationRecord(http, db, operation != "Cancel", token);
             var inviteId = invitationId ?? await db.SupplierBids.AsNoTracking().Where(x => x.Id == bidId
                 && x.SourcingEventId == id && x.PrincipalCaptureVersion == 2).Select(x => x.InvitationId)
@@ -176,13 +176,13 @@ public static partial class ProcurementSourcingExecutionRoutes
             return new(version.ResponseJson, version.ResponseStatusCode);
         }, ct);
 
-    private static void RequireQuotationBranch(ProcurementRequestScope scope, SourcingEvent source)
+    private static void RequireQuotationBranch(HttpContext http, ProcurementRequestScope scope, SourcingEvent source)
     {
-        if (!QuotationWriteContextAllowed(scope, source.BranchRef))
+        if (!QuotationWriteContextAllowed(scope, source.BranchRef, http.Request.Headers.ContainsKey("X-Shell-Branch-Scope")))
             throw new Problem("QuotationBranchSelectionRequired", 422);
     }
-    internal static bool QuotationWriteContextAllowed(ProcurementRequestScope scope, Guid? sourceBranch) =>
-        !scope.IsExplicitAllBranches && scope.OrgUnitId is null && sourceBranch is not null
+    internal static bool QuotationWriteContextAllowed(ProcurementRequestScope scope, Guid? sourceBranch, bool rawAllHeader = false) =>
+        !rawAllHeader && !scope.IsExplicitAllBranches && scope.OrgUnitId is null && sourceBranch is not null
         && scope.WorkLocationId is not null && scope.WorkLocationId == sourceBranch;
 
     private static async Task RequireQuotationSupplier(ProcurementDbContext db, Guid supplierId, CancellationToken ct)

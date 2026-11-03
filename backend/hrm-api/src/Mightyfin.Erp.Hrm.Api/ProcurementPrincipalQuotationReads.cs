@@ -50,11 +50,11 @@ public static partial class ProcurementSourcingExecutionRoutes
             var readied = options.RecordEnabled
                 && await http.RequestServices.GetRequiredService<IProcurementManualQuotationReadiness>().CanRecordAsync(db, token);
             var person = await ProcurementPrincipalPeople.Resolve(core, scope.TenantId, scope.LegalEntityId, scope.SubjectId, token);
-            var canCapture = readied && options.CaptureEnabled && source.Status == "Published" && scope.WorkLocationId == source.BranchRef
+            var canCapture = readied && options.CaptureEnabled && source.Status == "Published" && QuotationWriteContextAllowed(scope, source.BranchRef, http.Request.Headers.ContainsKey("X-Shell-Branch-Scope"))
                 && !scope.IsExplicitAllBranches && http.RequestServices.GetRequiredService<ProcurementPrincipalSourcingPublicationOptions>().Enabled
                 && person is not null && person.Permissions.Contains("procurement-quotation-capture")
                 && (await auth.AuthorizeAsync(http.User, "procurement-quotation-capture")).Succeeded;
-            var canContact = readied && options.CaptureEnabled && source.Status == "Published" && scope.WorkLocationId == source.BranchRef
+            var canContact = readied && options.CaptureEnabled && source.Status == "Published" && QuotationWriteContextAllowed(scope, source.BranchRef, http.Request.Headers.ContainsKey("X-Shell-Branch-Scope"))
                 && !scope.IsExplicitAllBranches && http.RequestServices.GetRequiredService<ProcurementPrincipalSourcingPublicationOptions>().Enabled
                 && person is not null && person.Permissions.Contains("procurement-sourcing-contact")
                 && (await auth.AuthorizeAsync(http.User, "procurement-sourcing-contact")).Succeeded;
@@ -86,8 +86,23 @@ public static partial class ProcurementSourcingExecutionRoutes
             }
             return new(JsonSerializer.Serialize(new { source = new { id = source.Id, number = source.Number,
                 title = source.Title, status = source.Status, version = source.Version, branchId = source.BranchRef,
-                currency = source.CurrencyCode }, invitations, items }, Json));
+                currency = source.CurrencyCode,
+                lines = retained.Lines.OrderBy(x => x.Line.LineNumber)
+                    .Select(x => QuotationSourceLine(x.Line, x.Binding, x.Allocation.Status)).ToArray()
+            }, invitations, items }, Json));
         }, ct);
+
+    internal sealed record QuotationSourceLineView(Guid Id, string Description, string UnitCode,
+        string? CategoryCode, string Quantity, string ApprovedUnitEstimate, string EstimatedValue, string AllocationState);
+
+    // Project the already-verified retained publication, not a second maker-only
+    // lookup or mutable employee/catalog data. This also supports retained reads
+    // after cancellation without presenting released quantities as current holds.
+    internal static QuotationSourceLineView QuotationSourceLine(SourcingLine line,
+        SourcingDemandBinding binding, string allocationState) => new(line.Id, line.Description,
+            line.UnitCode, line.CategoryCode, ProcurementEvidenceEncoding.Decimal(binding.Quantity),
+            ProcurementEvidenceEncoding.Decimal(binding.UnitEstimate),
+            ProcurementEvidenceEncoding.Decimal(binding.EstimatedValue), allocationState);
 
     private static Task<IResult> QuotationRead(Guid id, Guid bidId, HttpContext http, ProcurementRequestScope scope, CancellationToken ct) =>
         RunQuotation(http, scope, async (db, cases, core, auth, token) =>
@@ -107,7 +122,7 @@ public static partial class ProcurementSourcingExecutionRoutes
                 && await http.RequestServices.GetRequiredService<IProcurementManualQuotationReadiness>().CanRecordAsync(db, token);
             var person = await ProcurementPrincipalPeople.Resolve(core, scope.TenantId, scope.LegalEntityId, scope.SubjectId, token);
             var actions = new List<string>();
-            if (canRecord && bid.Status == "Draft" && scope.WorkLocationId == source.BranchRef && !scope.IsExplicitAllBranches && person is not null)
+            if (canRecord && bid.Status == "Draft" && QuotationWriteContextAllowed(scope, source.BranchRef, http.Request.Headers.ContainsKey("X-Shell-Branch-Scope")) && person is not null)
             {
                 if (person.Permissions.Contains("procurement-quotation-cancel")
                     && (await auth.AuthorizeAsync(http.User, "procurement-quotation-cancel")).Succeeded) actions.Add("CancelDraft");
