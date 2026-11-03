@@ -151,9 +151,11 @@ public sealed class ProcurementManualPaymentRetainedReadTests
         Assert.Contains(ProcurementSpendingAuthorityIdentitySchemaReadiness.NoCoreIdentityWritesSql, sql);
         // Revoking CREATE does not remove a schema owner's ALTER/DROP authority.
         // Owning only the namespace must fail even when no contained object is owned.
-        Assert.Contains("n.nspname='core_approval'", sql);
+        Assert.Contains("n.nspname IN ('procurement','hrm','core_approval')", sql);
         Assert.Contains("pg_has_role(current_user,n.nspowner,'MEMBER')", sql);
         Assert.Contains("pg_has_role(current_user,n.nspowner,'SET')", sql);
+        Assert.Contains(ProcurementSpendingAuthorityIdentitySchemaReadiness.NoOwnershipSql,
+            ProcurementManualPaymentGovernanceReadiness.PrivilegeSql());
     }
 
     [Fact]

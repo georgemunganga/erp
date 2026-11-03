@@ -76,7 +76,6 @@ public sealed class ProcurementManualPaymentReadSchemaReadiness : IProcurementMa
             "has_schema_privilege(current_user,'hrm','USAGE')",
             ProcurementSpendingAuthorityIdentitySchemaReadiness.NoCoreIdentityWritesSql,
             ProcurementSpendingAuthorityIdentitySchemaReadiness.NoOwnershipSql,
-            "NOT EXISTS(SELECT 1 FROM pg_namespace n WHERE n.nspname='core_approval' AND (pg_has_role(current_user,n.nspowner,'MEMBER') OR pg_has_role(current_user,n.nspowner,'SET')))",
             "NOT EXISTS(SELECT 1 FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname IN ('procurement','core_approval') AND (pg_has_role(current_user,c.relowner,'MEMBER') OR pg_has_role(current_user,c.relowner,'SET')))"
         };
         foreach (var table in RecordReadTables) clauses.Add("has_table_privilege(current_user," + Literal(table) + ",'SELECT')");

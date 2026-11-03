@@ -136,7 +136,7 @@ public sealed class ProcurementSpendingAuthorityIdentitySchemaReadiness : IProcu
             'spending_authority_identity_evidence','audit_events','outbox_events','__procurement_migrations'))
             OR n.nspname='hrm') AND (
               pg_has_role(current_user,c.relowner,'MEMBER') OR pg_has_role(current_user,c.relowner,'SET')))
-        AND NOT EXISTS(SELECT 1 FROM pg_namespace n WHERE n.nspname IN ('procurement','hrm') AND (
+        AND NOT EXISTS(SELECT 1 FROM pg_namespace n WHERE n.nspname IN ('procurement','hrm','core_approval') AND (
           pg_has_role(current_user,n.nspowner,'MEMBER') OR pg_has_role(current_user,n.nspowner,'SET')))
         AND NOT EXISTS(SELECT 1 FROM pg_database d WHERE d.datname=current_database() AND (
           pg_has_role(current_user,d.datdba,'MEMBER') OR pg_has_role(current_user,d.datdba,'SET')))
