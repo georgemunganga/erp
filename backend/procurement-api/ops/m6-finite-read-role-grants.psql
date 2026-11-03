@@ -1,0 +1,111 @@
+-- M6 finite READ grants. Explicit reviewed release operation, never a startup migration.
+-- Supply the database and cluster identifiers from the reviewed deployment plan:
+-- psql -X -v ON_ERROR_STOP=1 -v expected_database=... -v expected_system_identifier=... -f this-file
+-- Run only after the genuine Core-first/M6 upgrade, with writers stopped and a verified backup.
+-- The deployment driver must verify the exact initial ACLs and compare the full after-state.
+\set ON_ERROR_STOP on
+\if :{?expected_database}
+\else
+DO $required_database$ BEGIN
+  RAISE EXCEPTION 'expected_database is required' USING ERRCODE='22023';
+END $required_database$;
+\endif
+\if :{?expected_system_identifier}
+\else
+DO $required_cluster$ BEGIN
+  RAISE EXCEPTION 'expected_system_identifier is required' USING ERRCODE='22023';
+END $required_cluster$;
+\endif
+BEGIN;
+SET LOCAL lock_timeout = '3s';
+SET LOCAL statement_timeout = '30s';
+SELECT pg_catalog.set_config('greenwebb.expected_database', :'expected_database', true);
+SELECT pg_catalog.set_config('greenwebb.expected_system_identifier', :'expected_system_identifier', true);
+DO $m6_finite_read_preflight$
+BEGIN
+  IF current_user <> session_user OR current_user <> 'erp'
+    OR pg_catalog.current_database() <> pg_catalog.current_setting('greenwebb.expected_database')
+    OR (SELECT system_identifier::text FROM pg_catalog.pg_control_system())
+       <> pg_catalog.current_setting('greenwebb.expected_system_identifier') THEN
+    RAISE EXCEPTION 'Reviewed database owner and exact cluster are required' USING ERRCODE='55000';
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM procurement.__procurement_migrations
+    WHERE "MigrationId"='20261030082157_M6eControlledInvoiceReplacement')
+    OR NOT EXISTS (SELECT 1 FROM hrm.__hrm_migrations
+    WHERE "MigrationId"='20261030035815_M6dCoreCurrencyPrecision') THEN
+    RAISE EXCEPTION 'Apply the reviewed genuine Core and Procurement migrations first' USING ERRCODE='55000';
+  END IF;
+  IF (SELECT count(*) FROM pg_catalog.pg_roles WHERE rolname IN
+    ('erp_core_api_finite_v1','erp_proc_record_finite_v1','erp_proc_execute_finite_v1')) <> 3
+    OR EXISTS (SELECT 1 FROM pg_catalog.pg_roles WHERE rolname IN
+    ('erp_core_api_finite_v1','erp_proc_record_finite_v1','erp_proc_execute_finite_v1')
+    AND (rolsuper OR rolcreatedb OR rolcreaterole OR rolreplication OR rolbypassrls)) THEN
+    RAISE EXCEPTION 'The existing limited application roles are required' USING ERRCODE='55000';
+  END IF;
+END
+$m6_finite_read_preflight$;
+
+GRANT SELECT ON TABLE "hrm"."currency_precision_command_receipts" TO "erp_core_api_finite_v1";
+GRANT SELECT ON TABLE "hrm"."currency_precision_versions" TO "erp_core_api_finite_v1";
+GRANT SELECT ("MigrationId") ON TABLE "hrm"."__hrm_migrations" TO "erp_proc_execute_finite_v1";
+GRANT SELECT ON TABLE "hrm"."currency_precision_versions" TO "erp_proc_execute_finite_v1";
+GRANT SELECT ON TABLE "procurement"."attachment_refs" TO "erp_proc_execute_finite_v1";
+GRANT SELECT ON TABLE "procurement"."commercial_command_receipts" TO "erp_proc_execute_finite_v1";
+GRANT SELECT ON TABLE "procurement"."finance_invoice_handoffs" TO "erp_proc_execute_finite_v1";
+GRANT SELECT ON TABLE "procurement"."finance_payment_status_refs" TO "erp_proc_execute_finite_v1";
+GRANT SELECT ON TABLE "procurement"."invoice_amount_calculations" TO "erp_proc_execute_finite_v1";
+GRANT SELECT ON TABLE "procurement"."invoice_exceptions" TO "erp_proc_execute_finite_v1";
+GRANT SELECT ON TABLE "procurement"."invoice_intake_command_receipts" TO "erp_proc_execute_finite_v1";
+GRANT SELECT ON TABLE "procurement"."invoice_match_allocations" TO "erp_proc_execute_finite_v1";
+GRANT SELECT ON TABLE "procurement"."invoice_match_exposure_states" TO "erp_proc_execute_finite_v1";
+GRANT SELECT ON TABLE "procurement"."invoice_match_mapping_versions" TO "erp_proc_execute_finite_v1";
+GRANT SELECT ON TABLE "procurement"."invoice_match_results" TO "erp_proc_execute_finite_v1";
+GRANT SELECT ON TABLE "procurement"."invoice_owner_baseline_rows" TO "erp_proc_execute_finite_v1";
+GRANT SELECT ON TABLE "procurement"."invoice_owner_baselines" TO "erp_proc_execute_finite_v1";
+GRANT SELECT ON TABLE "procurement"."invoice_owner_command_receipts" TO "erp_proc_execute_finite_v1";
+GRANT SELECT ON TABLE "procurement"."invoice_replacement_command_receipts" TO "erp_proc_execute_finite_v1";
+GRANT SELECT ON TABLE "procurement"."invoice_replacement_links" TO "erp_proc_execute_finite_v1";
+GRANT SELECT ON TABLE "procurement"."invoice_unit_review_assignments" TO "erp_proc_execute_finite_v1";
+GRANT SELECT ON TABLE "procurement"."invoice_unit_review_outcomes" TO "erp_proc_execute_finite_v1";
+GRANT SELECT ON TABLE "procurement"."invoice_unit_review_receipts" TO "erp_proc_execute_finite_v1";
+GRANT SELECT ON TABLE "procurement"."invoice_unit_review_sources" TO "erp_proc_execute_finite_v1";
+GRANT SELECT ON TABLE "procurement"."manual_payment_core_decisions" TO "erp_proc_execute_finite_v1";
+GRANT SELECT ON TABLE "procurement"."manual_payment_date_observations" TO "erp_proc_execute_finite_v1";
+GRANT SELECT ON TABLE "procurement"."manual_payment_decisions" TO "erp_proc_execute_finite_v1";
+GRANT SELECT ON TABLE "procurement"."manual_payment_receipts" TO "erp_proc_execute_finite_v1";
+GRANT SELECT ON TABLE "procurement"."manual_payment_requests" TO "erp_proc_execute_finite_v1";
+GRANT SELECT ON TABLE "procurement"."manual_payment_workflow_cases" TO "erp_proc_execute_finite_v1";
+GRANT SELECT ON TABLE "procurement"."supplier_credit_note_refs" TO "erp_proc_execute_finite_v1";
+GRANT SELECT ON TABLE "procurement"."supplier_invoice_lines" TO "erp_proc_execute_finite_v1";
+GRANT SELECT ON TABLE "procurement"."supplier_invoices" TO "erp_proc_execute_finite_v1";
+GRANT SELECT ("MigrationId") ON TABLE "hrm"."__hrm_migrations" TO "erp_proc_record_finite_v1";
+GRANT SELECT ON TABLE "hrm"."currency_precision_versions" TO "erp_proc_record_finite_v1";
+GRANT SELECT ON TABLE "procurement"."invoice_amount_calculations" TO "erp_proc_record_finite_v1";
+GRANT SELECT ON TABLE "procurement"."invoice_intake_command_receipts" TO "erp_proc_record_finite_v1";
+GRANT SELECT ON TABLE "procurement"."invoice_owner_baseline_rows" TO "erp_proc_record_finite_v1";
+GRANT SELECT ON TABLE "procurement"."invoice_owner_baselines" TO "erp_proc_record_finite_v1";
+GRANT SELECT ON TABLE "procurement"."invoice_owner_command_receipts" TO "erp_proc_record_finite_v1";
+GRANT SELECT ON TABLE "procurement"."invoice_replacement_command_receipts" TO "erp_proc_record_finite_v1";
+GRANT SELECT ON TABLE "procurement"."invoice_replacement_links" TO "erp_proc_record_finite_v1";
+REVOKE SELECT, INSERT, UPDATE, DELETE ON TABLE "procurement"."invoice_amount_calculations" FROM "procurement_api";
+REVOKE SELECT, INSERT, UPDATE, DELETE ON TABLE "procurement"."invoice_intake_command_receipts" FROM "procurement_api";
+REVOKE SELECT, INSERT, UPDATE, DELETE ON TABLE "procurement"."invoice_owner_baseline_rows" FROM "procurement_api";
+REVOKE SELECT, INSERT, UPDATE, DELETE ON TABLE "procurement"."invoice_owner_baselines" FROM "procurement_api";
+REVOKE SELECT, INSERT, UPDATE, DELETE ON TABLE "procurement"."invoice_owner_command_receipts" FROM "procurement_api";
+REVOKE SELECT, INSERT, UPDATE, DELETE ON TABLE "procurement"."invoice_replacement_command_receipts" FROM "procurement_api";
+REVOKE SELECT, INSERT, UPDATE, DELETE ON TABLE "procurement"."invoice_replacement_links" FROM "procurement_api";
+
+-- Finance owns settlement facts. Purchasing may read them, never manufacture them.
+-- This removes the existing table INSERT edge; it changes no payment or business record.
+REVOKE INSERT ON TABLE "procurement"."finance_payment_status_refs" FROM "erp_proc_record_finite_v1";
+
+DO $m6_finance_boundary$
+BEGIN
+  IF pg_catalog.has_any_column_privilege('erp_proc_record_finite_v1','procurement.finance_payment_status_refs','INSERT')
+    OR pg_catalog.has_any_column_privilege('erp_proc_record_finite_v1','procurement.finance_payment_status_refs','UPDATE')
+    OR pg_catalog.has_table_privilege('erp_proc_record_finite_v1','procurement.finance_payment_status_refs','DELETE,TRUNCATE,TRIGGER,REFERENCES') THEN
+    RAISE EXCEPTION 'Purchasing still has authority over Finance settlement facts' USING ERRCODE='55000';
+  END IF;
+END
+$m6_finance_boundary$;
+COMMIT;

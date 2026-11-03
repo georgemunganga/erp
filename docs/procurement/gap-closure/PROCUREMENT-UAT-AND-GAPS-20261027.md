@@ -4,6 +4,10 @@
 
 The audit preserves the imported Procurement UI and shared ERP components. Core owns organisation/company, identity, role grants, record scope, branding and shared platform configuration. A permitted Core user need not be an employee. The organisation is the legal entity and its selected currency is the default; test policy amounts are not approved Amizo purchasing thresholds. Finance owns the ledger and payment execution; its absence does not prevent separately governed manual payment recording.
 
+## Latest bounded invoice-replacement evidence — 30 October
+
+The existing correction form saved a replacement and recovered a deliberately lost acknowledgement. Subsequent flags-off original-UI checks passed for both invoices' Overview/History and original-key recovery: seven real-cookie reads, six screenshots, no page errors or business writes, and confirmed logout. Independent owner reconciliation retained all original data and the saved correction, allowing only its exact authentication cohort. Backend `f1e5102e` passed 1,752 Procurement and 167 focused API tests; UI `9c56b492` retains 228 focused checks and eight mocked browser cases. See the [M6E implementation record](M6E-CONTROLLED-INVOICE-REPLACEMENT-20261030.md) for the separate failed attempts and actual private evidence boundaries. Temporary-grant cleanup is independently verified; production release remains open and whole-module acceptance is still **NOT READY**. The M7 sourcing-to-award roadmap remains the next functional workstream, beginning with isolated quotation validation and draft snapshots.
+
 ## Current development update — 30 October
 
 Core currency publication, invoice capture/recovery, manual review and one qualified comparison now have bounded private original-UI and native-owner evidence. ERP `d54d01ec` / UI `8b91313b` created exactly one quantity-1 allocation for ZMW 5.12 while preserving the older Blocked result. Backend checks passed 1,678 Procurement tests and 80 focused Host tests; UI type checking, 85 focused tests and build passed. See the [dated checkpoint](M6D-PRIVATE-CURRENCY-CAPTURE-CHECKPOINT-20261030.md) for exact scope and retained failures.

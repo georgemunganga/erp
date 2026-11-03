@@ -25,3 +25,19 @@ The owning persistence boundary additionally denies new or modified offered fiel
 Full Procurement tests, focused ERP Host tests, rebuilt snapshot parity, actual generated Up/Down SQL and isolated native acceptance are still pending. Small exact totals tests accept shared canonical G29 exponent notation by parsing without rounding; the accepted commercial arithmetic remains an exact CLR-decimal subset and rejects unrepresentable aggregates. No migration was applied and no route/readiness activation is included.
 
 The owning Save guard additionally rejects every new nonempty document-pin set while the actual quotation Core use-pin transport is absent. A targeted coherent-proposal test first passes full structural snapshot/request/receipt verification, then demonstrates that actual shared preparation still refuses persistence. Structural proposals/restoration remain available as contracts and never substitute for owning Core authority. Zero-document CRUD is unchanged; no new model or migration change is needed for this denial.
+
+## Verified source checkpoint — 3 November 2026
+
+Backend source `120af348df6a79bf73867bdbecb6817bfe351ccc` passed all **1,927 Procurement tests** and the same **167 focused API regression tests**, with zero failed/skipped cases. The verifier retained all 1,872 prior Procurement test IDs/definitions/outcomes and checked the 55 additional cases. Analyzer builds completed; existing warnings remain and are not described as a warning-free build.
+
+Entity Framework reported no pending model changes against the genuine generated snapshot. It generated both the M7A Up SQL and the guarded Down SQL from the compiled owning migration. All thirteen retained release publications remained byte-identical, and mutable build outputs remained separate from their immutable file aliases. SDK container execution completed and the owned container was removed.
+
+Accepted source-binding SHA-256: `44fec65a63755bea7e6ea5edb29e84b0986bee3588c684332f880b217d5b7c20`. This is the actual full-suite/model/SQL result, not the earlier compile-only checkpoint. Earlier memory admission failures happened before SDK launch and remain preserved.
+
+This checkpoint does **not** apply the migration, activate quotation routes or a storage-readiness provider, establish native database/real-cookie UI acceptance, or deploy to production. The separate HTTP candidate and retained-payment-read candidate still require their own integration and verification. Whole-module completion remains tracked by ERP issue #145.
+
+## Native migration acceptance — 3 November 2026
+
+A new isolated restore of the retained 30 October encrypted archive passed the genuine M7A Up → unused Down → Up sequence. All original 220 tables’ row digests and sequence values were preserved, with the eleven newly introduced M6/M7 tables empty. The first genuine Down guard rejected a retained quotation audit marker with SQLSTATE 55000; the synthetic marker was rolled back and the complete state matched the pre-probe snapshot. Receipt: `1a5a8c8509792d412af7e7d3c86192f048502a93ad16d2067338b6e2458fcd40`.
+
+The earlier comparator assertion is retained: it mixed original-220 and expanded-229 field projections after a successful migration. The successor used the same original projection throughout and verified the current state before proceeding. This is native schema/rollback evidence; it does not claim genuine quotation API/browser UAT or populated business-version rollback coverage. The isolated database was explicitly stopped after verification. Production schema and UI were unchanged.

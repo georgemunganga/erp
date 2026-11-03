@@ -2,7 +2,7 @@
 
 **Status:** Proposed specification; not implemented or accepted by this document.
 
-**Isolated foundation checkpoint (30 October 2026):** Pure quotation input validation and canonical snapshot helpers, with domain test sources, are prepared separately from the existing RFQ publication code. They do not establish principal provenance or external contact, persist records, add a revision model, expose an API/UI, install a migration or activate M7A. SDK execution and integration acceptance remain pending. Lead-time, notes and correction-reason text limits must be agreed and enforced at the future API boundary; this foundation does not invent those business limits.
+**Isolated foundation checkpoint (30 October 2026):** Pure quotation input validation and canonical snapshot helpers, with domain test sources, are prepared separately from the existing RFQ publication code. They do not establish principal provenance or external contact, persist records, add a revision model, expose an API/UI, install a migration or activate M7A. Exact source `34516123` passed all 1,805 Procurement tests, including the previous 1,752 and 53 new quotation cases, with analyzers requested and no skips. Stable test IDs, class/method definitions, all 1,266 backend source files and 13 prior immutable publications were independently reconciled. The SDK controller later rejected duplicate display names in two old cases; its failure is preserved, and a separate offline acceptance (`ae5fd604e194542236c23b06170226527eb7f40245ebd90c2de54d73755debf0`) verifies the completed run without rerunning it. The stopped test container was removed. API/native/UI integration acceptance remains pending. Lead-time, notes and correction-reason text limits must be agreed and enforced at the future API boundary; this foundation does not invent those business limits.
 
 **Version:** 0.1 · **Prepared:** 30 October 2026
 
@@ -97,6 +97,8 @@ Evaluate current Core principal, action, event/invitation resource and tenant/co
 | Document/version/scan evidence | Core Documents; actual controlled references only |
 
 ### Commercial fields required before the first M7A schema/API
+
+**Pure commercial contract verification (30 October 2026):** Source `c389104446b8f4df37484053bc48e827031d28d1` passed all **1,872 Procurement tests**, including all previous 1,837 stable test identities/definitions/outcomes and 35 new commercial cases, with analyzers requested and zero failures/skips. Offline empty-feed restore used cached packages and the actual Core Documents Domain project reference; raw restored asset snapshots and exact source/publication guards were retained. EF reported no pending model changes, with sidecars still unmapped. Evidence binding: `f2d732e14b1fdc84083246c67f9c8371c9f572234cefcc9245113aca37bf19c4`; stopped SDK terminal: `50446ffc9c2462b4bb7abc1970f37c0771d7e18d7e124cd4f4ba2fd4ea9266f2`. This verifies pure code only: no schema/migration, document acquisition, API/UI journey, production publication or activation occurred. All 13 previous immutable publications remained unchanged.
 
 The imported RFQ Terms tab records buyer requirements; it does not capture a supplier's offered terms. The held P30 quote panel only provides quantity, unit price, tax amount, delivery amount, lead time and notes. Preserve that layout and shared ERP controls, while adding the following explicit commercial contract. This pure checkpoint does not add persisted fields, routes, migrations or verified document use.
 
