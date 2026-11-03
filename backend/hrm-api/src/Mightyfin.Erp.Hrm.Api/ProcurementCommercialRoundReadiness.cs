@@ -17,16 +17,19 @@ public interface IProcurementCommercialRoundReadiness
     Task<bool> ReadyAsync(ProcurementDbContext db, bool record, CancellationToken ct);
     Task<bool> BarrierReadyAsync(ProcurementDbContext db, CancellationToken ct);
 }
-/// <summary>Filled only after genuine current-model EF generation, actual Up and
-/// exact native capture review. An empty capture is a deployment hold, not a policy.</summary>
+/// <summary>Genuine current-model EF migration and private native capture adopted
+/// together with the exact capture query. This is schema evidence, not feature
+/// activation or a substitute for current finite-role and scoped authorization.</summary>
 internal static class CommercialRoundNativeContract
 {
-    internal const string MigrationId = ""; // pending genuine EF generator slot
-    internal const string Fingerprint = ""; // pending actual native shape/trigger/function capture
+    internal const string MigrationId = "20261103163108_M7b1CommercialRoundDraftPlans";
+    internal const string Fingerprint = "24e096b8ea495da24c7eab1ea2b0bd1fda9cc54754d2d2b5f9ca923cd743133b";
+    internal static bool IsCaptured(string? migrationId,string? fingerprint) => migrationId is { Length: > 15 }
+        && fingerprint is { Length: 64 } && fingerprint.All(c=>c is >= '0' and <= '9' or >= 'a' and <= 'f');
 }
 public sealed class ProcurementCommercialRoundReadiness(IConfiguration configuration) : IProcurementCommercialRoundReadiness
 {
-    public bool HasCapturedContract => CommercialRoundNativeContract.MigrationId.Length > 15 && CommercialRoundNativeContract.Fingerprint.Length == 64;
+    public bool HasCapturedContract => CommercialRoundNativeContract.IsCaptured(CommercialRoundNativeContract.MigrationId,CommercialRoundNativeContract.Fingerprint);
     public Task<bool> ReadyAsync(ProcurementDbContext db, bool record, CancellationToken ct) => CheckAsync(db, record, false, ct);
     public Task<bool> BarrierReadyAsync(ProcurementDbContext db, CancellationToken ct) => CheckAsync(db, false, true, ct);
     private async Task<bool> CheckAsync(ProcurementDbContext db, bool record, bool barrierOnly, CancellationToken ct)
@@ -125,7 +128,8 @@ SELECT encode(sha256(convert_to(jsonb_build_object(
  'constraints',(SELECT jsonb_agg(jsonb_build_array(r.relname,c.conname,c.contype,c.convalidated,c.condeferrable,c.condeferred,pg_get_constraintdef(c.oid)) ORDER BY r.relname,c.conname) FROM r JOIN pg_constraint c ON c.conrelid=r.oid),
  'indexes',(SELECT jsonb_agg(jsonb_build_array(r.relname,i.indisvalid,i.indisready,i.indislive,i.indimmediate,pg_get_indexdef(i.indexrelid)) ORDER BY r.relname,pg_get_indexdef(i.indexrelid)) FROM r JOIN pg_index i ON i.indrelid=r.oid),
  'triggers',(SELECT jsonb_agg(jsonb_build_array(c.relname,t.tgname,t.tgenabled,pg_get_triggerdef(t.oid)) ORDER BY c.relname,t.tgname) FROM pg_trigger t JOIN pg_class c ON c.oid=t.tgrelid JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname='procurement' AND NOT t.tgisinternal AND (c.oid IN(SELECT oid FROM r) OR t.tgname='commercial_round_event_barrier')),
- 'functions',(SELECT jsonb_agg(jsonb_build_array(p.proname,pg_get_userbyid(p.proowner),pg_get_functiondef(p.oid)) ORDER BY p.proname) FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace WHERE n.nspname='procurement' AND p.proname IN ('commercial_round_immutable','commercial_round_enroll_guard','commercial_round_event_barrier','commercial_round_complete','commercial_round_plan_update'))
+ 'originalSourceKey',(SELECT jsonb_agg(jsonb_build_array(c.conname,c.contype,(SELECT jsonb_agg(a.attname ORDER BY k.ord) FROM unnest(c.conkey) WITH ORDINALITY AS k(num,ord) JOIN pg_attribute a ON a.attrelid=c.conrelid AND a.attnum=k.num),c.convalidated,c.condeferrable,c.condeferred,pg_get_constraintdef(c.oid),ic.relname,i.indisvalid,i.indisready,i.indislive,i.indisunique,i.indimmediate,pg_get_indexdef(i.indexrelid)) ORDER BY c.conname) FROM pg_constraint c JOIN pg_class pc ON pc.oid=c.conrelid JOIN pg_namespace pn ON pn.oid=pc.relnamespace JOIN pg_index i ON i.indexrelid=c.conindid JOIN pg_class ic ON ic.oid=i.indexrelid WHERE pn.nspname='procurement' AND pc.relname='sourcing_draft_evidence' AND c.conname='ak_round_original_source'),
+ 'functions',(SELECT jsonb_agg(jsonb_build_array(p.proname,pg_get_userbyid(p.proowner),p.prosecdef,pg_get_functiondef(p.oid)) ORDER BY p.proname) FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace WHERE n.nspname='procurement' AND p.proname IN ('commercial_round_immutable','commercial_round_enroll_guard','commercial_round_event_barrier','commercial_round_complete','commercial_round_plan_update'))
 )::text,'UTF8')),'hex')
 """;
 }
