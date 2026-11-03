@@ -60,7 +60,7 @@ public static partial class ProcurementManualPaymentRoutes
                 if (!await RetainedStoreReadableAsync(db, readiness, token)) return false;
                 await using var core = await ProcurementApprovalExecutionLocks.CoreAsync(db, scope, token);
                 var person = await Actor(core, scope, http, authorization, "procurement-payment-read", token);
-                _ = await ProcurementExecutionRecordScope.Branches(core, scope, null, false, token);
+                await ProcurementExecutionRecordScope.Branches(core, scope, null, false, token);
                 return !scope.IsConfined || !person.OrganisationWide;
             }, ct);
         }
