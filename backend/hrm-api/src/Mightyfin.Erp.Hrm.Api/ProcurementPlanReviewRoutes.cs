@@ -219,6 +219,32 @@ public static class ProcurementPlanReviewRoutes
                         person.Permissions);
                 var beforeStatus = plan.Status;
                 var decisions = await workflow.Decisions.Where(x => x.CaseId == approvalCase.Id).ToListAsync(token);
+                if (input.Action == "Approve" && approvalCase.Stages.Single(x => x.Id == assignment.StageId).Code == "Final")
+                {
+                    var earlierVotes = decisions.Where(x => x.Action == "Approve").ToArray();
+                    var earlierIds = earlierVotes.Select(x => x.Id).ToArray();
+                    var earlierReceipts = await db.PlanReviewCommandReceipts.AsNoTracking()
+                        .Where(x => x.ProcurementPlanId == plan.Id && x.Operation == "Decide"
+                            && x.DecisionId.HasValue && earlierIds.Contains(x.DecisionId.Value))
+                        .ToArrayAsync(token);
+                    if (earlierReceipts.Length != earlierVotes.Length)
+                        return new Reply(409, Json(new { code = "plan-review-evidence-missing",
+                            message = "Review evidence must be checked before final approval." }));
+                    foreach (var earlier in earlierVotes)
+                    {
+                        var evidence = earlierReceipts.SingleOrDefault(x => x.DecisionId == earlier.Id
+                            && x.ActorSubjectId == earlier.ActorSubjectId);
+                        if (evidence is null)
+                            return new Reply(409, Json(new { code = "plan-review-evidence-missing",
+                                message = "Review evidence must be checked before final approval." }));
+                        if (!await ProcurementPrincipalPeople.IndependentNow(core, scope.TenantId,
+                            earlier.ActorSubjectId, evidence.ActorCoreLinkedWorkerId,
+                            currentActor.PrincipalId,
+                            currentActor.CoreLinkedWorkerId, token))
+                            return new Reply(403, Json(new { code = "plan-review-conflict",
+                                message = "Final approval requires a different person from the reviewer." }));
+                    }
+                }
                 var decision = PlanReviewCoreWorkflow.Decide(plan, submission, approvalCase, assignment,
                     new(Guid.ParseExact(plan.OwnerSubjectId, "D"), submission.MakerCoreLinkedWorkerId, scope.TenantId,
                         scope.LegalEntityId, false, new HashSet<Guid>(), new HashSet<string>()),
@@ -253,6 +279,7 @@ public static class ProcurementPlanReviewRoutes
                 db.AddScoped(new PlanReviewCommandReceipt
                 {
                     ProcurementPlanId = plan.Id, CommandKey = key, Operation = "Decide",
+                    DecisionId = decision.Id, ActorCoreLinkedWorkerId = currentActor.CoreLinkedWorkerId,
                     ActorSubjectId = scope.SubjectId, RequestSha256 = fingerprint,
                     ResponseJson = response, ResponseStatus = 200,
                 });
@@ -342,6 +369,7 @@ public static class ProcurementPlanReviewRoutes
                 db.AddScoped(new PlanReviewCommandReceipt
                 {
                     ProcurementPlanId = plan.Id, CommandKey = key, Operation = "Withdraw",
+                    DecisionId = decision.Id, ActorCoreLinkedWorkerId = currentMaker.CoreLinkedWorkerId,
                     ActorSubjectId = scope.SubjectId, RequestSha256 = fingerprint,
                     ResponseJson = response, ResponseStatus = 200,
                 });

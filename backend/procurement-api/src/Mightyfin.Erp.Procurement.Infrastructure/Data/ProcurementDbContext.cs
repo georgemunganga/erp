@@ -781,6 +781,7 @@ public sealed partial class ProcurementDbContext(DbContextOptions<ProcurementDbC
         GuardSourcingPublication();
         GuardSourcingPolicyIdentity();
         GuardOperationalPolicyIdentity();
+        GuardPlanReview();
         GuardInvoiceUnitReview();
         GuardMasterImportChanges();
         var now = DateTimeOffset.UtcNow;

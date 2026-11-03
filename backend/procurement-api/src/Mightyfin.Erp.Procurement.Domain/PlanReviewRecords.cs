@@ -27,6 +27,8 @@ public sealed class PlanReviewCommandReceipt : ProcurementRecord
 {
     public Guid ProcurementPlanId { get; set; }
     public Guid CommandKey { get; set; }
+    public Guid? DecisionId { get; set; }
+    public Guid? ActorCoreLinkedWorkerId { get; set; }
     public string Operation { get; set; } = null!;
     public string ActorSubjectId { get; set; } = null!;
     public string RequestSha256 { get; set; } = null!;
