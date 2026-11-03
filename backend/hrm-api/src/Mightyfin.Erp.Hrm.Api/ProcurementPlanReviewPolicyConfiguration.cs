@@ -8,15 +8,24 @@ namespace Mightyfin.Erp.Hrm.Api;
 
 public static partial class ProcurementPolicyDraftRoutes
 {
+    // Entity-global policy authority is independent of configuration validity.
+    // Return/retire must remain usable for cleanup while current Core authority
+    // and retained author/reviewer/SoD evidence are still required separately.
+    private static async Task<bool> PlanPolicyConfigurationActor(HrmDbContext core,
+        ProcurementRequestScope scope, string permission, CancellationToken ct)
+    {
+        var actor = await ProcurementPrincipalPeople.Resolve(core, scope.TenantId, scope.LegalEntityId, scope.SubjectId, ct);
+        return actor is not null && scope.PrincipalId?.ToString("D") == actor.PrincipalId
+            && actor.OrganisationWide && actor.Permissions.Contains(permission);
+    }
+
     private static async Task<IResult?> CheckPlanReviewCompanyRules(PolicyVersion policy,
         HrmDbContext core, ProcurementRequestScope scope, string permission, CancellationToken ct)
     {
         var rules = PlanReviewPolicyRules.Read(policy.RulesJson);
         if (rules is null)
             return Problem("invalid-plan-review-rules", "Use two named Review and Final stages in the Plan review format.", 422);
-        var actor = await ProcurementPrincipalPeople.Resolve(core, scope.TenantId, scope.LegalEntityId, scope.SubjectId, ct);
-        if (actor is null || scope.PrincipalId?.ToString("D") != actor.PrincipalId
-            || !actor.Permissions.Contains(permission) || !actor.OrganisationWide)
+        if (!await PlanPolicyConfigurationActor(core, scope, permission, ct))
             return Problem("plan-policy-configuration-denied", "Your current account cannot configure Plan review in this scope.", 403);
         var currency = await ProcurementCurrencyDefaults.ForSelectedCompanyAsync(core, scope, ct);
         if (currency is not { Length: 3 } || !currency.All(char.IsAsciiLetterUpper))
@@ -51,9 +60,7 @@ public static partial class ProcurementPolicyDraftRoutes
         if (purpose is not ("Review" or "Final") || (search?.Trim().Length ?? 0) > 100
             || (offset ?? 0) is < 0 or > 100000 || (limit ?? 25) is < 1 or > 50)
             return Problem("plan-reviewer-query-invalid", "Choose Review or Final and a bounded name search/page.", 422);
-        var actor = await ProcurementPrincipalPeople.Resolve(core, scope.TenantId, scope.LegalEntityId, scope.SubjectId, ct);
-        if (actor is null || scope.PrincipalId?.ToString("D") != actor.PrincipalId
-            || !actor.Permissions.Contains("procurement-configuration-read") || !actor.OrganisationWide)
+        if (!await PlanPolicyConfigurationActor(core, scope, "procurement-configuration-read", ct))
             return Results.Forbid();
         Guid[]? requested = null;
         if (principalIds is not null)

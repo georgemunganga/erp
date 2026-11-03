@@ -408,6 +408,9 @@ public static partial class ProcurementPolicyDraftRoutes
                 transaction = await db.Database.BeginTransactionAsync(IsolationLevel.Serializable, ct);
             var policy = await db.PolicyVersions.SingleOrDefaultAsync(x => x.Id == id, ct);
             if (policy is null) return Problem("not-found", "Buying policy not found.", 404);
+            if (policy.PolicyKey == PlanReviewPolicyRules.PolicyKey
+                && !await PlanPolicyConfigurationActor(organizationDb, scope, "procurement-configuration-edit", ct))
+                return Problem("plan-policy-configuration-denied", "Your current account cannot retire this global Plan policy.", 403);
             if ((policy.PolicyKey is "RECEIVING" or "INVOICE_MATCHING" or "INVOICE_UNIT_REVIEW" or "INVOICE_OWNER_BASELINE_REVIEW")
                 && !await ReceivingConfigurationActor(organizationDb, scope, "procurement-configuration-edit", ct))
                 return Problem("receiving-authority-unavailable", "Your current account cannot configure receiving rules.", 403);
@@ -584,6 +587,9 @@ public static partial class ProcurementPolicyDraftRoutes
     {
         var policy = await db.PolicyVersions.SingleOrDefaultAsync(x => x.Id == id, ct);
         if (policy is null) return Problem("not-found", "Buying policy not found.", 404);
+        if (policy.PolicyKey == PlanReviewPolicyRules.PolicyKey
+            && !await PlanPolicyConfigurationActor(organizationDb, scope, "procurement-configuration-approve", ct))
+            return Problem("plan-policy-configuration-denied", "Your current account cannot return this global Plan policy.", 403);
         if (policy.PolicyKey == SourcingPublicationPolicyRules.PolicyKey)
         {
             await RequireSourcingIdentitySchema(http, db, ct);

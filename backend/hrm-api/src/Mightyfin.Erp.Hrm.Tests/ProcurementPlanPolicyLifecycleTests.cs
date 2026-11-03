@@ -225,6 +225,73 @@ public sealed class ProcurementPlanPolicyLifecycleTests
         Assert.IsType<Microsoft.AspNetCore.Http.HttpResults.ForbidHttpResult>(await f.Picker("Review"));
     }
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task Branch_revocation_blocks_global_return_or_retire_without_policy_audit_or_outbox_effects(bool returning)
+    {
+        await using var f = await Fixture.Start();
+        var id = Body(await f.Create(f.Rules())).GetProperty("id").GetGuid();
+        if (returning) Assert.Equal(200, Status(await f.Command("SubmitReviewPolicy", id,
+            new ProcurementPolicyDraftRoutes.ReviewSubmission(1, "Review"))));
+        var actor = returning ? f.Publisher.Id : f.Author.Id;
+        f.Core.UserBranchAssignments.Add(new HrUserBranchAssignment { TenantId = Fixture.Tenant,
+            UserId = actor, LocationId = f.Branch.Id }); await f.Core.SaveChangesAsync();
+        var before = await f.Footprint();
+        if (!returning) Assert.False(await f.RetireHint(id));
+        var denied = returning
+            ? await f.Command("ReturnForChangesPolicy", id, new ProcurementPolicyDraftRoutes.PublicationInput(2, "Return"), actor)
+            : await f.Command("Retire", id, new ProcurementPolicyDraftRoutes.DraftRetirement(1, "Retire"), actor);
+        Assert.Equal(403, Status(denied));
+        Assert.Equal(before, await f.Footprint());
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task Current_configuration_action_revocation_also_blocks_return_or_retire(bool returning)
+    {
+        await using var f = await Fixture.Start();
+        var id = Body(await f.Create(f.Rules())).GetProperty("id").GetGuid();
+        if (returning) Assert.Equal(200, Status(await f.Command("SubmitReviewPolicy", id,
+            new ProcurementPolicyDraftRoutes.ReviewSubmission(1, "Review"))));
+        var actor = returning ? f.Publisher.Id : f.Author.Id;
+        var role = await f.Core.TenantRoleAssignments.SingleAsync(x => x.RoleKey == (returning ? "publisher" : "author"));
+        role.PermissionsCsv = "procurement-access"; await f.Core.SaveChangesAsync();
+        var before = await f.Footprint();
+        if (!returning) Assert.False(await f.RetireHint(id));
+        var denied = returning
+            ? await f.Command("ReturnForChangesPolicy", id, new ProcurementPolicyDraftRoutes.PublicationInput(2, "Return"), actor)
+            : await f.Command("Retire", id, new ProcurementPolicyDraftRoutes.DraftRetirement(1, "Retire"), actor);
+        Assert.Equal(403, Status(denied)); Assert.Equal(before, await f.Footprint());
+    }
+
+    [Fact]
+    public async Task Global_checker_can_return_for_correction_after_currency_and_named_assignee_become_unavailable()
+    {
+        await using var f = await Fixture.Start();
+        var id = Body(await f.Create(f.Rules())).GetProperty("id").GetGuid();
+        Assert.Equal(200, Status(await f.Command("SubmitReviewPolicy", id,
+            new ProcurementPolicyDraftRoutes.ReviewSubmission(1, "Review"))));
+        f.Company.Currency = ""; f.Final.IsActive = false; f.FinalRole.PermissionsCsv = "procurement-access";
+        await f.Core.SaveChangesAsync();
+        var returned = await f.Command("ReturnForChangesPolicy", id,
+            new ProcurementPolicyDraftRoutes.PublicationInput(2, "Correct unavailable configuration"), f.Publisher.Id);
+        Assert.Equal(200, Status(returned)); Assert.Equal("Draft", Body(returned).GetProperty("state").GetString());
+        using var db = f.Context(f.Author.Id); Assert.Equal(2, await db.OperationalPolicyIdentityRecords.CountAsync());
+    }
+
+    [Fact]
+    public async Task Global_cleanup_actor_gate_remains_usable_when_configuration_is_invalid()
+    {
+        await using var f = await Fixture.Start();
+        f.Company.Currency = ""; f.Final.IsActive = false; await f.Core.SaveChangesAsync();
+        Assert.True(await f.ActorGate(f.Author.Id, "procurement-configuration-edit"));
+        Assert.True(await f.ActorGate(f.Publisher.Id, "procurement-configuration-approve"));
+        // This is the current-actor gate, not a positive Retire provider test:
+        // the actual Retire command still requires genuine schema and authorship.
+    }
+
     private static int? Status(IResult result) => ((IStatusCodeHttpResult)result).StatusCode;
     private static JsonElement Body(IResult result) => JsonSerializer.SerializeToElement(((IValueHttpResult)result).Value,
         new JsonSerializerOptions(JsonSerializerDefaults.Web));
@@ -268,6 +335,26 @@ public sealed class ProcurementPlanPolicyLifecycleTests
             var who = actor ?? Author.Id; using var db = Context(who);
             return await Invoke(name, id, input, db, Core, Scope(who), new DefaultHttpContext(), CancellationToken.None);
         }
+        internal async Task<string> Footprint()
+        {
+            using var db = Context(Author.Id);
+            return JsonSerializer.Serialize(new {
+                policies = await db.PolicyVersions.OrderBy(x => x.Id).ToArrayAsync(),
+                identity = await db.OperationalPolicyIdentityRecords.OrderBy(x => x.Id).ToArrayAsync(),
+                audit = await db.AuditEvents.OrderBy(x => x.Id).ToArrayAsync(),
+                outbox = await db.OutboxEvents.OrderBy(x => x.Id).ToArrayAsync() });
+        }
+        internal async Task<bool> RetireHint(Guid id)
+        {
+            using var db = Context(Author.Id); var policy = await db.PolicyVersions.SingleAsync(x => x.Id == id);
+            return await (Task<bool>)typeof(ProcurementPolicyDraftRoutes).GetMethod("CanRetirePolicyAuthorHint",
+                BindingFlags.NonPublic | BindingFlags.Static)!.Invoke(null,
+                    new object[] { policy, db, Core, Scope(Author.Id), new DefaultHttpContext(), CancellationToken.None })!;
+        }
+        internal Task<bool> ActorGate(Guid actor, string permission)
+            => (Task<bool>)typeof(ProcurementPolicyDraftRoutes).GetMethod("PlanPolicyConfigurationActor",
+                BindingFlags.NonPublic | BindingFlags.Static)!.Invoke(null,
+                    new object[] { Core, Scope(actor), permission, CancellationToken.None })!;
         internal Task<IResult> Picker(string purpose, string? ids = null, int offset = 0)
             => Invoke("PlanReviewers", purpose, null, ids, offset, 1, new DefaultHttpContext(), Core, Scope(Author.Id), CancellationToken.None);
         internal static async Task<Fixture> Start()
