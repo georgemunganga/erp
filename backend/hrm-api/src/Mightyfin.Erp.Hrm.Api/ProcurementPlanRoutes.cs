@@ -1,4 +1,5 @@
 using System.Text.Json;
+using System.Data.Common;
 using System.Security.Cryptography;
 using System.Text;
 using Microsoft.AspNetCore.Authorization;
@@ -174,7 +175,8 @@ public static class ProcurementPlanRoutes
 
     private static async Task<IResult> Cancel(Guid id, CancelPlan input, ProcurementDbContext db,
         IProcurementPlanReviewReadiness readiness,
-        ProcurementRequestScope scope, CancellationToken ct)
+        ProcurementRequestScope scope, ProcurementPlanReviewOptions options,
+        ProcurementApprovalTransaction transaction, CancellationToken ct)
     {
         if (!await readiness.CanReadPlanAsync(db, ct)) return PlanStoreUnavailable();
         if (scope.IsExplicitAllBranches || scope.WorkLocationId is null)
@@ -188,11 +190,24 @@ public static class ProcurementPlanRoutes
         if (plan.Version != input.Version) return Problem("version-conflict", "Refresh this plan before cancelling it.", 409);
         if (plan.Status == "Returned")
         {
-            var rounds = await db.PlanReviewSubmissions.AsNoTracking()
-                .Where(x => x.ProcurementPlanId == plan.Id)
-                .OrderByDescending(x => x.SubmittedPlanVersion).ToArrayAsync(ct);
-            if (!ReturnedReviewClosed(plan, rounds))
-                return Problem("plan-review-conflict", "Refresh the returned review before cancelling this plan.", 409);
+            try
+            {
+                var rounds = await db.PlanReviewSubmissions.AsNoTracking()
+                    .Where(x => x.ProcurementPlanId == plan.Id)
+                    .OrderByDescending(x => x.SubmittedPlanVersion).ToArrayAsync(ct);
+                if (!ReturnedReviewClosed(plan, rounds))
+                    return Problem("plan-review-conflict", "Refresh the returned review before cancelling this plan.", 409);
+                if (!options.ExecutionDatabaseConfigured) return PlanStoreUnavailable();
+                var caseReturned = await transaction.ExecuteAsync(async (records, core, token) =>
+                    await core.Cases.AsNoTracking().AnyAsync(x => x.Id == rounds[0].CoreApprovalCaseId
+                        && x.SourceModule == "procurement" && x.SourceType == PlanReviewCoreWorkflow.SourceType
+                        && x.SourceId == plan.Id && x.State == "Returned", token), ct);
+                if (!caseReturned)
+                    return Problem("plan-review-conflict", "Refresh the returned review before cancelling this plan.", 409);
+            }
+            catch (OperationCanceledException) { throw; }
+            catch (DbException) { return PlanStoreUnavailable(); }
+            catch (InvalidOperationException) { return PlanStoreUnavailable(); }
         }
         if (string.IsNullOrWhiteSpace(input.Reason) || input.Reason.Trim().Length > 1000)
             return Problem("validation-failed", "Give a cancellation reason of up to 1,000 characters.", 422);
@@ -337,7 +352,7 @@ public static class ProcurementPlanRoutes
         {
             try
             {
-                policyReady = await transaction.ExecuteAsync(async (db, _, token) =>
+                policyReady = await transaction.ExecuteAsync(async (db, approvalContext, token) =>
                 {
                     var now = DateTimeOffset.UtcNow;
                     var policies = await db.PolicyVersions.AsNoTracking()

@@ -151,6 +151,7 @@ public static class ProcurementPlanReviewReads
         ProcurementApprovalTransaction transaction, CancellationToken ct)
     {
         if (!options.ExecutionDatabaseConfigured) return Unavailable();
+        var writeReady = options.Enabled && await readiness.IsReadyAsync(ct);
         var result = await ReadAsync(transaction, readiness, async (db, core, token) =>
         {
             var round = await db.PlanReviewSubmissions.AsNoTracking()
