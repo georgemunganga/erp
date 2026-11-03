@@ -4,6 +4,10 @@
 
 The audit preserves the imported Procurement UI and shared ERP components. Core owns organisation/company, identity, role grants, record scope, branding and shared platform configuration. A permitted Core user need not be an employee. The organisation is the legal entity and its selected currency is the default; test policy amounts are not approved Amizo purchasing thresholds. Finance owns the ledger and payment execution; its absence does not prevent separately governed manual payment recording.
 
+## Production deployment — 3 November 2026
+
+The [verified M7 API/schema/preserved-UI technical release](M7-PRODUCTION-TECHNICAL-RELEASE-20261103.md) is now deployed. The fresh-backup restore/upgrade rehearsal, original-220 data preservation, real production read-only provider check, 13 public route/auth probes, five asset hashes and three anonymous browser renders passed. Quotation writes remain off. This supersedes earlier source-only deployment status; signed-in production business workflow and whole-module acceptance remain open.
+
 ## Current checkpoint — 3 November 2026
 
 Merged ERP PR144 supplies genuine typed quotation persistence; PR146 supplies the natively verified finite READ correction. The quotation HTTP source in PR147 adds current Core-principal/company/branch authorization, outside contact, create/revise/cancel, retained history and original-key recovery. The final source passed 218 focused Host cases; prior schema/domain verification passed 1,927 Procurement cases and 167 Host cases. Native migration and rollback safeguards, exact ACL changes, READ without INSERT and real enlisted provider admission passed on isolated retained-archive copies. The original 220 tables’ data and sequences were preserved.
