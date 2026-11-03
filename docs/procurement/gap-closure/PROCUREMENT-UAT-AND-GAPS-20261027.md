@@ -8,7 +8,7 @@ The audit preserves the imported Procurement UI and shared ERP components. Core 
 
 The [native draft-workflow acceptance](M7A-NATIVE-DRAFT-WORKFLOW-ACCEPTANCE-20261103.md) closes private contact/create/revise/cancel/history/recovery integration in the preserved ERP screens. Source7f25 passed236 focused Host checks. The actual UI saved exactly four commands across B/C Core users, with no employee requirement, and native owner reconciliation matched every original key and raw response hash. Two integration defects found by genuine tests—raw All write fallback and confined All retained-demand loading—are corrected. Original failed tests remain retained.
 
-PR152 and UI PR99 carry the completed source. The final retained B/C Company All browser checks and paired production rollout are still being verified. Nonempty quotation document transport, formal submission/opening/evaluation/award/award-to-PO, and the other whole-module gaps remain open. This checkpoint does not change the overall NOT READY assessment or claim business-owner sign-off. Earlier dated status below is historical.
+PR152 and UI PR99 carry the completed source. The final retained B/C Company All browser checks passed with no business writes; private test-cohort cleanup completed. Paired production rollout remains separate. Nonempty quotation document transport, formal submission/opening/evaluation/award/award-to-PO, and the other whole-module gaps remain open. This checkpoint does not change the overall NOT READY assessment or claim business-owner sign-off. Earlier dated status below is historical.
 
 ## Production deployment — 3 November 2026
 

@@ -1,6 +1,6 @@
 # Quotation draft workflow verification — 3 November 2026
 
-Status: isolated API and complete normal-cookie UI command journey passed with native owner reconciliation. Retained B/C Company All browser reads and paired release are still being verified. This is bounded quotation-draft evidence, not whole Procurement UAT or business-owner acceptance.
+Status: isolated API and complete normal-cookie UI command journey passed with native owner reconciliation. Retained B/C Company All browser reads and test-cohort cleanup passed. Paired production release remains a separate step. This is bounded quotation-draft evidence, not whole Procurement UAT or business-owner acceptance.
 
 ## Implemented behaviour
 
@@ -17,7 +17,7 @@ UI PR99 connects these workflows in the preserved ERP-adapted RFQ screens and sh
 - Genuine isolated Core-cookie API requests verified contact201, full draft create201, exact replay, changed-payload409 and original-response recovery201. Current-user-B and C both have no employee link and neither is the original RFQ maker.
 - Corrected private build passed13 scope/revision/storage checks: fresh All write422 with unchanged six-table fingerprints; retained All detail/source reads; actor-private recovery; independent-handler revision; stale409; version reads; READ and original recovery without INSERT; fresh RECORD503 without INSERT. The clone-local privilege fixture was restored.
 - Five reassignment checks passed: moving B to another genuine same-company fixture branch removed its source list, denied direct history/recovery404 and the old selected branch403; restoring the assignment restored access200. No user/branch changes were made in production.
-- Seven capture-disabled checks passed: retained history and original-create replay, cancellation, exact offer/lines/documents/totals retention, original-key recovery and prior-version reads. Cancellation does not depend on new capture being enabled.
+- Seven capture-disabled checks passed: retained history and original-create replay, cancellation, exact offer/lines/empty-document-set/totals retention, original-key recovery and prior-version reads. Cancellation does not depend on new capture being enabled.
 - Independent native reconciliation verified one contact, five retained versions, one bid/line and six corresponding audit/outbox pairs; response/request/snapshot hashes, command uniqueness, workerless actor attribution and pending/no-send effects matched. Two versions were genuine pre-fix raw-All revisions made during failing tests; their records and receipts remain preserved. Failed attempts are not relabeled passes.
 
 The actual original UI confirmed outside-contact201 and full quotation-create201 as B, then reloaded the complete offer. The initial fresh test stopped before C's revision because its strict label locator did not find prefilled textareas. Three read-only normal-cookie diagnostics proved current C authorization, editor state and accessible textbox names, with no writes or page errors. The failed receipt and original keys are preserved; contact/create were never repeated.
@@ -26,7 +26,7 @@ A C-only continuation on the same saved draft passed Revise200, original-version
 
 Independent owner reconciliation verified exactly one contact, three retained versions, one bid/line and four audit/outbox pairs. All four original browser command keys and raw HTTP response hashes match the owning database receipts. No hidden/repeated business save, supplier submission, email delivery or Finance settlement occurred. A separate temporary Core worker-link fixture confirmed retained READ and original-key201 recovery survive optional employee-link changes; the original null link was restored, the synthetic worker archived and historical attribution unchanged.
 
-The browser used a separate untouched template clone, real Core login/session cookies and the exact UI build behind an HTTPS bridge inside the API's network-none namespace. Responses were not mocked or substituted, and identity aliases were not injected. Retained B/C Company All browser checks and authentication-cohort cleanup remain separate final verification steps.
+The browser used a separate untouched template clone, real Core login/session cookies and the exact UI build behind an HTTPS bridge inside the API's network-none namespace. Responses were not mocked or substituted, and identity aliases were not injected. Retained B/C Company All browser checks passed on the same real API: each user read current/history/original version, verified cancellation retention, switched to Company All and reloaded, with zero page errors or business POSTs. Receipt: `4818277620ea0718901d4e0a1365a30019f19a9e4d5590934477aa813a3a70df`. Independent owner reconciliation again matched all four original keys and responses after those reads. Test users were logged out, other session rows were fingerprinted unchanged, and the private API/TLS proxy stopped. The earlier workflow-clone synthetic sessions were separately revoked without touching unrelated sessions.
 
 ## Scope and remaining gates
 
