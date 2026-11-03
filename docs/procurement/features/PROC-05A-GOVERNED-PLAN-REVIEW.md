@@ -32,7 +32,7 @@ Submit from a saved Draft; queue task on submitted case; review/approve/return/r
 
 ## 7. Preconditions
 
-Active authenticated Core principal; current entity and selected branch assignment; explicit action grant; same tenant/entity/branch as the plan; valid Draft with at least one active line; published effective plan-review policy; named configured assignees and quorum; no self-assignment; no current pending case for that plan. A new Draft stores the selected branch from verified Core scope, never from client input. Existing branchless Drafts remain owner/admin-only until an explicit owner branch claim or reviewed organization-wide admin migration queue records a CAS-checked, audited branch assignment; no HQ/default backfill is inferred. Missing policy, scope, assignee or storage readiness blocks submission/decision with a typed response. A free-text financial-period reference is a forecast label until a Finance period contract verifies it.
+Active authenticated Core principal; current entity and selected branch assignment; explicit action grant; same tenant/entity/branch as the plan; valid Draft with at least one active line; published effective plan-review policy; named configured assignees and quorum; no self-assignment; no current pending case for that plan. A new Draft stores the selected branch and Core organization default currency from verified scope, never from client input alone. Existing branchless Drafts remain owner-only until `POST /plans/{id}/claim-scope` records a CAS-checked reason, verified selected branch and explicit confirmation of the plan's stored currency. An organization-wide claim requires a separate explicit Core permission; role names never bypass it. No HQ/default branch or replacement currency is inferred. Missing policy, scope, assignee or storage readiness blocks submission/decision with a typed response. A free-text financial-period reference is a forecast label until a Finance period contract verifies it.
 
 ## 8. Workflow
 
@@ -41,7 +41,7 @@ Active authenticated Core principal; current entity and selected branch assignme
 3. Named review assignee checks the frozen forecast and records Approve or Return/Reject with required reason for non-approval. Review Approve advances the shared case to the final stage and makes the plan Reviewed.
 4. Named independent final assignee decides. Final Approve completes the Core case and makes the plan Active atomically. The Core case state Approved and plan Active are the visible approval result; a separate unguarded Activate action is not created.
 5. A Return completes the round and leaves a Returned plan editable by its maker. A revised submission creates a new pinned round, preserving prior decisions. Rejection closes that round and leaves the plan Rejected; a new plan or explicit future reconsideration contract is required.
-6. Maker may withdraw a pending round with reason; the shared case and plan change together. A Draft may still use the existing cancel route. Cancelling an Active plan is outside this increment.
+6. Maker may withdraw a pending round with reason; the shared case/round becomes Cancelled/Withdrawn and the parent plan returns to Draft for edit and resubmission. A Draft may still use the existing terminal cancel route. Cancelling an Active plan is outside this increment.
 
 ## 9. Status / State Transitions
 
@@ -52,29 +52,29 @@ Active authenticated Core principal; current entity and selected branch assignme
 | Submitted or Reviewed | Assigned actor Return | Returned | Returned |
 | Submitted or Reviewed | Assigned actor Reject | Rejected | Rejected |
 | Reviewed | Assigned final approver Approve | Active | Approved |
-| Submitted or Reviewed | Maker Withdraw | Withdrawn | Cancelled |
+| Submitted or Reviewed | Maker Withdraw | Draft | Cancelled; round history Withdrawn |
 
-No transition silently creates a Finance reservation. Returned edits increment plan/line versions. Completed rounds are never reopened in place. Stale or contradictory commands produce conflict; identical original-key replay returns its recorded result.
+Initial supported stage purposes are exactly Review and Final; assignees and quorum come from business configuration. No transition silently creates a Finance reservation. Returned or withdrawn Draft edits increment plan/line versions. Completed rounds are never reopened in place. Stale or contradictory commands produce conflict; identical original-key replay returns its recorded result.
 
 ## 10. Permissions and Data Scope
 
-Add explicit Core actions `procurement-plan-submit`, `procurement-plan-review`, `procurement-plan-approve`, `procurement-plan-withdraw`, and `procurement-plan-review-read`; no bootstrap role grant. Existing plan Draft read/create/edit remains separate. Read and command admission intersects current Core tenant, entity, selected branch, active account, action grant and named assignment. Company All may aggregate only records in the actor's current authorized branch set; every write requires a concrete selected branch. Branchless legacy plans remain restricted to their owner or an authorized migration administrator until claimed. The maker can read their own rounds; assigned actors see only their tasks; an authorized auditor sees scoped history. No broad company read follows merely from an approval permission.
+Add explicit Core actions `procurement-plan-submit`, `procurement-plan-review`, `procurement-plan-approve`, `procurement-plan-withdraw`, and `procurement-plan-review-read`; no bootstrap role grant. Existing plan Draft read/create/edit remains separate. Read and command admission intersects current Core tenant, entity, selected branch, active account, action grant and named assignment. Company All may aggregate only records in the actor's current authorized branch set; every write requires a concrete selected branch. Branchless legacy plans remain restricted to their owner or a principal with an explicit organization-wide claim permission until claimed. The maker can read their own rounds; assigned actors see only their tasks; an authorized auditor sees scoped history. No broad company read follows merely from an approval permission.
 
 ## 11. Business Rules
 
-`BR-PLN-001` one pending case per plan; `002` only a frozen version may be decided; `003` no maker/final approver identity or linked alias self-approval; `004` no approval without published effective policy and named assignees; `005` direct named assignment only until current Core delegation is proven, then delegates cannot exceed the delegator's current action, scope, amount/period restrictions or effective dates; `006` return/reject/withdraw require reason; `007` final approval is forecast governance only; `008` a branch change or lost assignment fails closed; `009` no inferred default value threshold or auto-approval; `010` an unclaimed branchless plan cannot be submitted.
+`BR-PLN-001` one pending case per plan; `002` only a frozen version may be decided; `003` no maker/final approver identity or linked alias self-approval; `004` no approval without published effective policy and named assignees; `005` direct named assignment only until current Core delegation is proven, then delegates cannot exceed the delegator's current action, scope, amount/period restrictions or effective dates; `006` return/reject/withdraw require reason; `007` final approval is forecast governance only; `008` a branch change or lost assignment fails closed; `009` no inferred default value threshold or auto-approval; `010` an unclaimed branchless plan cannot be submitted; `011` scope claim cannot alter currency or silently reinterpret historical estimates.
 
 ## 12. Data Fields and Ownership
 
-ProcurementPlan retains its existing fields and gains a typed owning branch reference for new governed rounds. A legacy claim stores prior unknown branch, new branch, actor, reason and expected version in audit. A plan-review submission pin stores plan ID/version, canonical line snapshot hash, submitted amount/currency, branch, Core case ID, policy ID/version, maker ID, stage assignment IDs, timestamps and status. A plan command receipt stores operation, actor, key, request fingerprint, result reference/JSON and timestamp. Existing shared Core Approval tables own case/stages/assignments/decisions/delegations. Procurement audit records own business transitions. Finance owns budgets and fiscal-period truth; Core owns account, branch and role truth. The existing `ApprovalInstanceRef` string cannot by itself prove the frozen plan/line scope.
+ProcurementPlan retains its existing fields and gains a typed owning branch reference for new governed rounds. A legacy claim stores prior unknown branch, new branch, stored currency confirmation, actor, reason and expected version in audit. A plan-review submission pin stores plan ID/version, canonical line snapshot hash, submitted amount/currency, branch, Core case ID, policy ID/version, maker ID, stage assignment IDs, timestamps and status. A plan command receipt stores operation, actor, key, request fingerprint, result reference/JSON and timestamp. Existing shared Core Approval tables own case/stages/assignments/decisions/delegations. Procurement audit records own business transitions. Finance owns budgets and fiscal-period truth; Core owns account, branch and role truth. The existing `ApprovalInstanceRef` string cannot by itself prove the frozen plan/line scope.
 
 ## 13. Screens and Data Views
 
-Extend the existing plan list/detail/editor with Submit, pending stage/assignees, Review, Return, Reject, Approve, Withdraw, round history and source version. Queue uses the shared approvals navigation and names the plan/financial period/branch. Every action is shown only when returned `allowedActions` and current permissions agree. Display **Forecast approved; budget not reserved** on Active plans.
+Extend the existing plan list/detail/editor with Claim scope for eligible legacy drafts, Submit, pending stage/assignees, Review, Return, Reject, Approve, Withdraw, round history and source version. Queue uses the shared approvals navigation and names the plan/financial period/branch. Every action is shown only when returned `allowedActions` and current permissions agree. Display **Forecast approved; budget not reserved** on Active plans.
 
 ## 14. User Experience / Human Behaviour
 
-Show the exact forecast being approved, not a mutable current draft. Require clear reasons, pending actor and task age. A lost response shows the original key's lookup option and keeps the button locked until recovery; no duplicate Submit. Scope changes clear stale UI data. Terms remain plain: Send for review, Review plan, Approve forecast, Send back, Reject, Withdraw.
+Show the exact forecast being approved, not a mutable current draft. Scope claim asks the user to confirm the saved currency and selected branch before resubmission; it never recalculates prior estimates from a changed organization default. Require clear reasons, pending actor and task age. A lost response shows the original key's lookup option and keeps the button locked until recovery; no duplicate Submit. Scope changes clear stale UI data. Terms remain plain: Send for review, Review plan, Approve forecast, Send back, Reject, Withdraw.
 
 ## 15. Notifications & Communications
 
@@ -90,7 +90,7 @@ Missing/deactivated assignee; unclaimed legacy branchless Draft; maker also conf
 
 ## 18. Integrations / APIs / Events / Sandbox
 
-Planned API: `POST /plans/{id}/review-submissions`; `GET /plans/{id}/review-history`; `GET /plans/review-tasks`; `GET /plans/review-submissions/{submissionId}`; `POST /plans/review-submissions/{submissionId}/assignments/{assignmentId}/decisions`; `POST /plans/review-submissions/{submissionId}/withdrawals`; `GET /plans/commands/{key}` for actor-bound recovery. Commands require an idempotency key and expected source/case/assignment versions as applicable. Use one Procurement/Core transaction and shared `ApprovalEngine`; publish versioned PlanSubmitted, PlanReviewed, PlanReturned, PlanRejected, PlanApproved and PlanWithdrawn facts through the outbox. Events are business facts, not Finance postings. A sandbox or private clone must use genuine Core cookies and finite roles.
+Planned API: `POST /plans/{id}/claim-scope` (expected plan version, verified selected branch, stored currency confirmation and reason); `POST /plans/{id}/review-submissions`; `GET /plans/{id}/review-history`; `GET /plans/review-tasks`; `GET /plans/review-submissions/{submissionId}`; `POST /plans/review-submissions/{submissionId}/assignments/{assignmentId}/decisions`; `POST /plans/review-submissions/{submissionId}/withdrawals`; `GET /plans/commands/{key}` for actor-bound recovery. Commands require an idempotency key and expected source/case/assignment versions as applicable. Use one Procurement/Core transaction and shared `ApprovalEngine`; publish versioned PlanSubmitted, PlanReviewed, PlanReturned, PlanRejected, PlanApproved and PlanWithdrawn facts through the outbox. Events are business facts, not Finance postings. A sandbox or private clone must use genuine Core cookies and finite roles.
 
 ## 19. Audit / Security / Privacy
 
@@ -110,7 +110,7 @@ Atomic cross-schema state, bounded queue pages, accessible keyboard decision for
 
 ## 23. Postconditions
 
-An Active plan has one completed approved Core case bound to its frozen version and branch, plus audit/outbox evidence. A Returned or Rejected round retains every assignment/decision. A Withdrawn round has no live assignment. No budget or PO row is written by this feature.
+An Active plan has one completed approved Core case bound to its frozen version and branch, plus audit/outbox evidence. A Returned or Rejected round retains every assignment/decision. A Withdrawn round has no live assignment and leaves its parent plan Draft. No budget or PO row is written by this feature.
 
 ## 24. Failure & Recovery
 
@@ -122,7 +122,7 @@ One workerless Core maker can submit a valid Draft under published configuration
 
 ## 26. Test Scenarios
 
-Unit tests: state matrix, exact decimal/snapshot hash, policy/assignee absence, SoD including linked aliases, legacy branch claim, CAS and receipt fingerprint. If delegation is admitted later, add expiry/current authority tests first. Provider tests: Core/Procurement atomicity and finite role/column grants. Private real-cookie API and original UI: maker→reviewer→approver; return/resubmit; rejection/withdraw; current role/branch revocation; lost response/recovery; concurrent duplicate decisions; all-branch read versus concrete write; retained original rows, audit/outbox and no Finance mutation. Source tests alone do not establish live acceptance.
+Unit tests: state matrix, exact decimal/snapshot hash, policy/assignee absence, SoD including linked aliases, legacy branch/currency claim, Withdraw→Draft→Edit→Resubmit, CAS and receipt fingerprint. If delegation is admitted later, add expiry/current authority tests first. Provider tests: Core/Procurement atomicity and finite role/column grants. Private real-cookie API and original UI: maker→reviewer→approver; return/resubmit; rejection/withdraw; current role/branch revocation; lost response/recovery; concurrent duplicate decisions; all-branch read versus concrete write; retained original rows, audit/outbox and no Finance mutation. Source tests alone do not establish live acceptance.
 
 ## 27. Ownership / Dependencies
 
@@ -130,4 +130,4 @@ Procurement planning owns business states and submission pin; Core owns accounts
 
 ## 28. Open Decisions / Assumptions
 
-Business must choose who configures the two stage purposes and their assignees, quorum and SLA; whether additional parallel stages are needed; whether financial period references require a Finance lookup before activation; and whether plan amendments/closure enter launch scope. Technical review must confirm the exact legacy branch-claim procedure. Shared delegation requires its own current-authority resolver and acceptance before being enabled; the existing record type alone is insufficient. Until these are resolved, no plan approval switch or default route is activated.
+Engineering adopts exactly two initial stage purposes, Review and Final, plus the explicit CAS scope-claim route. Business assignees, quorum, SLA, period verification and launch policy remain unapproved configuration; that does not block source implementation but prevents live activation. Additional parallel stages, amendments and closure require later scope decisions. Shared delegation requires its own current-authority resolver and acceptance before being enabled; the existing record type alone is insufficient. No plan approval switch or default route is activated by this document.

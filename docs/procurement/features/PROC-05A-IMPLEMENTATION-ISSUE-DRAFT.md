@@ -8,17 +8,17 @@ The current plan API and UI save, edit, list and cancel owner Drafts only. There
 
 ## Bounded implementation
 
-- Extend plan records with verified selected-branch ownership for new Drafts. Keep old branchless Drafts restricted; add an explicit CAS-audited owner/admin branch claim before they may submit. No guessed backfill.
+- Extend plan records with verified selected-branch ownership and Core organization default currency for new Drafts. Keep old branchless Drafts restricted; add `POST /plans/{id}/claim-scope` with expected version, reason, verified selected branch and explicit confirmation of the stored currency. An organization-wide claim needs an explicit Core permission; no role-name bypass, guessed branch or currency reinterpretation.
 - Add explicit, default-ungranted Core plan submission/review/approval/withdraw/read actions and a typed published plan-review policy. No monetary defaults or Finance reservation.
 - Open a shared Core approval case with `SourceType=procurement_plan`, pinned plan/line versions and exact values, policy version, branch, maker, named independent assignments and quorum. Use `ApprovalEngine`; do not copy its state machine into Procurement.
-- Implement Draft/Returned → Submitted → Reviewed → Active by the configured review/final decisions. Return, reject and withdraw complete a round and retain it. Final Core Approved decision and Procurement Active state commit together.
+- Implement Draft/Returned → Submitted → Reviewed → Active using exactly two initial stage purposes, Review and Final. Business assignees and quorum are configured, never source defaults. Return/reject complete a round and retain it. Withdraw cancels a pending Core case, records a Withdrawn round, and restores the parent plan to editable Draft for resubmission. Final Core Approved decision and Procurement Active state commit together.
 - Add actor-bound original-key command receipts, current Core permission/branch/SoD checks, audit/outbox, assigned queue/history and safe error/recovery contracts.
 - Extend the original live Plan UI with returned `allowedActions`, plain-language task labels, reason prompts, history and exact-key recovery. Preserve existing Draft CRUD and page layout.
 - Treat delegated decisions as unavailable until a separate shared Core current-delegation resolver and denial tests are established. Approved plan-line→PR trace is a follow-on issue.
 
 ## Acceptance
 
-Workerless Core maker, reviewer and independent final approver complete one real-cookie private journey on a finite-role PostgreSQL clone. Return/resubmit, reject and withdraw retain previous rounds. Same-key replay returns the original result; changed payload, stale version and concurrent decisions do not duplicate work. Wrong tenant/entity/branch/actor and maker self-approval fail without writes; current revocation is effective. Company All read includes only assigned branches, and all writes use a concrete selected branch. Original business rows and Core identities remain intact; no Finance budget or PO row changes. Original UI actions, denied paths and recovery are exercised with real API, plus source/provider tests.
+Workerless Core maker, reviewer and independent final approver complete one real-cookie private journey on a finite-role PostgreSQL clone. Return/resubmit, reject and Withdraw→Draft→Edit→Resubmit retain previous rounds. Legacy branch/currency claim is explicit, CAS-audited and guarded by owner or separate Core claim permission. Same-key replay returns the original result; changed payload, stale version and concurrent decisions do not duplicate work. Wrong tenant/entity/branch/actor and maker self-approval fail without writes; current revocation is effective. Company All read includes only assigned branches, and all writes use a concrete selected branch. Original business rows and Core identities remain intact; no Finance budget or PO row changes. Original UI actions, denied paths and recovery are exercised with real API, plus source/provider tests.
 
 ## Sequence and release hold
 
