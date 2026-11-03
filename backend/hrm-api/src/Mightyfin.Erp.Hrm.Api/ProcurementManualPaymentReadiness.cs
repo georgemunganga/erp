@@ -20,6 +20,5 @@ public interface IProcurementManualPaymentReadReadiness
 public sealed class ProcurementManualPaymentOptions
 {
     public bool Enabled { get; set; }
-    public bool ReadEnabled { get; set; }
     public bool ExecutionDatabaseConfigured { get; set; }
 }

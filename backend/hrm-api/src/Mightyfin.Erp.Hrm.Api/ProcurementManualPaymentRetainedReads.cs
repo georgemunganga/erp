@@ -1,4 +1,5 @@
 using System.Data;
+using System.Data.Common;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.EntityFrameworkCore;
 using Mightyfin.Erp.Procurement.Domain;
@@ -9,7 +10,7 @@ namespace Mightyfin.Erp.Hrm.Api;
 public static partial class ProcurementManualPaymentRoutes
 {
     internal static bool RetainedReadConfigured(ProcurementManualPaymentOptions? options)
-        => options is { ExecutionDatabaseConfigured: true } && (options.Enabled || options.ReadEnabled);
+        => options is { ExecutionDatabaseConfigured: true };
 
     internal sealed record RetainedPaymentReceipt(ManualPaymentCommandReceipt receipt, ManualPaymentRequest request);
 
@@ -43,16 +44,21 @@ public static partial class ProcurementManualPaymentRoutes
         var authorization = services.GetService<IAuthorizationService>();
         if (authorization is null || !(await authorization.AuthorizeAsync(http.User, "procurement-payment-read")).Succeeded)
             return false;
-        await using var tx = await db.Database.BeginTransactionAsync(IsolationLevel.Serializable, ct);
-        await db.Database.ExecuteSqlRawAsync("SET LOCAL transaction_read_only=on", ct);
-        if (!await readiness.CanReadAsync(db, ct)) return false;
-        await using var core = await ProcurementApprovalExecutionLocks.CoreAsync(db, scope, ct);
         try
         {
+            await using var tx = await db.Database.BeginTransactionAsync(IsolationLevel.Serializable, ct);
+            await db.Database.ExecuteSqlRawAsync("SET LOCAL transaction_read_only=on", ct);
+            if (!await readiness.CanReadAsync(db, ct)) return false;
+            await using var core = await ProcurementApprovalExecutionLocks.CoreAsync(db, scope, ct);
             var person = await Actor(core, scope, http, authorization, "procurement-payment-read", ct);
             _ = await ProcurementExecutionRecordScope.Branches(core, scope, null, false, ct);
             return !scope.IsConfined || !person.OrganisationWide;
         }
-        catch (UnauthorizedAccessException) { return false; }
+        catch (Exception error) when (error is UnauthorizedAccessException or DbException or InvalidOperationException)
+        {
+            // A missing catalog or insufficient SELECT grant is an unavailable read
+            // capability, not a reason to fail the whole module metadata response.
+            return false;
+        }
     }
 }

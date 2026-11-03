@@ -41,22 +41,20 @@ public sealed class ProcurementManualPaymentRetainedReadTests
             new[] { receipt }.AsQueryable(), scope ?? Scope(), person ?? Reader(), [Branch], targetId, Key).ToArray();
 
     [Theory]
-    [InlineData(false, false, false, false)]
-    [InlineData(true, false, false, false)]
-    [InlineData(false, true, false, false)]
-    [InlineData(true, false, true, true)]
-    [InlineData(false, true, true, true)]
-    [InlineData(true, true, true, true)]
-    public void Read_opt_in_preserves_existing_enabled_mode_but_never_invents_a_connection(
-        bool enabled, bool readEnabled, bool configured, bool expected)
+    [InlineData(false, false, false)]
+    [InlineData(true, false, false)]
+    [InlineData(false, true, true)]
+    [InlineData(true, true, true)]
+    public void Read_configuration_requires_real_connection_independently_of_new_work(
+        bool enabled, bool configured, bool expected)
         => Assert.Equal(expected, ProcurementManualPaymentRoutes.RetainedReadConfigured(new()
-            { Enabled = enabled, ReadEnabled = readEnabled, ExecutionDatabaseConfigured = configured }));
+            { Enabled = enabled, ExecutionDatabaseConfigured = configured }));
 
     [Fact]
-    public void Missing_options_and_both_flags_off_fail_closed()
+    public void Missing_options_or_connection_fail_closed()
     {
         Assert.False(ProcurementManualPaymentRoutes.RetainedReadConfigured(null));
-        Assert.False(ProcurementManualPaymentRoutes.RetainedReadConfigured(new() { ExecutionDatabaseConfigured = true }));
+        Assert.False(ProcurementManualPaymentRoutes.RetainedReadConfigured(new()));
     }
 
     [Fact]
