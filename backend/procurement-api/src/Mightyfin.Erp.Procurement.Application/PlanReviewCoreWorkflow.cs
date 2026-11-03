@@ -30,6 +30,7 @@ public static class PlanReviewCoreWorkflow
             || policy.TenantId != plan.TenantId || policy.LegalEntityId != plan.LegalEntityId
             || submission.MakerSubjectId != plan.OwnerSubjectId
             || maker.Id.ToString("D") != plan.OwnerSubjectId
+            || submission.MakerCoreLinkedWorkerId != maker.LinkedWorkerId
             || !Current(maker, plan, branch, "procurement-plan-submit")
             || !SameConfiguration(PlanReviewPolicyRules.Read(policy.RulesJson), definition)
             || definition.Stages.Count != 2 || definition.Stages[0].Purpose != "Review"
@@ -97,6 +98,7 @@ public static class PlanReviewCoreWorkflow
             || approvalCase.Id != submission.CoreApprovalCaseId || approvalCase.PolicyVersionId != submission.PolicyVersionId
             || approvalCase.PolicyVersionNumber != submission.PolicyVersionNumber
             || approvalCase.MakerSubjectId != plan.OwnerSubjectId || maker.Id.ToString("D") != plan.OwnerSubjectId
+            || maker.LinkedWorkerId != submission.MakerCoreLinkedWorkerId
             || assignment.DelegatedFromSubjectId is not null || actor.Id.ToString("D") != assignment.AssigneeSubjectId
             || actor.Id == maker.Id || actor.LinkedWorkerId is { } linked && linked != Guid.Empty
                 && linked == maker.LinkedWorkerId

@@ -11,6 +11,8 @@ public sealed class PlanReviewSubmission : ProcurementRecord
     public int PolicyVersionNumber { get; set; }
     public string PolicyRulesSha256 { get; set; } = null!;
     public string MakerSubjectId { get; set; } = null!;
+    /// <summary>Known Core account link at submission; nullable for workerless principals.</summary>
+    public Guid? MakerCoreLinkedWorkerId { get; set; }
     public string CurrencyCode { get; set; } = null!;
     public decimal EstimatedAmount { get; set; }
     public string SnapshotJson { get; set; } = null!;

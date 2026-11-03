@@ -92,7 +92,7 @@ public static class ProcurementPlanReviewRoutes
                                 message = "The plan requires independent people for each approval stage." }));
                 static PlanReviewPrincipal Convert(ProcurementPrincipalPeople.Person person,
                     ProcurementRequestScope context) => new(Guid.ParseExact(person.PrincipalId, "D"),
-                        person.CoreLinkedWorkerId ?? person.WorkerId, context.TenantId,
+                        person.CoreLinkedWorkerId, context.TenantId,
                         context.LegalEntityId, person.OrganisationWide, person.AllowedBranches,
                         person.Permissions);
                 var previousState = ProcurementDraftAudit.Snapshot(new { plan.Status, plan.Version });
@@ -106,7 +106,9 @@ public static class ProcurementPlanReviewRoutes
                     CoreApprovalCaseId = Guid.CreateVersion7(), PolicyVersionId = policy.Id,
                     PolicyVersionNumber = policy.PolicyVersionNumber,
                     PolicyRulesSha256 = ProcurementEvidenceEncoding.PolicyJsonDigest(policy.RulesJson),
-                    MakerSubjectId = scope.SubjectId, CurrencyCode = plan.CurrencyCode,
+                    MakerSubjectId = scope.SubjectId,
+                    MakerCoreLinkedWorkerId = currentMaker.CoreLinkedWorkerId,
+                    CurrencyCode = plan.CurrencyCode,
                     EstimatedAmount = snapshot.EstimatedAmount, SnapshotJson = snapshot.Json,
                     SnapshotSha256 = snapshot.Sha256, SubmittedAt = now,
                 };
@@ -189,7 +191,7 @@ public static class ProcurementPlanReviewRoutes
                 if (currentActor is null
                     || !currentActor.Permissions.Contains(assignment.PermissionKey)
                     || !await ProcurementPrincipalPeople.IndependentNow(core, scope.TenantId,
-                        plan.OwnerSubjectId, null,
+                        plan.OwnerSubjectId, submission.MakerCoreLinkedWorkerId,
                         currentActor.PrincipalId, currentActor.CoreLinkedWorkerId, token))
                     return new Reply(403, Json(new { code = "plan-review-denied", message = "This approval is unavailable." }));
                 var previous = await db.PlanReviewCommandReceipts.AsNoTracking()
@@ -212,13 +214,13 @@ public static class ProcurementPlanReviewRoutes
                 _ = await ProcurementOperationalPolicyWorkerIdentity.VerifyPublicationAsync(db, scope, policy, token);
                 static PlanReviewPrincipal Convert(ProcurementPrincipalPeople.Person person,
                     ProcurementRequestScope context) => new(Guid.ParseExact(person.PrincipalId, "D"),
-                        person.CoreLinkedWorkerId ?? person.WorkerId, context.TenantId,
+                        person.CoreLinkedWorkerId, context.TenantId,
                         context.LegalEntityId, person.OrganisationWide, person.AllowedBranches,
                         person.Permissions);
                 var beforeStatus = plan.Status;
                 var decisions = await workflow.Decisions.Where(x => x.CaseId == approvalCase.Id).ToListAsync(token);
                 var decision = PlanReviewCoreWorkflow.Decide(plan, submission, approvalCase, assignment,
-                    new(Guid.ParseExact(plan.OwnerSubjectId, "D"), null, scope.TenantId,
+                    new(Guid.ParseExact(plan.OwnerSubjectId, "D"), submission.MakerCoreLinkedWorkerId, scope.TenantId,
                         scope.LegalEntityId, false, new HashSet<Guid>(), new HashSet<string>()),
                     Convert(currentActor, scope), input.Action,
                     key.ToString("D"), reason, decisions, now);
@@ -318,7 +320,7 @@ public static class ProcurementPlanReviewRoutes
                 var decisions = await workflow.Decisions.Where(x => x.CaseId == approvalCase.Id).ToListAsync(token);
                 var decision = PlanReviewCoreWorkflow.Withdraw(plan, submission, approvalCase, active,
                     new(Guid.ParseExact(currentMaker.PrincipalId, "D"),
-                        currentMaker.CoreLinkedWorkerId ?? currentMaker.WorkerId, scope.TenantId,
+                        currentMaker.CoreLinkedWorkerId, scope.TenantId,
                         scope.LegalEntityId, currentMaker.OrganisationWide, currentMaker.AllowedBranches,
                         currentMaker.Permissions), key.ToString("D"), reason, decisions, now);
                 workflow.Decisions.Add(decision);

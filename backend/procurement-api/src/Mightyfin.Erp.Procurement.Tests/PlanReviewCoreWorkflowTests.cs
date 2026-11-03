@@ -37,6 +37,7 @@ public sealed class PlanReviewCoreWorkflowTests
 
         var knownAlias = Guid.NewGuid();
         maker = maker with { LinkedWorkerId = knownAlias };
+        submission.MakerCoreLinkedWorkerId = knownAlias;
         var samePerson = assignees.ToArray();
         samePerson[1] = samePerson[1] with { LinkedWorkerId = knownAlias };
         Assert.Throws<InvalidOperationException>(() => PlanReviewCoreWorkflow.Open(plan, submission,
@@ -78,6 +79,24 @@ public sealed class PlanReviewCoreWorkflowTests
             "Approve", Guid.NewGuid().ToString("D"), null, decisions, DateTimeOffset.UtcNow));
         Assert.Empty(decisions);
         Assert.Equal("Submitted", plan.Status);
+    }
+
+    [Fact]
+    public void Pinned_maker_alias_blocks_later_same_person_decision()
+    {
+        var (plan, submission, policy, definition, maker, assignees) = Ready();
+        var knownAlias = Guid.NewGuid();
+        submission.MakerCoreLinkedWorkerId = knownAlias;
+        maker = maker with { LinkedWorkerId = knownAlias };
+        var workflow = PlanReviewCoreWorkflow.Open(plan, submission, policy, definition, maker, assignees,
+            DateTimeOffset.UtcNow);
+        var reviewer = assignees[0] with { LinkedWorkerId = knownAlias };
+        var decisions = new List<Mightyfin.Erp.Core.Approvals.Domain.ApprovalDecision>();
+        Assert.Throws<InvalidOperationException>(() => PlanReviewCoreWorkflow.Decide(plan, submission,
+            workflow, workflow.Stages.Single(x => x.Code == "Review").Assignments.Single(),
+            maker, reviewer, "Approve", Guid.NewGuid().ToString("D"), null, decisions,
+            DateTimeOffset.UtcNow));
+        Assert.Empty(decisions);
     }
 
     [Fact]
