@@ -197,8 +197,10 @@ public static class ProcurementPlanReviewReads
             var permission = plan.OwnerSubjectId == scope.SubjectId
                 ? "procurement-plan-read" : "procurement-plan-review-read";
             if (!(await authorization.AuthorizeAsync(http.User, permission)).Succeeded) return null;
-            var canWithdraw = writeReady && plan.OwnerSubjectId == scope.SubjectId
-                && (plan.Status is "Submitted" or "Reviewed")
+            var currentActionRound = writeReady && !scope.IsExplicitAllBranches
+                && scope.WorkLocationId == round.BranchRef
+                && CurrentDetailRound(plan, round, approvalCase);
+            var canWithdraw = currentActionRound && plan.OwnerSubjectId == scope.SubjectId
                 && (await authorization.AuthorizeAsync(http.User,
                     PlanReviewCoreWorkflow.WithdrawPermission)).Succeeded;
             if (!PlanReviewSnapshot.TryReadRetained(round, out var submittedSnapshot))
@@ -218,8 +220,8 @@ public static class ProcurementPlanReviewReads
                     x.Id, x.Code, x.Mode, x.RequiredApprovals, x.State,
                     assignments = x.Assignments.Select(a => new { a.Id, a.AssigneeSubjectId,
                         a.State, a.Version,
-                        allowedActions = writeReady && x.State == "Active" && a.State == "Pending"
-                            && a.AssigneeSubjectId == scope.SubjectId
+                        allowedActions = currentActionRound
+                            && CanDecideDetailAssignment(plan, approvalCase, x, a, scope.SubjectId)
                             && (x.Code == "Review" && http.User.HasClaim(ProcurementPermissions.ActionClaim,
                                     PlanReviewCoreWorkflow.ReviewPermission)
                                 || x.Code == "Final" && http.User.HasClaim(ProcurementPermissions.ActionClaim,
@@ -257,6 +259,43 @@ public static class ProcurementPlanReviewReads
         return result is null ? Missing()
             : Results.Content(result.ResponseJson, "application/json", statusCode: result.ResponseStatus);
     }
+
+    // Historical detail remains readable, but only the currently pinned pending
+    // case can advertise commands. Do not infer authority from the new plan state
+    // while rendering an older returned/rejected/withdrawn round.
+    internal static bool CurrentDetailRound(ProcurementPlan plan, PlanReviewSubmission round,
+        ApprovalCase approvalCase)
+    {
+        if (round.Id == Guid.Empty || approvalCase.State != "Pending" || approvalCase.CompletedAt is not null
+            || approvalCase.TenantId != plan.TenantId || approvalCase.LegalEntityId != plan.LegalEntityId
+            || approvalCase.SourceId != plan.Id
+            || approvalCase.SourceModule != "procurement"
+            || approvalCase.SourceType != PlanReviewCoreWorkflow.SourceType
+            || approvalCase.MakerSubjectId != plan.OwnerSubjectId
+            || PendingTaskSubmissionId(round, plan.Id, approvalCase.Id, approvalCase.SourceVersion,
+                approvalCase.TenantId, approvalCase.LegalEntityId, plan.BranchRef,
+                plan.OwnerSubjectId, plan.Status, plan.ApprovalInstanceRef,
+                approvalCase.PolicyVersionId, approvalCase.PolicyVersionNumber) != round.Id)
+            return false;
+        var active = approvalCase.Stages.Where(x => x.State == "Active").ToArray();
+        return active.Length == 1 && active[0].CaseId == approvalCase.Id
+            && (plan.Status == "Submitted" && active[0].Code == "Review"
+                || plan.Status == "Reviewed" && active[0].Code == "Final")
+            && active[0].Assignments.Any(x => x.State == "Pending"
+                && x.CaseId == approvalCase.Id && x.StageId == active[0].Id);
+    }
+
+    internal static bool CanDecideDetailAssignment(ProcurementPlan plan, ApprovalCase approvalCase,
+        ApprovalStage stage, ApprovalAssignment assignment, string actor)
+        => approvalCase.State == "Pending" && approvalCase.CompletedAt is null
+            && stage.State == "Active" && stage.CaseId == approvalCase.Id
+            && assignment.CaseId == approvalCase.Id && assignment.StageId == stage.Id
+            && assignment.State == "Pending" && assignment.DelegatedFromSubjectId is null
+            && assignment.AssigneeSubjectId == actor && actor != plan.OwnerSubjectId
+            && (plan.Status == "Submitted" && stage.Code == "Review"
+                    && assignment.PermissionKey == PlanReviewCoreWorkflow.ReviewPermission
+                || plan.Status == "Reviewed" && stage.Code == "Final"
+                    && assignment.PermissionKey == PlanReviewCoreWorkflow.FinalPermission);
 
     internal static bool BranchVisible(Guid? branch, ProcurementRequestScope scope) => branch is { } id
         && (scope.IsExplicitAllBranches ? scope.PermittedWorkLocationIds.Contains(id)
