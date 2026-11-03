@@ -1,4 +1,16 @@
-# Current published prerequisites and release boundary — 3 November 2026
+# Current production and collaborator boundary — 3 November 2026, 20:56 UTC
+
+The B1 paired technical release is now deployed and verified. Published ERP prerequisite is main `950856f7e01e3e2d7c628ddbf67dbac846644803` (merged PR176) or its reviewed descendant; UI main `9b5d02dcf971900289793f56e91895dd3747fd80` remains published. Deployed products are backend `6ec41f938409f9400bd627f727c0161af0043479` / pub29 and UI `26d4ef1924b508a4ca33a184ec21500691003b3f`, image `97bd9e85…`. See the [actual release record](docs/procurement/gap-closure/M7B1-PAIRED-PRODUCTION-RELEASE-20261103.md).
+
+Actual429 Host passes, separately bound1970 baseline reuse, genuine restore/Up/Down/Up, exact production24-revoke/22+3 grants, compiled read-only provider acceptance,150 live runtime hashes,16 public route/auth checks,5 primary+38 compatibility UI assets and7 anonymous Playwright renders passed. The interrupted pre-record3 step and reconciled single-grant continuation remain explicit. No signed-in production CRUD or whole-module UAT is claimed; issue145 stays **NOT READY**. All processing flags remain off and current Env/HostConfig is preserved.
+
+Next candidate: issue169 / draft ERP PR171 `codex/procurement-plan-approval-20261103`, published source `a2e39e595347fb328283756eab13264e330c4d0f` (includes accepted main950856f7), paired draft UI PR103 source `1cb1bf4d3cc357893387c5ed5066dca0d9193788`. Re-read issue169 ownership before scaffolding; only one genuine migration is allowed. Its current migration directory still equals main:2 review tables, nullable Plan branch/index and the changed existing operational-policy identity CHECK still need actual generation/capture/compatibility verification. The UI's173 focused source tests do not replace that backend/native evidence. Root owns runtime/SDK coordination; the independent Core scanner task153 remains separate. Do not reuse deleted PR165/104 remote branches or stale tips from historical entries below.
+
+The idle private test database is stopped. Generated warm SDK obj caches were safely cleared after proof that all tracked source and10 runtime test assemblies remained exact; run offline restore before the next build. No source/bin/publication/database/release evidence was removed. Earlier entries below are retained as dated history and do not override this current status.
+
+---
+
+# Superseded prerequisite checkpoint — 3 November 2026
 
 Fetch ERP main `dc6a082db74f9740104e2295988bc6f1f54027d8` (including merged PR165) and Procurement UI main `9b5d02dcf971900289793f56e91895dd3747fd80` (including merged PR104), or reviewed descendants. These are published source prerequisites; the deployed pair remains the separately recorded manual-payment release until the B1 technical rollout completes. Backend product `53ed4d5486173580660cb3ea571c3703f227c85a` and preserved UI product `567e318105687b655a886e79c07eebd2b6bf4563` are now deployed. The final backend 361/UI 172 checks and private run03 six-form/native/security/owner evidence remain distinct as recorded in the [current paired release](docs/procurement/gap-closure/MANUAL-PAYMENT-PAIRED-TECHNICAL-RELEASE-20261103.md).
 
