@@ -4,6 +4,7 @@ using Microsoft.EntityFrameworkCore;
 using Mightyfin.Erp.Core.Approvals.Domain;
 using Mightyfin.Erp.Core.Approvals.Infrastructure;
 using Mightyfin.Erp.Procurement.Application;
+using Mightyfin.Erp.Procurement.Domain;
 using Mightyfin.Erp.Procurement.Infrastructure.Approvals;
 using Mightyfin.Erp.Procurement.Infrastructure.Data;
 
