@@ -2,6 +2,10 @@
 
 **Verdict: partially implemented. The shared approval engine works; the full configurable company process is not currently available end to end.** This corrects any interpretation of the earlier architecture description as an already-finished Core workflow configuration feature. The owner launch requires implementation as well as real business configuration and acceptance.
 
+## Source checkpoint after this audit
+
+M1 source `dd7e96b4cfe98051194e3c5709f87b10cd67aa77` implements the read-only Core workflow settings registry/entry, using module-owned configuration links. [Exact M1 verification](../../core/verification/CORE-WF-01-M1-20261104.md): 45 selected backend cases,7 contract checks,6 mocked-API Chromium cases and TypeScript pass. This is not deployed and does not implement named approver/requester routing or PO advances. The findings below describe the pre-M1 baseline; the remaining business workflow verdict is unchanged.
+
 ## Company process to support
 
 1. A regular requester submits a Purchase Request; a supervisor reviews it, then the Head of Operations / Chief Engineer / CEO provides the required executive authority before Procurement begins.
