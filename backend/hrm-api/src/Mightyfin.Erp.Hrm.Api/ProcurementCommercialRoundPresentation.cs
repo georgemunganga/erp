@@ -76,13 +76,13 @@ public static partial class ProcurementSourcingExecutionRoutes
             var categories=await db.SourcingLines.AsNoTracking().Where(x=>x.SourcingEventId==source.Id&&x.Status=="Active")
                 .Select(x=>x.CategoryCode).ToArrayAsync(ct);
             var applicable=await RoundApplicableReviewPolicy(db,scope,source,categories,now,ct);
-            if(applicable is { } selected&& !selected.Rules.DocumentsRequired)
+            if(applicable is { } selectedPolicy&& !selectedPolicy.Rules.DocumentsRequired)
             {
-                policyPin=new(selected.Policy.Id,selected.Policy.PolicyVersionNumber);
+                policyPin=new(selectedPolicy.Policy.Id,selectedPolicy.Policy.PolicyVersionNumber);
                 if(graph is not null)
                 {
                     var draft=CommercialRoundPlanDraft.Restore(graph.Revision,graph.Criteria,graph.Participants);
-                    if(RoundReviewComplete(draft,selected.Rules,now))
+                    if(RoundReviewComplete(draft,selectedPolicy.Rules,now))
                         try { await RoundParticipants(core,scope,graph.Plan.BranchId,draft,ct);actions.Add("Submit"); }
                         catch(Exception error) when(error is not OperationCanceledException) { }
                 }

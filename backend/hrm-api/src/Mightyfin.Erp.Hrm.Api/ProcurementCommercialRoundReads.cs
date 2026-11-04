@@ -85,9 +85,9 @@ public static partial class ProcurementSourcingExecutionRoutes
             if (!await db.CommercialRoundEnrollments.AsNoTracking().AnyAsync(x => x.SourcingEventId == id, token))
             {
                 if (version is not null) throw new Problem("RoundPlanNotFound", 404);
-                var hints=await RoundActions(http,db,cases,core,scope,auth,source,null,true,token);
+                var unenrolledHints=await RoundActions(http,db,cases,core,scope,auth,source,null,true,token);
                 return new(JsonSerializer.Serialize(new { enrolled = false, source = RoundSourceView(source,retained), plan = (object?)null,
-                    allowedActions=hints.Actions, applicableReviewPolicy=(object?)null,
+                    allowedActions=unenrolledHints.Actions, applicableReviewPolicy=(object?)null,
                     reviewAvailable = false, publicationAvailable = false }, RoundJson), 200);
             }
             var graph = await RoundGraph(db, source, version, tracked: false, token);
