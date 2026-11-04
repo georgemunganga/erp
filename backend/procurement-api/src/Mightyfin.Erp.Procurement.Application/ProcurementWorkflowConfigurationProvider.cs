@@ -8,7 +8,7 @@ public sealed class ProcurementWorkflowConfigurationProvider : IWorkflowConfigur
     [
         new("procurement.purchase-request.submitted", "procurement", "Procurement", "purchase-request", "Purchase request",
             "submitted", "When submitted", "Review the business need and authorise Procurement to start buying.",
-            "Approver types are currently limited. Separate named supervisor and executive steps still need routing support.",
+            "Approver types are currently limited. Use named Core people or roles in Buying rules; current permissions and spending limits still apply.",
             [new("Buying rules", "/procurement/workspace/settings/buying-rules"),
              new("Approval limits", "/procurement/workspace/settings/modules/purchase-requests/approvals")]),
         new("procurement.purchase-order.submitted", "procurement", "Procurement", "purchase-order", "Purchase order",

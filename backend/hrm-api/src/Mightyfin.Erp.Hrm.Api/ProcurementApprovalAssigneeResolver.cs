@@ -27,6 +27,8 @@ internal static class ProcurementApprovalAssigneeResolver
         if (!route.HasSingleRoute || route.Lines.Count == 0)
             throw new InvalidOperationException("ApprovalSingleRouteRequired");
         var stages = route.Lines[0].Stages;
+        if (stages.Any(stage => stage.Binding is not null))
+            throw new InvalidOperationException("PrincipalApprovalExecutionRequired");
         if (stages.Count == 0 || stages.Select(x => x.Code).Distinct(StringComparer.Ordinal).Count() != stages.Count)
             throw new InvalidOperationException("ApprovalRouteInvalid");
         var maker = await ProcurementAuthorityIdentity.ResolveCanonicalAccountAsync(core, scope.TenantId,

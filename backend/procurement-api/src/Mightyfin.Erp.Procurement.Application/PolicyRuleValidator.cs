@@ -4,7 +4,7 @@ namespace Mightyfin.Erp.Procurement.Application;
 
 public sealed record PolicyRuleIssue(string Path, string Message);
 
-/// <summary>Validates a bounded v1 rule document; it does not evaluate or publish policy.</summary>
+/// <summary>Validates a bounded versioned rule document; it does not evaluate or publish policy.</summary>
 public static class PolicyRuleValidator
 {
     private const int MaximumBytes = 65536;
@@ -26,10 +26,13 @@ public static class PolicyRuleValidator
             if (root.ValueKind != JsonValueKind.Object)
                 return [new("$", "Buying rules must be a JSON object.")];
             Only(root, "$", issues, "schemaVersion", "transactionType", "currencyCode", "amountBasis", "rules");
-            if (!Integer(root, "schemaVersion", 1, 1)) Add(issues, "$.schemaVersion", "Use rule schema version 1.");
+            if (!Integer(root, "schemaVersion", 1, 2)) Add(issues, "$.schemaVersion", "Use rule schema version 1 or 2.");
+            var schema2 = Integer(root, "schemaVersion", 2, 2);
             var transaction = String(root, "transactionType");
             if (transaction is not ("PurchaseRequest" or "PurchaseOrder"))
                 Add(issues, "$.transactionType", "Choose PurchaseRequest or PurchaseOrder.");
+            if (schema2 && transaction != "PurchaseRequest")
+                Add(issues, "$.transactionType", "Named Core approver rules currently apply to purchase requests only.");
             var currency = String(root, "currencyCode");
             if (currency is null || currency.Length != 3 || !currency.All(c => c is >= 'A' and <= 'Z'))
                 Add(issues, "$.currencyCode", "Use a three-letter uppercase currency code.");
@@ -56,20 +59,47 @@ public static class PolicyRuleValidator
                 else if (!codes.Add(code!)) Add(issues, path + ".code", "Rule codes cannot repeat.");
                 if (!Integer(rule, "priority", 0, 100000))
                     Add(issues, path + ".priority", "Priority must be a whole number from 0 to 100000.");
-                ValidateWhen(rule, path, issues);
-                ValidateResult(rule, path, issues);
+                ValidateWhen(rule, path, issues, schema2);
+                ValidateResult(rule, path, issues, schema2);
             }
         }
         return issues;
     }
 
-    internal static void ValidateWhen(JsonElement rule, string path, List<PolicyRuleIssue> issues)
+    internal static void ValidateWhen(JsonElement rule, string path, List<PolicyRuleIssue> issues, bool schema2 = false)
     {
         if (!rule.TryGetProperty("when", out var when) || when.ValueKind != JsonValueKind.Object)
         { Add(issues, path + ".when", "Add matching conditions, even when all are unrestricted."); return; }
         var at = path + ".when";
-        Only(when, at, issues, "minimumAmountInclusive", "maximumAmountExclusive",
-            "categoryCodes", "purchaseTypes", "branchIds");
+        var fields = new[] { "minimumAmountInclusive", "maximumAmountExclusive", "categoryCodes", "purchaseTypes", "branchIds" };
+        Only(when, at, issues, schema2 ? [.. fields, "requesterRoleKeys", "departmentIds"] : fields);
+        if (schema2)
+        {
+            if (!when.TryGetProperty("requesterRoleKeys", out var roles) || roles.ValueKind != JsonValueKind.Array
+                || roles.GetArrayLength() > 100)
+                Add(issues, at + ".requesterRoleKeys", "Choose up to 100 Core roles, or none for any requester.");
+            else
+            {
+                var roleKeys = new HashSet<string>(StringComparer.Ordinal);
+                foreach (var role in roles.EnumerateArray())
+                    if (role.ValueKind != JsonValueKind.String || !PurchaseRequestApproverBinding.ValidRoleKey(role.GetString())
+                        || !roleKeys.Add(role.GetString()!))
+                        Add(issues, at + ".requesterRoleKeys", "Core role keys must be canonical and distinct.");
+            }
+        }
+        if (schema2 && when.TryGetProperty("departmentIds", out var departments))
+        {
+            if (departments.ValueKind != JsonValueKind.Array || departments.GetArrayLength() > 100)
+                Add(issues, at + ".departmentIds", "Choose up to 100 departments.");
+            else
+            {
+                var ids = new HashSet<Guid>();
+                foreach (var department in departments.EnumerateArray())
+                    if (department.ValueKind != JsonValueKind.String || !Guid.TryParseExact(department.GetString(), "D", out var id)
+                        || id == Guid.Empty || department.GetString() != id.ToString("D") || !ids.Add(id))
+                        Add(issues, at + ".departmentIds", "Department IDs must be canonical and distinct.");
+            }
+        }
         var minimum = Money(when, "minimumAmountInclusive", at, issues);
         var maximum = Money(when, "maximumAmountExclusive", at, issues);
         if (minimum.HasValue && maximum.HasValue && minimum >= maximum)
@@ -85,7 +115,7 @@ public static class PolicyRuleValidator
                 Add(issues, at + ".branchIds", "Branch IDs must be distinct valid IDs.");
     }
 
-    private static void ValidateResult(JsonElement rule, string path, List<PolicyRuleIssue> issues)
+    private static void ValidateResult(JsonElement rule, string path, List<PolicyRuleIssue> issues, bool schema2)
     {
         if (!rule.TryGetProperty("result", out var result) || result.ValueKind != JsonValueKind.Object)
         { Add(issues, path + ".result", "Add the required buying controls."); return; }
@@ -110,7 +140,13 @@ public static class PolicyRuleValidator
             var stagePath = $"{at}.approvalStages[{index++}]";
             if (stage.ValueKind != JsonValueKind.Object)
             { Add(issues, stagePath, "An approval stage must be an object."); continue; }
-            Only(stage, stagePath, issues, "code", "assignee", "mode");
+            Only(stage, stagePath, issues, schema2 ? ["code", "assignee", "mode", "binding"] : ["code", "assignee", "mode"]);
+            if (schema2)
+            {
+                try { _ = PurchaseRequestApproverBinding.ReadStage(stage, required: true); }
+                catch (Exception error) when (error is InvalidOperationException or KeyNotFoundException)
+                { Add(issues, stagePath + ".binding", "Choose an explicit Core person or role from the authorised approver strategy."); }
+            }
             var code = String(stage, "code");
             if (!ValidCode(code)) Add(issues, stagePath + ".code", "Enter a stage code of up to 100 letters, numbers or underscores.");
             else if (!codes.Add(code!)) Add(issues, stagePath + ".code", "Stage codes cannot repeat in a rule.");
@@ -144,7 +180,7 @@ public static class PolicyRuleValidator
     {
         foreach (var property in element.EnumerateObject())
             if (!allowed.Contains(property.Name, StringComparer.Ordinal))
-                Add(issues, path + "." + property.Name, "This field is not supported in rule schema v1.");
+                Add(issues, path + "." + property.Name, "This field is not supported by this rule schema.");
     }
     private static bool Integer(JsonElement parent, string name, int minimum, int maximum) =>
         parent.TryGetProperty(name, out var value) && value.ValueKind == JsonValueKind.Number
