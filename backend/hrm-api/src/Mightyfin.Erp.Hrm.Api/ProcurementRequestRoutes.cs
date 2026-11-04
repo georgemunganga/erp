@@ -235,7 +235,7 @@ public static class ProcurementRequestRoutes
         { return Error("withdrawal-conflict", "The funding or request state changed. Refresh before withdrawing it.", 409); }
     }
 
-    private static async Task<IResult> Submit(Guid id, VersionCommand input, ProcurementDbContext db,
+    private static async Task<IResult> Submit(Guid id, VersionCommand input, HttpContext http, ProcurementDbContext db,
         ProcurementRequestScope scope, CancellationToken ct)
     {
         await using var transaction = db.Database.IsRelational()
@@ -283,7 +283,7 @@ public static class ProcurementRequestRoutes
         request.ReturnedBySubjectId = null;
         request.ReturnReason = null;
         var policyAssessment = await ProcurementPolicyEvaluation.Assess(request, db, scope,
-            "Submission", ct);
+            "Submission", ct, ProcurementCorePrincipals.Cached(http, scope.TenantId, scope.SubjectId));
         db.AddScoped(new AuditEvent
         {
             RecordType = "PurchaseRequest", RecordId = request.Id, Action = "Submitted",

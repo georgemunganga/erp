@@ -1,5 +1,6 @@
 using System.Text;
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using Microsoft.EntityFrameworkCore;
 using Mightyfin.Erp.Procurement.Application;
 using Mightyfin.Erp.Procurement.Domain;
@@ -19,7 +20,8 @@ internal static class ProcurementPolicyEvaluation
         PolicyEvaluation? Evaluation, string? Message);
 
     public static async Task<Assessment> Assess(PurchaseRequest request,
-        ProcurementDbContext db, ProcurementRequestScope scope, string trigger, CancellationToken ct)
+        ProcurementDbContext db, ProcurementRequestScope scope, string trigger, CancellationToken ct,
+        ProcurementCorePrincipal? submissionPrincipal = null)
     {
         var requestVersion = request.SubmittedVersion ?? request.Version;
         var existing = await db.PolicyEvaluations.AsNoTracking()
@@ -53,6 +55,22 @@ internal static class ProcurementPolicyEvaluation
             return new("CurrencyMismatch", false, null,
                 "The request currency differs from the published buying rule.");
 
+        IReadOnlyList<string>? requesterRoles = null;
+        var schema2 = root.GetProperty("schemaVersion").GetInt32() == 2;
+        if (schema2)
+        {
+            // Only the current request's private Core refresh proof may establish roles.
+            // A later operator must not reconstruct submission-time roles from today's account.
+            if (request.SubmittedAt is null || !PurchaseRequestPrincipalIdentity.Valid(request) || trigger != "Submission" || submissionPrincipal is null
+                || submissionPrincipal.Id.ToString("D") != request.CreatedBy
+                || request.CreatedBy != scope.SubjectId)
+                return new("RequesterRoleSnapshotRequired", false, null,
+                    "Return and resubmit this request to capture its Core approval route.");
+            requesterRoles = submissionPrincipal.Roles.Distinct(StringComparer.Ordinal).OrderBy(x => x, StringComparer.Ordinal).ToArray();
+            if (requesterRoles.Count > 100 || requesterRoles.Any(role => !PurchaseRequestApproverBinding.ValidRoleKey(role)))
+                return new("RequesterRoleSnapshotInvalid", false, null, "The current Core role assignments need review.");
+        }
+
         var lines = request.Lines.Where(x => x.ApprovalStatus != "Cancelled")
             .OrderBy(x => x.LineNumber).ToArray();
         var decisions = new List<object>(lines.Length);
@@ -74,7 +92,7 @@ internal static class ProcurementPolicyEvaluation
             {
                 result = PolicyRulePreview.Evaluate(policy.RulesJson,
                     new PolicyScenario(request.CurrencyCode, lineBase,
-                        category, purchaseType, request.BranchRef));
+                        category, purchaseType, request.BranchRef) { RequesterRoleKeys = requesterRoles, DepartmentId = request.DepartmentRef });
                 if (result.Status == "Match" && result.SourcingMethodCode is { } method
                     && !await db.ProcurementMethods.AsNoTracking()
                         .AnyAsync(x => x.Code == method && x.Status == "Active", ct))
@@ -93,6 +111,15 @@ internal static class ProcurementPolicyEvaluation
             amountBasis = "EstimatedLineBase", request.CurrencyCode, lines = decisions,
             trigger, isAuthority = false,
         }, JsonOptions);
+        if (schema2)
+        {
+            var pinned = JsonNode.Parse(decisionJson)!.AsObject();
+            pinned["ruleSchemaVersion"] = 2;
+            pinned["requesterPrincipalId"] = submissionPrincipal!.Id.ToString("D");
+            pinned["requesterRoleKeys"] = JsonSerializer.SerializeToNode(requesterRoles, JsonOptions);
+            pinned["requesterRoleSnapshotAt"] = JsonSerializer.SerializeToNode(ProcurementEvidenceEncoding.DatabaseTimestamp(request.SubmittedAt), JsonOptions);
+            decisionJson = pinned.ToJsonString(JsonOptions);
+        }
         if (Encoding.UTF8.GetByteCount(decisionJson) > 65536)
             return new("DecisionTooLarge", false, null,
                 "This request has more rule detail than the decision record can hold. Procurement must review it.");

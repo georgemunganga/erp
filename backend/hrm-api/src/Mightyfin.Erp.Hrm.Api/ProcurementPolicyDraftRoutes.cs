@@ -29,6 +29,9 @@ public static partial class ProcurementPolicyDraftRoutes
         });
         group.MapGet("", List).RequireAuthorization("procurement-configuration-read");
         group.MapGet("/effective", Effective).RequireAuthorization("procurement-configuration-read");
+        group.MapGet("/lookups/request-approvers", RequestApprovers).RequireAuthorization("procurement-configuration-read");
+        group.MapGet("/lookups/request-departments", RequestDepartments).RequireAuthorization("procurement-configuration-read");
+        group.MapGet("/lookups/request-roles", RequestRoles).RequireAuthorization("procurement-configuration-read");
         group.MapGet("/lookups/sourcing-reviewers", SourcingReviewers).RequireAuthorization("procurement-configuration-read");
         group.MapGet("/lookups/round-plan-reviewers", RoundPlanReviewers).RequireAuthorization("procurement-configuration-read");
         group.MapGet("/lookups/plan-reviewers", PlanReviewers).RequireAuthorization("procurement-configuration-read");
@@ -678,6 +681,11 @@ public static partial class ProcurementPolicyDraftRoutes
         if (!string.Equals(root.GetProperty("currencyCode").GetString(), companyCurrency,
                 StringComparison.OrdinalIgnoreCase))
             return Problem("currency-mismatch", "Use the selected company's currency for this draft.", 422);
+        if (root.GetProperty("schemaVersion").GetInt32() == 2)
+        {
+            var bindingIssue = await CheckRequestBindingCompanyRules(root, organizationDb, scope, ct);
+            if (bindingIssue is not null) return bindingIssue;
+        }
         foreach (var rule in root.GetProperty("rules").EnumerateArray())
         {
             var conditions = rule.GetProperty("when");
