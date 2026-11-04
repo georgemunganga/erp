@@ -23,6 +23,9 @@ public static class ApprovalRoutePreview
                 || root.GetProperty("requestVersion").GetInt64() != evaluation.RequestVersion
                 || root.GetProperty("policyId").GetGuid() != evaluation.PolicyVersionId)
                 return new(false, [], ["PinnedDecisionMismatch"]);
+            if (!PurchaseRequestRoutingSnapshot.Valid(root))
+                return new(false, [], ["RequesterRoleSnapshotInvalid"]);
+            var schema2 = root.TryGetProperty("ruleSchemaVersion", out var schema) && schema.GetInt32() == 2;
             var lines = new List<ApprovalRouteLine>();
             var seen = new HashSet<Guid>();
             foreach (var line in root.GetProperty("lines").EnumerateArray())
@@ -37,8 +40,10 @@ public static class ApprovalRoutePreview
                     .Select(stage => new PolicyPreviewStage(
                         stage.GetProperty("code").GetString() ?? "",
                         stage.GetProperty("assignee").GetString() ?? "",
-                        stage.GetProperty("mode").GetString() ?? ""))
+                        stage.GetProperty("mode").GetString() ?? "") { Binding = PurchaseRequestApproverBinding.ReadStage(stage, schema2) })
                     .ToArray();
+                if (!schema2 && stages.Any(stage => stage.Binding is not null))
+                    return new(false, [], ["ApprovalBindingSchemaRequired"]);
                 if (stages.Length == 0 || stages.Any(stage =>
                     string.IsNullOrWhiteSpace(stage.Code) || string.IsNullOrWhiteSpace(stage.Assignee)
                     || string.IsNullOrWhiteSpace(stage.Mode)))

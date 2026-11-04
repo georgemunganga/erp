@@ -22,6 +22,10 @@ internal static class ProcurementPrincipalApprovalAssignees
         if(!PurchaseRequestPrincipalIdentity.Valid(request))throw new InvalidOperationException("PrincipalApprovalOriginalIdentityRequired");
         var route=ApprovalRoutePreview.FromEvaluation(evaluation,request.Lines.Where(x=>x.ApprovalStatus!="Cancelled").Select(x=>x.Id).ToArray());
         if(!route.HasSingleRoute || route.Lines.Count==0)throw new InvalidOperationException("ApprovalSingleRouteRequired");
+        using var retainedDecision = System.Text.Json.JsonDocument.Parse(evaluation.DecisionJson);
+        if (retainedDecision.RootElement.TryGetProperty("ruleSchemaVersion", out var routingSchema) && routingSchema.GetInt32() == 2 && request.SubmittedAt is null
+            || !PurchaseRequestRoutingSnapshot.Valid(retainedDecision.RootElement, request.CreatedBy, request.SubmittedAt))
+            throw new InvalidOperationException("RequesterRoleSnapshotInvalid");
         var stages=route.Lines[0].Stages;
         if(stages.Count==0 || stages.Select(x=>x.Code).Distinct(StringComparer.Ordinal).Count()!=stages.Count)
             throw new InvalidOperationException("ApprovalRouteInvalid");
@@ -65,6 +69,12 @@ internal static class ProcurementPrincipalApprovalAssignees
                 }
             }
             else throw new InvalidOperationException(stage.Assignee=="BudgetOwner"?"BudgetOwnerMappingRequired":"ApprovalAssigneeKindUnsupported");
+            if (stage.Binding is { } binding)
+            {
+                if (!binding.IsValid || stage.Assignee != "ProcurementManager")
+                    throw new InvalidOperationException("ApprovalBindingInvalid");
+                candidates = candidates.Where(person => binding.Matches(person.PrincipalId, person.Roles.ToArray())).ToList();
+            }
             var eligible=new List<ProcurementPrincipalApprovalAssignee>();
             foreach(var candidate in candidates.DistinctBy(x=>x.PrincipalId))
             {

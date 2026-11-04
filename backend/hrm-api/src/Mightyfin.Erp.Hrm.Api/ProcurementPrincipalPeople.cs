@@ -11,6 +11,7 @@ internal static class ProcurementPrincipalPeople
     internal sealed record Person(string PrincipalId, Guid? WorkerId, IReadOnlySet<string> Permissions,
         bool OrganisationWide, IReadOnlySet<Guid> AllowedBranches)
     {
+        internal IReadOnlySet<string> Roles { get; init; } = new HashSet<string>(StringComparer.Ordinal);
         internal Guid? CoreLinkedWorkerId { get; init; }
         internal Guid? EvidenceWorker(int schema) => schema == 1 ? WorkerId : schema == 2 ? CoreLinkedWorkerId
             : throw new InvalidOperationException("OperationalPolicyIdentitySchemaUnsupported");
@@ -70,6 +71,6 @@ internal static class ProcurementPrincipalPeople
         projection.AssignPrincipal(account.Id);
         var worker = await ProcurementWorkforce.ResolveActiveWorker(core, projection, ct);
         return new(account.Id.ToString("D"), worker, account.Actions.ToHashSet(StringComparer.Ordinal), declared.Length == 0, branches.ToHashSet())
-        { CoreLinkedWorkerId = account.WorkerId is { } linked && linked != Guid.Empty ? linked : null };
+        { Roles = account.Roles.ToHashSet(StringComparer.Ordinal), CoreLinkedWorkerId = account.WorkerId is { } linked && linked != Guid.Empty ? linked : null };
     }
 }

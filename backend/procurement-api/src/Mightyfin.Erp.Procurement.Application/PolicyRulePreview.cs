@@ -1,10 +1,21 @@
 using System.Text.Json;
+using System.Text.Json.Serialization;
 
 namespace Mightyfin.Erp.Procurement.Application;
 
 public sealed record PolicyScenario(string CurrencyCode, decimal LineBaseAmount,
-    string? CategoryCode, string? PurchaseType, Guid? BranchId);
-public sealed record PolicyPreviewStage(string Code, string Assignee, string Mode);
+    string? CategoryCode, string? PurchaseType, Guid? BranchId)
+{
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public IReadOnlyList<string>? RequesterRoleKeys { get; init; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public Guid? DepartmentId { get; init; }
+}
+public sealed record PolicyPreviewStage(string Code, string Assignee, string Mode)
+{
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public PurchaseRequestApproverBinding? Binding { get; init; }
+}
 public sealed record PolicyPreviewResult(string Status, string? RuleCode, int? Priority,
     string? BudgetReservation, string? SourcingMethodCode, int? MinimumQuoteCount,
     IReadOnlyList<PolicyPreviewStage> ApprovalStages, IReadOnlyList<PolicyRuleIssue> Issues);
@@ -48,8 +59,11 @@ public static class PolicyRulePreview
         var structural = PolicyRuleValidator.Validate(json);
         if (structural.Count != 0) return Empty("InvalidRules", structural);
         if (scenario.LineBaseAmount < 0 || decimal.Round(scenario.LineBaseAmount, 8) != scenario.LineBaseAmount
-            || scenario.BranchId == Guid.Empty
-            || !ValidOptionalCode(scenario.CategoryCode) || !ValidOptionalCode(scenario.PurchaseType))
+            || scenario.BranchId == Guid.Empty || scenario.DepartmentId == Guid.Empty
+            || !ValidOptionalCode(scenario.CategoryCode) || !ValidOptionalCode(scenario.PurchaseType)
+            || scenario.RequesterRoleKeys is { } roles && (roles.Count > 100
+                || roles.Any(role => !PurchaseRequestApproverBinding.ValidRoleKey(role))
+                || roles.Distinct(StringComparer.Ordinal).Count() != roles.Count))
             return Empty("InvalidScenario", [new("$scenario", "Use a nonnegative line base amount with up to eight decimals and valid category, purchase type and branch values.")]);
         using var document = JsonDocument.Parse(json);
         var root = document.RootElement;
@@ -68,7 +82,8 @@ public static class PolicyRulePreview
         var quotes = result.GetProperty("minimumQuoteCount");
         var stages = result.GetProperty("approvalStages").EnumerateArray()
             .Select(stage => new PolicyPreviewStage(stage.GetProperty("code").GetString()!,
-                stage.GetProperty("assignee").GetString()!, stage.GetProperty("mode").GetString()!))
+                stage.GetProperty("assignee").GetString()!, stage.GetProperty("mode").GetString()!)
+                { Binding = PurchaseRequestApproverBinding.ReadStage(stage, root.GetProperty("schemaVersion").GetInt32() == 2) })
             .ToArray();
         return new("Match", winner.GetProperty("code").GetString(), highest,
             result.GetProperty("budgetReservation").GetString(),
@@ -84,13 +99,19 @@ public static class PolicyRulePreview
             && (!maximum.HasValue || scenario.LineBaseAmount < maximum)
             && CodeMatch(when.GetProperty("categoryCodes"), scenario.CategoryCode)
             && CodeMatch(when.GetProperty("purchaseTypes"), scenario.PurchaseType)
-            && BranchMatch(when.GetProperty("branchIds"), scenario.BranchId);
+            && BranchMatch(when.GetProperty("branchIds"), scenario.BranchId)
+            && (!when.TryGetProperty("departmentIds", out var departments) || BranchMatch(departments, scenario.DepartmentId))
+            && (!when.TryGetProperty("requesterRoleKeys", out var roles) || roles.GetArrayLength() == 0
+                || scenario.RequesterRoleKeys is { } assigned && roles.EnumerateArray().Any(role => assigned.Contains(role.GetString()!, StringComparer.Ordinal)));
     }
     private static bool IsFallback(JsonElement when) =>
         Amount(when, "minimumAmountInclusive") is null && Amount(when, "maximumAmountExclusive") is null
         && when.GetProperty("categoryCodes").GetArrayLength() == 0
         && when.GetProperty("purchaseTypes").GetArrayLength() == 0
-        && when.GetProperty("branchIds").GetArrayLength() == 0;
+        && when.GetProperty("branchIds").GetArrayLength() == 0
+        && (!when.TryGetProperty("requesterRoleKeys", out var roles) || roles.GetArrayLength() == 0)
+        && (!when.TryGetProperty("departmentIds", out var departments) || departments.GetArrayLength() == 0);
+    // Role filters cannot establish disjoint rules: one Core user may hold both roles.
     private static bool Overlap(JsonElement a, JsonElement b)
     {
         var startA = Amount(a, "minimumAmountInclusive") ?? 0;
@@ -100,7 +121,8 @@ public static class PolicyRulePreview
         return startA < endB && startB < endA
             && ArrayOverlap(a.GetProperty("categoryCodes"), b.GetProperty("categoryCodes"))
             && ArrayOverlap(a.GetProperty("purchaseTypes"), b.GetProperty("purchaseTypes"))
-            && ArrayOverlap(a.GetProperty("branchIds"), b.GetProperty("branchIds"));
+            && ArrayOverlap(a.GetProperty("branchIds"), b.GetProperty("branchIds"))
+            && (!a.TryGetProperty("departmentIds", out var da) || !b.TryGetProperty("departmentIds", out var db) || ArrayOverlap(da, db));
     }
     private static bool ArrayOverlap(JsonElement a, JsonElement b) =>
         a.GetArrayLength() == 0 || b.GetArrayLength() == 0

@@ -27,7 +27,8 @@ public static class ApprovalAssigneePreview
                     && x.SubjectId != makerSubjectId)
                 .GroupBy(x => x.SubjectId, StringComparer.Ordinal)
                 .Select(x => x.First()).OrderBy(x => x.DisplayName, StringComparer.Ordinal).ToArray();
-            var blocker = eligible.Count == 0 && stage.Assignee == "BudgetOwner"
+            var blocker = stage.Binding is not null ? "PrincipalApprovalExecutionRequired"
+                : eligible.Count == 0 && stage.Assignee == "BudgetOwner"
                 ? "BudgetOwnerMappingRequired"
                 : eligible.Count == 0 ? "ApproverUnavailable"
                 : stage.Mode == "One" && eligible.Count != 1 ? "ApproverChoiceRequired"
