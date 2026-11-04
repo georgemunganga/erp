@@ -1,5 +1,8 @@
 # Procurement current handoff — 4 November 2026
 
+**Owner-pilot priority:** updated UI PR106 is now merged/deployed (UI main5b8814e9, product0cf2f881), with45 public file hashes/11 HTTP routes/13 actual anonymous Playwright renders passing. Existing backend c93 and business flags are unchanged. [Minimum launch gaps and exact release evidence](docs/procurement/gap-closure/OWNER-PILOT-RELEASE-AND-LAUNCH-GAPS-20261104.md) supersede earlier pending-UI-deployment status. Prioritise real owner-account supplier/item/request CRUD and the basic request→approval→PO→receipt→invoice journey before advanced B1c work. Production approvals/direct orders/manual payments remain off; policy/authority and storage headroom require resolution. No whole-module acceptance. Private rehearsal PG is now stopped; data retained.
+
+
 ## Latest native and UI checkpoint — 4 November 2026
 
 Backend source PR183 and evidence PR186 are merged; published ERP main `718ab07d275659ee0a6cea49bc9718852c8efa4f`. The deployed Plan release described below is unchanged. B1c is not enabled or deployed; whole-module issue145 remains NOT READY.
