@@ -18,6 +18,10 @@ Offer the deployed system for an owner walkthrough and a supervised setup/draft-
 
 Use Amizo Power's existing Core company, default currency and branch setup. Core owns users, roles and branch scope; a permitted system user does not require an employee link. Avoid duplicating company or identity masters in Procurement.
 
+## Further verified workflow implementation gaps
+
+The [company workflow audit](COMPANY-APPROVAL-WORKFLOW-VERIFICATION-20261104.md) confirms that the supervisor/executive/Accounts chain needs implementation as well as business setup: shared Core configuration navigation, explicit per-stage Core people/role bindings, requester-role routing and a general PO advance path are incomplete. BudgetOwner is offered by the editor but unresolved in request execution. Do not treat publishing thresholds and flipping flags as sufficient.
+
 ## Minimum operational handover gates
 
 | Gate | Actual position | Required result |

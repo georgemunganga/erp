@@ -1,5 +1,8 @@
 # Procurement current handoff — 4 November 2026
 
+**Company workflow verification:** [the actual supervisor/executive/Accounts audit](docs/procurement/gap-closure/COMPANY-APPROVAL-WORKFLOW-VERIFICATION-20261104.md) found implementation gaps, not merely unpublished business values. Core ordered approval mechanics are reusable and tested, but Core has no module/document workflow configuration surface; Purchase Request editor/resolver lacks named executive/supervisor and requester-role routing, BudgetOwner is offered but unresolved, and manual payments are invoice-backed without a general PO advance path. 32 UI tests,71 selected existing backend cases and10 targeted in-memory checks passed, including confirmation of these limitations. Do not claim the whole chain configurable already or activate it to bypass missing bindings. Fix this as part of owner-launch190 before advanced B1c. No product deployment or business configuration changed in this audit.
+
+
 **Owner-pilot priority:** updated UI PR106 is now merged/deployed (UI main5b8814e9, product0cf2f881), with45 public file hashes/11 HTTP routes/13 actual anonymous Playwright renders passing. Existing backend c93 and business flags are unchanged. [Minimum launch gaps and exact release evidence](docs/procurement/gap-closure/OWNER-PILOT-RELEASE-AND-LAUNCH-GAPS-20261104.md) supersede earlier pending-UI-deployment status. Prioritise real owner-account supplier/item/request CRUD and the basic request→approval→PO→receipt→invoice journey before advanced B1c work. Production approvals/direct orders/manual payments remain off; policy/authority and storage headroom require resolution. No whole-module acceptance. Private rehearsal PG is now stopped; data retained.
 
 
