@@ -32,6 +32,13 @@ export const coreSettingGroups: CoreSettingGroup[] = [
     ],
   },
   {
+    title: "Workflows",
+    description: "Choose a module and record to configure its approval process.",
+    items: [
+      { label: "Approval Workflows", path: "/core/workspace/settings/workflows", detail: "Module, record and approval settings", owner: "ERP Core" },
+    ],
+  },
+  {
     title: "Shared defaults",
     description: "Common formats and references used across modules.",
     items: [
