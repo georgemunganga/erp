@@ -10,7 +10,7 @@ The audit preserves the imported Procurement UI and shared ERP components. Core 
 
 [The private evidence](PROC-05A-FINAL-PRIVATE-RELEASE-EVIDENCE-20261104.md) separately records551 actual Host passes, exactly reused2004 Procurement results, backend6e85/UI3e real-cookie primary workflow, original-row/native graph reconciliation, retained Down55000 and six42501 denials. The browser business journey was not rerun against c93 or production. Public smoke is not signed-in production business acceptance. Original failed attempts remain retained.
 
-Whole-module issue145 remains **NOT READY**. Alternate/concurrency/revocation/recovery cohorts, actual document/scanner transport, formal offers/opening/evaluation, award/award-to-PO and the remaining recorded module gaps are still open. B1c issue180/draft PR183 has reviewed source (`89a2030d`); migration/build/native/UI acceptance is pending and its workflow is not deployed. No business-owner sign-off is inferred.
+Whole-module issue145 remains **NOT READY**. Alternate/concurrency/revocation/recovery cohorts, actual document/scanner transport, formal offers/opening/evaluation, award/award-to-PO and the remaining recorded module gaps are still open. B1c issue180/draft PR183 has reviewed source (`2086c600`); migration/build/native/UI acceptance is pending and its workflow is not deployed. No business-owner sign-off is inferred.
 
 ## Retained source, private acceptance and production boundary — 3 November 2026, 16:23 UTC
 
