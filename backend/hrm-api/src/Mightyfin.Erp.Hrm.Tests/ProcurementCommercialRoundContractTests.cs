@@ -1,12 +1,113 @@
 using System.Security.Claims;
+using System.Text.Json;
 using Microsoft.AspNetCore.Http;
 using Mightyfin.Erp.Hrm.Api;
 using Mightyfin.Erp.Hrm.Application;
+using Mightyfin.Erp.Procurement.Application;
 
 namespace Mightyfin.Erp.Hrm.Tests;
 
 public sealed class ProcurementCommercialRoundContractTests
 {
+    [Fact]
+    public void Submitter_policy_pin_transport_contains_only_reference_and_version()
+    {
+        var id = Guid.NewGuid();
+        var json = JsonSerializer.Serialize(new ProcurementSourcingExecutionRoutes.RoundPolicyPin(id, 3),
+            new JsonSerializerOptions(JsonSerializerDefaults.Web));
+        using var parsed = JsonDocument.Parse(json);
+        Assert.Equal(2, parsed.RootElement.EnumerateObject().Count());
+        Assert.Equal(id, parsed.RootElement.GetProperty("policyVersionId").GetGuid());
+        Assert.Equal(3, parsed.RootElement.GetProperty("policyVersionNumber").GetInt32());
+        Assert.DoesNotContain("rules", json, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void Round_policy_picker_requires_companywide_current_round_review_grant()
+    {
+        var right = new HashSet<string> { CommercialRoundReviewCoreWorkflow.ReviewPermission };
+        Assert.True(ProcurementPolicyDraftRoutes.RoundPlanReviewerEligible(true, right));
+        Assert.False(ProcurementPolicyDraftRoutes.RoundPlanReviewerEligible(false, right));
+        Assert.False(ProcurementPolicyDraftRoutes.RoundPlanReviewerEligible(true,
+            new HashSet<string> { "procurement-sourcing-publish", "procurement-plan-review" }));
+    }
+
+    [Theory]
+    [InlineData("Create", true)]
+    [InlineData("Revise", true)]
+    [InlineData("Cancel", true)]
+    [InlineData("Submit", false)]
+    [InlineData("Approve", false)]
+    [InlineData("Return", false)]
+    [InlineData("Reject", false)]
+    [InlineData("FutureOperation", false)]
+    public void Legacy_actor_key_recovery_never_returns_review_purpose_or_unknown_receipts(string operation, bool expected)
+        => Assert.Equal(expected, ProcurementSourcingExecutionRoutes.LegacyRoundRecoveryOperation(operation));
+
+    [Fact]
+    public void Round_review_sql_uses_the_real_quoted_Core_approval_columns()
+    {
+        var sql = Mightyfin.Erp.Procurement.Infrastructure.Data.CommercialRoundReviewSql.Install;
+        var down = Mightyfin.Erp.Procurement.Infrastructure.Data.CommercialRoundReviewSql.RetainedDownGuard;
+        foreach (var name in new[] { "TenantId", "LegalEntityId", "Id", "SourceModule", "SourceType",
+                     "SourceId", "SourceVersion", "MakerSubjectId", "PolicyVersionId",
+                     "PolicyVersionNumber", "State" })
+            Assert.Contains("c.\"" + name + "\"", sql);
+        foreach (var name in new[] { "TenantId", "LegalEntityId", "Id", "CaseId", "StageId",
+                     "AssignmentId", "ActorSubjectId", "Action", "Reason", "DecidedAt" })
+            Assert.Contains("d.\"" + name + "\"", sql);
+        Assert.Contains("\"SourceModule\"='procurement'", down);
+        Assert.Contains("\"SourceType\"='commercial_round_plan'", down);
+        Assert.DoesNotContain("c.tenant_id", sql);
+        Assert.DoesNotContain("d.case_id", sql);
+        Assert.DoesNotContain("WHERE source_module=", down);
+        Assert.Contains("JOIN core_approval.stages st", sql);
+        Assert.Contains("JOIN core_approval.assignments a", sql);
+        Assert.Contains("st.\"CaseId\"=c.\"Id\"", sql);
+        Assert.Contains("a.\"CaseId\"=c.\"Id\"", sql);
+        Assert.Contains("a.\"StageId\"=st.\"Id\"", sql);
+        Assert.Contains("a.\"PermissionKey\"='procurement-round-plan-review'", sql);
+        Assert.Contains("a.\"AssigneeSubjectId\"=d.\"ActorSubjectId\"", sql);
+        Assert.Contains("jsonb_array_length(p.rules_json::jsonb->'assigneePrincipalIds')", sql);
+    }
+
+    [Fact]
+    public void Round_review_Down_locks_every_retention_source_before_the_veto()
+    {
+        var guard = Mightyfin.Erp.Procurement.Infrastructure.Data.CommercialRoundReviewSql.RetainedDownGuard;
+        var check = guard.IndexOf("DO $$ BEGIN IF EXISTS", StringComparison.Ordinal);
+        var locks = guard[..check];
+        Assert.StartsWith("LOCK TABLE ", locks);
+        Assert.EndsWith(" IN ACCESS EXCLUSIVE MODE;\n", locks);
+        foreach (var table in new[] { "commercial_round_plans", "commercial_round_plan_revisions",
+                     "commercial_round_plan_receipts", "commercial_round_review_submissions",
+                     "commercial_round_review_outcomes", "policy_versions",
+                     "operational_policy_identity_evidence", "audit_events", "outbox_events" })
+            Assert.Contains("procurement." + table, locks);
+        Assert.Contains("core_approval.cases", locks);
+        Assert.Equal(10, System.Text.RegularExpressions.Regex.Matches(locks,
+            @"(?:procurement|core_approval)\.[a-z_]+").Count);
+        Assert.Contains("USING ERRCODE='55000'", guard);
+    }
+
+    [Fact]
+    public void Round_review_requires_future_opening_and_unconflicted_required_team()
+    {
+        var now = new DateTimeOffset(2026, 11, 4, 12, 0, 0, TimeSpan.Zero);
+        var rules = new CommercialRoundReviewPolicyRules.Definition("Any", 1, [Guid.NewGuid()],
+            [Guid.NewGuid()], ["*"], ["ZMW"], 1, ["Technical"], ["Planner"], false, false, false);
+        var criterion = new RoundPlanCriterionInput(Guid.NewGuid(), 1, "TECH", "Technical", "PassFail", null, null, null, null, null);
+        var planner = new RoundPlanParticipantInput(Guid.NewGuid(), 1, Guid.NewGuid().ToString("D"), "Planner", null);
+        var draft = new RoundPlanDraftInput("Goods needed", "Policy", null, null,
+            now.AddMinutes(1), now.AddHours(1), null, null, [criterion], [planner]);
+        Assert.True(ProcurementSourcingExecutionRoutes.RoundReviewComplete(draft, rules, now));
+        Assert.False(ProcurementSourcingExecutionRoutes.RoundReviewComplete(draft, rules, now.AddMinutes(1)));
+        Assert.False(ProcurementSourcingExecutionRoutes.RoundReviewComplete(draft with
+            { Participants = [planner with { ConflictNote = "Declared conflict" }] }, rules, now));
+        Assert.False(ProcurementSourcingExecutionRoutes.RoundReviewComplete(draft with
+            { Participants = [planner with { Duty = "Reviewer" }] }, rules, now));
+    }
+
     [Theory]
     [InlineData("read")][InlineData("manage")][InlineData("submit")][InlineData("review")][InlineData("cancel")]
     public void Round_plan_actions_are_explicit_Core_grants_not_legacy_admin_inheritance(string suffix)
@@ -24,8 +125,13 @@ public sealed class ProcurementCommercialRoundContractTests
     [InlineData("/api/procurement/v1/sourcing/11111111-1111-1111-1111-111111111111/round-plan/history","GET",true)]
     [InlineData("/api/procurement/v1/sourcing/11111111-1111-1111-1111-111111111111/round-plan/versions/1","GET",true)]
     [InlineData("/api/procurement/v1/sourcing/11111111-1111-1111-1111-111111111111/round-plan/commands/22222222-2222-2222-2222-222222222222","GET",true)]
+    [InlineData("/api/procurement/v1/sourcing/round-plan/review-tasks","GET",true)]
+    [InlineData("/api/procurement/v1/sourcing/11111111-1111-1111-1111-111111111111/round-plan/reviews/22222222-2222-2222-2222-222222222222","GET",true)]
+    [InlineData("/api/procurement/v1/sourcing/11111111-1111-1111-1111-111111111111/round-plan/review-commands/22222222-2222-2222-2222-222222222222","GET",true)]
+    [InlineData("/api/procurement/v1/sourcing/11111111-1111-1111-1111-111111111111/round-plan/submit-context","GET",false)]
     [InlineData("/api/procurement/v1/sourcing/round-plans","POST",false)]
     [InlineData("/api/procurement/v1/sourcing/11111111-1111-1111-1111-111111111111/round-plan/revise","POST",false)]
+    [InlineData("/api/procurement/v1/sourcing/11111111-1111-1111-1111-111111111111/round-plan/decisions","POST",false)]
     [InlineData("/api/procurement/v1/sourcing/11111111-1111-1111-1111-111111111111/round-plan/versions/0","GET",false)]
     [InlineData("/api/procurement/v1/sourcing/11111111-1111-1111-1111-111111111111/round-plan/versions/1/extra","GET",false)]
     [InlineData("/api/procurement/v1/sourcing/00000000-0000-0000-0000-000000000000/round-plan","GET",false)]

@@ -17,6 +17,8 @@ public sealed record RoundPlanActor(string PrincipalId, Guid? WorkerAlias);
 public sealed record RoundPlanChange(CommercialRoundEnrollment? Enrollment, CommercialRoundPlan Plan,
     CommercialRoundPlanRevision Revision, IReadOnlyList<CommercialRoundCriterion> Criteria,
     IReadOnlyList<CommercialRoundParticipant> Participants, CommercialRoundPlanReceipt Receipt);
+public sealed record RoundReviewResponseRefs(Guid SubmissionId, Guid CoreCaseId,
+    Guid? AssignmentId, Guid? DecisionId);
 
 /// <summary>Incomplete planning only. No policy approval, score, invitation or formal offer.</summary>
 public static class CommercialRoundPlanDraft
@@ -109,22 +111,46 @@ public static class CommercialRoundPlanDraft
         string? reason, Guid key, string requestSha, DateTimeOffset at)
     {
         Actor(actor); Command(key, requestSha, at);
-        if (plan.Status != "Draft" || expectedVersion != plan.Version || previous.PlanId != plan.Id
-            || previous.ResultStatus != "Draft" || at < previous.RecordedAt
+        if ((plan.Status, operation) is not (("Draft", "Revise") or ("Draft", "Cancel") or ("Rejected", "Cancel"))
+            || expectedVersion != plan.Version || previous.PlanId != plan.Id
+            || previous.ResultStatus != plan.Status || at < previous.RecordedAt
             || previous.ResultVersion != expectedVersion || previous.SourcingEventId != plan.SourcingEventId || previous.BranchId != plan.BranchId || !SameScope(plan, previous) || operation is not ("Revise" or "Cancel")) Fail();
         if (operation == "Cancel") { Text(reason, 2000); if (reason is null || Content(input, zone) != previous.ContentJson) Fail(); }
         else if (reason is not null) Fail();
         return Build(null, plan, previous, actor, input, zone, operation, reason, key, requestSha, at);
     }
+    public static RoundPlanChange Transition(CommercialRoundPlan plan, CommercialRoundPlanRevision previous,
+        IReadOnlyList<CommercialRoundCriterion> criteria, IReadOnlyList<CommercialRoundParticipant> participants,
+        RoundPlanActor actor, string operation, string resultStatus, string? reason,
+        Guid key, string requestSha, DateTimeOffset at, RoundReviewResponseRefs? refs = null)
+    {
+        Actor(actor); Command(key, requestSha, at);
+        if (previous.PlanId != plan.Id || previous.ResultVersion != plan.Version || previous.ResultStatus != plan.Status
+            || previous.SourcingEventId != plan.SourcingEventId || previous.BranchId != plan.BranchId
+            || !SameScope(plan, previous) || at < previous.RecordedAt
+            || (plan.Status, operation, resultStatus) is not (("Draft", "Submit", "InReview")
+                or ("InReview", "Return", "Draft") or ("InReview", "Reject", "Rejected")
+                or ("InReview", "Approve", "InReview") or ("InReview", "Approve", "Published"))) Fail();
+        if (operation is "Return" or "Reject") { Text(reason, 2000); if (reason is null) Fail(); }
+        else if (reason is not null) Fail();
+        var input = Restore(previous, criteria, participants);
+        if (refs is null || refs.SubmissionId == Guid.Empty || refs.CoreCaseId == Guid.Empty
+            || operation == "Submit" && (refs.AssignmentId is not null || refs.DecisionId is not null)
+            || operation != "Submit" && (refs.AssignmentId is null || refs.AssignmentId == Guid.Empty
+                || refs.DecisionId is null || refs.DecisionId == Guid.Empty)) Fail();
+        return Build(null, plan, previous, actor, input, previous.CompanyTimeZoneId,
+            operation, reason, key, requestSha, at, resultStatus, refs);
+    }
     private static RoundPlanChange Build(CommercialRoundEnrollment? enrollment, CommercialRoundPlan plan,
         CommercialRoundPlanRevision? previous, RoundPlanActor actor, RoundPlanDraftInput input, string zone,
-        string operation, string? reason, Guid key, string requestSha, DateTimeOffset at)
+        string operation, string? reason, Guid key, string requestSha, DateTimeOffset at,
+        string? reviewResultStatus = null, RoundReviewResponseRefs? refs = null)
     {
         var content = Content(input, zone); var expected = previous?.ResultVersion ?? 0;
         var revision = new CommercialRoundPlanRevision { TenantId = plan.TenantId, LegalEntityId = plan.LegalEntityId,
             PlanId = plan.Id, SourcingEventId = plan.SourcingEventId, BranchId = plan.BranchId, PreviousRevisionId = previous?.Id,
             ExpectedVersion = expected, ResultVersion = checked(expected + 1), Operation = operation,
-            ResultStatus = operation == "Cancel" ? "Cancelled" : "Draft", ActorPrincipalId = actor.PrincipalId,
+            ResultStatus = reviewResultStatus ?? (operation == "Cancel" ? "Cancelled" : "Draft"), ActorPrincipalId = actor.PrincipalId,
             ActorWorkerAlias = actor.WorkerAlias, CompanyTimeZoneId = zone, Requirements = input.Requirements,
             ProposedPolicyReference = input.ProposedPolicyReference, DisclosureProposal = input.DisclosureProposal,
             DocumentRequirements = input.DocumentRequirements, OpensAt = input.OpensAt, ClosesAt = input.ClosesAt,
@@ -137,14 +163,21 @@ public static class CommercialRoundPlanDraft
         var participants = input.Participants.Select(x => new CommercialRoundParticipant { TenantId = plan.TenantId, LegalEntityId = plan.LegalEntityId,
             PlanId = plan.Id, RevisionId = revision.Id, LogicalId = x.LogicalId, Order = x.Order,
             PrincipalId = x.PrincipalId, Duty = x.Duty, ConflictNote = x.ConflictNote }).ToArray();
-        var response = JsonSerializer.Serialize(new { schemaVersion = 1, eventId = plan.SourcingEventId, planId = plan.Id,
-            revisionId = revision.Id, version = revision.ResultVersion, status = revision.ResultStatus, operation,
-            commandKey = key, reviewAvailable = false, publicationAvailable = false }, Json);
+        var reviewOperation = operation is "Submit" or "Return" or "Reject" or "Approve";
+        var response = reviewOperation
+            ? JsonSerializer.Serialize(new { schemaVersion = 1, eventId = plan.SourcingEventId, planId = plan.Id,
+                revisionId = revision.Id, version = revision.ResultVersion, status = revision.ResultStatus, operation,
+                commandKey = key, reviewAvailable = true, publicationAvailable = false,
+                submissionId = refs!.SubmissionId, caseId = refs.CoreCaseId,
+                assignmentId = refs.AssignmentId, decisionId = refs.DecisionId }, Json)
+            : JsonSerializer.Serialize(new { schemaVersion = 1, eventId = plan.SourcingEventId, planId = plan.Id,
+                revisionId = revision.Id, version = revision.ResultVersion, status = revision.ResultStatus, operation,
+                commandKey = key, reviewAvailable = false, publicationAvailable = false }, Json);
         var receipt = new CommercialRoundPlanReceipt { TenantId = plan.TenantId, LegalEntityId = plan.LegalEntityId,
             SourcingEventId = plan.SourcingEventId, PlanId = plan.Id, BranchId = plan.BranchId, RevisionId = revision.Id,
             ResultVersion = revision.ResultVersion, Operation = operation, ActorPrincipalId = actor.PrincipalId,
             CommandKey = key, RequestSha256 = requestSha, ResponseJson = response,
-            ResponseSha256 = ProcurementEvidenceEncoding.Digest(response), ResponseStatusCode = operation == "Create" ? 201 : 200 };
+            ResponseSha256 = ProcurementEvidenceEncoding.Digest(response), ResponseStatusCode = operation is "Create" or "Submit" ? 201 : 200 };
         return new(enrollment, plan, revision, criteria, participants, receipt);
     }
     public static void VerifyReceipt(CommercialRoundPlanReceipt receipt, CommercialRoundPlan plan, CommercialRoundPlanRevision revision)
@@ -155,15 +188,24 @@ public static class CommercialRoundPlanDraft
             || receipt.SourcingEventId != plan.SourcingEventId || receipt.BranchId != plan.BranchId
             || receipt.ResultVersion != revision.ResultVersion || receipt.Operation != revision.Operation
             || receipt.ActorPrincipalId != revision.ActorPrincipalId || receipt.ResponseSha256 != ProcurementEvidenceEncoding.Digest(receipt.ResponseJson)
-            || receipt.ResponseStatusCode != (revision.Operation == "Create" ? 201 : 200)) Fail();
+            || receipt.ResponseStatusCode != (revision.Operation is "Create" or "Submit" ? 201 : 200)) Fail();
         using var parsed = JsonDocument.Parse(receipt.ResponseJson); var root = parsed.RootElement;
-        if (root.ValueKind != JsonValueKind.Object || root.EnumerateObject().Count() != 10
-            || root.EnumerateObject().Select(x => x.Name).Distinct(StringComparer.Ordinal).Count() != 10
+        var review = revision.Operation is "Submit" or "Return" or "Reject" or "Approve";
+        var count = review ? 14 : 10;
+        if (root.ValueKind != JsonValueKind.Object || root.EnumerateObject().Count() != count
+            || root.EnumerateObject().Select(x => x.Name).Distinct(StringComparer.Ordinal).Count() != count
             || root.GetProperty("schemaVersion").GetInt32() != 1 || root.GetProperty("eventId").GetGuid() != plan.SourcingEventId
             || root.GetProperty("planId").GetGuid() != plan.Id || root.GetProperty("revisionId").GetGuid() != revision.Id
             || root.GetProperty("version").GetInt64() != revision.ResultVersion || root.GetProperty("status").GetString() != revision.ResultStatus
             || root.GetProperty("operation").GetString() != revision.Operation || root.GetProperty("commandKey").GetGuid() != receipt.CommandKey
-            || root.GetProperty("reviewAvailable").GetBoolean() || root.GetProperty("publicationAvailable").GetBoolean()) Fail();
+            || root.GetProperty("reviewAvailable").GetBoolean() != review
+            || root.GetProperty("publicationAvailable").GetBoolean()) Fail();
+        if (review && (root.GetProperty("submissionId").GetGuid() == Guid.Empty
+            || root.GetProperty("caseId").GetGuid() == Guid.Empty
+            || revision.Operation == "Submit" && (root.GetProperty("assignmentId").ValueKind != JsonValueKind.Null
+                || root.GetProperty("decisionId").ValueKind != JsonValueKind.Null)
+            || revision.Operation != "Submit" && (root.GetProperty("assignmentId").GetGuid() == Guid.Empty
+                || root.GetProperty("decisionId").GetGuid() == Guid.Empty))) Fail();
     }
     public static bool SameScope(ProcurementRecord a, ProcurementRecord b) => a.TenantId == b.TenantId && a.LegalEntityId == b.LegalEntityId;
     private static string? Exact(decimal? x) => x is null ? null : ProcurementEvidenceEncoding.Decimal(x.Value);

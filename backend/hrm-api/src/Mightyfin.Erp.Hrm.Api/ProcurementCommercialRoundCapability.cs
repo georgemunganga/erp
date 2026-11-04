@@ -26,4 +26,27 @@ internal static class ProcurementCommercialRoundCapability
             return (read, record);
         }, ct);
     }
+    internal static async Task<(bool Read, bool Record)> ReviewReadyAsync(IServiceProvider services,
+        ProcurementRequestScope scope, bool pending, CancellationToken ct)
+    {
+        var options = services.GetRequiredService<ProcurementCommercialRoundOptions>();
+        var readiness = services.GetRequiredService<IProcurementCommercialRoundReviewReadiness>();
+        if (pending || !options.ReadEnabled || !readiness.HasCapturedContract || scope.OrgUnitId is not null
+            || !services.GetRequiredService<ProcurementSourcingDraftExecutionOptions>().ExecutionDatabaseConfigured
+            || scope.PrincipalId?.ToString("D") != scope.SubjectId) return (false, false);
+        return await services.GetRequiredService<ProcurementApprovalTransaction>().ExecuteAsync(async (db, _, token) =>
+        {
+            if (!await readiness.ReadyAsync(db, false, token)) return (false, false);
+            await using var core = await ProcurementApprovalExecutionLocks.CoreAsync(db, scope, token);
+            var person = await ProcurementPrincipalPeople.Resolve(core, scope.TenantId,
+                scope.LegalEntityId, scope.SubjectId, token);
+            var read = person is not null && (person.Permissions.Contains("procurement-round-plan-review")
+                || person.Permissions.Contains("procurement-round-plan-submit"))
+                && (scope.WorkLocationId is { } branch ? person.OrganisationWide || person.AllowedBranches.Contains(branch)
+                    : person.OrganisationWide || person.AllowedBranches.Count > 0);
+            var record = read && options.RecordEnabled && options.ReviewEnabled && !scope.IsExplicitAllBranches
+                && scope.WorkLocationId is not null && await readiness.ReadyAsync(db, true, token);
+            return (read, record);
+        }, ct);
+    }
 }

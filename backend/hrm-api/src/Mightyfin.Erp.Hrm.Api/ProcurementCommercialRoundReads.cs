@@ -67,9 +67,13 @@ public static partial class ProcurementSourcingExecutionRoutes
             _ = await RoundSource(db, core, scope, http, auth, "procurement-round-plan-read", id, token);
             var receipt = await db.CommercialRoundPlanReceipts.AsNoTracking().SingleOrDefaultAsync(x =>
                 x.ActorPrincipalId == scope.SubjectId && x.CommandKey == key && x.SourcingEventId == id, token);
-            if (receipt is null) throw new Problem("RoundPlanNotFound", 404);
-            return await RoundReplay(db, scope, id, key, null, null, token) ?? throw new Problem("RoundPlanNotFound", 404);
+            if (receipt is null || !LegacyRoundRecoveryOperation(receipt.Operation))
+                throw new Problem("RoundPlanNotFound", 404);
+            return await RoundReplay(db, scope, id, key, receipt.Operation, null, token)
+                ?? throw new Problem("RoundPlanNotFound", 404);
         }, ct);
+    internal static bool LegacyRoundRecoveryOperation(string? operation) =>
+        operation is "Create" or "Revise" or "Cancel";
     private static Task<IResult> RoundRead(Guid id, HttpContext http, ProcurementRequestScope scope, CancellationToken ct)
         => RoundReadVersion(id, null, http, scope, ct);
     private static Task<IResult> RoundVersion(Guid id, long version, HttpContext http, ProcurementRequestScope scope, CancellationToken ct)
@@ -81,9 +85,10 @@ public static partial class ProcurementSourcingExecutionRoutes
             if (!await db.CommercialRoundEnrollments.AsNoTracking().AnyAsync(x => x.SourcingEventId == id, token))
             {
                 if (version is not null) throw new Problem("RoundPlanNotFound", 404);
-                var allowedActions=await RoundActions(http,db,cases,core,scope,auth,source,null,true,token);
+                var unenrolledHints=await RoundActions(http,db,cases,core,scope,auth,source,null,true,token);
                 return new(JsonSerializer.Serialize(new { enrolled = false, source = RoundSourceView(source,retained), plan = (object?)null,
-                    allowedActions,reviewAvailable = false, publicationAvailable = false }, RoundJson), 200);
+                    allowedActions=unenrolledHints.Actions, applicableReviewPolicy=(object?)null,
+                    reviewAvailable = false, publicationAvailable = false }, RoundJson), 200);
             }
             var graph = await RoundGraph(db, source, version, tracked: false, token);
             var ids = graph.Participants.Select(x => Guid.Parse(x.PrincipalId)).Append(Guid.Parse(graph.Plan.MakerPrincipalId))
@@ -91,14 +96,18 @@ public static partial class ProcurementSourcingExecutionRoutes
             var names = await core.LocalUsers.AsNoTracking().Where(x => x.TenantId == scope.TenantId && ids.Contains(x.Id))
                 .Select(x => new { x.Id, x.DisplayName }).ToArrayAsync(token);
             using var content = JsonDocument.Parse(graph.Revision.ContentJson);
-            var actions=await RoundActions(http,db,cases,core,scope,auth,source,graph.Plan,
-                ProcurementCommercialRoundActions.IsEditableRoute(version),token);
-            return new(JsonSerializer.Serialize(new { enrolled = true, source = RoundSourceView(source,retained),allowedActions=actions,
+            var hints=await RoundActions(http,db,cases,core,scope,auth,source,graph.Plan,
+                ProcurementCommercialRoundActions.IsEditableRoute(version),token,graph);
+            var reviewReadiness=http.RequestServices.GetRequiredService<IProcurementCommercialRoundReviewReadiness>();
+            var reviewReady=reviewReadiness.HasCapturedContract&&await reviewReadiness.ReadyAsync(db,false,token);
+            return new(JsonSerializer.Serialize(new { enrolled = true, source = RoundSourceView(source,retained),
+                allowedActions=hints.Actions, applicableReviewPolicy=hints.Policy,
                 plan = new { graph.Plan.Id, graph.Plan.Status, graph.Plan.Version, graph.Plan.MakerPrincipalId },
                 revision = new { graph.Revision.Id, version = graph.Revision.ResultVersion, graph.Revision.Operation,
                     status = graph.Revision.ResultStatus, graph.Revision.ActorPrincipalId, graph.Revision.RecordedAt, graph.Revision.Reason,
                     graph.Revision.ContentSha256 }, content = content.RootElement.Clone(), people = names,
-                reviewAvailable = false, publicationAvailable = false, contentIsIncompleteProposal = true }, RoundJson), 200);
+                reviewAvailable = reviewReady, publicationAvailable = false,
+                contentIsIncompleteProposal = graph.Revision.ResultStatus != "Published" }, RoundJson), 200);
         }, ct);
     private static Task<IResult> RoundHistory(Guid id, long? afterVersion, int? limit, HttpContext http, ProcurementRequestScope scope, CancellationToken ct)
         => RunRound(http, scope, async (db, cases, core, auth, token) => {
@@ -109,8 +118,20 @@ public static partial class ProcurementSourcingExecutionRoutes
             var rows = await db.CommercialRoundPlanRevisions.AsNoTracking().Where(x => x.PlanId == graph.Plan.Id
                 && x.ResultVersion > after && x.ResultVersion <= graph.Plan.Version).OrderBy(x => x.ResultVersion).Take(size + 1).ToArrayAsync(token);
             var page = rows.Take(size).ToArray();
+            var reviewReadiness=http.RequestServices.GetRequiredService<IProcurementCommercialRoundReviewReadiness>();
+            var reviewReady=reviewReadiness.HasCapturedContract&&await reviewReadiness.ReadyAsync(db,false,token);
+            var ids=page.Select(x=>x.Id).ToArray();
+            var submissions=reviewReady?await db.CommercialRoundReviewSubmissions.AsNoTracking()
+                .Where(x=>x.PlanId==graph.Plan.Id&&ids.Contains(x.SubmittedRevisionId)).ToArrayAsync(token):Array.Empty<CommercialRoundReviewSubmission>();
+            var outcomes=reviewReady?await db.CommercialRoundReviewOutcomes.AsNoTracking()
+                .Where(x=>x.PlanId==graph.Plan.Id&&ids.Contains(x.ResultRevisionId)).ToArrayAsync(token):Array.Empty<CommercialRoundReviewOutcome>();
             return new(JsonSerializer.Serialize(new { items = page.Select(x => new { x.Id, version = x.ResultVersion,
-                x.Operation, status = x.ResultStatus, x.ActorPrincipalId, x.RecordedAt, x.Reason }),
+                x.Operation, status = x.ResultStatus, x.ActorPrincipalId, x.RecordedAt, x.Reason,
+                submissionId=submissions.SingleOrDefault(s=>s.SubmittedRevisionId==x.Id)?.Id
+                    ?? outcomes.SingleOrDefault(o=>o.ResultRevisionId==x.Id)?.SubmissionId,
+                caseId=submissions.SingleOrDefault(s=>s.SubmittedRevisionId==x.Id)?.CoreCaseId
+                    ?? outcomes.SingleOrDefault(o=>o.ResultRevisionId==x.Id)?.CoreCaseId,
+                decisionId=outcomes.SingleOrDefault(o=>o.ResultRevisionId==x.Id)?.CoreDecisionId }),
                 nextVersion = rows.Length > size ? (long?)page[^1].ResultVersion : null }, RoundJson), 200);
         }, ct);
     private static Task<IResult> RoundList(int? page, HttpContext http, ProcurementRequestScope scope, CancellationToken ct)

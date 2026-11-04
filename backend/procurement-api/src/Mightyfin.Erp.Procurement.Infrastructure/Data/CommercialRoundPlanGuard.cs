@@ -15,7 +15,11 @@ public sealed partial class ProcurementDbContext
         if (change.Enrollment is { } enrollment) { AddScoped(enrollment); AddScoped(change.Plan); }
         else
         {
-            if (Entry(change.Plan).State == EntityState.Detached || change.Plan.Status != "Draft")
+            if (Entry(change.Plan).State == EntityState.Detached
+                || change.Revision.Operation is not ("Revise" or "Cancel" or "Submit" or "Return" or "Reject" or "Approve")
+                || change.Revision.Operation is ("Revise" or "Submit") && change.Plan.Status != "Draft"
+                || change.Revision.Operation == "Cancel" && change.Plan.Status is not ("Draft" or "Rejected")
+                || change.Revision.Operation is ("Return" or "Reject" or "Approve") && change.Plan.Status != "InReview")
                 throw new InvalidOperationException("RoundPlanTrackedDraftRequired");
             change.Plan.Status = change.Revision.ResultStatus;
             change.Plan.UpdatedAt = change.Revision.RecordedAt;
@@ -52,7 +56,7 @@ public sealed partial class ProcurementDbContext
                 || revision.SourcingEventId != plan.SourcingEventId || revision.BranchId != plan.BranchId
                 || receipt.ResultVersion != revision.ResultVersion || receipt.Operation != revision.Operation
                 || receipt.ResponseSha256 != ProcurementEvidenceEncoding.Digest(receipt.ResponseJson)
-                || receipt.ResponseStatusCode != (revision.Operation == "Create" ? 201 : 200)
+                || receipt.ResponseStatusCode != (revision.Operation is "Create" or "Submit" ? 201 : 200)
                 || expected.Any(x => x.TenantId != scope.TenantId || x.LegalEntityId != scope.LegalEntityId))
                 throw new InvalidOperationException("RoundPlanOwnedGraphInvalid");
             if (value.Enrollment is { } enrollment && (revision.Operation != "Create" || plan.EnrollmentId != enrollment.Id

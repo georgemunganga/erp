@@ -8,19 +8,34 @@ namespace Mightyfin.Erp.Hrm.Api;
 
 public static partial class ProcurementPolicyDraftRoutes
 {
+    internal static bool RoundPlanReviewerEligible(bool organisationWide,
+        IReadOnlySet<string> permissions) => organisationWide
+        && permissions.Contains(CommercialRoundReviewCoreWorkflow.ReviewPermission);
+
+    private static Task<IResult> RoundPlanReviewers(string? search, int? offset, int? limit,
+        string? principalIds, HttpContext http, HrmDbContext core, ProcurementDbContext db,
+        ProcurementRequestScope scope, CancellationToken ct)
+        => SourcingReviewers(search, offset, limit, principalIds, 2, "RoundPlanReview",
+            http, core, db, scope, ct);
+
     private static async Task<IResult> SourcingReviewers(string? search, int? offset, int? limit, string? principalIds,
-        int? schemaVersion,
+        int? schemaVersion, string? purpose,
         HttpContext http, HrmDbContext core, ProcurementDbContext db, ProcurementRequestScope scope, CancellationToken ct)
     {
         http.Response.Headers.CacheControl = "no-store";
         try
         {
-            if (!await ReceivingConfigurationActor(core, scope, "procurement-configuration-read", ct))
+            if (purpose is not (null or "RoundPlanReview"))
+                return Problem("sourcing-reviewer-purpose-invalid", "Choose a supported reviewer purpose.", 422);
+            var roundPurpose = purpose == "RoundPlanReview";
+            if (!(roundPurpose
+                    ? await PlanPolicyConfigurationActor(core, scope, "procurement-configuration-read", ct)
+                    : await ReceivingConfigurationActor(core, scope, "procurement-configuration-read", ct)))
                 return Problem("sourcing-configuration-unavailable", "Your current account cannot select sourcing reviewers.", 403);
             var text = (search ?? "").Trim().ToLowerInvariant();
             if (text.Length > 100)
                 return Problem("sourcing-reviewer-search-invalid", "Search by a name of up to 100 characters.", 422);
-            if (schemaVersion is not (null or 1 or 2))
+            if (roundPurpose ? schemaVersion != 2 : schemaVersion is not (null or 1 or 2))
                 return Problem("sourcing-reviewer-schema-invalid", "Choose sourcing rule schema 1 or 2.", 422);
             var skip = Math.Clamp(offset ?? 0, 0, 100000);
             var take = Math.Clamp(limit ?? 25, 1, 50);
@@ -42,12 +57,20 @@ public static partial class ProcurementPolicyDraftRoutes
             int total;
             int pageLength;
             object page;
+            Guid[] unavailablePrincipalIds = [];
             if (schemaVersion == 2)
             {
                 // Core company/branch scope is in SQL before materialization. Resolve
                 // each bounded candidate against current stored roles; an HR worker
                 // link is optional and never substitutes for the explicit grant.
-                var query = ProcurementPrincipalPeople.Candidates(core, scope, DateTimeOffset.UtcNow)
+                var lookupScope = scope;
+                if (roundPurpose)
+                {
+                    lookupScope = new ProcurementRequestScope();
+                    lookupScope.Set(scope.TenantId, scope.LegalEntityId, scope.SubjectId,
+                        null, null, false, "global-round-policy-lookup");
+                }
+                var query = ProcurementPrincipalPeople.Candidates(core, lookupScope, DateTimeOffset.UtcNow)
                     .Where(x => text == "" || x.DisplayName.ToLower().Contains(text));
                 if (selected is not null) query = query.Where(x => selected.Contains(x.Id));
                 var candidates = await query.OrderBy(x => x.DisplayName).ThenBy(x => x.Id)
@@ -59,16 +82,23 @@ public static partial class ProcurementPolicyDraftRoutes
                 {
                     var person = await ProcurementPrincipalPeople.Resolve(core, scope.TenantId,
                         scope.LegalEntityId, candidate.Id.ToString("D"), ct);
-                    if (person is not null && person.Permissions.Contains("procurement-sourcing-publish")
-                        && (scope.WorkLocationId is { } branch
-                            ? person.OrganisationWide || person.AllowedBranches.Contains(branch)
-                            : person.OrganisationWide || person.AllowedBranches.Count > 0))
+                    if (person is not null && (roundPurpose
+                            ? RoundPlanReviewerEligible(person.OrganisationWide, person.Permissions)
+                            : person.Permissions.Contains("procurement-sourcing-publish"))
+                        && (roundPurpose ? true
+                            : scope.WorkLocationId is { } branch
+                                ? person.OrganisationWide || person.AllowedBranches.Contains(branch)
+                                : person.OrganisationWide || person.AllowedBranches.Count > 0))
                         eligible.Add((candidate.Id, candidate.DisplayName, person.CoreLinkedWorkerId));
                 }
                 total = eligible.Count;
+                if (roundPurpose && selected is not null)
+                    unavailablePrincipalIds = selected.Except(eligible.Select(x => x.Id)).ToArray();
                 var result = eligible.Skip(skip).Take(take).Select(x => new
                     { principalId = x.Id.ToString("D"), x.DisplayName, x.WorkerId }).ToArray();
-                page = result;
+                page = roundPurpose
+                    ? result.Select(x => new { x.principalId, x.DisplayName }).ToArray()
+                    : result;
                 pageLength = result.Length;
             }
             else
@@ -86,8 +116,11 @@ public static partial class ProcurementPolicyDraftRoutes
             var configurationVersion = 0;
             try
             {
-                var readiness = http.RequestServices.GetService<IProcurementSourcingPolicyIdentitySchemaReadiness>();
-                if (readiness is not null && await readiness.IsReadyAsync(db, ct)) configurationVersion = 1;
+                if (!roundPurpose)
+                {
+                    var readiness = http.RequestServices.GetService<IProcurementSourcingPolicyIdentitySchemaReadiness>();
+                    if (readiness is not null && await readiness.IsReadyAsync(db, ct)) configurationVersion = 1;
+                }
             }
             catch (Exception error) when (error is not OperationCanceledException)
             {
@@ -96,6 +129,8 @@ public static partial class ProcurementPolicyDraftRoutes
             }
             return Results.Ok(new { items = page, total, offset = skip, limit = take,
                 configurationVersion,
+                purpose = roundPurpose ? "RoundPlanReview" : null,
+                unavailablePrincipalIds = roundPurpose ? unavailablePrincipalIds : null,
                 supportedSourcingRuleSchemas = SourcingPublicationPolicyRules.SupportedSchemaVersions,
                 nextOffset = pageLength > 0 && skip + pageLength < total && skip + pageLength <= 100000 ? (int?)(skip + pageLength) : null,
                 isAuthority = false });

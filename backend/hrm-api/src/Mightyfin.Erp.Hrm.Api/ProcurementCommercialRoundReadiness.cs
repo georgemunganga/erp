@@ -10,6 +10,7 @@ public sealed class ProcurementCommercialRoundOptions
 {
     public bool ReadEnabled { get; set; }
     public bool RecordEnabled { get; set; }
+    public bool ReviewEnabled { get; set; }
 }
 public interface IProcurementCommercialRoundReadiness
 {

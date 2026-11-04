@@ -1,6 +1,7 @@
 using System.Text.Json;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.EntityFrameworkCore;
+using Mightyfin.Erp.Procurement.Application;
 using Mightyfin.Erp.Core.Approvals.Infrastructure;
 using Mightyfin.Erp.Hrm.Infrastructure.Data;
 using Mightyfin.Erp.Procurement.Domain;
@@ -17,6 +18,7 @@ internal static class ProcurementCommercialRoundActions
     {
         if (!recordReady||!explicitBranch||!sourceDraft||!currentView||!untouched) return [];
         if (!enrolled) return manage&&verifiedHolds ? ["Create"] : [];
+        if (planStatus=="Rejected") return cancel ? ["Cancel"] : [];
         if (planStatus!="Draft") return [];
         var actions=new List<string>();
         if (manage&&verifiedHolds) actions.Add("Revise");
@@ -26,6 +28,7 @@ internal static class ProcurementCommercialRoundActions
 }
 public static partial class ProcurementSourcingExecutionRoutes
 {
+    internal sealed record RoundPolicyPin(Guid PolicyVersionId, int PolicyVersionNumber);
     private static object RoundSourceView(SourcingEvent source,PrincipalRetainedSource retained)
     {
         var method=retained.Snapshot.Lines.Select(x=>new {id=x.MethodId,revision=x.MethodRevision,code=x.MethodCode}).Distinct().Single();
@@ -33,17 +36,17 @@ public static partial class ProcurementSourcingExecutionRoutes
             source.Version,source.Status,method=new {method.id,method.revision,method.code,label=source.Method},
             lines=PrincipalRetainedLineViews(retained),supplierFacingWorkflowAvailable=false};
     }
-    private static async Task<string[]> RoundActions(HttpContext http,ProcurementDbContext db,ApprovalDbContext cases,
+    private static async Task<(string[] Actions, RoundPolicyPin? Policy)> RoundActions(HttpContext http,ProcurementDbContext db,ApprovalDbContext cases,
         HrmDbContext core,ProcurementRequestScope scope,IAuthorizationService auth,SourcingEvent source,
-        CommercialRoundPlan? plan,bool currentView,CancellationToken ct)
+        CommercialRoundPlan? plan,bool currentView,CancellationToken ct,RoundLoadedGraph? graph=null)
     {
         var explicitBranch=!scope.IsExplicitAllBranches&&scope.WorkLocationId is { } selected&&selected==source.BranchRef
             && !http.Request.Headers["X-Shell-Branch-Scope"].Any(x=>string.Equals(x,"all",StringComparison.OrdinalIgnoreCase));
         if (!explicitBranch||!currentView||source.Status!="Draft"
             || !http.RequestServices.GetRequiredService<ProcurementCommercialRoundOptions>().RecordEnabled
-            || !await http.RequestServices.GetRequiredService<IProcurementCommercialRoundReadiness>().ReadyAsync(db,true,ct)) return [];
+            || !await http.RequestServices.GetRequiredService<IProcurementCommercialRoundReadiness>().ReadyAsync(db,true,ct)) return ([],null);
         bool untouched=!await RoundExposedSourceIds(db).ContainsAsync(source.Id,ct);
-        if (!untouched) return [];
+        if (!untouched) return ([],null);
         async Task<bool> Allowed(string permission)
         {
             try { _=await PrincipalActor(core,scope,http,auth,permission,source.BranchRef,true,ct);return true; }
@@ -51,14 +54,41 @@ public static partial class ProcurementSourcingExecutionRoutes
         }
         var manage=await Allowed("procurement-round-plan-manage");
         var cancel=plan is not null&&await Allowed("procurement-round-plan-cancel");
+        var submit=plan?.Status=="Draft"&&await Allowed(CommercialRoundReviewCoreWorkflow.SubmitPermission);
         var held=false;
-        if (manage)
+        if (manage||submit)
         {
             try {_=await RoundVerifyHeldSource(db,cases,scope,source,ct);held=true;}
             catch(Exception error) when(IsDiscoveryEvidenceFailure(error)||error is JsonException or InvalidOperationException) { }
         }
-        return ProcurementCommercialRoundActions.ForRecord(true,explicitBranch,true,currentView,plan is not null,
-            plan?.Status,untouched,held,manage,cancel);
+        var actions=ProcurementCommercialRoundActions.ForRecord(true,explicitBranch,true,currentView,plan is not null,
+            plan?.Status,untouched,held,manage,cancel).ToList();
+        var review=http.RequestServices.GetRequiredService<IProcurementCommercialRoundReviewReadiness>();
+        var options=http.RequestServices.GetRequiredService<ProcurementCommercialRoundOptions>();
+        var reviewReady=false;
+        RoundPolicyPin? policyPin=null;
+        if(submit&&held&&options.ReviewEnabled&&review.HasCapturedContract)
+            try { reviewReady=await review.ReadyAsync(db,true,ct); }
+            catch(Exception error) when(error is not OperationCanceledException) { reviewReady=false; }
+        if(reviewReady)
+        {
+            var now=ProcurementEvidenceEncoding.DatabaseTimestamp(DateTimeOffset.UtcNow)!.Value;
+            var categories=await db.SourcingLines.AsNoTracking().Where(x=>x.SourcingEventId==source.Id&&x.Status=="Active")
+                .Select(x=>x.CategoryCode).ToArrayAsync(ct);
+            var applicable=await RoundApplicableReviewPolicy(db,scope,source,categories,now,ct);
+            if(applicable is { } selectedPolicy&& !selectedPolicy.Rules.DocumentsRequired)
+            {
+                policyPin=new(selectedPolicy.Policy.Id,selectedPolicy.Policy.PolicyVersionNumber);
+                if(graph is not null)
+                {
+                    var draft=CommercialRoundPlanDraft.Restore(graph.Revision,graph.Criteria,graph.Participants);
+                    if(RoundReviewComplete(draft,selectedPolicy.Rules,now))
+                        try { await RoundParticipants(core,scope,graph.Plan.BranchId,draft,ct);actions.Add("Submit"); }
+                        catch(Exception error) when(error is not OperationCanceledException) { }
+                }
+            }
+        }
+        return (actions.ToArray(),policyPin);
     }
     private static Task<IResult> RoundSources(int? page,int? pageSize,string? q,HttpContext http,ProcurementRequestScope scope,CancellationToken ct)
         => RunRound(http,scope,async(db,cases,core,auth,token)=> {
