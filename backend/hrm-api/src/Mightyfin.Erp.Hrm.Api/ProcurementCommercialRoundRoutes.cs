@@ -37,16 +37,21 @@ public static partial class ProcurementSourcingExecutionRoutes
         group.MapGet("/{id:guid}/round-plan/history", RoundHistory).RequireAuthorization("procurement-round-plan-read");
         group.MapGet("/{id:guid}/round-plan/versions/{version:long}", RoundVersion).RequireAuthorization("procurement-round-plan-read");
         group.MapGet("/{id:guid}/round-plan/commands/{key:guid}", RoundRecover).RequireAuthorization("procurement-round-plan-read");
+        group.MapGet("/round-plan/review-tasks", RoundReviewTasks)
+            .RequireAuthorization(CommercialRoundReviewCoreWorkflow.ReviewPermission);
+        group.MapGet("/{id:guid}/round-plan/reviews/{submissionId:guid}", RoundReviewDetail)
+            .RequireAuthorization(CommercialRoundReviewCoreWorkflow.ReviewPermission);
+        group.MapGet("/{id:guid}/round-plan/review-commands/{key:guid}", RoundReviewRecover)
+            .RequireAuthorization("procurement-access");
         group.MapPost("/{id:guid}/round-plan", RoundCreate).RequireAuthorization("procurement-round-plan-read");
         group.MapPost("/{id:guid}/round-plan/revise", (Guid id, JsonElement body, HttpContext http, ProcurementRequestScope scope, CancellationToken ct)
             => RoundChange(id, body, "Revise", http, scope, ct)).RequireAuthorization("procurement-round-plan-read");
         group.MapPost("/{id:guid}/round-plan/cancel", (Guid id, JsonElement body, HttpContext http, ProcurementRequestScope scope, CancellationToken ct)
             => RoundChange(id, body, "Cancel", http, scope, ct)).RequireAuthorization("procurement-round-plan-read");
-        foreach (var operation in new[] { "submit", "decisions" })
-            group.MapPost("/{id:guid}/round-plan/" + operation, (HttpContext http) => {
-                http.Response.Headers.CacheControl = "private, no-store";
-                return Error("RoundPlanReviewUnavailable", 503);
-            }).RequireAuthorization("procurement-round-plan-read");
+        group.MapPost("/{id:guid}/round-plan/submit", RoundSubmit)
+            .RequireAuthorization(CommercialRoundReviewCoreWorkflow.SubmitPermission);
+        group.MapPost("/{id:guid}/round-plan/decisions", RoundDecide)
+            .RequireAuthorization(CommercialRoundReviewCoreWorkflow.ReviewPermission);
     }
     internal static bool RoundPlanAllReadPath(PathString path, string method)
     {
@@ -56,13 +61,19 @@ public static partial class ProcurementSourcingExecutionRoutes
             || !p[1].Equals("procurement", StringComparison.OrdinalIgnoreCase) || !p[2].Equals("v1", StringComparison.OrdinalIgnoreCase)
             || !p[3].Equals("sourcing", StringComparison.OrdinalIgnoreCase)) return false;
         if (p.Length == 5) return p[4].Equals("round-plans", StringComparison.OrdinalIgnoreCase) || p[4].Equals("round-plan-sources", StringComparison.OrdinalIgnoreCase);
+        if (p.Length == 6 && p[4].Equals("round-plan", StringComparison.OrdinalIgnoreCase)
+            && p[5].Equals("review-tasks", StringComparison.OrdinalIgnoreCase)) return true;
+        if (p.Length < 6) return false;
         if (!Guid.TryParseExact(p[4], "D", out var id) || id == Guid.Empty || !p[5].Equals("round-plan", StringComparison.OrdinalIgnoreCase)) return false;
         return p.Length == 6 || p.Length == 7 && (p[6].Equals("history", StringComparison.OrdinalIgnoreCase) || p[6].Equals("people", StringComparison.OrdinalIgnoreCase))
             || p.Length == 8 && p[6].Equals("versions", StringComparison.OrdinalIgnoreCase) && long.TryParse(p[7], out var version) && version > 0
-            || p.Length == 8 && p[6].Equals("commands", StringComparison.OrdinalIgnoreCase) && Guid.TryParseExact(p[7], "D", out var key) && key != Guid.Empty;
+            || p.Length == 8 && p[6].Equals("commands", StringComparison.OrdinalIgnoreCase) && Guid.TryParseExact(p[7], "D", out var key) && key != Guid.Empty
+            || p.Length == 8 && p[6].Equals("reviews", StringComparison.OrdinalIgnoreCase) && Guid.TryParseExact(p[7], "D", out var submission) && submission != Guid.Empty
+            || p.Length == 8 && p[6].Equals("review-commands", StringComparison.OrdinalIgnoreCase) && Guid.TryParseExact(p[7], "D", out var reviewKey) && reviewKey != Guid.Empty;
     }
     private static async Task<IResult> RunRound(HttpContext http, ProcurementRequestScope scope,
-        Func<ProcurementDbContext, ApprovalDbContext, HrmDbContext, IAuthorizationService, CancellationToken, Task<Reply>> action, CancellationToken ct)
+        Func<ProcurementDbContext, ApprovalDbContext, HrmDbContext, IAuthorizationService, CancellationToken, Task<Reply>> action,
+        CancellationToken ct, string entryPermission = "procurement-round-plan-read")
     {
         http.Response.Headers.CacheControl = "private, no-store";
         try
@@ -75,7 +86,7 @@ public static partial class ProcurementSourcingExecutionRoutes
                 if (!await readiness.ReadyAsync(db, false, token)) throw new Problem("RoundPlanHistoryUnavailable", 503);
                 await using var core = await ProcurementApprovalExecutionLocks.CoreAsync(db, scope, token);
                 var auth = services.GetRequiredService<IAuthorizationService>();
-                _ = await PrincipalActor(core, scope, http, auth, "procurement-round-plan-read", null, false, token);
+                _ = await PrincipalActor(core, scope, http, auth, entryPermission, null, false, token);
                 return await action(db, cases, core, auth, token);
             }, ct);
             return Results.Content(result.Body, "application/json", statusCode: result.Status);

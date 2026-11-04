@@ -68,6 +68,7 @@ public static class ProcurementHostIntegration
         services.AddScoped<IProcurementManualQuotationReadiness, ProcurementManualQuotationSchemaReadiness>();
         services.AddSingleton(configuration.GetSection("Procurement:CommercialRoundPlan").Get<ProcurementCommercialRoundOptions>() ?? new());
         services.AddScoped<IProcurementCommercialRoundReadiness, ProcurementCommercialRoundReadiness>();
+        services.AddScoped<IProcurementCommercialRoundReviewReadiness, ProcurementCommercialRoundReviewReadiness>();
         services.AddSingleton(configuration.GetSection("Procurement:SourcingPublication")
             .Get<ProcurementPrincipalSourcingPublicationOptions>() ?? new());
         services.AddScoped<IProcurementPrincipalSourcingPublicationReadiness,
@@ -250,6 +251,7 @@ public static class ProcurementHostIntegration
                     principalSourcingPublicationRead, sourcingSourceDrafts,
                     publicationOptions is { Enabled: true }, publicationApprovalStoreReady);
                 var roundPlan = await ProcurementCommercialRoundCapability.ReadyAsync(services, scope, pending, ct);
+                var roundReview = await ProcurementCommercialRoundCapability.ReviewReadyAsync(services, scope, pending, ct);
                 return Results.Ok(new
                 {
                     module = "procurement",
@@ -286,6 +288,8 @@ public static class ProcurementHostIntegration
                         principalSourcingPublicationRead,
                         roundPlanRead = roundPlan.Read,
                         roundPlanRecord = roundPlan.Record,
+                        roundPlanReviewRead = roundReview.Read,
+                        roundPlanReviewWorkflow = roundReview.Record,
                         // Capability describes configured availability; each command still
                         // checks current identity, record scope, policy, authority and Finance.
                         budgetEvidence = financeCheckerReads,

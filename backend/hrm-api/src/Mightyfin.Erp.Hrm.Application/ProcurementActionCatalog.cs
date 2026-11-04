@@ -191,8 +191,8 @@ public static class ProcurementActionCatalog
         if (key == "procurement-sourcing-contact") return "Record outside supplier contact";
         if (key == "procurement-round-plan-read") return "View commercial round plans";
         if (key == "procurement-round-plan-manage") return "Create and revise commercial round drafts";
-        if (key == "procurement-round-plan-submit") return "Submit commercial round plans (unavailable)";
-        if (key == "procurement-round-plan-review") return "Review commercial round plans (unavailable)";
+        if (key == "procurement-round-plan-submit") return "Send an internal quote plan for review";
+        if (key == "procurement-round-plan-review") return "Review an assigned internal quote plan";
         if (key == "procurement-round-plan-cancel") return "Cancel commercial round drafts";
         if (key == "procurement-quotation-read") return "View buyer-entered quotations";
         if (key == "procurement-quotation-capture") return "Create and revise quotation drafts";

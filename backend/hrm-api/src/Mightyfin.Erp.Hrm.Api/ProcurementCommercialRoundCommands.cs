@@ -55,7 +55,10 @@ public static partial class ProcurementSourcingExecutionRoutes
             if (source.Status != "Draft" || source.Version != input.ExpectedEventVersion) throw new Problem("RoundPlanSourceChanged", 409);
             await RequireRoundUntouched(db, id, token);
             var graph = await RoundGraph(db, source, null, tracked: true, token);
-            if (graph.Plan.Version != input.ExpectedPlanVersion || graph.Plan.Status != "Draft") throw new Problem("RoundPlanVersionChanged", 409);
+            if (graph.Plan.Version != input.ExpectedPlanVersion
+                || operation == "Revise" && graph.Plan.Status != "Draft"
+                || operation == "Cancel" && graph.Plan.Status is not ("Draft" or "Rejected"))
+                throw new Problem("RoundPlanVersionChanged", 409);
             if (operation == "Revise") _ = await RoundVerifyHeldSource(db, cases, scope, source, token);
             if (input.Draft is not null) await RoundParticipants(core, scope, source.BranchRef!.Value, input.Draft, token);
             var draft = input.Draft ?? CommercialRoundPlanDraft.Restore(graph.Revision, graph.Criteria, graph.Participants);

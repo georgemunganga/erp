@@ -1,6 +1,7 @@
 using System.Text.Json;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.EntityFrameworkCore;
+using Mightyfin.Erp.Procurement.Application;
 using Mightyfin.Erp.Core.Approvals.Infrastructure;
 using Mightyfin.Erp.Hrm.Infrastructure.Data;
 using Mightyfin.Erp.Procurement.Domain;
@@ -17,6 +18,7 @@ internal static class ProcurementCommercialRoundActions
     {
         if (!recordReady||!explicitBranch||!sourceDraft||!currentView||!untouched) return [];
         if (!enrolled) return manage&&verifiedHolds ? ["Create"] : [];
+        if (planStatus=="Rejected") return cancel ? ["Cancel"] : [];
         if (planStatus!="Draft") return [];
         var actions=new List<string>();
         if (manage&&verifiedHolds) actions.Add("Revise");
@@ -51,14 +53,38 @@ public static partial class ProcurementSourcingExecutionRoutes
         }
         var manage=await Allowed("procurement-round-plan-manage");
         var cancel=plan is not null&&await Allowed("procurement-round-plan-cancel");
+        var submit=plan?.Status=="Draft"&&await Allowed(CommercialRoundReviewCoreWorkflow.SubmitPermission);
         var held=false;
-        if (manage)
+        if (manage||submit)
         {
             try {_=await RoundVerifyHeldSource(db,cases,scope,source,ct);held=true;}
             catch(Exception error) when(IsDiscoveryEvidenceFailure(error)||error is JsonException or InvalidOperationException) { }
         }
-        return ProcurementCommercialRoundActions.ForRecord(true,explicitBranch,true,currentView,plan is not null,
-            plan?.Status,untouched,held,manage,cancel);
+        var actions=ProcurementCommercialRoundActions.ForRecord(true,explicitBranch,true,currentView,plan is not null,
+            plan?.Status,untouched,held,manage,cancel).ToList();
+        var review=http.RequestServices.GetRequiredService<IProcurementCommercialRoundReviewReadiness>();
+        var options=http.RequestServices.GetRequiredService<ProcurementCommercialRoundOptions>();
+        var reviewReady=false;
+        if(submit&&held&&options.ReviewEnabled&&review.HasCapturedContract)
+            try { reviewReady=await review.ReadyAsync(db,true,ct); }
+            catch(Exception error) when(error is not OperationCanceledException) { reviewReady=false; }
+        if(reviewReady)
+        {
+            var now=DateTimeOffset.UtcNow;
+            var categories=await db.SourcingLines.AsNoTracking().Where(x=>x.SourcingEventId==source.Id&&x.Status=="Active")
+                .Select(x=>x.CategoryCode).ToArrayAsync(ct);
+            var policies=await db.PolicyVersions.AsNoTracking().Where(x=>x.TenantId==scope.TenantId
+                &&x.LegalEntityId==scope.LegalEntityId&&x.PolicyKey==CommercialRoundReviewPolicyRules.PolicyKey
+                &&x.State=="Published"&&x.EffectiveFrom<=now&&(x.EffectiveTo==null||x.EffectiveTo>now))
+                .ToArrayAsync(ct);
+            var applicable=policies.Count(policy=>CommercialRoundReviewPolicyRules.Read(policy.RulesJson) is { DocumentsRequired:false } rules
+                &&source.MethodId is { } methodId&&rules.MethodIds.Contains(methodId)&&categories.Length>0
+                &&categories.All(category=>!string.IsNullOrWhiteSpace(category)
+                    &&(rules.CategoryCodes.Contains("*")||rules.CategoryCodes.Contains(category))));
+            if(applicable==1)
+                actions.Add("Submit");
+        }
+        return actions.ToArray();
     }
     private static Task<IResult> RoundSources(int? page,int? pageSize,string? q,HttpContext http,ProcurementRequestScope scope,CancellationToken ct)
         => RunRound(http,scope,async(db,cases,core,auth,token)=> {
