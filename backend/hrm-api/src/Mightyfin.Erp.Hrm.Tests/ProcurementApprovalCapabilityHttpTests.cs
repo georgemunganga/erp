@@ -127,6 +127,7 @@ public sealed class ProcurementApprovalCapabilityHttpTests
     private sealed class UnavailableRoundReadiness : IProcurementCommercialRoundReadiness
     {
         public bool HasCapturedContract => false;
+        public Task<bool> BarrierReadyAsync(ProcurementDbContext db, CancellationToken ct) => Task.FromResult(false);
         public Task<bool> ReadyAsync(ProcurementDbContext db, bool record, CancellationToken ct) => Task.FromResult(false);
     }
 
