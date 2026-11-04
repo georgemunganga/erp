@@ -26,6 +26,8 @@ public sealed class CommercialRoundReviewWorkflowTests
         Assert.Null(CommercialRoundReviewPolicyRules.Read(Rules.Replace(Reviewer.ToString("D"), Maker.ToString("D"))
             .Replace("\"minimumCriteria\":1,", "")));
         Assert.Null(CommercialRoundReviewPolicyRules.Read(Rules.Replace("\"requiredApprovals\":1", "\"requiredApprovals\":0")));
+        Assert.Null(CommercialRoundReviewPolicyRules.Read(Rules.Replace("\"currencyCodes\":[\"ZMW\"]", "\"currencyCodes\":[]")));
+        Assert.Null(CommercialRoundReviewPolicyRules.Read(Rules.Replace("\"requiredParticipantDuties\":[\"Planner\"]", "\"requiredParticipantDuties\":[]")));
     }
 
     [Fact]
