@@ -1,3 +1,4 @@
+using Mightyfin.Erp.Core.Workflows.Application;
 using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.EntityFrameworkCore;
@@ -20,6 +21,7 @@ public static class ProcurementHostIntegration
 
     public static void AddServices(IServiceCollection services, string connection, IConfiguration configuration)
     {
+        services.AddSingleton<IWorkflowConfigurationProvider, ProcurementWorkflowConfigurationProvider>();
         services.AddScoped<ProcurementRequestScope>();
         services.AddSingleton<IProcurementSpendingAuthorityIdentitySchemaReadiness, ProcurementSpendingAuthorityIdentitySchemaReadiness>();
         services.AddSingleton<IProcurementOperationalPolicyIdentitySchemaReadiness, ProcurementOperationalPolicyIdentitySchemaReadiness>();

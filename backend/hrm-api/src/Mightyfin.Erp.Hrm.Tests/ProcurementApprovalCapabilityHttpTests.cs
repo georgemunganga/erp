@@ -76,6 +76,13 @@ public sealed class ProcurementApprovalCapabilityHttpTests
         builder.Services.AddDbContext<ProcurementDbContext>(o => { o.UseSqlite(connection); SyntheticProcurementMetadataModel.Configure(o, scenario); });
         builder.Services.AddSingleton(options);
         builder.Services.AddSingleton(new ProcurementOrderExecutionOptions());
+        // This approval-only fixture owns migration history, not plan tables.
+        // Register the separately introduced plan adapter explicitly as unavailable.
+        builder.Services.AddSingleton(new ProcurementPlanReviewOptions());
+        builder.Services.AddSingleton<IProcurementPlanReviewReadiness, UnavailablePlanReadiness>();
+        builder.Services.AddSingleton(new ProcurementCommercialRoundOptions());
+        builder.Services.AddSingleton<IProcurementCommercialRoundReadiness, UnavailableRoundReadiness>();
+        builder.Services.AddSingleton<IProcurementCommercialRoundReviewReadiness, UnavailableRoundReadiness>();
         builder.Services.AddSingleton<IProcurementApprovalSchemaReadiness>(readiness);
         builder.Services.AddSingleton(new ProcurementReceivingExecutionOptions());
         builder.Services.AddSingleton(new ProcurementSourcingDraftExecutionOptions());
@@ -115,8 +122,26 @@ public sealed class ProcurementApprovalCapabilityHttpTests
         var body = await response.Content.ReadFromJsonAsync<JsonElement>();
         Assert.Equal(expected, body.GetProperty("capabilities").GetProperty("approvals").GetBoolean());
         Assert.False(body.GetProperty("capabilities").GetProperty("manualPaymentWorkflow").GetBoolean());
+        Assert.False(body.GetProperty("capabilities").GetProperty("planningDraft").GetBoolean());
+        Assert.False(body.GetProperty("capabilities").GetProperty("planReviewWorkflow").GetBoolean());
+        Assert.False(body.GetProperty("capabilities").GetProperty("roundPlanRead").GetBoolean());
+        Assert.False(body.GetProperty("capabilities").GetProperty("roundPlanReviewWorkflow").GetBoolean());
         Assert.Equal(scenario is not ("pending-procurement-schema" or "pending-model"), body.GetProperty("schemaReady").GetBoolean());
         Assert.Equal(expected || scenario == "schema-not-ready" ? 1 : 0, readiness.Calls);
+    }
+
+    private sealed class UnavailableRoundReadiness : IProcurementCommercialRoundReadiness, IProcurementCommercialRoundReviewReadiness
+    {
+        public bool HasCapturedContract => false;
+        public Task<bool> ReadyAsync(ProcurementDbContext db, bool record, CancellationToken ct) => Task.FromResult(false);
+        public Task<bool> BarrierReadyAsync(ProcurementDbContext db, CancellationToken ct) => Task.FromResult(false);
+    }
+
+    private sealed class UnavailablePlanReadiness : IProcurementPlanReviewReadiness
+    {
+        public Task<bool> CanReadPlanAsync(ProcurementDbContext db, CancellationToken ct) => Task.FromResult(false);
+        public Task<bool> CanReadReviewAsync(ProcurementDbContext db, CancellationToken ct) => Task.FromResult(false);
+        public Task<bool> IsReadyAsync(CancellationToken ct) => Task.FromResult(false);
     }
 
     private sealed class Readiness(bool ready) : IProcurementApprovalSchemaReadiness

@@ -1,6 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk.Web">
 
   <ItemGroup>
+    <ProjectReference Include="../../../core-api/src/Mightyfin.Erp.Core.Workflows.Application/Mightyfin.Erp.Core.Workflows.Application.csproj" />
     <ProjectReference Include="..\Mightyfin.Erp.Hrm.Infrastructure\Mightyfin.Erp.Hrm.Infrastructure.csproj" />
     <ProjectReference Include="..\Mightyfin.Erp.Hrm.Application\Mightyfin.Erp.Hrm.Application.csproj" />
     <ProjectReference Include="..\..\..\procurement-api\src\Mightyfin.Erp.Procurement.Infrastructure\Mightyfin.Erp.Procurement.Infrastructure.csproj" />

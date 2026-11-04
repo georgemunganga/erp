@@ -459,6 +459,7 @@ Routes.HrmPrefix = "/api/hrm"; // legacy prefix, kept for existing clients
 Routes.RegisterAll(app);
 Mightyfin.Erp.Hrm.Api.CoreWorkspaceContextRoutes.MapRoutes(app);
 Mightyfin.Erp.Hrm.Api.CoreRolePermissionCatalogRoutes.MapRoutes(app);
+Mightyfin.Erp.Hrm.Api.CoreWorkflowConfigurationRoutes.MapRoutes(app);
 Mightyfin.Erp.Hrm.Api.CoreCurrencyPrecisionRoutes.MapRoutes(app);
 if (!string.IsNullOrWhiteSpace(procurementConnStr))
     Mightyfin.Erp.Hrm.Api.ProcurementHostIntegration.MapRoutes(app);
