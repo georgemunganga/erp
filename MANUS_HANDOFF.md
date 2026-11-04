@@ -1,3 +1,13 @@
+# Latest published checkpoint — Procurement, 4 November 2026
+
+Fetch ERP main `ae32466e2959b79e62ae1d0a3b457c58110389ae` (PR197) and UI main `2b3357d2de3c383ea2926264abc701b1564a5895` (PR108/109), or reviewed descendants. These supersede earlier prerequisite pins below. Latest UI company-context/settings fixes are deployed; API stays on the separately qualified c93/M2 image with239 tables. Held B1c prevents wholesale main deployment.
+
+**Manus issue196 pickup:** M3 pure source/capacity foundation and the28-section PROC-PAY-03 contract are now merged, freeing those files for the next reviewed implementation. Read the [remaining milestone register](docs/procurement/gap-closure/REMAINING-MODULE-ROADMAP-20261104.md), including before-allocation invoice capacity and complete-history/version requirements. Implement M3b/c/d/e with genuine migration, existing Core/payment controls and original UI; no fake invoice, ledger, invented authority or production activation. Root retains production/native credentials and rollout. No Manus acknowledgment/start is inferred.
+
+[Actual source, deployed UI, owner draft-CRUD and evidence limitations](docs/procurement/gap-closure/OWNER-CRUD-AND-COMPANY-CONTEXT-20261104.md).2,065 foundation Procurement tests and actual bounded owner-cookie/native checks do not mean the full module or PO advance workflow is complete. Actual company policies and final UAT remain open in issues145/190/192/196. Historical checkpoints below do not override this entry.
+
+---
+
 # Procurement current handoff — 4 November 2026
 
 **Latest deployed release — Core directory + M2 request routing:** source prerequisites ERP main `b291b64e790707ff259f0d65d6330a0f6a522186` (PR193/194) and UI main `0b1143a31fcdf3bc12d9e558f79614e08bc280b4` (PR107). Actual API is c93 backport runtime30bba4c4, verified descendant `e340a6f46ada8b2402b04eea8a7734c67004f348`, image `3da35edf636057662ef30918399397e4a82fc928878fe23ec471a7f08b20293f`, preserving production239 and prior business flags. Core workflow directory and original Procurement Buying rules with named person/role routing are live. Backport2,028 Procurement +49 Host tests, both frontend builds, exact266 public files and17 actual anonymous Chromium pages passed. [Production receipt, failed attempts and rollback](docs/procurement/gap-closure/CORE-REQUEST-ROUTING-PRODUCTION-20261104.md); [actual company setup/UAT checklist](docs/procurement/operations/COMPANY-APPROVAL-SETUP-AND-UAT.md). Earlier unchanged-deployment statements below are historical. No source-only feature is presented as live; no company UAT/financial activation is claimed.
