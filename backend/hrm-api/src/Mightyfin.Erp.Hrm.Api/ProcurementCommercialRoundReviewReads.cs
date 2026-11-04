@@ -7,6 +7,27 @@ namespace Mightyfin.Erp.Hrm.Api;
 
 public static partial class ProcurementSourcingExecutionRoutes
 {
+    private static Task<IResult> RoundSubmitContext(Guid id, HttpContext http,
+        ProcurementRequestScope scope, CancellationToken ct)
+        => RunRound(http, scope, async (db, cases, core, auth, token) =>
+        {
+            if (scope.IsExplicitAllBranches || scope.WorkLocationId is null
+                || http.Request.Headers["X-Shell-Branch-Scope"].Any(x =>
+                    string.Equals(x, "all", StringComparison.OrdinalIgnoreCase)))
+                throw new UnauthorizedAccessException("Select the round's current branch.");
+            var source = await RoundSource(db, core, scope, http, auth,
+                CommercialRoundReviewCoreWorkflow.SubmitPermission, id, token);
+            if (scope.WorkLocationId != source.BranchRef)
+                throw new UnauthorizedAccessException("Select the round's current branch.");
+            var graph = await RoundGraph(db, source, null, tracked: false, token);
+            var hints = await RoundActions(http, db, cases, core, scope, auth,
+                source, graph.Plan, true, token);
+            return new(JsonSerializer.Serialize(new { eventId = id, eventVersion = source.Version,
+                planId = graph.Plan.Id, planVersion = graph.Plan.Version, status = graph.Plan.Status,
+                revisionId = graph.Revision.Id, contentSha256 = graph.Revision.ContentSha256,
+                allowedActions = hints.Actions, applicableReviewPolicy = hints.Policy }, RoundJson));
+        }, ct, CommercialRoundReviewCoreWorkflow.SubmitPermission);
+
     private static Task<IResult> RoundReviewTasks(Guid? after, int? limit, HttpContext http, ProcurementRequestScope scope,
         CancellationToken ct) => RunRound(http, scope, async (db, cases, core, auth, token) =>
     {

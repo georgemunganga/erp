@@ -128,6 +128,7 @@ public sealed class ProcurementCommercialRoundContractTests
     [InlineData("/api/procurement/v1/sourcing/round-plan/review-tasks","GET",true)]
     [InlineData("/api/procurement/v1/sourcing/11111111-1111-1111-1111-111111111111/round-plan/reviews/22222222-2222-2222-2222-222222222222","GET",true)]
     [InlineData("/api/procurement/v1/sourcing/11111111-1111-1111-1111-111111111111/round-plan/review-commands/22222222-2222-2222-2222-222222222222","GET",true)]
+    [InlineData("/api/procurement/v1/sourcing/11111111-1111-1111-1111-111111111111/round-plan/submit-context","GET",false)]
     [InlineData("/api/procurement/v1/sourcing/round-plans","POST",false)]
     [InlineData("/api/procurement/v1/sourcing/11111111-1111-1111-1111-111111111111/round-plan/revise","POST",false)]
     [InlineData("/api/procurement/v1/sourcing/11111111-1111-1111-1111-111111111111/round-plan/decisions","POST",false)]

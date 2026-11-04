@@ -41,6 +41,8 @@ public static partial class ProcurementSourcingExecutionRoutes
             .RequireAuthorization(CommercialRoundReviewCoreWorkflow.ReviewPermission);
         group.MapGet("/{id:guid}/round-plan/reviews/{submissionId:guid}", RoundReviewDetail)
             .RequireAuthorization(CommercialRoundReviewCoreWorkflow.ReviewPermission);
+        group.MapGet("/{id:guid}/round-plan/submit-context", RoundSubmitContext)
+            .RequireAuthorization(CommercialRoundReviewCoreWorkflow.SubmitPermission);
         group.MapGet("/{id:guid}/round-plan/review-commands/{key:guid}", RoundReviewRecover)
             .RequireAuthorization("procurement-access");
         group.MapPost("/{id:guid}/round-plan", RoundCreate).RequireAuthorization("procurement-round-plan-read");
