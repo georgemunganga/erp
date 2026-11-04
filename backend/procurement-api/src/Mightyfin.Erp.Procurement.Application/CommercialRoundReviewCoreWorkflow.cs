@@ -115,6 +115,24 @@ public static class CommercialRoundReviewCoreWorkflow
         && person.LegalEntityId == plan.LegalEntityId
         && person.Permissions.Contains("procurement-access") && person.Permissions.Contains(action)
         && (person.OrganisationWide || person.Branches.Contains(plan.BranchId));
+    public static bool PendingTask(ApprovalCase approvalCase, ApprovalStage stage,
+        ApprovalAssignment assignment, CommercialRoundReviewSubmission round,
+        CommercialRoundPlan plan, long latestSubmittedVersion) =>
+        approvalCase.State == "Pending" && stage.State == "Active"
+        && stage.Code == "RoundPlanReview" && stage.Sequence == 1
+        && assignment.State == "Pending" && assignment.PermissionKey == ReviewPermission
+        && assignment.DelegatedFromSubjectId is null
+        && stage.CaseId == approvalCase.Id && assignment.CaseId == approvalCase.Id
+        && assignment.StageId == stage.Id && approvalCase.Id == round.CoreCaseId
+        && approvalCase.TenantId == round.TenantId && approvalCase.LegalEntityId == round.LegalEntityId
+        && approvalCase.SourceModule == "procurement" && approvalCase.SourceType == SourceType
+        && approvalCase.SourceId == plan.Id && approvalCase.SourceVersion == round.SubmittedPlanVersion
+        && approvalCase.PolicyVersionId == round.PolicyVersionId
+        && approvalCase.PolicyVersionNumber == round.PolicyVersionNumber
+        && plan.TenantId == round.TenantId && plan.LegalEntityId == round.LegalEntityId
+        && plan.SourcingEventId == round.SourcingEventId && plan.BranchId == round.BranchId
+        && plan.Status == "InReview" && plan.Version >= round.SubmittedPlanVersion
+        && round.SubmittedPlanVersion == latestSubmittedVersion;
     private static bool Independent(PlanReviewPrincipal reviewer, RoundPlanActor other) =>
         reviewer.Id.ToString("D") != other.PrincipalId
         && (reviewer.LinkedWorkerId is null || other.WorkerAlias is null

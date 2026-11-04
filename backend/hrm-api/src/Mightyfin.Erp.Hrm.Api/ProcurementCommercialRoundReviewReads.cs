@@ -27,8 +27,20 @@ public static partial class ProcurementSourcingExecutionRoutes
             query=query.Where(x=>EF.Functions.GreaterThan(ValueTuple.Create(x.Id),ValueTuple.Create(cursor)));
         var pending = await query.OrderBy(x => x.Id).Take(201).ToArrayAsync(token);
         var caseIds = pending.Select(x => x.CaseId).Distinct().ToArray();
+        var activeCases = await cases.Cases.AsNoTracking()
+            .Where(x => caseIds.Contains(x.Id) && x.State == "Pending")
+            .ToArrayAsync(token);
+        var activeStages = await cases.Stages.AsNoTracking()
+            .Where(x => caseIds.Contains(x.CaseId) && x.State == "Active" && x.Code == "RoundPlanReview")
+            .ToArrayAsync(token);
         var rounds = await db.CommercialRoundReviewSubmissions.AsNoTracking()
             .Where(x => caseIds.Contains(x.CoreCaseId)).ToArrayAsync(token);
+        var planIds = rounds.Select(x => x.PlanId).Distinct().ToArray();
+        var newest = await db.CommercialRoundReviewSubmissions.AsNoTracking()
+            .Where(x => planIds.Contains(x.PlanId))
+            .GroupBy(x => x.PlanId)
+            .Select(group => new { PlanId = group.Key, Version = group.Max(x => x.SubmittedPlanVersion) })
+            .ToArrayAsync(token);
         var items = new List<object>();
         Guid? scanned=null;
         foreach (var task in pending.Take(200))
@@ -41,7 +53,12 @@ public static partial class ProcurementSourcingExecutionRoutes
             var plan = await db.CommercialRoundPlans.AsNoTracking().SingleOrDefaultAsync(x =>
                 x.Id == round.PlanId && x.SourcingEventId == round.SourcingEventId
                 && x.BranchId == round.BranchId, token);
-            if (plan is null || plan.Status != "InReview") continue;
+            var approvalCase = activeCases.SingleOrDefault(x => x.Id == task.CaseId);
+            var stage = activeStages.SingleOrDefault(x => x.Id == task.StageId);
+            var latest = newest.SingleOrDefault(x => x.PlanId == round.PlanId);
+            if (plan is null || approvalCase is null || stage is null || latest is null
+                || !CommercialRoundReviewCoreWorkflow.PendingTask(approvalCase, stage,
+                    task, round, plan, latest.Version)) continue;
             items.Add(new { eventId = round.SourcingEventId, planId = plan.Id,
                 submissionId = round.Id, caseId = round.CoreCaseId,
                 assignmentId = task.Id, submittedVersion = round.SubmittedPlanVersion,

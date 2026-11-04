@@ -112,6 +112,9 @@ public sealed class CommercialRoundReviewWorkflowTests
             round, policy, rules, maker, [reviewer], new(Maker.ToString("D"), null),
             new(Maker.ToString("D"), null), At.AddMinutes(1));
         var assignment = Assert.Single(Assert.Single(approvalCase.Stages).Assignments);
+        first.Plan.Version = 2;
+        Assert.True(CommercialRoundReviewCoreWorkflow.PendingTask(approvalCase,
+            Assert.Single(approvalCase.Stages), assignment, round, first.Plan, 2));
         var decisions = new List<ApprovalDecision>();
         var result = CommercialRoundReviewCoreWorkflow.Decide(first.Plan, round, approvalCase,
             assignment, reviewer, new(Maker.ToString("D"), null), new(Maker.ToString("D"), null),
@@ -123,6 +126,16 @@ public sealed class CommercialRoundReviewWorkflowTests
             round, approvalCase, assignment, maker, new(Maker.ToString("D"), null),
             new(Maker.ToString("D"), null), "Approve", Guid.NewGuid().ToString("D"), null,
             decisions, At.AddMinutes(3)));
+        // A returned case may leave another assignment Pending in Core; a later
+        // resubmission must not turn that historical assignment into a task.
+        approvalCase.State = "Pending"; Assert.Single(approvalCase.Stages).State = "Active";
+        assignment.State = "Pending";
+        first.Plan.Status = "InReview"; first.Plan.Version = 4;
+        Assert.False(CommercialRoundReviewCoreWorkflow.PendingTask(approvalCase,
+            Assert.Single(approvalCase.Stages), assignment, round, first.Plan, 4));
+        approvalCase.State = "Returned"; first.Plan.Version = 2;
+        Assert.False(CommercialRoundReviewCoreWorkflow.PendingTask(approvalCase,
+            Assert.Single(approvalCase.Stages), assignment, round, first.Plan, 2));
     }
 
     [Fact]
