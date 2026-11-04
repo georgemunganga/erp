@@ -4,7 +4,15 @@
 
 The audit preserves the imported Procurement UI and shared ERP components. Core owns organisation/company, identity, role grants, record scope, branding and shared platform configuration. A permitted Core user need not be an employee. The organisation is the legal entity and its selected currency is the default; test policy amounts are not approved Amizo purchasing thresholds. Finance owns the ledger and payment execution; its absence does not prevent separately governed manual payment recording.
 
-## Current source, private acceptance and production boundary — 3 November 2026
+## Current source, private acceptance and production boundary — 4 November 2026
+
+The last published ERP main inspected for this checkpoint is `556fbee2f8253f9803e627c70088421f81f4392e`. B1's genuine migration/private acceptance/paired production technical release supersede the old PR165 source-only/not-run status; see [B1 production release](M7B1-PAIRED-PRODUCTION-RELEASE-20261103.md) and [exact restored-CHECK successor evidence](B1-RESTORE-CHECK-COMPATIBILITY-20261103.md). The retained16:23/payment snapshot below is not the current whole-module milestone status.
+
+Plan issue169 / draft PR171 executable candidate **c93e8df4 is not published main**. Actual551 Host cases passed with all prior548 identities retained;2004 Procurement cases are exactly bound/reused, not rerun. Genuine migration/current SQL is unchanged. The150-file successor publication and8fa2 image are captured. Private finite provider and production read-only oldGuard=false/newGuard=true compatibility checks passed; the earlier backend6e85/UI3e four-command original-UI primary path now has strict original-row/native graph reconciliation, retained Down55000 and six42501 denials with all three native states exact. [Final private evidence](PROC-05A-FINAL-PRIVATE-RELEASE-EVIDENCE-20261104.md) records source, hashes, purpose boundaries and retained failures.
+
+Root review and paired Plan production rollout remain pending: no production Plan migration/permissions/activation or signed-in production acceptance is claimed. Wider alternate/concurrency/revocation/recovery cohorts, documents/scanner integration, formal bids/evaluation/award/award-to-PO and the other recorded module gaps remain open. Issue145 remains **NOT READY**, with no business-owner sign-off or whole-module acceptance inferred.
+
+## Retained source, private acceptance and production boundary — 3 November 2026, 16:23 UTC
 
 **Paired technical release completed at 16:23 UTC; whole-module issue145 remains NOT READY.** Published ERP main is `61d5a608f9cc6069bcf8d06ef51bdca036fd8d47` (payment PR159, policy-retirement PR164, status PR166 and finite-grant PR167 merged); published UI main is `1e7922ae178351fa006bdf4a9aaeb44bc903f94e` (PR102 merged). Fetch these or reviewed descendants for new work. A merged source baseline is not the deployed binary.
 

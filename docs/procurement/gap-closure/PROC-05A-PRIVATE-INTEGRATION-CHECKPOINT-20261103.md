@@ -1,5 +1,7 @@
 # PROC-05A private integration checkpoint — 3 November 2026
 
+> **4 November successor:** Actual551/c93 publication, production read-only guard compatibility, strict post-primary owner reconciliation, retained Down veto and six privilege denials are now recorded in the [final private evidence](PROC-05A-FINAL-PRIVATE-RELEASE-EVIDENCE-20261104.md). Pending statements below are the earlier chronological checkpoint, not current open gates where explicitly superseded. Production release remains pending.
+
 This checkpoint follows issue169 / draft PR171 and the [28-section feature](../features/PROC-05A-GOVERNED-PLAN-REVIEW.md). It records Root-run private evidence, not production activation or whole-module UAT. Earlier failures remain retained chronologically. The source synchronization and documentation update execute no SDK, database, browser, runtime or deployment commands.
 
 ## Source and executable binding
@@ -14,7 +16,7 @@ This later execution supersedes earlier not-run statements for the included poli
 
 Genuine migration `20261103211606_ProcurementPlanGovernedReview` retains the raw-identical designer/snapshot and generated Up; only the reviewed migration Down retention prefix differs from raw. Actual native direct/true-restored239-table captures, exact three CHECK pairs, migration-qualified shared selectors and actual payment catalog capture are documented in the [source readiness record](PROC-05A-POST-B1-SOURCE-READINESS-20261103.md) and [migration provenance](PROC-05A-GENUINE-MIGRATION-PROVENANCE-20261103.md). Actual empty Down/Up ran in one rolled-back private transaction; no committed downgrade is claimed.
 
-Root's actual direct-LOGIN finite-provider checks passed the six intended providers on both direct and true-restored239-table databases, including Plan READ/RECORD, shared policy identity, B1 read/barrier and payment admission. Existing owner-role transports were denied by all guarded providers on both databases. The [B1 restore checkpoint](B1-RESTORE-CHECK-COMPATIBILITY-20261103.md) retains exact compiled-observer/provider receipt hashes and original restore failure. These read-only native observations preserve the protected original237 and both239 states and do not authorize owner transport for the API.
+Root's actual direct-LOGIN finite-provider checks passed the six intended providers on both direct and true-restored239-table databases, ordinary Plan structural READ, Plan review READ/technical RECORD readiness, shared policy identity and B1 read/barrier. Legacy payment/invoice provider observations are not acceptance under this Plan purpose role. Existing owner-role transports were denied by all guarded providers on both databases. The [B1 restore checkpoint](B1-RESTORE-CHECK-COMPATIBILITY-20261103.md) retains exact compiled-observer/provider receipt hashes and original restore failure. These read-only native observations preserve the protected original237 and both239 states and do not authorize owner transport for the API.
 
 Private permission additions are explicit and separate:
 

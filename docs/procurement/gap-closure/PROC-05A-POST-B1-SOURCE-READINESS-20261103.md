@@ -1,5 +1,7 @@
 # PROC-05A post-B1 source readiness — 3 November 2026
 
+> **Final private successor:** See [4 November release evidence](PROC-05A-FINAL-PRIVATE-RELEASE-EVIDENCE-20261104.md) for actual551/c93/exact2004 reuse, unchanged migration SQL, dual-native purpose-role canary, production read-only guard compatibility and primary owner/retention/denial proofs. Earlier pending statements below remain chronological. No paired production release or full-module completion is claimed.
+
 > **Later actual checkpoint:** Published main556fbee2 is integrated without changing tested backend tree `c4d0703b357ba2674cd4baffd1e90e80a069ef7b`. Root actual548 Host / exact2004 Procurement reuse, model/SQL, dual-native providers, real shared policy lifecycle and bounded original-UI primary path are recorded in the [private integration checkpoint](PROC-05A-PRIVATE-INTEGRATION-CHECKPOINT-20261103.md). Earlier pending/not-run statements below are historical where that checkpoint explicitly supersedes them. Strict post-primary native owner/retention checks and production release remain pending; failures remain retained.
 
 Issue169 / draft ERP PR171 follows the [adopted 28-section feature](../features/PROC-05A-GOVERNED-PLAN-REVIEW.md) and GW-ENG-STD-001. This is a source integration record, not test, database or release acceptance.
