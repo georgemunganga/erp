@@ -109,17 +109,67 @@ public sealed class CommercialRoundReviewWorkflowTests
             new HashSet<Guid> { Branch }, new HashSet<string> { "procurement-access", CommercialRoundReviewCoreWorkflow.ReviewPermission });
         var rules = CommercialRoundReviewPolicyRules.Read(Rules)!;
         var approvalCase = CommercialRoundReviewCoreWorkflow.Open(first.Plan, submitted.Revision,
-            round, policy, rules, maker, [reviewer], At.AddMinutes(1));
+            round, policy, rules, maker, [reviewer], new(Maker.ToString("D"), null),
+            new(Maker.ToString("D"), null), At.AddMinutes(1));
         var assignment = Assert.Single(Assert.Single(approvalCase.Stages).Assignments);
         var decisions = new List<ApprovalDecision>();
         var result = CommercialRoundReviewCoreWorkflow.Decide(first.Plan, round, approvalCase,
-            assignment, reviewer, "Approve", Guid.NewGuid().ToString("D"), null,
+            assignment, reviewer, new(Maker.ToString("D"), null), new(Maker.ToString("D"), null),
+            "Approve", Guid.NewGuid().ToString("D"), null,
             decisions, At.AddMinutes(2));
         Assert.Equal("Published", result.ResultStatus);
         Assert.Single(decisions);
         Assert.Throws<InvalidOperationException>(() => CommercialRoundReviewCoreWorkflow.Decide(first.Plan,
-            round, approvalCase, assignment, maker, "Approve", Guid.NewGuid().ToString("D"), null,
+            round, approvalCase, assignment, maker, new(Maker.ToString("D"), null),
+            new(Maker.ToString("D"), null), "Approve", Guid.NewGuid().ToString("D"), null,
             decisions, At.AddMinutes(3)));
+    }
+
+    [Fact]
+    public void Rfq_maker_A_plan_maker_B_submitter_C_cannot_assign_B_to_review_own_plan()
+    {
+        var originalRfqMaker = Guid.NewGuid();
+        var independentReviewer = Guid.NewGuid();
+        var source = new RoundPlanSource("round-review-tests", Company, Guid.NewGuid(), Branch,
+            Guid.NewGuid(), 1, new string('a', 64), originalRfqMaker.ToString("D"));
+        var draft = new RoundPlanDraftInput(null, null, null, null, null, null, null, null, [], []);
+        var created = CommercialRoundPlanDraft.Create(source, new(Reviewer.ToString("D"), null), draft,
+            "UTC", Guid.NewGuid(), new string('b', 64), At);
+        created.Plan.Version = 1;
+        var submitted = CommercialRoundPlanDraft.Transition(created.Plan, created.Revision,
+            created.Criteria, created.Participants, new(Maker.ToString("D"), null),
+            "Submit", "InReview", null, Guid.NewGuid(), new string('c', 64), At.AddMinutes(1),
+            new(Guid.NewGuid(), Guid.NewGuid(), null, null));
+        created.Plan.Status = "InReview";
+        var maker = new PlanReviewPrincipal(Maker, null, source.TenantId, Company, false,
+            new HashSet<Guid> { Branch }, new HashSet<string> { "procurement-access", CommercialRoundReviewCoreWorkflow.SubmitPermission });
+        PlanReviewPrincipal Person(Guid id) => new(id, null, source.TenantId, Company, false,
+            new HashSet<Guid> { Branch }, new HashSet<string> { "procurement-access", CommercialRoundReviewCoreWorkflow.ReviewPermission });
+        (PolicyVersion Policy, CommercialRoundReviewSubmission Round, CommercialRoundReviewPolicyRules.Definition Rules) Setup(Guid assignee)
+        {
+            var json = Rules.Replace(Reviewer.ToString("D"), assignee.ToString("D"));
+            var policy = new PolicyVersion { TenantId = source.TenantId, LegalEntityId = Company,
+                PolicyKey = CommercialRoundReviewPolicyRules.PolicyKey, PolicyVersionNumber = 1,
+                State = "Published", RulesJson = json, EffectiveFrom = At.AddDays(-1) };
+            var round = new CommercialRoundReviewSubmission { TenantId = source.TenantId,
+                LegalEntityId = Company, SourcingEventId = source.EventId, BranchId = Branch,
+                PlanId = created.Plan.Id, SubmittedRevisionId = submitted.Revision.Id,
+                SubmittedPlanVersion = submitted.Revision.ResultVersion,
+                SubmittedContentSha256 = submitted.Revision.ContentSha256,
+                PolicyVersionId = policy.Id, PolicyVersionNumber = 1,
+                PolicyRulesSha256 = ProcurementEvidenceEncoding.PolicyJsonDigest(json),
+                CoreCaseId = submitted.Receipt.Id, MakerPrincipalId = Maker.ToString("D"), SubmittedAt = At.AddMinutes(1) };
+            return (policy, round, CommercialRoundReviewPolicyRules.Read(json)!);
+        }
+        var own = Setup(Reviewer);
+        Assert.Throws<InvalidOperationException>(() => CommercialRoundReviewCoreWorkflow.Open(created.Plan,
+            submitted.Revision, own.Round, own.Policy, own.Rules, maker, [Person(Reviewer)],
+            new(Reviewer.ToString("D"), null), new(Reviewer.ToString("D"), null), At.AddMinutes(1)));
+        var other = Setup(independentReviewer);
+        var opened = CommercialRoundReviewCoreWorkflow.Open(created.Plan, submitted.Revision,
+            other.Round, other.Policy, other.Rules, maker, [Person(independentReviewer)],
+            new(Reviewer.ToString("D"), null), new(Reviewer.ToString("D"), null), At.AddMinutes(1));
+        Assert.Single(opened.Stages);
     }
 
     [Fact]

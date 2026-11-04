@@ -74,11 +74,13 @@ public static partial class ProcurementSourcingExecutionRoutes
             var draft = CommercialRoundPlanDraft.Restore(graph.Revision, graph.Criteria, graph.Participants);
             if (rules.DocumentsRequired)
                 throw new Problem("RoundReviewDocumentVerificationUnavailable", 503);
-            if (!RoundReviewComplete(draft, rules)) throw new Problem("RoundPlanIncomplete", 422);
+            if (!RoundReviewComplete(draft, rules, now)) throw new Problem("RoundPlanIncomplete", 422);
             await RoundParticipants(core, scope, graph.Plan.BranchId, draft, token);
             var maker = await ProcurementPrincipalPeople.Resolve(core, scope.TenantId, scope.LegalEntityId, scope.SubjectId, token);
             if (maker is null || !maker.Permissions.Contains(CommercialRoundReviewCoreWorkflow.SubmitPermission))
                 throw new UnauthorizedAccessException("Round submit authority changed.");
+            var planMaker = new RoundPlanActor(graph.Plan.MakerPrincipalId, graph.Enrollment.EnrolledByWorkerAlias);
+            var materialAuthor = await RoundLatestMaterialAuthor(db, graph.Plan.Id, graph.Plan.Version, token);
             var assignees = new List<ProcurementPrincipalPeople.Person>();
             foreach (var principalId in rules.AssigneePrincipalIds)
             {
@@ -92,6 +94,11 @@ public static partial class ProcurementSourcingExecutionRoutes
                 if (!await ProcurementPrincipalPeople.IndependentNow(core, scope.TenantId,
                     source.OwnerSubjectId, source.MakerWorkerId, person.PrincipalId, person.CoreLinkedWorkerId, token))
                     throw new Problem("RoundReviewerUnavailable", 409);
+                if (!await ProcurementPrincipalPeople.IndependentNow(core, scope.TenantId,
+                        planMaker.PrincipalId, planMaker.WorkerAlias, person.PrincipalId, person.CoreLinkedWorkerId, token)
+                    || !await ProcurementPrincipalPeople.IndependentNow(core, scope.TenantId,
+                        materialAuthor.PrincipalId, materialAuthor.WorkerAlias, person.PrincipalId, person.CoreLinkedWorkerId, token))
+                    throw new Problem("RoundReviewerOwnPlan", 409);
                 foreach (var earlier in assignees)
                     if (!await ProcurementPrincipalPeople.IndependentNow(core, scope.TenantId,
                         earlier.PrincipalId, earlier.CoreLinkedWorkerId,
@@ -118,7 +125,7 @@ public static partial class ProcurementSourcingExecutionRoutes
             db.StageCommercialRoundPlan(change);
             var approvalCase = CommercialRoundReviewCoreWorkflow.Open(graph.Plan, change.Revision,
                 submission, policy, rules, RoundPrincipal(maker, scope),
-                assignees.Select(x => RoundPrincipal(x, scope)).ToArray(), now);
+                assignees.Select(x => RoundPrincipal(x, scope)).ToArray(), planMaker, materialAuthor, now);
             db.AddScoped(submission);
             cases.AddCase(approvalCase); RoundRecord(db, scope, change);
             await db.SaveChangesAsync(token);
@@ -175,12 +182,18 @@ public static partial class ProcurementSourcingExecutionRoutes
             var actor = await ProcurementPrincipalPeople.Resolve(core, scope.TenantId,
                 scope.LegalEntityId, scope.SubjectId, token)
                 ?? throw new UnauthorizedAccessException("Current reviewer unavailable.");
+            var planMaker = new RoundPlanActor(graph.Plan.MakerPrincipalId, graph.Enrollment.EnrolledByWorkerAlias);
+            var materialAuthor = await RoundLatestMaterialAuthor(db, graph.Plan.Id, submission.SubmittedPlanVersion, token);
             if (!await ProcurementPrincipalPeople.IndependentNow(core, scope.TenantId,
                     submission.MakerPrincipalId, submission.MakerWorkerAlias,
                     actor.PrincipalId, actor.CoreLinkedWorkerId, token)
                 || !await ProcurementPrincipalPeople.IndependentNow(core, scope.TenantId,
                     source.OwnerSubjectId, source.MakerWorkerId,
-                    actor.PrincipalId, actor.CoreLinkedWorkerId, token))
+                    actor.PrincipalId, actor.CoreLinkedWorkerId, token)
+                || !await ProcurementPrincipalPeople.IndependentNow(core, scope.TenantId,
+                    planMaker.PrincipalId, planMaker.WorkerAlias, actor.PrincipalId, actor.CoreLinkedWorkerId, token)
+                || !await ProcurementPrincipalPeople.IndependentNow(core, scope.TenantId,
+                    materialAuthor.PrincipalId, materialAuthor.WorkerAlias, actor.PrincipalId, actor.CoreLinkedWorkerId, token))
                 throw new UnauthorizedAccessException("Independent reviewer required.");
             if (approvalCase.Version != input.ExpectedCaseVersion
                 || assignment.Version != input.ExpectedAssignmentVersion)
@@ -195,8 +208,18 @@ public static partial class ProcurementSourcingExecutionRoutes
             var decisions = await cases.Decisions.Where(x => x.CaseId == approvalCase.Id).ToListAsync(token);
             var now = ProcurementEvidenceEncoding.DatabaseTimestamp(DateTimeOffset.UtcNow)!.Value;
             var (decision, status) = CommercialRoundReviewCoreWorkflow.Decide(graph.Plan, submission,
-                approvalCase, assignment, RoundPrincipal(actor, scope), input.Action, key.ToString("D"), reason,
+                approvalCase, assignment, RoundPrincipal(actor, scope), planMaker, materialAuthor,
+                input.Action, key.ToString("D"), reason,
                 decisions, now);
+            if (status == "Published")
+            {
+                var rules = CommercialRoundReviewPolicyRules.Read(policy.RulesJson)
+                    ?? throw new Problem("RoundReviewPolicyChanged", 409);
+                var draft = CommercialRoundPlanDraft.Restore(frozen.Revision, frozen.Criteria, frozen.Participants);
+                if (!RoundReviewComplete(draft, rules, now))
+                    throw new Problem("RoundPlanScheduleOrTeamChanged", 409);
+                await RoundParticipants(core, scope, graph.Plan.BranchId, draft, token);
+            }
             cases.Decisions.Add(decision);
             var change = CommercialRoundPlanDraft.Transition(graph.Plan, graph.Revision, graph.Criteria,
                 graph.Participants, new(scope.SubjectId, actor.CoreLinkedWorkerId), input.Action, status,
@@ -224,16 +247,28 @@ public static partial class ProcurementSourcingExecutionRoutes
         person.CoreLinkedWorkerId, scope.TenantId, scope.LegalEntityId,
         person.OrganisationWide, person.AllowedBranches, person.Permissions);
 
-    private static bool RoundReviewComplete(RoundPlanDraftInput draft,
-        CommercialRoundReviewPolicyRules.Definition rules) =>
+    internal static bool RoundReviewComplete(RoundPlanDraftInput draft,
+        CommercialRoundReviewPolicyRules.Definition rules, DateTimeOffset now) =>
         !string.IsNullOrWhiteSpace(draft.Requirements)
         && !string.IsNullOrWhiteSpace(draft.ProposedPolicyReference)
-        && draft.OpensAt is not null && draft.ClosesAt is not null
+        && draft.OpensAt is { } opens && opens > now && draft.ClosesAt is not null
         && draft.Criteria.Count >= rules.MinimumCriteria && draft.Participants.Count > 0
         && rules.RequiredCriterionStages.All(stage => draft.Criteria.Any(x => x.Stage == stage))
         && rules.RequiredParticipantDuties.All(duty => draft.Participants.Any(x => x.Duty == duty))
+        && draft.Participants.All(x => string.IsNullOrWhiteSpace(x.ConflictNote))
         && (!rules.RequireTechnicalRelease || draft.TechnicalReleaseAt is not null)
         && (!rules.RequireCommercialRelease || draft.CommercialReleaseAt is not null);
+
+    private static async Task<RoundPlanActor> RoundLatestMaterialAuthor(ProcurementDbContext db,
+        Guid planId, long throughVersion, CancellationToken ct)
+    {
+        var row = await db.CommercialRoundPlanRevisions.AsNoTracking()
+            .Where(x => x.PlanId == planId && x.ResultVersion <= throughVersion
+                && (x.Operation == "Create" || x.Operation == "Revise"))
+            .OrderByDescending(x => x.ResultVersion).Select(x => new { x.ActorPrincipalId, x.ActorWorkerAlias })
+            .FirstOrDefaultAsync(ct) ?? throw new Problem("RoundPlanHistoryInvalid", 409);
+        return new(row.ActorPrincipalId, row.ActorWorkerAlias);
+    }
 
     private static Guid RoundReviewKey(HttpContext http)
     {

@@ -13,7 +13,8 @@ public static class CommercialRoundReviewCoreWorkflow
     public static ApprovalCase Open(CommercialRoundPlan plan, CommercialRoundPlanRevision submitted,
         CommercialRoundReviewSubmission round, PolicyVersion policy,
         CommercialRoundReviewPolicyRules.Definition rules, PlanReviewPrincipal maker,
-        IReadOnlyList<PlanReviewPrincipal> reviewers, DateTimeOffset now)
+        IReadOnlyList<PlanReviewPrincipal> reviewers, RoundPlanActor planMaker,
+        RoundPlanActor materialAuthor, DateTimeOffset now)
     {
         if (plan.Status != "InReview" || submitted.Operation != "Submit" || submitted.ResultStatus != "InReview"
             || submitted.Id != round.SubmittedRevisionId || submitted.ResultVersion != round.SubmittedPlanVersion
@@ -29,12 +30,14 @@ public static class CommercialRoundReviewCoreWorkflow
             || policy.EffectiveFrom > now || policy.EffectiveTo is { } end && now >= end
             || policy.TenantId != plan.TenantId || policy.LegalEntityId != plan.LegalEntityId
             || maker.Id.ToString("D") != round.MakerPrincipalId || maker.LinkedWorkerId != round.MakerWorkerAlias
+            || planMaker.PrincipalId != plan.MakerPrincipalId
             || !Current(maker, plan, SubmitPermission)
             || reviewers.Count != rules.AssigneePrincipalIds.Count
             || !rules.AssigneePrincipalIds.ToHashSet().SetEquals(reviewers.Select(x => x.Id)))
             throw new InvalidOperationException("RoundReviewOpeningUnavailable");
         foreach (var reviewer in reviewers)
-            if (!Current(reviewer, plan, ReviewPermission) || reviewer.Id == maker.Id
+            if (!Current(reviewer, plan, ReviewPermission) || !Independent(reviewer, planMaker)
+                || !Independent(reviewer, materialAuthor) || reviewer.Id == maker.Id
                 || reviewer.LinkedWorkerId is { } alias && alias != Guid.Empty && alias == maker.LinkedWorkerId)
                 throw new InvalidOperationException("RoundReviewerUnavailable");
         var approvalCase = new ApprovalCase
@@ -65,7 +68,8 @@ public static class CommercialRoundReviewCoreWorkflow
 
     public static (ApprovalDecision Decision, string ResultStatus) Decide(
         CommercialRoundPlan plan, CommercialRoundReviewSubmission round, ApprovalCase approvalCase,
-        ApprovalAssignment assignment, PlanReviewPrincipal actor, string action, string key,
+        ApprovalAssignment assignment, PlanReviewPrincipal actor, RoundPlanActor planMaker,
+        RoundPlanActor materialAuthor, string action, string key,
         string? reason, ICollection<ApprovalDecision> decisions, DateTimeOffset now)
     {
         if (plan.Status != "InReview" || round.PlanId != plan.Id || plan.Version < round.SubmittedPlanVersion
@@ -77,9 +81,11 @@ public static class CommercialRoundReviewCoreWorkflow
             || approvalCase.PolicyVersionId != round.PolicyVersionId
             || approvalCase.PolicyVersionNumber != round.PolicyVersionNumber
             || approvalCase.MakerSubjectId != round.MakerPrincipalId
+            || planMaker.PrincipalId != plan.MakerPrincipalId
             || assignment.AssigneeSubjectId != actor.Id.ToString("D")
             || assignment.DelegatedFromSubjectId is not null
             || actor.Id.ToString("D") == round.MakerPrincipalId
+            || !Independent(actor, planMaker) || !Independent(actor, materialAuthor)
             || actor.LinkedWorkerId is { } linked && linked != Guid.Empty && linked == round.MakerWorkerAlias
             || !Current(actor, plan, ReviewPermission) || assignment.PermissionKey != ReviewPermission
             || action is not ("Approve" or "Return" or "Reject"))
@@ -109,4 +115,9 @@ public static class CommercialRoundReviewCoreWorkflow
         && person.LegalEntityId == plan.LegalEntityId
         && person.Permissions.Contains("procurement-access") && person.Permissions.Contains(action)
         && (person.OrganisationWide || person.Branches.Contains(plan.BranchId));
+    private static bool Independent(PlanReviewPrincipal reviewer, RoundPlanActor other) =>
+        reviewer.Id.ToString("D") != other.PrincipalId
+        && (reviewer.LinkedWorkerId is null || other.WorkerAlias is null
+            || reviewer.LinkedWorkerId == Guid.Empty || other.WorkerAlias == Guid.Empty
+            || reviewer.LinkedWorkerId != other.WorkerAlias);
 }

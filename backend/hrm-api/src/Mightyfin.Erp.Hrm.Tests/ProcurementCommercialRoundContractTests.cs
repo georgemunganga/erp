@@ -2,11 +2,69 @@ using System.Security.Claims;
 using Microsoft.AspNetCore.Http;
 using Mightyfin.Erp.Hrm.Api;
 using Mightyfin.Erp.Hrm.Application;
+using Mightyfin.Erp.Procurement.Application;
 
 namespace Mightyfin.Erp.Hrm.Tests;
 
 public sealed class ProcurementCommercialRoundContractTests
 {
+    [Theory]
+    [InlineData("Create", true)]
+    [InlineData("Revise", true)]
+    [InlineData("Cancel", true)]
+    [InlineData("Submit", false)]
+    [InlineData("Approve", false)]
+    [InlineData("Return", false)]
+    [InlineData("Reject", false)]
+    [InlineData("FutureOperation", false)]
+    public void Legacy_actor_key_recovery_never_returns_review_purpose_or_unknown_receipts(string operation, bool expected)
+        => Assert.Equal(expected, ProcurementSourcingExecutionRoutes.LegacyRoundRecoveryOperation(operation));
+
+    [Fact]
+    public void Round_review_sql_uses_the_real_quoted_Core_approval_columns()
+    {
+        var sql = Mightyfin.Erp.Procurement.Infrastructure.Data.CommercialRoundReviewSql.Install;
+        var down = Mightyfin.Erp.Procurement.Infrastructure.Data.CommercialRoundReviewSql.RetainedDownGuard;
+        foreach (var name in new[] { "TenantId", "LegalEntityId", "Id", "SourceModule", "SourceType",
+                     "SourceId", "SourceVersion", "MakerSubjectId", "PolicyVersionId",
+                     "PolicyVersionNumber", "State" })
+            Assert.Contains("c.\"" + name + "\"", sql);
+        foreach (var name in new[] { "TenantId", "LegalEntityId", "Id", "CaseId", "StageId",
+                     "AssignmentId", "ActorSubjectId", "Action", "Reason", "DecidedAt" })
+            Assert.Contains("d.\"" + name + "\"", sql);
+        Assert.Contains("\"SourceModule\"='procurement'", down);
+        Assert.Contains("\"SourceType\"='commercial_round_plan'", down);
+        Assert.DoesNotContain("c.tenant_id", sql);
+        Assert.DoesNotContain("d.case_id", sql);
+        Assert.DoesNotContain("WHERE source_module=", down);
+        Assert.Contains("JOIN core_approval.stages st", sql);
+        Assert.Contains("JOIN core_approval.assignments a", sql);
+        Assert.Contains("st.\"CaseId\"=c.\"Id\"", sql);
+        Assert.Contains("a.\"CaseId\"=c.\"Id\"", sql);
+        Assert.Contains("a.\"StageId\"=st.\"Id\"", sql);
+        Assert.Contains("a.\"PermissionKey\"='procurement-round-plan-review'", sql);
+        Assert.Contains("a.\"AssigneeSubjectId\"=d.\"ActorSubjectId\"", sql);
+        Assert.Contains("jsonb_array_length(p.rules_json::jsonb->'assigneePrincipalIds')", sql);
+    }
+
+    [Fact]
+    public void Round_review_requires_future_opening_and_unconflicted_required_team()
+    {
+        var now = new DateTimeOffset(2026, 11, 4, 12, 0, 0, TimeSpan.Zero);
+        var rules = new CommercialRoundReviewPolicyRules.Definition("Any", 1, [Guid.NewGuid()],
+            [Guid.NewGuid()], ["*"], ["ZMW"], 1, ["Technical"], ["Planner"], false, false, false);
+        var criterion = new RoundPlanCriterionInput(Guid.NewGuid(), 1, "TECH", "Technical", "PassFail", null, null, null, null, null);
+        var planner = new RoundPlanParticipantInput(Guid.NewGuid(), 1, Guid.NewGuid().ToString("D"), "Planner", null);
+        var draft = new RoundPlanDraftInput("Goods needed", "Policy", null, null,
+            now.AddMinutes(1), now.AddHours(1), null, null, [criterion], [planner]);
+        Assert.True(ProcurementSourcingExecutionRoutes.RoundReviewComplete(draft, rules, now));
+        Assert.False(ProcurementSourcingExecutionRoutes.RoundReviewComplete(draft, rules, now.AddMinutes(1)));
+        Assert.False(ProcurementSourcingExecutionRoutes.RoundReviewComplete(draft with
+            { Participants = [planner with { ConflictNote = "Declared conflict" }] }, rules, now));
+        Assert.False(ProcurementSourcingExecutionRoutes.RoundReviewComplete(draft with
+            { Participants = [planner with { Duty = "Reviewer" }] }, rules, now));
+    }
+
     [Theory]
     [InlineData("read")][InlineData("manage")][InlineData("submit")][InlineData("review")][InlineData("cancel")]
     public void Round_plan_actions_are_explicit_Core_grants_not_legacy_admin_inheritance(string suffix)

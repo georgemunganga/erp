@@ -67,9 +67,13 @@ public static partial class ProcurementSourcingExecutionRoutes
             _ = await RoundSource(db, core, scope, http, auth, "procurement-round-plan-read", id, token);
             var receipt = await db.CommercialRoundPlanReceipts.AsNoTracking().SingleOrDefaultAsync(x =>
                 x.ActorPrincipalId == scope.SubjectId && x.CommandKey == key && x.SourcingEventId == id, token);
-            if (receipt is null) throw new Problem("RoundPlanNotFound", 404);
-            return await RoundReplay(db, scope, id, key, null, null, token) ?? throw new Problem("RoundPlanNotFound", 404);
+            if (receipt is null || !LegacyRoundRecoveryOperation(receipt.Operation))
+                throw new Problem("RoundPlanNotFound", 404);
+            return await RoundReplay(db, scope, id, key, receipt.Operation, null, token)
+                ?? throw new Problem("RoundPlanNotFound", 404);
         }, ct);
+    internal static bool LegacyRoundRecoveryOperation(string? operation) =>
+        operation is "Create" or "Revise" or "Cancel";
     private static Task<IResult> RoundRead(Guid id, HttpContext http, ProcurementRequestScope scope, CancellationToken ct)
         => RoundReadVersion(id, null, http, scope, ct);
     private static Task<IResult> RoundVersion(Guid id, long version, HttpContext http, ProcurementRequestScope scope, CancellationToken ct)
