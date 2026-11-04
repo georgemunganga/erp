@@ -168,7 +168,22 @@ CREATE TRIGGER commercial_round_review_outcome_immutable BEFORE UPDATE OR DELETE
  EXECUTE FUNCTION procurement.commercial_round_immutable();
 """;
 
+    // The genuine EF Down must execute this first in its normal migration
+    // transaction, then UninstallEmpty and generated drops in that same
+    // transaction. PostgreSQL holds these locks through commit/rollback.
+    // Business result rows precede policy, Core case and derived evidence;
+    // every relation read by the veto is locked before the first predicate.
     public const string RetainedDownGuard = """
+LOCK TABLE procurement.commercial_round_plans,
+ procurement.commercial_round_plan_revisions,
+ procurement.commercial_round_plan_receipts,
+ procurement.commercial_round_review_submissions,
+ procurement.commercial_round_review_outcomes,
+ procurement.policy_versions,
+ procurement.operational_policy_identity_evidence,
+ core_approval.cases,
+ procurement.audit_events,
+ procurement.outbox_events IN ACCESS EXCLUSIVE MODE;
 DO $$ BEGIN IF EXISTS(SELECT 1 FROM procurement.commercial_round_review_submissions)
  OR EXISTS(SELECT 1 FROM procurement.commercial_round_review_outcomes)
  OR EXISTS(SELECT 1 FROM procurement.policy_versions WHERE policy_key='COMMERCIAL_ROUND_PLAN_REVIEW')

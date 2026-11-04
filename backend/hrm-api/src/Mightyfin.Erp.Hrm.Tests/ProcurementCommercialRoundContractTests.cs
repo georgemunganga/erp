@@ -48,6 +48,25 @@ public sealed class ProcurementCommercialRoundContractTests
     }
 
     [Fact]
+    public void Round_review_Down_locks_every_retention_source_before_the_veto()
+    {
+        var guard = Mightyfin.Erp.Procurement.Infrastructure.Data.CommercialRoundReviewSql.RetainedDownGuard;
+        var check = guard.IndexOf("DO $$ BEGIN IF EXISTS", StringComparison.Ordinal);
+        var locks = guard[..check];
+        Assert.StartsWith("LOCK TABLE ", locks);
+        Assert.EndsWith(" IN ACCESS EXCLUSIVE MODE;\n", locks);
+        foreach (var table in new[] { "commercial_round_plans", "commercial_round_plan_revisions",
+                     "commercial_round_plan_receipts", "commercial_round_review_submissions",
+                     "commercial_round_review_outcomes", "policy_versions",
+                     "operational_policy_identity_evidence", "audit_events", "outbox_events" })
+            Assert.Contains("procurement." + table, locks);
+        Assert.Contains("core_approval.cases", locks);
+        Assert.Equal(10, System.Text.RegularExpressions.Regex.Matches(locks,
+            @"(?:procurement|core_approval)\.[a-z_]+").Count);
+        Assert.Contains("USING ERRCODE='55000'", guard);
+    }
+
+    [Fact]
     public void Round_review_requires_future_opening_and_unconflicted_required_team()
     {
         var now = new DateTimeOffset(2026, 11, 4, 12, 0, 0, TimeSpan.Zero);
