@@ -21,7 +21,7 @@ public static partial class ProcurementSourcingExecutionRoutes
                 throw new UnauthorizedAccessException("Select the round's current branch.");
             var graph = await RoundGraph(db, source, null, tracked: false, token);
             var hints = await RoundActions(http, db, cases, core, scope, auth,
-                source, graph.Plan, true, token);
+                source, graph.Plan, true, token, graph);
             return new(JsonSerializer.Serialize(new { eventId = id, eventVersion = source.Version,
                 planId = graph.Plan.Id, planVersion = graph.Plan.Version, status = graph.Plan.Status,
                 revisionId = graph.Revision.Id, contentSha256 = graph.Revision.ContentSha256,

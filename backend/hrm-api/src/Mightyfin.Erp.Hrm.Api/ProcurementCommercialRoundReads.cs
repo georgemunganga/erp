@@ -97,7 +97,7 @@ public static partial class ProcurementSourcingExecutionRoutes
                 .Select(x => new { x.Id, x.DisplayName }).ToArrayAsync(token);
             using var content = JsonDocument.Parse(graph.Revision.ContentJson);
             var hints=await RoundActions(http,db,cases,core,scope,auth,source,graph.Plan,
-                ProcurementCommercialRoundActions.IsEditableRoute(version),token);
+                ProcurementCommercialRoundActions.IsEditableRoute(version),token,graph);
             var reviewReadiness=http.RequestServices.GetRequiredService<IProcurementCommercialRoundReviewReadiness>();
             var reviewReady=reviewReadiness.HasCapturedContract&&await reviewReadiness.ReadyAsync(db,false,token);
             return new(JsonSerializer.Serialize(new { enrolled = true, source = RoundSourceView(source,retained),

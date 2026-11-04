@@ -38,7 +38,7 @@ public static partial class ProcurementSourcingExecutionRoutes
     }
     private static async Task<(string[] Actions, RoundPolicyPin? Policy)> RoundActions(HttpContext http,ProcurementDbContext db,ApprovalDbContext cases,
         HrmDbContext core,ProcurementRequestScope scope,IAuthorizationService auth,SourcingEvent source,
-        CommercialRoundPlan? plan,bool currentView,CancellationToken ct)
+        CommercialRoundPlan? plan,bool currentView,CancellationToken ct,RoundLoadedGraph? graph=null)
     {
         var explicitBranch=!scope.IsExplicitAllBranches&&scope.WorkLocationId is { } selected&&selected==source.BranchRef
             && !http.Request.Headers["X-Shell-Branch-Scope"].Any(x=>string.Equals(x,"all",StringComparison.OrdinalIgnoreCase));
@@ -79,7 +79,13 @@ public static partial class ProcurementSourcingExecutionRoutes
             if(applicable is { } selected&& !selected.Rules.DocumentsRequired)
             {
                 policyPin=new(selected.Policy.Id,selected.Policy.PolicyVersionNumber);
-                actions.Add("Submit");
+                if(graph is not null)
+                {
+                    var draft=CommercialRoundPlanDraft.Restore(graph.Revision,graph.Criteria,graph.Participants);
+                    if(RoundReviewComplete(draft,selected.Rules,now))
+                        try { await RoundParticipants(core,scope,graph.Plan.BranchId,draft,ct);actions.Add("Submit"); }
+                        catch(Exception error) when(error is not OperationCanceledException) { }
+                }
             }
         }
         return (actions.ToArray(),policyPin);
