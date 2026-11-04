@@ -62,6 +62,7 @@ public static partial class ProcurementSourcingExecutionRoutes
                 .ToArrayAsync(token);
             var applicable = policies.Select(policy => (policy, rules: CommercialRoundReviewPolicyRules.Read(policy.RulesJson)))
                 .Where(x => x.rules is { } rules && rules.MethodIds.Contains(source.MethodId.Value)
+                    && rules.CurrencyCodes.Contains(source.CurrencyCode)
                     && sourceCategories.All(category => rules.CategoryCodes.Contains("*")
                         || rules.CategoryCodes.Contains(category!))).ToArray();
             if (applicable.Length != 1 || applicable[0].policy.Id != input.PolicyVersionId
@@ -229,7 +230,10 @@ public static partial class ProcurementSourcingExecutionRoutes
         && !string.IsNullOrWhiteSpace(draft.ProposedPolicyReference)
         && draft.OpensAt is not null && draft.ClosesAt is not null
         && draft.Criteria.Count >= rules.MinimumCriteria && draft.Participants.Count > 0
-        && rules.RequiredCriterionStages.All(stage => draft.Criteria.Any(x => x.Stage == stage));
+        && rules.RequiredCriterionStages.All(stage => draft.Criteria.Any(x => x.Stage == stage))
+        && rules.RequiredParticipantDuties.All(duty => draft.Participants.Any(x => x.Duty == duty))
+        && (!rules.RequireTechnicalRelease || draft.TechnicalReleaseAt is not null)
+        && (!rules.RequireCommercialRelease || draft.CommercialReleaseAt is not null);
 
     private static Guid RoundReviewKey(HttpContext http)
     {

@@ -12,7 +12,7 @@ public sealed class CommercialRoundReviewWorkflowTests
     private static readonly Guid Reviewer = Guid.NewGuid();
     private static readonly Guid Method = Guid.NewGuid();
     private static readonly DateTimeOffset At = new(2026, 11, 4, 0, 0, 0, TimeSpan.Zero);
-    private static string Rules => $$"""{"schemaVersion":1,"mode":"Any","requiredApprovals":1,"assigneePrincipalIds":["{{Reviewer:D}}"],"methodIds":["{{Method:D}}"],"categoryCodes":["*"],"minimumCriteria":1,"requiredCriterionStages":["Technical"],"documentsRequired":false}""";
+    private static string Rules => $$"""{"schemaVersion":1,"mode":"Any","requiredApprovals":1,"assigneePrincipalIds":["{{Reviewer:D}}"],"methodIds":["{{Method:D}}"],"categoryCodes":["*"],"currencyCodes":["ZMW"],"minimumCriteria":1,"requiredCriterionStages":["Technical"],"requiredParticipantDuties":["Planner"],"requireTechnicalRelease":false,"requireCommercialRelease":false,"documentsRequired":false}""";
 
     [Fact]
     public void Review_policy_needs_explicit_named_people_and_no_default_rule()
@@ -21,6 +21,8 @@ public sealed class CommercialRoundReviewWorkflowTests
         Assert.Equal(Reviewer, Assert.Single(definition.AssigneePrincipalIds));
         Assert.Equal(Method, Assert.Single(definition.MethodIds));
         Assert.Equal("*", Assert.Single(definition.CategoryCodes));
+        Assert.Equal("ZMW", Assert.Single(definition.CurrencyCodes));
+        Assert.Equal("Planner", Assert.Single(definition.RequiredParticipantDuties));
         Assert.Null(CommercialRoundReviewPolicyRules.Read(Rules.Replace(Reviewer.ToString("D"), Maker.ToString("D"))
             .Replace("\"minimumCriteria\":1,", "")));
         Assert.Null(CommercialRoundReviewPolicyRules.Read(Rules.Replace("\"requiredApprovals\":1", "\"requiredApprovals\":0")));

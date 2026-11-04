@@ -10,8 +10,10 @@ public static class CommercialRoundReviewPolicyRules
 
     public sealed record Definition(string Mode, int RequiredApprovals,
         IReadOnlyList<Guid> AssigneePrincipalIds, IReadOnlyList<Guid> MethodIds,
-        IReadOnlyList<string> CategoryCodes, int MinimumCriteria,
-        IReadOnlyList<string> RequiredCriterionStages, bool DocumentsRequired);
+        IReadOnlyList<string> CategoryCodes, IReadOnlyList<string> CurrencyCodes,
+        int MinimumCriteria, IReadOnlyList<string> RequiredCriterionStages,
+        IReadOnlyList<string> RequiredParticipantDuties, bool RequireTechnicalRelease,
+        bool RequireCommercialRelease, bool DocumentsRequired);
 
     public static Definition? Read(string? json)
     {
@@ -23,7 +25,9 @@ public static class CommercialRoundReviewPolicyRules
             var root = document.RootElement;
             if (root.ValueKind != JsonValueKind.Object || !Only(root, "schemaVersion", "mode",
                     "requiredApprovals", "assigneePrincipalIds", "methodIds", "categoryCodes",
-                    "minimumCriteria", "requiredCriterionStages", "documentsRequired")
+                    "currencyCodes", "minimumCriteria", "requiredCriterionStages",
+                    "requiredParticipantDuties", "requireTechnicalRelease", "requireCommercialRelease",
+                    "documentsRequired")
                 || !root.TryGetProperty("schemaVersion", out var version) || version.ValueKind != JsonValueKind.Number
                 || version.GetInt32() != 1 || !root.TryGetProperty("mode", out var mode)
                 || mode.ValueKind != JsonValueKind.String || mode.GetString() is not ("Any" or "All" or "Quorum")
@@ -38,8 +42,16 @@ public static class CommercialRoundReviewPolicyRules
                 || methods.GetArrayLength() is < 1 or > 20
                 || !root.TryGetProperty("categoryCodes", out var categories) || categories.ValueKind != JsonValueKind.Array
                 || categories.GetArrayLength() is < 1 or > 100
+                || !root.TryGetProperty("currencyCodes", out var currencies) || currencies.ValueKind != JsonValueKind.Array
+                || currencies.GetArrayLength() is < 1 or > 30
                 || !root.TryGetProperty("requiredCriterionStages", out var stages) || stages.ValueKind != JsonValueKind.Array
-                || stages.GetArrayLength() is < 1 or > 3) return null;
+                || stages.GetArrayLength() is < 1 or > 3
+                || !root.TryGetProperty("requiredParticipantDuties", out var duties) || duties.ValueKind != JsonValueKind.Array
+                || duties.GetArrayLength() is < 1 or > 6
+                || !root.TryGetProperty("requireTechnicalRelease", out var technicalRelease)
+                || technicalRelease.ValueKind is not (JsonValueKind.True or JsonValueKind.False)
+                || !root.TryGetProperty("requireCommercialRelease", out var commercialRelease)
+                || commercialRelease.ValueKind is not (JsonValueKind.True or JsonValueKind.False)) return null;
             var ids = new List<Guid>();
             foreach (var person in people.EnumerateArray())
             {
@@ -70,22 +82,39 @@ public static class CommercialRoundReviewPolicyRules
                 if (stage.ValueKind != JsonValueKind.String || stage.GetString() is not ("Mandatory" or "Technical" or "Commercial")) return null;
                 requiredStages.Add(stage.GetString()!);
             }
+            var currencyCodes = new List<string>();
+            foreach (var currency in currencies.EnumerateArray())
+            {
+                if (currency.ValueKind != JsonValueKind.String || currency.GetString() is not { } code
+                    || code.Length != 3 || code.Any(c => c is < 'A' or > 'Z')) return null;
+                currencyCodes.Add(code);
+            }
+            var requiredDuties = new List<string>();
+            foreach (var duty in duties.EnumerateArray())
+            {
+                if (duty.ValueKind != JsonValueKind.String || duty.GetString() is not
+                    ("Planner" or "Reviewer" or "OpeningOfficer" or "TechnicalEvaluator" or "CommercialEvaluator" or "ConflictReviewer")) return null;
+                requiredDuties.Add(duty.GetString()!);
+            }
             if (ids.Count != ids.Distinct().Count() || methodIds.Count != methodIds.Distinct().Count()
                 || categoryCodes.Count != categoryCodes.Distinct(StringComparer.Ordinal).Count()
                 || categoryCodes.Contains("*") && categoryCodes.Count != 1
                 || requiredStages.Count != requiredStages.Distinct().Count()
+                || currencyCodes.Count != currencyCodes.Distinct(StringComparer.Ordinal).Count()
+                || requiredDuties.Count != requiredDuties.Distinct().Count()
                 || required is < 1 or > 20 || required > ids.Count
                 || mode.GetString() == "Any" && required != 1
                 || mode.GetString() == "All" && required != ids.Count) return null;
-            return new(mode.GetString()!, required, ids, methodIds, categoryCodes,
-                minimumCriteria, requiredStages, documents.GetBoolean());
+            return new(mode.GetString()!, required, ids, methodIds, categoryCodes, currencyCodes,
+                minimumCriteria, requiredStages, requiredDuties,
+                technicalRelease.GetBoolean(), commercialRelease.GetBoolean(), documents.GetBoolean());
         }
         catch (Exception error) when (error is JsonException or InvalidOperationException or FormatException or OverflowException)
         { return null; }
     }
 
     public static IReadOnlyList<string> Validate(string? json) => Read(json) is null
-        ? ["Provide schemaVersion 1, named independent Core approvers, method/category scope, quorum, criteria stages and document requirement."]
+        ? ["Provide schemaVersion 1, named independent Core approvers, method/category/currency scope, quorum, required criteria, team duties, release dates and document requirement."]
         : [];
 
     public static bool IsDocument(string? json)

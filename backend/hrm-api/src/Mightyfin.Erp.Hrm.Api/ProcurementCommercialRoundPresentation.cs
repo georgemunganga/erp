@@ -78,7 +78,8 @@ public static partial class ProcurementSourcingExecutionRoutes
                 &&x.State=="Published"&&x.EffectiveFrom<=now&&(x.EffectiveTo==null||x.EffectiveTo>now))
                 .ToArrayAsync(ct);
             var applicable=policies.Count(policy=>CommercialRoundReviewPolicyRules.Read(policy.RulesJson) is { DocumentsRequired:false } rules
-                &&source.MethodId is { } methodId&&rules.MethodIds.Contains(methodId)&&categories.Length>0
+                &&source.MethodId is { } methodId&&rules.MethodIds.Contains(methodId)
+                &&rules.CurrencyCodes.Contains(source.CurrencyCode)&&categories.Length>0
                 &&categories.All(category=>!string.IsNullOrWhiteSpace(category)
                     &&(rules.CategoryCodes.Contains("*")||rules.CategoryCodes.Contains(category))));
             if(applicable==1)
