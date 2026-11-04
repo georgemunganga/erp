@@ -1,0 +1,9 @@
+# Retained build publications
+
+Retained publication directories are write-once build evidence. Future builds, restores and experiments must use exclusive new directories. Never publish, copy, truncate, patch configuration, chmod, chown or touch an existing retained publication path in place. Run consumers with read-only mounts. This rule also covers partial publication operations and every alias listed in a protected write-once registry.
+
+An independently reviewed hardware optimization may share identical files **between retained immutable publications only**. It must verify every path's content hash, size, UID, GID, mode and nanosecond modification time before and after; share only identical metadata partitions; preserve all logical paths; and explicitly record inode, link-count and change-time differences. Root-owned files must not be group/world writable. No shared inode may connect a publication to mutable source, `bin`, `obj`, test runtime, package cache or working output.
+
+Record the complete write-once path registry before changes, use exclusive temporary hardlinks and atomic replacement, and retain a recoverable report on any interruption. Keep active consumers and writers out of the operation. Verify the full publication manifests and independent historical archives afterward. Do not describe physical storage sharing as removal of a published version or as a content change.
+
+Deleting an obsolete publication requires a separate retention decision, including rollback and evidence references. Unlinking an approved obsolete alias must preserve all retained aliases' content. Restoring an old version always creates a new independent working directory; never restore over a shared retained alias. Do not alter an archived proof, source commit or published application to make verification pass.
