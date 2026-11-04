@@ -187,6 +187,85 @@ public sealed class ProcurementScopeMiddlewareTests
     }
 
     [Theory]
+    [InlineData("/api/procurement/v1/plans/review-tasks", true)]
+    [InlineData("/api/procurement/v1/plans/11111111-1111-4111-8111-111111111111/review-history", true)]
+    [InlineData("/api/procurement/v1/plans/review-submissions/11111111-1111-4111-8111-111111111111", true)]
+    [InlineData("/api/procurement/v1/plans/commands/11111111-1111-4111-8111-111111111111", true)]
+    [InlineData("/api/procurement/v1/plans/11111111-1111-4111-8111-111111111111", false)]
+    [InlineData("/api/procurement/v1/plans/review-submissions/not-a-guid", false)]
+    [InlineData("/api/procurement/v1/plans/review-submissions/00000000-0000-0000-0000-000000000000", false)]
+    [InlineData("/api/procurement/v1/plans/review-submissions/11111111-1111-4111-8111-111111111111/child", false)]
+    [InlineData("/api/procurement/v1/plans/commands/11111111-1111-4111-8111-111111111111/child", false)]
+    [InlineData("/api/procurement/v1/plans/review-tasks/child", false)]
+    public void Plan_review_All_admits_only_finite_get_routes(string path, bool admitted)
+    {
+        Assert.Equal(admitted, ProcurementScopeMiddleware.PlanReviewAllReadPath(path, "GET"));
+        Assert.Equal(admitted, ProcurementScopeMiddleware.AllOperationalListReadPath(path, "GET"));
+        Assert.False(ProcurementScopeMiddleware.PlanReviewAllReadPath(path, "POST"));
+        Assert.False(ProcurementScopeMiddleware.PlanReviewAllReadPath(path, "PUT"));
+    }
+
+    [Theory]
+    [InlineData("/api/procurement/v1/plans/review-tasks")]
+    [InlineData("/api/procurement/v1/plans/11111111-1111-4111-8111-111111111111/review-history")]
+    [InlineData("/api/procurement/v1/plans/review-submissions/11111111-1111-4111-8111-111111111111")]
+    [InlineData("/api/procurement/v1/plans/commands/11111111-1111-4111-8111-111111111111")]
+    public async Task Plan_review_All_gets_keep_current_company_branch_intersection(string path)
+    {
+        await using var db = TestDbContextFactory.Create("tenant-a");
+        var (user, company, foreignCompany, first) = await Seed(db);
+        var second = new WorkLocation { Code = "A2", Name = "Second", LegalEntityId = company.Id };
+        var foreign = new WorkLocation { Code = "B2", Name = "Foreign", LegalEntityId = foreignCompany.Id };
+        db.WorkLocations.AddRange(second, foreign);
+        db.UserBranchAssignments.AddRange(
+            new HrUserBranchAssignment { UserId = user.Id, LocationId = first.Id },
+            new HrUserBranchAssignment { UserId = user.Id, LocationId = second.Id },
+            new HrUserBranchAssignment { UserId = user.Id, LocationId = foreign.Id });
+        await db.SaveChangesAsync();
+        var (http, scope) = Request(user.Id);
+        http.Request.Path = path;
+        http.Request.Headers["X-Shell-Entity"] = company.Id.ToString("D");
+        http.Request.Headers["X-Shell-Branch-Scope"] = "all";
+        var reached = false;
+        await Middleware(_ => { reached = true; return Task.CompletedTask; }).InvokeAsync(http, scope, db);
+        Assert.True(reached);
+        Assert.True(scope.IsExplicitAllBranches);
+        Assert.Null(scope.WorkLocationId);
+        Assert.Equal(new[] { first.Id, second.Id }.OrderBy(x => x), scope.PermittedWorkLocationIds.OrderBy(x => x));
+        Assert.DoesNotContain(foreign.Id, scope.PermittedWorkLocationIds);
+        Assert.True(ProcurementPlanReviewReads.BranchVisible(first.Id, scope));
+        Assert.True(ProcurementPlanReviewReads.BranchVisible(second.Id, scope));
+        Assert.False(ProcurementPlanReviewReads.BranchVisible(foreign.Id, scope));
+        Assert.False(ProcurementPlanReviewReads.BranchVisible(null, scope));
+    }
+
+    [Theory]
+    [InlineData("POST", "/api/procurement/v1/plans")]
+    [InlineData("PUT", "/api/procurement/v1/plans/11111111-1111-4111-8111-111111111111")]
+    [InlineData("POST", "/api/procurement/v1/plans/11111111-1111-4111-8111-111111111111/claim-scope")]
+    [InlineData("POST", "/api/procurement/v1/plans/11111111-1111-4111-8111-111111111111/review-submissions")]
+    [InlineData("POST", "/api/procurement/v1/plans/review-submissions/11111111-1111-4111-8111-111111111111/assignments/22222222-2222-4222-8222-222222222222/decisions")]
+    [InlineData("POST", "/api/procurement/v1/plans/review-submissions/11111111-1111-4111-8111-111111111111/withdrawals")]
+    public async Task Plan_writes_with_raw_All_cannot_fall_back_to_first_assigned_branch(string method, string path)
+    {
+        await using var db = TestDbContextFactory.Create("tenant-a");
+        var (user, company, _, branch) = await Seed(db);
+        db.UserBranchAssignments.Add(new HrUserBranchAssignment { UserId = user.Id, LocationId = branch.Id });
+        await db.SaveChangesAsync();
+        var (http, scope) = Request(user.Id);
+        http.Request.Method = method;
+        http.Request.Path = path;
+        http.Request.Headers["X-Shell-Entity"] = company.Id.ToString("D");
+        http.Request.Headers["X-Shell-Branch-Scope"] = "all";
+        var reached = false;
+        await Middleware(_ => { reached = true; return Task.CompletedTask; }).InvokeAsync(http, scope, db);
+        Assert.False(reached);
+        Assert.Equal(StatusCodes.Status400BadRequest, http.Response.StatusCode);
+        Assert.Null(scope.WorkLocationId);
+        Assert.True(ProcurementScopeMiddleware.PlanWriteRequiresBranch(path, method));
+    }
+
+    [Theory]
     [InlineData("/api/procurement/v1/requests")]
     [InlineData("/api/procurement/v1/plans")]
     [InlineData("/api/procurement/v1/contracts")]
@@ -334,6 +413,31 @@ public sealed class ProcurementScopeMiddlewareTests
         Assert.Null(scope.WorkLocationId);
         http.Response.Body.Position = 0;
         Assert.Contains("invalid-scope", await new StreamReader(http.Response.Body).ReadToEndAsync());
+    }
+
+    [Theory]
+    [InlineData("GET", "/api/procurement/v1/configuration/policies")]
+    [InlineData("GET", "/api/procurement/v1/configuration/policies/effective")]
+    [InlineData("GET", "/api/procurement/v1/configuration/policies/00000000-0000-0000-0000-000000000001")]
+    [InlineData("POST", "/api/procurement/v1/configuration/policies")]
+    [InlineData("POST", "/api/procurement/v1/configuration/policies/00000000-0000-0000-0000-000000000001/publish")]
+    public async Task Organisation_wide_policy_All_selection_keeps_company_context_without_transaction_aggregation(string method, string path)
+    {
+        await using var db = TestDbContextFactory.Create("tenant-a");
+        var (user, company, _, _) = await Seed(db); // No Core branch assignments.
+        var (http, scope) = Request(user.Id);
+        http.Request.Method = method; http.Request.Path = path;
+        http.Request.Headers["X-Shell-Entity"] = company.Id.ToString();
+        http.Request.Headers["X-Shell-Branch-Scope"] = "all";
+        var reached = false;
+        await Middleware(_ => { reached = true; return Task.CompletedTask; }).InvokeAsync(http, scope, db);
+        Assert.True(reached);
+        Assert.Equal(company.Id, scope.LegalEntityId);
+        Assert.False(scope.IsConfined);
+        Assert.False(scope.IsExplicitAllBranches);
+        Assert.Null(scope.WorkLocationId);
+        // This scope-only test grants no configuration action; mapped endpoints
+        // still require current configuration permissions and owning guards.
     }
 
     private static async Task<(LocalUser, LegalEntity, LegalEntity, WorkLocation)> Seed(HrmDbContext db)

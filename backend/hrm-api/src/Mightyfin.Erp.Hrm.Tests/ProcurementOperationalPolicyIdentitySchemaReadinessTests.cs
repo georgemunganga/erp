@@ -95,7 +95,13 @@ public sealed class ProcurementOperationalPolicyIdentitySchemaReadinessTests
         Assert.Contains("pg_has_role(current_user,d.datdba,'SET')", sql);
         Assert.Contains("pg_has_role(current_user,r.oid,'SET')", sql);
         Assert.Contains("NOT has_schema_privilege(current_user,'procurement','CREATE')", sql);
-        Assert.DoesNotContain("core_approval", sql);
+        // The shared ownership guard inspects schema/catalog ownership, including
+        // Core Approval, without reading its business rows or demanding its DML.
+        // Permit only that exact established metadata guard to name the schema.
+        Assert.DoesNotContain("core_approval", sql.Replace(
+            ProcurementSpendingAuthorityIdentitySchemaReadiness.NoOwnershipSql, "", StringComparison.Ordinal));
+        Assert.DoesNotMatch(@"(?i)\b(?:FROM|JOIN|INSERT\s+INTO|UPDATE|DELETE\s+FROM)\s+core_approval\s*\.", sql);
+        Assert.DoesNotMatch(@"(?i)has_(?:table|column|any_column)_privilege\([^)]*'core_approval\.", sql);
     }
 
     [Fact]

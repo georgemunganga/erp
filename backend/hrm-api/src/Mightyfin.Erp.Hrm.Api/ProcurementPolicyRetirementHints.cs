@@ -13,6 +13,9 @@ public static partial class ProcurementPolicyDraftRoutes
     {
         try
         {
+            if (policy.PolicyKey == PlanReviewPolicyRules.PolicyKey
+                && !await PlanPolicyConfigurationActor(organizationDb, scope,
+                    ProcurementOperationalPolicyWorkerIdentity.ConfigurePermission, ct)) return false;
             if (policy.PolicyKey == SourcingPublicationPolicyRules.PolicyKey)
             {
                 await RequireSourcingIdentitySchema(http, db, ct);

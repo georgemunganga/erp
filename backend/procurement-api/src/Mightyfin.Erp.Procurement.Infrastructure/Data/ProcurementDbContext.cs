@@ -63,6 +63,8 @@ public sealed partial class ProcurementDbContext(DbContextOptions<ProcurementDbC
     public DbSet<ProcurementMethod> ProcurementMethods => Set<ProcurementMethod>();
     public DbSet<ProcurementPlan> ProcurementPlans => Set<ProcurementPlan>();
     public DbSet<ProcurementPlanLine> ProcurementPlanLines => Set<ProcurementPlanLine>();
+    public DbSet<PlanReviewSubmission> PlanReviewSubmissions => Set<PlanReviewSubmission>();
+    public DbSet<PlanReviewCommandReceipt> PlanReviewCommandReceipts => Set<PlanReviewCommandReceipt>();
     public DbSet<SupplierPortalMembership> SupplierPortalMemberships => Set<SupplierPortalMembership>();
     public DbSet<SupplierPerformanceReview> SupplierPerformanceReviews => Set<SupplierPerformanceReview>();
     public DbSet<SupplierPerformanceCriterion> SupplierPerformanceCriteria => Set<SupplierPerformanceCriterion>();
@@ -574,6 +576,7 @@ public sealed partial class ProcurementDbContext(DbContextOptions<ProcurementDbC
         ConfigureManualQuotations(modelBuilder);
         ConfigureCommercialRoundPlans(modelBuilder);
         ConfigureOperationalPolicyIdentity(modelBuilder);
+        ConfigurePlanReview(modelBuilder);
         ConfigureInvoiceUnitReview(modelBuilder);
         ConfigureRecurringPurchaseCommitments(modelBuilder);
         ConfigureManualPayments(modelBuilder);
@@ -724,6 +727,7 @@ public sealed partial class ProcurementDbContext(DbContextOptions<ProcurementDbC
         modelBuilder.Entity<ProcurementCategory>().HasIndex(x => new { x.TenantId, x.LegalEntityId, x.Code }).IsUnique();
         modelBuilder.Entity<ProcurementMethod>().HasIndex(x => new { x.TenantId, x.LegalEntityId, x.Code }).IsUnique();
         modelBuilder.Entity<ProcurementPlan>().HasIndex(x => new { x.TenantId, x.LegalEntityId, x.Number }).IsUnique();
+        modelBuilder.Entity<ProcurementPlan>().HasIndex(x => new { x.TenantId, x.LegalEntityId, x.BranchRef, x.Status });
         modelBuilder.Entity<ProcurementPlanLine>().HasIndex(x => new { x.TenantId, x.LegalEntityId, x.ProcurementPlanId, x.LineNumber }).IsUnique();
         modelBuilder.Entity<SupplierPortalMembership>().HasIndex(x => new { x.TenantId, x.LegalEntityId, x.SupplierId, x.IdentitySubjectId }).IsUnique();
         modelBuilder.Entity<SupplierPerformanceReview>().HasIndex(x => new { x.TenantId, x.LegalEntityId, x.SupplierId, x.PeriodFrom, x.PeriodTo });
@@ -779,6 +783,7 @@ public sealed partial class ProcurementDbContext(DbContextOptions<ProcurementDbC
         GuardSourcingPublication();
         GuardSourcingPolicyIdentity();
         GuardOperationalPolicyIdentity();
+        GuardPlanReview();
         GuardInvoiceUnitReview();
         GuardMasterImportChanges();
         var now = DateTimeOffset.UtcNow;
@@ -793,7 +798,7 @@ public sealed partial class ProcurementDbContext(DbContextOptions<ProcurementDbC
                 or ProcurementComment or ProcurementSetupAssessment or PurchaseRequestApprovalOutcome
                 or ImportRowReceipt
                 or PurchaseRequestFinanceReleaseRequest or PurchaseRequestFinanceReleaseConfirmation
-                or ManualPaymentDecision or ManualPaymentCommandReceipt
+                or ManualPaymentDecision or ManualPaymentCommandReceipt or PlanReviewCommandReceipt
                 or ManualPaymentWorkflowCaseLink or ManualPaymentCoreDecisionLink or ManualPaymentBusinessDateObservation)
                 throw new InvalidOperationException("Decision, evaluation, budget and audit records are append-only.");
             if (entry.State == EntityState.Added)

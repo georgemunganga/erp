@@ -38,17 +38,20 @@ public sealed class ProcurementManualPaymentGovernanceReadiness(
             if (await command.ExecuteScalarAsync(ct) is not true) return false;
             command.CommandText = CoreOwnerSql;
             if (await command.ExecuteScalarAsync(ct) is not true) return false;
-            var ownerBaselineInstalled=(await db.Database.GetAppliedMigrationsAsync(ct))
-                .Contains(ProcurementInvoiceOwnerBaselineSchemaCapture.MigrationId,StringComparer.Ordinal);
-            var expectedFingerprint=ownerBaselineInstalled
-                ? ProcurementInvoiceOwnerBaselineSchemaCapture.ManualPaymentCatalogFingerprint : ExpectedFingerprint;
+            var applied = (await db.Database.GetAppliedMigrationsAsync(ct)).ToArray();
+            var ownerBaselineInstalled=applied.Contains(ProcurementInvoiceOwnerBaselineSchemaCapture.MigrationId,StringComparer.Ordinal);
+            var planInstalled=ProcurementPlanReviewSchemaCapture.Installed(applied);
+            if(planInstalled && (!ProcurementPlanReviewSchemaCapture.Populated
+                || ProcurementPlanReviewSchemaCapture.ManualPaymentCatalogFingerprint.Length != 64))return false;
+            var expectedFingerprint=planInstalled ? ProcurementPlanReviewSchemaCapture.ManualPaymentCatalogFingerprint
+                : ownerBaselineInstalled ? ProcurementInvoiceOwnerBaselineSchemaCapture.ManualPaymentCatalogFingerprint : ExpectedFingerprint;
             command.CommandText = FingerprintSql;
             if (await command.ExecuteScalarAsync(ct) is string actual && actual == expectedFingerprint) return true;
             // An accepted logical restore can redistribute casts inside the nine
-            // observed CHECK definitions. Keep the original full catalog hash:
+            // observed CHECK definitions. Keep the selected full catalog hash:
             // substitute only exact, named restored texts before PostgreSQL hashes
             // the same jsonb manifest. Any other catalog difference still fails.
-            command.CommandText = FingerprintSqlWithObservedRestoreChecks(ownerBaselineInstalled);
+            command.CommandText = FingerprintSqlWithObservedRestoreChecks(ownerBaselineInstalled, planInstalled);
             return await command.ExecuteScalarAsync(ct) is string restored && restored == expectedFingerprint;
         }
         catch (OperationCanceledException) { throw; }
@@ -168,14 +171,17 @@ public sealed class ProcurementManualPaymentGovernanceReadiness(
         "procurement.operational_policy_identity_evidence.ck_operational_policy_identity"
     ];
 
-    internal static string FingerprintSqlWithObservedRestoreChecks(bool ownerBaselineInstalled=false)
+    internal static string FingerprintSqlWithObservedRestoreChecks(bool ownerBaselineInstalled=false, bool planInstalled=false)
     {
         static string Literal(string value) => "'" + value.Replace("'", "''", StringComparison.Ordinal) + "'";
         var cases = new List<string>(ObservedRestoreChecks.Length);
         foreach (var key in ObservedRestoreChecks)
         {
             var names = key.Split('.');
-            var pair = ownerBaselineInstalled
+            var pair = planInstalled && key == ProcurementPlanReviewSchemaCapture.OperationalCheckKey
+                ? (Canonical:ProcurementPlanReviewSchemaCapture.Checks[key],
+                    Restored:ProcurementPlanReviewSchemaCapture.RestoredChecks[key])
+                : ownerBaselineInstalled
                 && key=="procurement.operational_policy_identity_evidence.ck_operational_policy_identity"
                 ? (Canonical:ProcurementInvoiceOwnerBaselineSchemaCapture.OperationalCheckDefinition,
                     Restored:ProcurementInvoiceOwnerBaselineSchemaCapture.RestoredChecks.GetValueOrDefault(key)
