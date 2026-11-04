@@ -55,21 +55,11 @@ public static partial class ProcurementSourcingExecutionRoutes
                 || sourceCategories.Any(string.IsNullOrWhiteSpace))
                 throw new Problem("RoundReviewSourceClassificationUnavailable", 409);
             var now = ProcurementEvidenceEncoding.DatabaseTimestamp(DateTimeOffset.UtcNow)!.Value;
-            var policies = await db.PolicyVersions.AsNoTracking().Where(x =>
-                    x.TenantId == scope.TenantId && x.LegalEntityId == scope.LegalEntityId
-                    && x.PolicyKey == CommercialRoundReviewPolicyRules.PolicyKey && x.State == "Published"
-                    && x.EffectiveFrom <= now && (x.EffectiveTo == null || x.EffectiveTo > now))
-                .ToArrayAsync(token);
-            var applicable = policies.Select(policy => (policy, rules: CommercialRoundReviewPolicyRules.Read(policy.RulesJson)))
-                .Where(x => x.rules is { } rules && rules.MethodIds.Contains(source.MethodId.Value)
-                    && rules.CurrencyCodes.Contains(source.CurrencyCode)
-                    && sourceCategories.All(category => rules.CategoryCodes.Contains("*")
-                        || rules.CategoryCodes.Contains(category!))).ToArray();
-            if (applicable.Length != 1 || applicable[0].policy.Id != input.PolicyVersionId
-                || applicable[0].policy.PolicyVersionNumber != input.PolicyVersionNumber)
+            var selected = await RoundApplicableReviewPolicy(db, scope, source, sourceCategories, now, token);
+            if (selected is null || selected.Value.Policy.Id != input.PolicyVersionId
+                || selected.Value.Policy.PolicyVersionNumber != input.PolicyVersionNumber)
                 throw new Problem("RoundPlanReviewPolicyUnavailable", 409);
-            var (policy, rules) = applicable[0];
-            if (rules is null) throw new Problem("RoundPlanReviewPolicyUnavailable", 409);
+            var (policy, rules) = selected.Value;
             _ = await ProcurementOperationalPolicyWorkerIdentity.VerifyPublicationAsync(db, scope, policy, token);
             var draft = CommercialRoundPlanDraft.Restore(graph.Revision, graph.Criteria, graph.Participants);
             if (rules.DocumentsRequired)
@@ -268,6 +258,27 @@ public static partial class ProcurementSourcingExecutionRoutes
             .OrderByDescending(x => x.ResultVersion).Select(x => new { x.ActorPrincipalId, x.ActorWorkerAlias })
             .FirstOrDefaultAsync(ct) ?? throw new Problem("RoundPlanHistoryInvalid", 409);
         return new(row.ActorPrincipalId, row.ActorWorkerAlias);
+    }
+
+    private static async Task<(PolicyVersion Policy, CommercialRoundReviewPolicyRules.Definition Rules)?>
+        RoundApplicableReviewPolicy(ProcurementDbContext db, ProcurementRequestScope scope,
+            SourcingEvent source, IReadOnlyCollection<string?> categories, DateTimeOffset now, CancellationToken ct)
+    {
+        if (source.MethodId is not { } methodId || categories.Count == 0
+            || categories.Any(string.IsNullOrWhiteSpace)) return null;
+        var policies = await db.PolicyVersions.AsNoTracking().Where(x =>
+                x.TenantId == scope.TenantId && x.LegalEntityId == scope.LegalEntityId
+                && x.PolicyKey == CommercialRoundReviewPolicyRules.PolicyKey && x.State == "Published"
+                && x.EffectiveFrom <= now && (x.EffectiveTo == null || x.EffectiveTo > now))
+            .ToArrayAsync(ct);
+        var matched = policies.Select(policy => (Policy: policy,
+                Rules: CommercialRoundReviewPolicyRules.Read(policy.RulesJson)))
+            .Where(x => x.Rules is { } rules && rules.MethodIds.Contains(methodId)
+                && rules.CurrencyCodes.Contains(source.CurrencyCode)
+                && categories.All(category => rules.CategoryCodes.Contains("*")
+                    || rules.CategoryCodes.Contains(category!))).Take(2).ToArray();
+        return matched.Length == 1 && matched[0].Rules is { } selected
+            ? (matched[0].Policy, selected) : null;
     }
 
     private static Guid RoundReviewKey(HttpContext http)

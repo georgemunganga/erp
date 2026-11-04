@@ -28,6 +28,7 @@ internal static class ProcurementCommercialRoundActions
 }
 public static partial class ProcurementSourcingExecutionRoutes
 {
+    internal sealed record RoundPolicyPin(Guid PolicyVersionId, int PolicyVersionNumber);
     private static object RoundSourceView(SourcingEvent source,PrincipalRetainedSource retained)
     {
         var method=retained.Snapshot.Lines.Select(x=>new {id=x.MethodId,revision=x.MethodRevision,code=x.MethodCode}).Distinct().Single();
@@ -35,7 +36,7 @@ public static partial class ProcurementSourcingExecutionRoutes
             source.Version,source.Status,method=new {method.id,method.revision,method.code,label=source.Method},
             lines=PrincipalRetainedLineViews(retained),supplierFacingWorkflowAvailable=false};
     }
-    private static async Task<string[]> RoundActions(HttpContext http,ProcurementDbContext db,ApprovalDbContext cases,
+    private static async Task<(string[] Actions, RoundPolicyPin? Policy)> RoundActions(HttpContext http,ProcurementDbContext db,ApprovalDbContext cases,
         HrmDbContext core,ProcurementRequestScope scope,IAuthorizationService auth,SourcingEvent source,
         CommercialRoundPlan? plan,bool currentView,CancellationToken ct)
     {
@@ -43,9 +44,9 @@ public static partial class ProcurementSourcingExecutionRoutes
             && !http.Request.Headers["X-Shell-Branch-Scope"].Any(x=>string.Equals(x,"all",StringComparison.OrdinalIgnoreCase));
         if (!explicitBranch||!currentView||source.Status!="Draft"
             || !http.RequestServices.GetRequiredService<ProcurementCommercialRoundOptions>().RecordEnabled
-            || !await http.RequestServices.GetRequiredService<IProcurementCommercialRoundReadiness>().ReadyAsync(db,true,ct)) return [];
+            || !await http.RequestServices.GetRequiredService<IProcurementCommercialRoundReadiness>().ReadyAsync(db,true,ct)) return ([],null);
         bool untouched=!await RoundExposedSourceIds(db).ContainsAsync(source.Id,ct);
-        if (!untouched) return [];
+        if (!untouched) return ([],null);
         async Task<bool> Allowed(string permission)
         {
             try { _=await PrincipalActor(core,scope,http,auth,permission,source.BranchRef,true,ct);return true; }
@@ -65,27 +66,23 @@ public static partial class ProcurementSourcingExecutionRoutes
         var review=http.RequestServices.GetRequiredService<IProcurementCommercialRoundReviewReadiness>();
         var options=http.RequestServices.GetRequiredService<ProcurementCommercialRoundOptions>();
         var reviewReady=false;
+        RoundPolicyPin? policyPin=null;
         if(submit&&held&&options.ReviewEnabled&&review.HasCapturedContract)
             try { reviewReady=await review.ReadyAsync(db,true,ct); }
             catch(Exception error) when(error is not OperationCanceledException) { reviewReady=false; }
         if(reviewReady)
         {
-            var now=DateTimeOffset.UtcNow;
+            var now=ProcurementEvidenceEncoding.DatabaseTimestamp(DateTimeOffset.UtcNow)!.Value;
             var categories=await db.SourcingLines.AsNoTracking().Where(x=>x.SourcingEventId==source.Id&&x.Status=="Active")
                 .Select(x=>x.CategoryCode).ToArrayAsync(ct);
-            var policies=await db.PolicyVersions.AsNoTracking().Where(x=>x.TenantId==scope.TenantId
-                &&x.LegalEntityId==scope.LegalEntityId&&x.PolicyKey==CommercialRoundReviewPolicyRules.PolicyKey
-                &&x.State=="Published"&&x.EffectiveFrom<=now&&(x.EffectiveTo==null||x.EffectiveTo>now))
-                .ToArrayAsync(ct);
-            var applicable=policies.Count(policy=>CommercialRoundReviewPolicyRules.Read(policy.RulesJson) is { DocumentsRequired:false } rules
-                &&source.MethodId is { } methodId&&rules.MethodIds.Contains(methodId)
-                &&rules.CurrencyCodes.Contains(source.CurrencyCode)&&categories.Length>0
-                &&categories.All(category=>!string.IsNullOrWhiteSpace(category)
-                    &&(rules.CategoryCodes.Contains("*")||rules.CategoryCodes.Contains(category))));
-            if(applicable==1)
+            var applicable=await RoundApplicableReviewPolicy(db,scope,source,categories,now,ct);
+            if(applicable is { } selected&& !selected.Rules.DocumentsRequired)
+            {
+                policyPin=new(selected.Policy.Id,selected.Policy.PolicyVersionNumber);
                 actions.Add("Submit");
+            }
         }
-        return actions.ToArray();
+        return (actions.ToArray(),policyPin);
     }
     private static Task<IResult> RoundSources(int? page,int? pageSize,string? q,HttpContext http,ProcurementRequestScope scope,CancellationToken ct)
         => RunRound(http,scope,async(db,cases,core,auth,token)=> {

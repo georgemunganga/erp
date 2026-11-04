@@ -1,4 +1,5 @@
 using System.Security.Claims;
+using System.Text.Json;
 using Microsoft.AspNetCore.Http;
 using Mightyfin.Erp.Hrm.Api;
 using Mightyfin.Erp.Hrm.Application;
@@ -8,6 +9,29 @@ namespace Mightyfin.Erp.Hrm.Tests;
 
 public sealed class ProcurementCommercialRoundContractTests
 {
+    [Fact]
+    public void Submitter_policy_pin_transport_contains_only_reference_and_version()
+    {
+        var id = Guid.NewGuid();
+        var json = JsonSerializer.Serialize(new ProcurementSourcingExecutionRoutes.RoundPolicyPin(id, 3),
+            new JsonSerializerOptions(JsonSerializerDefaults.Web));
+        using var parsed = JsonDocument.Parse(json);
+        Assert.Equal(2, parsed.RootElement.EnumerateObject().Count());
+        Assert.Equal(id, parsed.RootElement.GetProperty("policyVersionId").GetGuid());
+        Assert.Equal(3, parsed.RootElement.GetProperty("policyVersionNumber").GetInt32());
+        Assert.DoesNotContain("rules", json, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void Round_policy_picker_requires_companywide_current_round_review_grant()
+    {
+        var right = new HashSet<string> { CommercialRoundReviewCoreWorkflow.ReviewPermission };
+        Assert.True(ProcurementPolicyDraftRoutes.RoundPlanReviewerEligible(true, right));
+        Assert.False(ProcurementPolicyDraftRoutes.RoundPlanReviewerEligible(false, right));
+        Assert.False(ProcurementPolicyDraftRoutes.RoundPlanReviewerEligible(true,
+            new HashSet<string> { "procurement-sourcing-publish", "procurement-plan-review" }));
+    }
+
     [Theory]
     [InlineData("Create", true)]
     [InlineData("Revise", true)]
@@ -101,8 +125,12 @@ public sealed class ProcurementCommercialRoundContractTests
     [InlineData("/api/procurement/v1/sourcing/11111111-1111-1111-1111-111111111111/round-plan/history","GET",true)]
     [InlineData("/api/procurement/v1/sourcing/11111111-1111-1111-1111-111111111111/round-plan/versions/1","GET",true)]
     [InlineData("/api/procurement/v1/sourcing/11111111-1111-1111-1111-111111111111/round-plan/commands/22222222-2222-2222-2222-222222222222","GET",true)]
+    [InlineData("/api/procurement/v1/sourcing/round-plan/review-tasks","GET",true)]
+    [InlineData("/api/procurement/v1/sourcing/11111111-1111-1111-1111-111111111111/round-plan/reviews/22222222-2222-2222-2222-222222222222","GET",true)]
+    [InlineData("/api/procurement/v1/sourcing/11111111-1111-1111-1111-111111111111/round-plan/review-commands/22222222-2222-2222-2222-222222222222","GET",true)]
     [InlineData("/api/procurement/v1/sourcing/round-plans","POST",false)]
     [InlineData("/api/procurement/v1/sourcing/11111111-1111-1111-1111-111111111111/round-plan/revise","POST",false)]
+    [InlineData("/api/procurement/v1/sourcing/11111111-1111-1111-1111-111111111111/round-plan/decisions","POST",false)]
     [InlineData("/api/procurement/v1/sourcing/11111111-1111-1111-1111-111111111111/round-plan/versions/0","GET",false)]
     [InlineData("/api/procurement/v1/sourcing/11111111-1111-1111-1111-111111111111/round-plan/versions/1/extra","GET",false)]
     [InlineData("/api/procurement/v1/sourcing/00000000-0000-0000-0000-000000000000/round-plan","GET",false)]

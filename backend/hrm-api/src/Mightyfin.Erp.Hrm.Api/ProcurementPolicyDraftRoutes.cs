@@ -30,6 +30,7 @@ public static partial class ProcurementPolicyDraftRoutes
         group.MapGet("", List).RequireAuthorization("procurement-configuration-read");
         group.MapGet("/effective", Effective).RequireAuthorization("procurement-configuration-read");
         group.MapGet("/lookups/sourcing-reviewers", SourcingReviewers).RequireAuthorization("procurement-configuration-read");
+        group.MapGet("/lookups/round-plan-reviewers", RoundPlanReviewers).RequireAuthorization("procurement-configuration-read");
         group.MapGet("/lookups/plan-reviewers", PlanReviewers).RequireAuthorization("procurement-configuration-read");
         group.MapGet("/lookups/receiving/{kind}", ReceivingPolicyLookup).RequireAuthorization("procurement-configuration-read");
         group.MapGet("/lookups/invoice-unit-reviewers", UnitReviewers).RequireAuthorization("procurement-configuration-read");

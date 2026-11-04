@@ -59,10 +59,15 @@ public static partial class ProcurementSourcingExecutionRoutes
             if (plan is null || approvalCase is null || stage is null || latest is null
                 || !CommercialRoundReviewCoreWorkflow.PendingTask(approvalCase, stage,
                     task, round, plan, latest.Version)) continue;
+            var eventVersion = await QuotationOwnedSources(db).AsNoTracking()
+                .Where(x => x.Id == round.SourcingEventId && x.BranchRef == round.BranchId)
+                .Select(x => x.Version).SingleOrDefaultAsync(token);
+            if (eventVersion < 1) continue;
             items.Add(new { eventId = round.SourcingEventId, planId = plan.Id,
                 submissionId = round.Id, caseId = round.CoreCaseId,
                 assignmentId = task.Id, submittedVersion = round.SubmittedPlanVersion,
-                currentPlanVersion = plan.Version, contentSha256 = round.SubmittedContentSha256,
+                currentPlanVersion = plan.Version, eventVersion,
+                contentSha256 = round.SubmittedContentSha256,
                 assignmentVersion = task.Version });
             if(items.Count==size) break;
         }
@@ -102,12 +107,83 @@ public static partial class ProcurementSourcingExecutionRoutes
             var current = await db.CommercialRoundPlans.AsNoTracking().SingleOrDefaultAsync(x =>
                 x.Id == submission.PlanId && x.SourcingEventId == id && x.BranchId == submission.BranchId, token)
                 ?? throw new Problem("RoundReviewNotFound", 404);
+            var stage = await cases.Stages.AsNoTracking().SingleOrDefaultAsync(x => x.Id == assignment.StageId
+                && x.CaseId == approvalCase.Id, token);
+            var latestVersion = await db.CommercialRoundReviewSubmissions.AsNoTracking()
+                .Where(x => x.PlanId == current.Id).MaxAsync(x => x.SubmittedPlanVersion, token);
+            var currentRound = stage is not null
+                && CommercialRoundReviewCoreWorkflow.PendingTask(approvalCase, stage, assignment,
+                    submission, current, latestVersion);
+            var allowedActions = Array.Empty<string>();
+            if (currentRound && source.Status == "Draft" && !scope.IsExplicitAllBranches
+                && scope.WorkLocationId == current.BranchId
+                && !http.Request.Headers["X-Shell-Branch-Scope"].Any(x => string.Equals(x, "all", StringComparison.OrdinalIgnoreCase)))
+            {
+                var options = http.RequestServices.GetRequiredService<ProcurementCommercialRoundOptions>();
+                var readiness = http.RequestServices.GetRequiredService<IProcurementCommercialRoundReviewReadiness>();
+                if (options.ReviewEnabled && options.RecordEnabled && readiness.HasCapturedContract)
+                {
+                    try
+                    {
+                        var actor = await ProcurementPrincipalPeople.Resolve(core, scope.TenantId,
+                            scope.LegalEntityId, scope.SubjectId, token);
+                        var material = await RoundLatestMaterialAuthor(db, current.Id,
+                            submission.SubmittedPlanVersion, token);
+                        var independent = actor is not null
+                            && await ProcurementPrincipalPeople.IndependentNow(core, scope.TenantId,
+                                submission.MakerPrincipalId, submission.MakerWorkerAlias,
+                                actor.PrincipalId, actor.CoreLinkedWorkerId, token)
+                            && await ProcurementPrincipalPeople.IndependentNow(core, scope.TenantId,
+                                current.MakerPrincipalId, submitted.Enrollment.EnrolledByWorkerAlias,
+                                actor.PrincipalId, actor.CoreLinkedWorkerId, token)
+                            && await ProcurementPrincipalPeople.IndependentNow(core, scope.TenantId,
+                                material.PrincipalId, material.WorkerAlias,
+                                actor.PrincipalId, actor.CoreLinkedWorkerId, token)
+                            && await ProcurementPrincipalPeople.IndependentNow(core, scope.TenantId,
+                                source.OwnerSubjectId, source.MakerWorkerId,
+                                actor.PrincipalId, actor.CoreLinkedWorkerId, token);
+                        if (independent && await readiness.ReadyAsync(db, true, token)
+                            && !await RoundExposedSourceIds(db).ContainsAsync(id, token))
+                        {
+                            _ = await RoundVerifyHeldSource(db, cases, scope, source, token);
+                            var currentHash = await db.CommercialRoundPlanRevisions.AsNoTracking()
+                                .Where(x => x.PlanId == current.Id && x.ResultVersion == current.Version)
+                                .Select(x => x.ContentSha256).SingleOrDefaultAsync(token);
+                            if (currentHash == submission.SubmittedContentSha256)
+                            {
+                                var policy = await db.PolicyVersions.AsNoTracking()
+                                    .SingleOrDefaultAsync(x => x.Id == submission.PolicyVersionId, token);
+                                var rules = policy is null ? null : CommercialRoundReviewPolicyRules.Read(policy.RulesJson);
+                                if (rules is not null && policy!.PolicyVersionNumber == submission.PolicyVersionNumber
+                                    && ProcurementEvidenceEncoding.PolicyJsonDigest(policy.RulesJson) == submission.PolicyRulesSha256)
+                                {
+                                    _ = await ProcurementOperationalPolicyWorkerIdentity.VerifyPublicationAsync(db,
+                                        scope, policy, token, OperationalPolicyPublicationMode.RetainedHistorical);
+                                    allowedActions = ["Return", "Reject"];
+                                    var draft = CommercialRoundPlanDraft.Restore(submitted.Revision,
+                                        submitted.Criteria, submitted.Participants);
+                                    if (RoundReviewComplete(draft, rules, DateTimeOffset.UtcNow))
+                                    {
+                                        await RoundParticipants(core, scope, current.BranchId, draft, token);
+                                        allowedActions = ["Approve", "Return", "Reject"];
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    catch (Exception error) when (error is not OperationCanceledException)
+                    { allowedActions = []; }
+                }
+            }
             using var parsed = JsonDocument.Parse(submitted.Revision.ContentJson);
             var snapshot = parsed.RootElement.Clone();
             var response = JsonSerializer.Serialize(new { eventId = id, planId = submission.PlanId,
+                eventHeader = new { source.Number, source.Title, source.Method,
+                    source.CurrencyCode, branchId = source.BranchRef },
                 submissionId = submission.Id, submittedRevisionId = submission.SubmittedRevisionId,
                 submittedVersion = submission.SubmittedPlanVersion,
                 currentPlanVersion = current.Version, currentStatus = current.Status,
+                eventVersion = source.Version, currentRound, allowedActions,
                 contentSha256 = submission.SubmittedContentSha256,
                 submittedSnapshot = snapshot, caseId = approvalCase.Id,
                 caseVersion = approvalCase.Version, caseState = approvalCase.State,
