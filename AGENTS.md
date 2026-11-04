@@ -5,3 +5,5 @@ New Core, HRM, Procurement, and other ERP work follows [GW-ENG-STD-001](docs/eng
 Before enabling a live workflow, trace its UI actions to domain records, states/transitions, server permissions and data scope, business rules, API/events, audit, failure recovery, and acceptance evidence. Core owns shared identity, organisation, branding, access, audit, documents and integration contracts; each module owns its business decisions and records. Do not present browser-local Procurement data as persisted ERP transactions.
 
 For multi-computer collaboration, publish reviewed prerequisite merges before assigning the next milestone. Maintain `MANUS_HANDOFF.md` with exact published ERP/UI main baselines, ownership, acceptance evidence and outstanding release holds. Do not give collaborators stale branch tips or unpublished commit IDs.
+
+Before handling retained build publications or their aliases, follow [the build artifact retention rule](docs/engineering/BUILD-ARTIFACT-RETENTION.md). Existing publications are write-once, including partial operations; build or restore into an exclusive new directory. Never connect mutable build outputs to retained publication inodes.
