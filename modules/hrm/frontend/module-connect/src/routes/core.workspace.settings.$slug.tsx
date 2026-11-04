@@ -4,6 +4,7 @@ import { AuthGate, CoreAdminGate } from "@/platform/components/AuthGate";
 import { CoreShell } from "@/modules/core/CoreShell";
 import { findCoreSetting } from "@/modules/core/settings";
 import { CurrencyPrecisionsPage } from "@/modules/core/CurrencyPrecisionsPage";
+import { WorkflowConfigurationPage } from "@/modules/core/WorkflowConfigurationPage";
 import { BrandingPage } from "./hrm.configuration.branding";
 import { OrganisationConfig } from "./hrm.configuration.organisation";
 import { UsersConfiguration } from "./hrm.configuration.users";
@@ -11,13 +12,14 @@ import { RolesConfig } from "./hrm.configuration.roles";
 import { BranchAccessPage } from "./hrm.configuration.branch-access";
 
 export const Route = createFileRoute("/core/workspace/settings/$slug")({
-  head: ({ params }) => ({ meta: [{ title: `${(params.slug === "currencies" ? "Currencies" : findCoreSetting(params.slug)?.label ?? params.slug)} — ERP Core` }] }),
+  head: ({ params }) => ({ meta: [{ title: `${(params.slug === "currencies" ? "Currencies" : params.slug === "workflows" ? "Approval workflows" : findCoreSetting(params.slug)?.label ?? params.slug)} — ERP Core` }] }),
   component: CoreSettingPage,
 });
 
 function CoreSettingPage() {
   const { slug } = Route.useParams();
   const pathname = useRouterState({ select: (state) => state.location.pathname });
+  if (slug === "workflows") return <CoreAdminGate><CoreShell currencyContext><WorkflowConfigurationPage /></CoreShell></CoreAdminGate>;
   if (slug === "currencies") return <AuthGate module="authenticated"><CoreShell currencyContext><CurrencyPrecisionsPage /></CoreShell></AuthGate>;
   if (slug === "branding") return <BrandingPage />;
   if (slug === "organization") return <OrganisationConfig />;

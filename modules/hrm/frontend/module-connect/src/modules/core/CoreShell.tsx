@@ -1,5 +1,5 @@
 import { useEffect, useState, type ReactNode } from "react";
-import { Building2, ChevronDown, ChevronRight, FileText, Menu, Settings2, UsersRound, X } from "lucide-react";
+import { Building2, ChevronDown, ChevronRight, FileText, GitBranch, Menu, Settings2, UsersRound, X } from "lucide-react";
 import { ErpTopNav } from "@/platform/components/ErpTopNav";
 import { ErpAccountMenu } from "@/platform/components/ErpAccountMenu";
 import { ErpSidebarHeader, useErpSidebar } from "@/platform/components/ErpSidebar";
@@ -27,7 +27,10 @@ export function CoreShell({ children, currencyContext = false }: { children: Rea
   const currentPath = typeof window === "undefined" ? "/core" : window.location.pathname;
   const currentHash = typeof window === "undefined" ? "" : window.location.hash;
   const activeSetting = (path: string) => path === `${currentPath}${currentHash}`;
-  const groupIcons = [Building2, UsersRound, Settings2, FileText];
+  const groupIcons: Record<string, typeof Settings2> = {
+    Organization: Building2, "Users & Roles": UsersRound, Workflows: GitBranch,
+    "Shared defaults": Settings2, "Documents & communication": FileText,
+  };
   const [openGroups, setOpenGroups] = useState<string[]>(() => coreSettingGroups.filter((group) => group.items.some((item) => activeSetting(settingPath(item)))).map((group) => group.title));
   const context = useApi(async () => {
     if (currencyContext) {
@@ -60,8 +63,8 @@ export function CoreShell({ children, currencyContext = false }: { children: Rea
   const activeBranch = branches.find((item) => item.id === branch);
   const navigation = <>
     <a href={currencyOnly ? "/core/workspace/settings/currencies" : "/core/workspace/settings"} title="Core settings" onClick={() => setMobileOpen(false)} className={`mb-3 flex items-center gap-2 rounded-md px-3 py-2 text-sm font-semibold text-rail-foreground ${collapsed ? "lg:justify-center lg:px-2" : ""} ${currentPath.startsWith("/core/workspace/settings") ? "bg-rail-active" : "hover:bg-rail-active"}`}><Settings2 className="size-4 shrink-0" /><span className={collapsed ? "lg:sr-only" : ""}>Core settings</span></a>
-    {coreSettingGroups.map((group, index) => ({ group, index })).filter(({ group }) => !currencyOnly || group.items.some(item => item.label === "Currencies")).map(({ group, index }) => {
-      const Icon = groupIcons[index];
+    {coreSettingGroups.filter(group => !currencyOnly || group.items.some(item => item.label === "Currencies")).map(group => {
+      const Icon = groupIcons[group.title] ?? Settings2;
       const open = openGroups.includes(group.title);
       return <div key={group.title} className="mb-1">
         <button type="button" title={group.title} aria-label={collapsed ? group.title : undefined} aria-expanded={open} onClick={() => { if (collapsed && window.innerWidth >= 1024) { setCollapsed(false); setOpenGroups((groups) => groups.includes(group.title) ? groups : [...groups, group.title]); } else setOpenGroups((groups) => open ? groups.filter((title) => title !== group.title) : [...groups, group.title]); }} className={`flex w-full items-center gap-2 rounded-md px-3 py-2 text-left text-sm font-medium text-rail-foreground hover:bg-rail-active ${collapsed ? "lg:justify-center lg:px-2" : ""}`}>
