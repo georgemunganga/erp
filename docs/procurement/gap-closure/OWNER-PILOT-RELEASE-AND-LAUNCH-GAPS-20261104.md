@@ -29,7 +29,7 @@ Use Amizo Power's existing Core company, default currency and branch setup. Core
 | Funding/payment boundary | Finance module is not built; governed manual evidence/payment reporting has source/private evidence but production manual payments are false | For a pilot, approve the external/manual funding process and responsibilities. Keep accounting/bank execution external; activate manual reporting only after its real scoped policy and workflow pass. Do not invent Finance balances or paid status |
 | Documents and operations | Verified document/scanner workflow remains incomplete; server had zero free root bytes during preflight | Do not rely on unverified attachments. Resolve durable storage headroom, confirm recoverable backup/support ownership and finish the agreed attachment-required transitions before operational handover |
 
-A fresh production read-only count found zero operational policy versions and zero Published operational policies. This is an aggregate check; no rule values or customer records were copied. Production processing flags listed above remain disabled.
+A fresh production read-only count found zero operational policy versions and zero Published operational policies; a second read-only count found zero spending-authority grants and zero purchasing-assignment authority evidence. This is an aggregate check; no rule values or customer records were copied. Production processing flags listed above remain disabled.
 
 The current owner meeting can settle the named approvers, spending limits, who verifies funding, permitted starting branches and the exact first workflow. No thresholds, approvers or policy references have been invented or seeded by this deployment.
 
