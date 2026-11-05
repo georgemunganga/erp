@@ -91,6 +91,21 @@ public sealed class ProcurementCommercialRoundContractTests
     }
 
     [Fact]
+    public void Round_review_readiness_seals_the_deferred_completeness_function()
+    {
+        var capture = ProcurementCommercialRoundReviewReadiness.FingerprintSql;
+        Assert.Contains("'commercial_round_review_complete'", capture);
+        Assert.Contains("pg_get_functiondef(p.oid)", capture);
+        foreach (var mode in new[] { false, true })
+        {
+            var privilege = ProcurementCommercialRoundReviewReadiness.PrivilegeSql("bounded_round_role", mode);
+            Assert.Contains("'commercial_round_review_complete'", privilege);
+            Assert.Contains("pg_has_role(current_user,p.proowner,'SET')", privilege);
+            Assert.Contains("pg_has_role(current_user,p.proowner,'MEMBER')", privilege);
+        }
+    }
+
+    [Fact]
     public void Round_review_requires_future_opening_and_unconflicted_required_team()
     {
         var now = new DateTimeOffset(2026, 11, 4, 12, 0, 0, TimeSpan.Zero);

@@ -72,6 +72,10 @@ public sealed class ProcurementCommercialRoundReviewReadiness(
             foreach (var table in new[] { "cases", "stages", "assignments" })
                 requirements.Add("has_table_privilege(current_user," + Literal("core_approval." + table) + ",'UPDATE')");
         }
+        requirements.Add("NOT EXISTS(SELECT 1 FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace "
+            + "WHERE n.nspname='procurement' AND p.proname IN "
+            + "('commercial_round_review_complete','commercial_round_plan_update') AND "
+            + "(pg_has_role(current_user,p.proowner,'SET') OR pg_has_role(current_user,p.proowner,'MEMBER'))) ");
         return "SELECT " + string.Join(" AND ", requirements);
     }
 
@@ -90,7 +94,7 @@ SELECT encode(sha256(convert_to(jsonb_build_object(
  'constraints',(SELECT jsonb_agg(jsonb_build_array(r.relname,c.conname,c.contype,c.convalidated,c.condeferrable,c.condeferred,pg_get_constraintdef(c.oid)) ORDER BY r.relname,c.conname) FROM r JOIN pg_constraint c ON c.conrelid=r.oid),
  'indexes',(SELECT jsonb_agg(jsonb_build_array(r.relname,i.indisvalid,i.indisready,i.indislive,i.indimmediate,pg_get_indexdef(i.indexrelid)) ORDER BY r.relname,pg_get_indexdef(i.indexrelid)) FROM r JOIN pg_index i ON i.indrelid=r.oid),
  'triggers',(SELECT jsonb_agg(jsonb_build_array(c.relname,t.tgname,t.tgenabled,pg_get_triggerdef(t.oid)) ORDER BY c.relname,t.tgname) FROM pg_trigger t JOIN pg_class c ON c.oid=t.tgrelid WHERE c.oid IN (SELECT oid FROM r) AND NOT t.tgisinternal),
- 'functions',(SELECT jsonb_agg(jsonb_build_array(p.proname,pg_get_userbyid(p.proowner),p.prosecdef,pg_get_functiondef(p.oid)) ORDER BY p.proname) FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace WHERE n.nspname='procurement' AND p.proname IN ('commercial_round_complete','commercial_round_plan_update'))
+ 'functions',(SELECT jsonb_agg(jsonb_build_array(p.proname,pg_get_userbyid(p.proowner),p.prosecdef,pg_get_functiondef(p.oid)) ORDER BY p.proname) FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace WHERE n.nspname='procurement' AND p.proname IN ('commercial_round_complete','commercial_round_plan_update','commercial_round_review_complete'))
 )::text,'UTF8')),'hex')
 """;
 }
