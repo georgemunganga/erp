@@ -570,8 +570,32 @@ public interface ITenantAccessor
 /// fallback to the configured default tenant when auth is disabled.</summary>
 public sealed class PrincipalTenantAccessor(Microsoft.AspNetCore.Http.IHttpContextAccessor http, IConfiguration config) : ITenantAccessor
 {
+    private static readonly object SessionTenantKey = new();
+
+    /// <summary>Authentication-only scope after validating an opaque session and
+    /// its exact tenant/user pair. Never populate this from headers or email.</summary>
+    public static IDisposable BeginSessionAuthentication(HttpContext context, string tenantId)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(tenantId);
+        var existed = context.Items.TryGetValue(SessionTenantKey, out var previous);
+        context.Items[SessionTenantKey] = tenantId;
+        return new SessionTenantScope(context, existed, previous);
+    }
+
+    private sealed class SessionTenantScope(HttpContext context, bool existed, object? previous) : IDisposable
+    {
+        public void Dispose()
+        {
+            if (existed) context.Items[SessionTenantKey] = previous;
+            else context.Items.Remove(SessionTenantKey);
+        }
+    }
+
     public string GetTenantId()
     {
+        if (http.HttpContext?.Items.TryGetValue(SessionTenantKey, out var resolved) == true
+            && resolved is string sessionTenant)
+            return sessionTenant;
         var claims = http.HttpContext?.User?.Claims;
         if (claims is not null)
         {
