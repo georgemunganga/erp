@@ -17,6 +17,11 @@ resources and does not start containers, apply migrations or seed identities.
 The private bootstrap SQL must only be fed to privileged psql through stdin; never
 print it or run it against an existing installation.
 
+`initialize-qualification.py` is a one-time next step: it starts only the isolated
+database, creates the separate roles and executes the existing migration-owner
+command. It retains private logs and a started marker, refuses a second attempt,
+and leaves the API stopped. Inspect a partial attempt before any recovery.
+
 ## Inputs and owners
 
 Copy the Compose file into the exclusive host directory. Create root-private
