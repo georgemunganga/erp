@@ -10,9 +10,11 @@ headers or commercial membership, create identities or grant workspace access.
 
 The reviewed application changes are backported to the maintained qualified
 release as `1f54ff046cf69b7b4fb8604da9ad9bf6bc7b2f63`. Its independent Docker
-test-and-publish process is `kuubu-runtime-image-build03.service` on the Kuubu
-host; no successful image/deployment is inferred while that process is running.
-The loopback-only running qualification API remains408da398. Read
+test-and-publish gate passed1,982/0/0, followed by nonroot PDF smoke. After a fresh
+verified backup/independent restore, the loopback-only qualification API switched
+to1f54ff04. Actual health/session/admin checks passed;57 migrations and0 users/
+sessions remain. No schema or public ingress changed; prior408 image/config/logs
+are retained. Read
 `docs/engineering/CORE-SESSION-TENANT-20261106.md` for hashes, native fixture
 limits and retained failed-attempt evidence. Laravel admission and operational
 tenant/module acceptance remain open; all prior release holds remain in force.
