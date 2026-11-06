@@ -35,8 +35,17 @@ recorded from completed process receipts, not inferred from these edits.
 
 Focused attempt03 completed successfully:64 passed,0 failed,0 skipped,45 seconds.
 It retains the existing validation/record/audit assertions and adds the explicit
-missing-branch/no-mutation denial. Full HRM regression is running separately and
-has not yet been claimed as passing.
+missing-branch/no-mutation denial. Full HRM regression then passed1990 tests,
+0 failed/0 skipped,6m52s, using the actual compiled source143c2503.
+Full log SHA256:
+`922172de1004ff8406b99996b940a1b9372cacc3da224c2cddeda9e4ec46ad03`.
+Focused pass log SHA256:
+`b873d64ad85e8271f425ad3472451a191e09e9fca399ecc1901fbc9de679b457`.
+
+Hosted run42227118300 did not execute its backend steps. Its check annotation
+states: "The job was not started because your account is locked due to a billing issue."
+The hosted result is a platform failure, distinct from the passing isolated
+server evidence. It is not described as hosted CI success.
 
 Published main-line test fix is143c2503; Noble packaging fix is6da95d41. The
 qualified-baseline candidate is6dc66ec548ca0c1ae9c2bb2ef06878ad78845335 on
