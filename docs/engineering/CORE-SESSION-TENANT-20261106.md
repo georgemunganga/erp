@@ -122,3 +122,34 @@ This is a prerequisite, not the entire admission design. Laravel-to-Core
 one-time admission, explicit organization/team mappings, entitlement freshness,
 session lifetime/revocation policy and tenant-isolation acceptance remain work.
 Do not deploy wholesale main or lift held Procurement/financial gates.
+
+## Execution evidence — 6 November 2026
+
+Source fixf984f9d0, native fixturea424b58d and assertion correction3f6c4b89 are
+published in stacked draftPR200, based on packagingPR199. The first focused
+compile failed because xUnit selected the asynchronous Throws overload for an
+always-throwing synchronous lambda; the explicit Action correction retains the
+intended cleanup assertion. That failed attempt is preserved.
+
+The corrected compiled source passed34 focused HTTP/role/workspace cases and10
+PostgreSQL scenarios,0 failed/0 skipped in both. Each native scenario used a new
+database on a separate internal-network PostgreSQL server and genuine Core/HRM
+migrations. Native tests verify application session/filter/audit behavior with a
+fixture database owner; they do not certify production runtime ACLs or all ERP
+operations. Full main-line HRM regression is currently running, not yet passed.
+
+Focused log SHA256:
+`889cfe35833b9439dc010eb13e49af38f8109f67c9bd5062fe6e1ecd9e810a18`.
+Native log SHA256:
+`7af3b76fd22fc84e1cb0eb6a361192d180f5e90e90953e9a1126ba233f739080`.
+Host receipts:
+`/opt/kuubu-builds/session-tenant-f984f9d0-build01/focused-02/` and `native-01/`.
+The independently retained originalf984 archive plus the only changed test file
+at SHA256`3af8170e63c961f5fe2ffef792881d3814a4c23fd48ead51f1a19b9e5d24817b`
+describe corrected source3f6c4b89; mutable working source is not a publication.
+
+The same changes are cherry-picked onto the qualified baseline as1f54ff04. Its
+application/session source and new tests match the reviewed source above; its
+own full Docker image test gate is still required. The running loopback runtime
+remains the earlier408da398 image. Local password login remains default-tenant
+legacy behavior; explicit Laravel admission is still required for shared use.
