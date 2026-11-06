@@ -73,14 +73,27 @@ internal sealed class LocalAuthenticationHandler(
     {
         var token = Request.Cookies[CookieName];
         if (string.IsNullOrWhiteSpace(token)) return AuthenticateResult.NoResult();
+        if (token.Length > 512) return AuthenticateResult.Fail("Invalid session.");
 
         var now = DateTimeOffset.UtcNow;
-        var session = await db.LocalSessions.FirstOrDefaultAsync(x =>
-            x.TokenHash == LocalSessionTokens.Hash(token) && x.RevokedAt == null && x.ExpiresAt > now);
+        // The global unique opaque token hash is the bootstrap authority. A
+        // process-default tenant cannot select an unrelated customer's session.
+        var tokenHash = LocalSessionTokens.Hash(token);
+        var session = await db.LocalSessions.IgnoreQueryFilters().SingleOrDefaultAsync(x =>
+            x.TokenHash == tokenHash && !x.IsArchived && x.RevokedAt == null && x.ExpiresAt > now,
+            Context.RequestAborted);
         if (session is null) return AuthenticateResult.Fail("Session expired or revoked.");
 
-        var user = await db.LocalUsers.FirstOrDefaultAsync(x => x.Id == session.LocalUserId && x.IsActive && !x.IsArchived);
+        var user = await db.LocalUsers.IgnoreQueryFilters().SingleOrDefaultAsync(x =>
+            x.Id == session.LocalUserId && x.TenantId == session.TenantId && x.IsActive && !x.IsArchived,
+            Context.RequestAborted);
         if (user is null) return AuthenticateResult.Fail("Account inactive.");
+        if (user.LockedUntil is { } lockedUntil && lockedUntil > now)
+            return AuthenticateResult.Fail("Account locked.");
+
+        // Role resolution, activity writes and their audit now use the verified
+        // session tenant while authentication middleware constructs the principal.
+        using var tenantScope = PrincipalTenantAccessor.BeginSessionAuthentication(Context, user.TenantId);
 
         if (session.LastSeenAt < now.AddMinutes(-5))
         {

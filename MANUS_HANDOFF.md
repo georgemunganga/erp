@@ -1,3 +1,24 @@
+# Core session tenant repair — 6 November 2026
+
+Stacked draftPR200 (`codex/kuubu-session-tenant-20261106`, compiled source
+`3f6c4b890a1b81827e31eba1e36145179e4dda04`) depends on packagingPR199.
+Actual34 focused and10 genuine-PostgreSQL scenarios passed, followed by the
+complete2,000-case HRM suite/0fail/0skip. The fix resolves a globally unique opaque
+session hash and exact tenant/user pair before current role resolution and
+activity/audit writes. It does not select organizations from email/domain,
+headers or commercial membership, create identities or grant workspace access.
+
+The reviewed application changes are backported to the maintained qualified
+release as `1f54ff046cf69b7b4fb8604da9ad9bf6bc7b2f63`. Its independent Docker
+test-and-publish gate passed1,982/0/0, followed by nonroot PDF smoke. After a fresh
+verified backup/independent restore, the loopback-only qualification API switched
+to1f54ff04. Actual health/session/admin checks passed;57 migrations and0 users/
+sessions remain. No schema or public ingress changed; prior408 image/config/logs
+are retained. Read
+`docs/engineering/CORE-SESSION-TENANT-20261106.md` for hashes, native fixture
+limits and retained failed-attempt evidence. Laravel admission and operational
+tenant/module acceptance remain open; all prior release holds remain in force.
+
 # Kuubu qualification checkpoint — 6 November 2026
 
 Published ERP main remains `7b7e3fc70b2d4866bb24e165a9646d598b589a8e`;
