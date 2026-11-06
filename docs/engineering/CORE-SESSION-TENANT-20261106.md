@@ -136,12 +136,17 @@ PostgreSQL scenarios,0 failed/0 skipped in both. Each native scenario used a new
 database on a separate internal-network PostgreSQL server and genuine Core/HRM
 migrations. Native tests verify application session/filter/audit behavior with a
 fixture database owner; they do not certify production runtime ACLs or all ERP
-operations. Full main-line HRM regression is currently running, not yet passed.
+operations. Full main-line HRM regression then passed2,000 tests,0 failed/0
+skipped,6m56s, on the corrected compiled source3f6c4b89. It reused that build's
+assemblies without rebuilding or changing the source; no fixture database was
+enabled for the normal full suite.
 
 Focused log SHA256:
 `889cfe35833b9439dc010eb13e49af38f8109f67c9bd5062fe6e1ecd9e810a18`.
 Native log SHA256:
 `7af3b76fd22fc84e1cb0eb6a361192d180f5e90e90953e9a1126ba233f739080`.
+Full log SHA256:
+`e71b446a67ed808f2e87d2c120f3e1a2f87062ef5f47b66fcdb30c41c1848bd3`.
 Host receipts:
 `/opt/kuubu-builds/session-tenant-f984f9d0-build01/focused-02/` and `native-01/`.
 The independently retained originalf984 archive plus the only changed test file
@@ -150,6 +155,8 @@ describe corrected source3f6c4b89; mutable working source is not a publication.
 
 The same changes are cherry-picked onto the qualified baseline as1f54ff04. Its
 application/session source and new tests match the reviewed source above; its
-own full Docker image test gate is still required. The running loopback runtime
+own full Docker image test gate is now running under
+`kuubu-runtime-image-build03.service`; publication/PDF acceptance is not yet
+claimed. The running loopback runtime
 remains the earlier408da398 image. Local password login remains default-tenant
 legacy behavior; explicit Laravel admission is still required for shared use.
