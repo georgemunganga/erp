@@ -1,3 +1,28 @@
+# Kuubu release qualification — 6 November 2026
+
+This branch is the maintained qualified runtime line, not a per-customer fork or
+permission to deploy wholesale ERP main. Inspected published main remains
+`7b7e3fc70b2d4866bb24e165a9646d598b589a8e`; existing ERP UI pin remains
+`2b3357d2de3c383ea2926264abc701b1564a5895`, unchanged by this work.
+
+Running Kuubu-host qualification image408da398 has57 genuine Core/HRM migrations,
+zero users/sessions, loopback-only API, native restricted-role denials and actual
+backup/independent restore proof for all98 HRM tables. See
+`deployment/kuubu/QUALIFICATION-20261106.md`. Historical ERP production elsewhere
+was not accessed or changed.
+
+The session tenant repair from stacked draftPR200 is backported as exact image
+source `1f54ff046cf69b7b4fb8604da9ad9bf6bc7b2f63`. Identical reviewed application
+source passed34 focused,10 genuine-PostgreSQL and2,000 full main-line HRM tests.
+Its own Docker gate is running as `kuubu-runtime-image-build03.service`; no image
+success or deployment follows until actual terminal receipts and runtime checks.
+Read `docs/engineering/CORE-SESSION-TENANT-20261106.md` for provenance and limits.
+
+Root retains integration/release ownership. No collaborator task/acknowledgment
+is inferred. All B1c/financial holds remain. Explicit Laravel-to-Core admission,
+workspace/team mappings, operational module ACLs, unrelated-tenant acceptance,
+off-host recovery and launch review remain required before customer routing.
+
 # Plan review source integration — 3 November 2026
 
 Issue [169](https://github.com/georgemunganga/erp/issues/169), draft [ERP PR171](https://github.com/georgemunganga/erp/pull/171), now includes actual published ERP main `f064f1a343e9897f4234bed7b6fd9586aebcded3` (accepted PR176 and B1 release PR177) through merge `d2c24ae4ea8f156406ec8ab23d94a992fc2c3921`, retaining the earlier B1 baseline `dc6a082db74f9740104e2295988bc6f1f54027d8`. Published UI main is `9b5d02dcf971900289793f56e91895dd3747fd80`; Plan UI PR103 has separate ownership. The single B1 genuine migration `20261103163108_M7b1CommercialRoundDraftPlans`, designer and snapshot remain byte-identical to ERP main. The host All-reader merge retains both Plan review and B1 round-plan routes.
