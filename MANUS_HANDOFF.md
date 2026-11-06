@@ -1,3 +1,27 @@
+# Kuubu qualification checkpoint — 6 November 2026
+
+Published ERP main remains `7b7e3fc70b2d4866bb24e165a9646d598b589a8e`;
+the existing ERP UI pin remains `2b3357d2de3c383ea2926264abc701b1564a5895`
+from the prior handoff, unchanged by this work. No new ERP UI publication is
+claimed. PR199 repairs main-line Docker packaging and test fixtures;1,990 tests
+passed locally, while hosted CI could not start due to the account billing lock.
+
+On the separate authorized Kuubu host2.24.140.104, published release branch
+`release/kuubu-baseline-20261106` at `86330ea6` retains documented application
+baselinee340a6f4. Exact image source408da398 passed1,972 tests and nonroot PDF
+rendering. Its API is loopback-only, with57 genuine Core/HRM migrations and no
+login users/sessions. Native ACL denials and a real independent restore of all98
+HRM tables passed. Read the branch's `deployment/kuubu/QUALIFICATION-20261106.md`
+for image IDs, hashes, ACL limits and receipts. The existing ERP installation on
+the other historical host was not accessed or changed. Root retains integration
+and rollout ownership; no collaborator task or acknowledgment is inferred.
+
+This is not a main rollout or SaaS launch. Held B1c/M3/financial controls remain
+held. Tenant/session resolution, Laravel-to-Core identity/workspace admission,
+unrelated-tenant denials, operational module ACLs and off-host recovery remain
+required before customer routing. Separate GreenWebb and Kuubu login UIs now use
+central Laravel identities; a login or billing record grants no ERP organization.
+
 # Latest published checkpoint — Procurement, 4 November 2026
 
 Fetch ERP main `ae32466e2959b79e62ae1d0a3b457c58110389ae` (PR197) and UI main `2b3357d2de3c383ea2926264abc701b1564a5895` (PR108/109), or reviewed descendants. These supersede earlier prerequisite pins below. Latest UI company-context/settings fixes are deployed; API stays on the separately qualified c93/M2 image with239 tables. Held B1c prevents wholesale main deployment.

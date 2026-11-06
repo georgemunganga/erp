@@ -48,11 +48,29 @@ The hosted result is a platform failure, distinct from the passing isolated
 server evidence. It is not described as hosted CI success.
 
 Published main-line test fix is143c2503; Noble packaging fix is6da95d41. The
-qualified-baseline candidate is6dc66ec548ca0c1ae9c2bb2ef06878ad78845335 on
+earlier qualified-baseline candidate was6dc66ec548ca0c1ae9c2bb2ef06878ad78845335 on
 `release/kuubu-baseline-20261106`. Its only differences from e340a6f4 are six test
 files and the Dockerfile; application/business source is unchanged. Candidate
 archive SHA256:
 `b9958c8a3df40bd6faca98b69ba7dccc14329f15c403f279c8ab44d02ff327ba`.
+
+That attempt fixed Noble packaging but failed compilation because its backported
+test helper referenced a newer held review interface absent from e340. The
+baseline-specific correction408da398 implements only the baseline's actual
+readiness interface and verifies that held review metadata is absent; no held
+application code is introduced. The final full Docker test-and-publish gate
+passed1,972/0/0, producing `kuubu/erp-api:408da398-build01`, image ID
+`sha256:bb8e62aa95213e88ceaca3bd3bcd8986e054b6cba5b7c37c46e0d4c470b1568b`.
+Nonroot WeasyPrint PDF smoke passed, UID1654. Build log SHA256:
+`3085c5090edeb3d6b0de83d8efaabec0d76bfa87fefa4cd25d80c5ec321e33c3`.
+
+The Kuubu host now has an isolated loopback-only qualification runtime with57
+genuine Core/HRM migrations and zero users/sessions. Native restricted-role
+DDL/audit-mutation denials passed. A real backup was restored into a new database;
+all98 HRM tables' record hashes, owners and table/column ACLs matched. This does
+not qualify operational module privileges, tenant admission, off-host recovery or
+customer launch. Published operations/evidence:
+https://github.com/georgemunganga/erp/blob/release/kuubu-baseline-20261106/deployment/kuubu/QUALIFICATION-20261106.md.
 
 The Noble package observation was made in the actual selected base image,
 `mcr.microsoft.com/dotnet/aspnet:10.0-noble`, digest
