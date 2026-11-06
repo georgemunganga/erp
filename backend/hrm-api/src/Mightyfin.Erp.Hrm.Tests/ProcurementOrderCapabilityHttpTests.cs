@@ -125,7 +125,7 @@ public sealed class ProcurementOrderCapabilityHttpTests
         Assert.False(body.GetProperty("capabilities").GetProperty("planningDraft").GetBoolean());
         Assert.False(body.GetProperty("capabilities").GetProperty("planReviewWorkflow").GetBoolean());
         Assert.False(body.GetProperty("capabilities").GetProperty("roundPlanRead").GetBoolean());
-        Assert.False(body.GetProperty("capabilities").GetProperty("roundPlanReviewWorkflow").GetBoolean());
+        Assert.False(body.GetProperty("capabilities").TryGetProperty("roundPlanReviewWorkflow", out _)); // Held feature is absent on this executable baseline.
         Assert.False(body.GetProperty("capabilities").GetProperty("manualPaymentWorkflow").GetBoolean());
         Assert.False(body.GetProperty("capabilities").GetProperty("principalInvoiceComparisonRead").GetBoolean());
         Assert.False(body.GetProperty("capabilities").GetProperty("principalInvoiceComparison").GetBoolean());

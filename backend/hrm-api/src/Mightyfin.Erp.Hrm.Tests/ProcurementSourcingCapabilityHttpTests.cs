@@ -85,7 +85,7 @@ public sealed class ProcurementSourcingCapabilityHttpTests
         Assert.False(capabilities.GetProperty("planningDraft").GetBoolean());
         Assert.False(capabilities.GetProperty("planReviewWorkflow").GetBoolean());
         Assert.False(capabilities.GetProperty("roundPlanRead").GetBoolean());
-        Assert.False(capabilities.GetProperty("roundPlanReviewWorkflow").GetBoolean());
+        Assert.False(capabilities.TryGetProperty("roundPlanReviewWorkflow", out _)); // Held feature is absent on this executable baseline.
         // An explicit principal flag and an available RFQ fake cannot replace the
         // absent actual P25 owning-store inspector. No Core account is inferred.
         Assert.False(capabilities.GetProperty("principalSourcingSourceDrafts").GetBoolean());

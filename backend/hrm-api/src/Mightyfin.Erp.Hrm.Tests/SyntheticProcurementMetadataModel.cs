@@ -25,10 +25,9 @@ internal static class SyntheticProcurementMetadataModel
         services.AddSingleton<IProcurementPlanReviewReadiness>(new PlanDraftFixtureReadiness());
         services.AddSingleton(new ProcurementCommercialRoundOptions());
         services.AddSingleton<IProcurementCommercialRoundReadiness, UnavailableRoundReadiness>();
-        services.AddSingleton<IProcurementCommercialRoundReviewReadiness, UnavailableRoundReadiness>();
     }
 
-    private sealed class UnavailableRoundReadiness : IProcurementCommercialRoundReadiness, IProcurementCommercialRoundReviewReadiness
+    private sealed class UnavailableRoundReadiness : IProcurementCommercialRoundReadiness
     {
         public bool HasCapturedContract => false;
         public Task<bool> ReadyAsync(ProcurementDbContext db, bool record, CancellationToken ct) => Task.FromResult(false);
