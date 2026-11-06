@@ -32,12 +32,28 @@ local runtime evidence must not be described as a passing hosted CI run.
 
 ## Deployment boundaries
 
+The isolated stack has now applied57 genuine Core/HRM migrations. The API is
+healthy on `127.0.0.1:28911`; administrator-user requests without authentication
+return401 and the session probe returns200 with `authenticated:false`. There are
+zero login users and sessions. Native runtime-role DDL and audit UPDATE/DELETE
+denials passed. Qualification ACLs permit only startup role definitions/audit
+append, session reads and exact existing shell-scope lookup columns. This is not
+the operational module privilege contract.
+
+Actual logical backup was restored into a new retained database
+`kuubu_restore_20261106t141547z_9d6d196d`. All98 Core/HRM tables' record hashes,
+owners, table ACLs and column ACLs matched. Dump SHA-256:
+`fc86ecb73f30702ed86becb9d07fc58131e2ed421ce94709613cce37f485407b`.
+The root-private receipt is
+`/opt/kuubu-qualification/receipts/recovery_20261106T141547Z_9d6d196d/receipt.json`.
+This is same-host recovery; off-host recovery and recurring backup/alert operation
+remain pending. No existing database was restored over or deleted.
+
 Qualification uses pinned images, separate generated bootstrap/schema/runtime
 credentials, genuine Core/HRM migrations and an API loopback binding only.
 No default customer, administrator identity, subscription, enrollment or company
 is seeded. There is no public ERP ingress in this configuration.
 
-Database migration/ACL, schema readiness, zero-user verification, actual recovery,
-tenant/session resolution, global identity admission and unrelated-tenant denial
+Operational module ACLs, tenant/session resolution, global identity admission and unrelated-tenant denial
 acceptance must be recorded separately before customer launch. Image success is
 not completion of those gates. Perfex and central Laravel remain separate owners.

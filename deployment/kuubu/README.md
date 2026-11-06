@@ -22,6 +22,18 @@ database, creates the separate roles and executes the existing migration-owner
 command. It retains private logs and a started marker, refuses a second attempt,
 and leaves the API stopped. Inspect a partial attempt before any recovery.
 
+`qualification-runtime-acl.sql` is deliberately limited to startup and session
+qualification, including native DDL and audit mutation denials. It is not a grant
+template for customer workflows. `verify-qualification-recovery.py` retains a
+logical backup and restores it to a new database, compares every HRM table's row
+hash and table/column ACLs, then checks actual loopback HTTP responses. It does
+not replace recurring/off-host backups or cross-tenant acceptance.
+
+The API has a separate bridge for actual loopback port publication; the database
+network stays internal and publishes no database port. The API bridge permits
+outbound networking. Never replace the explicit127.0.0.1 binding with0.0.0.0 as a
+shortcut to customer access.
+
 ## Inputs and owners
 
 Copy the Compose file into the exclusive host directory. Create root-private
