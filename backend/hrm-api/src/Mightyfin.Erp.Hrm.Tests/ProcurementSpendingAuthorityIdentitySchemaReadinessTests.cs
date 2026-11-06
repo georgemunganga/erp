@@ -76,7 +76,11 @@ public sealed class ProcurementSpendingAuthorityIdentitySchemaReadinessTests
         Assert.Contains("nspname='hrm' AND has_schema_privilege(current_user,oid,'CREATE')", sql);
         // Approval engine writes are legitimate for PR/PO execution consumers;
         // the identity-read boundary must not demand unrelated Core write rights.
-        Assert.DoesNotContain("core_approval", sql);
+        Assert.DoesNotContain("core_approval", ProcurementSpendingAuthorityIdentitySchemaReadiness.NoCoreIdentityWritesSql);
+        // Ordinary engine DML can be legitimate; owning its schema is not a finite runtime grant.
+        Assert.Contains("n.nspname IN ('procurement','hrm','core_approval')", sql);
+        Assert.Contains("pg_has_role(current_user,n.nspowner,'MEMBER')", sql);
+        Assert.Contains("pg_has_role(current_user,n.nspowner,'SET')", sql);
         Assert.DoesNotContain("GRANT ", sql); Assert.DoesNotContain("ALTER ", sql);
     }
 

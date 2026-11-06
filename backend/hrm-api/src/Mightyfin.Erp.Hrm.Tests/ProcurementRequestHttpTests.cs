@@ -20,6 +20,7 @@ using Mightyfin.Erp.Hrm.Infrastructure.Data;
 using Mightyfin.Erp.Procurement.Application;
 using Mightyfin.Erp.Procurement.Domain;
 using Mightyfin.Erp.Procurement.Infrastructure.Data;
+using Mightyfin.Erp.Procurement.Infrastructure.Approvals;
 
 namespace Mightyfin.Erp.Hrm.Tests;
 
@@ -724,6 +725,7 @@ public sealed partial class ProcurementRequestHttpTests
     public async Task Planning_and_sourcing_drafts_are_separate_from_buying_authority()
     {
         await using var fixture = await Fixture.Start();
+        var selectedBranch = await fixture.SourcingBranch(); // Existing selected-company Core branch.
         var planInput = new ProcurementPlanInput("FY2026", null, null,
             [new ProcurementPlanLineInput(null, null, "Office chairs", "OFFICE", "each", 10,
                 5_000, null, null)]);
@@ -731,8 +733,14 @@ public sealed partial class ProcurementRequestHttpTests
             fixture.Owner, planInput);
         Assert.Equal(HttpStatusCode.Forbidden, deniedPlan.StatusCode);
         await fixture.ConfigureCoreRole(fixture.Owner, "manager");
-        var savedPlan = await SendJson(fixture.Client, HttpMethod.Post, "/api/procurement/v1/plans",
+        var beforeMissingBranch = await fixture.OriginalValueFootprint();
+        var missingBranch = await SendJson(fixture.Client, HttpMethod.Post, "/api/procurement/v1/plans",
             fixture.Owner, planInput, "manager");
+        Assert.Equal(HttpStatusCode.BadRequest, missingBranch.StatusCode);
+        Assert.Equal("branch-required", (await missingBranch.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("code").GetString());
+        Assert.Equal(beforeMissingBranch, await fixture.OriginalValueFootprint());
+        var savedPlan = await SendJson(fixture.Client, HttpMethod.Post, "/api/procurement/v1/plans",
+            fixture.Owner, planInput, "manager", selectedLocation: selectedBranch);
         Assert.Equal(HttpStatusCode.Created, savedPlan.StatusCode);
         var plan = await savedPlan.Content.ReadFromJsonAsync<JsonElement>();
         Assert.Equal("Draft", plan.GetProperty("status").GetString());
@@ -788,18 +796,19 @@ public sealed partial class ProcurementRequestHttpTests
     public async Task Draft_plan_and_sourcing_revisions_reject_duplicate_saved_line_ids()
     {
         await using var fixture = await Fixture.Start();
+        var selectedBranch = await fixture.SourcingBranch();
         var planLine = new ProcurementPlanLineInput(null, null, "Office chairs", "OFFICE", "each",
             10, 5_000, null, null);
         await fixture.ConfigureCoreRole(fixture.Owner, "manager");
         var planResponse = await SendJson(fixture.Client, HttpMethod.Post, "/api/procurement/v1/plans",
-            fixture.Owner, new ProcurementPlanInput("FY2026", null, null, [planLine]), "manager");
+            fixture.Owner, new ProcurementPlanInput("FY2026", null, null, [planLine]), "manager", selectedLocation: selectedBranch);
         Assert.Equal(HttpStatusCode.Created, planResponse.StatusCode);
         var plan = await planResponse.Content.ReadFromJsonAsync<JsonElement>();
         var savedPlanLine = planLine with { Id = plan.GetProperty("lines")[0].GetProperty("id").GetGuid() };
         var duplicatePlan = await SendJson(fixture.Client, HttpMethod.Put,
             $"/api/procurement/v1/plans/{plan.GetProperty("id").GetGuid()}", fixture.Owner,
             new ProcurementPlanRoutes.UpdatePlan(plan.GetProperty("version").GetInt64(),
-                new ProcurementPlanInput("FY2026", null, null, [savedPlanLine, savedPlanLine])), "manager");
+                new ProcurementPlanInput("FY2026", null, null, [savedPlanLine, savedPlanLine])), "manager", selectedLocation: selectedBranch);
         Assert.Equal(HttpStatusCode.UnprocessableEntity, duplicatePlan.StatusCode);
 
         var sourcingLine = new SourcingLineInput(null, null, "Office chairs", "each", 10, "OFFICE", null);
@@ -824,13 +833,14 @@ public sealed partial class ProcurementRequestHttpTests
     public async Task Planning_draft_revisions_keep_removed_lines_and_reject_stale_changes()
     {
         await using var fixture = await Fixture.Start();
+        var selectedBranch = await fixture.SourcingBranch();
         var first = new ProcurementPlanLineInput(null, null, "Office chairs", "OFFICE", "each", 10,
             5_000, null, null);
         var second = new ProcurementPlanLineInput(null, null, "Desks", "OFFICE", "each", 5,
             3_000, null, null);
         await fixture.ConfigureCoreRole(fixture.Owner, "manager");
         var created = await SendJson(fixture.Client, HttpMethod.Post, "/api/procurement/v1/plans",
-            fixture.Owner, new ProcurementPlanInput("FY2026", null, null, [first, second]), "manager");
+            fixture.Owner, new ProcurementPlanInput("FY2026", null, null, [first, second]), "manager", selectedLocation: selectedBranch);
         Assert.Equal(HttpStatusCode.Created, created.StatusCode);
         var plan = await created.Content.ReadFromJsonAsync<JsonElement>();
         var id = plan.GetProperty("id").GetGuid();
@@ -841,7 +851,7 @@ public sealed partial class ProcurementRequestHttpTests
             [first with { Id = keepId, EstimatedQuantity = 8 },
                 new ProcurementPlanLineInput(null, null, "Monitors", "IT", "each", 4, 2_000, null, null)]);
         var updated = await SendJson(fixture.Client, HttpMethod.Put, $"/api/procurement/v1/plans/{id}",
-            fixture.Owner, new ProcurementPlanRoutes.UpdatePlan(originalVersion, revisedInput), "manager");
+            fixture.Owner, new ProcurementPlanRoutes.UpdatePlan(originalVersion, revisedInput), "manager", selectedLocation: selectedBranch);
         Assert.Equal(HttpStatusCode.OK, updated.StatusCode);
         var revised = await updated.Content.ReadFromJsonAsync<JsonElement>();
         Assert.Equal(3, revised.GetProperty("lines").GetArrayLength());
@@ -854,17 +864,17 @@ public sealed partial class ProcurementRequestHttpTests
         Assert.Equal(HttpStatusCode.Conflict,
             (await SendJson(fixture.Client, HttpMethod.Put, $"/api/procurement/v1/plans/{id}",
                 fixture.Owner, new ProcurementPlanRoutes.UpdatePlan(originalVersion, revisedInput),
-                "manager")).StatusCode);
+                "manager", selectedLocation: selectedBranch)).StatusCode);
         Assert.Equal(1, await fixture.RequestAuditCount(id, "DraftUpdated"));
         var list = await Send(fixture.Client, HttpMethod.Get, "/api/procurement/v1/plans",
-            fixture.Owner, role: "manager");
+            fixture.Owner, role: "manager", selectedLocation: selectedBranch);
         Assert.Equal(2, (await list.Content.ReadFromJsonAsync<JsonElement>())
             .GetProperty("items")[0].GetProperty("lineCount").GetInt32());
 
         var cancelled = await SendJson(fixture.Client, HttpMethod.Post,
             $"/api/procurement/v1/plans/{id}/cancel", fixture.Owner,
             new ProcurementPlanRoutes.CancelPlan(revised.GetProperty("version").GetInt64(),
-                "Planning changed"), "manager");
+                "Planning changed"), "manager", selectedLocation: selectedBranch);
         Assert.Equal(HttpStatusCode.OK, cancelled.StatusCode);
         var cancelledPlan = await cancelled.Content.ReadFromJsonAsync<JsonElement>();
         Assert.Equal("Cancelled", cancelledPlan.GetProperty("status").GetString());
@@ -2167,7 +2177,8 @@ public sealed partial class ProcurementRequestHttpTests
         };
         var role=feature=="budget"?"finance_approver":feature.StartsWith("request")?"employee":feature.StartsWith("plan")?"manager":"procurement_buyer";
         await fixture.ConfigureCoreRole(fixture.Owner, role);
-        var before=await fixture.OriginalValueFootprint();using var response=await RawOriginalValue(fixture,"/api/procurement/v1"+path,body,role,method);
+        var before=await fixture.OriginalValueFootprint();using var response=await RawOriginalValue(fixture,"/api/procurement/v1"+path,body,role,method,
+            selectedLocation: feature.StartsWith("plan") ? await fixture.SourcingBranch() : null);
         Assert.Equal(HttpStatusCode.UnprocessableEntity,response.StatusCode);
         var error=await response.Content.ReadFromJsonAsync<JsonElement>();Assert.Equal("validation-failed",error.GetProperty("code").GetString());
         Assert.Contains("exact amounts",error.GetProperty("message").GetString());
@@ -2193,10 +2204,11 @@ public sealed partial class ProcurementRequestHttpTests
         var stored=(await entries.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("items")[0];
         Assert.Equal(99999999999999.9999m,stored.GetProperty("unitPrice").GetDecimal());Assert.Equal(.0001m,stored.GetProperty("minimumQuantity").GetDecimal());
     }
-    private static Task<HttpResponseMessage> RawOriginalValue(Fixture fixture,string path,string body,string role,HttpMethod? method=null)
+    private static Task<HttpResponseMessage> RawOriginalValue(Fixture fixture,string path,string body,string role,HttpMethod? method=null,Guid? selectedLocation=null)
     {
         var request=new HttpRequestMessage(method??HttpMethod.Post,path) { Content=new StringContent(body,System.Text.Encoding.UTF8,"application/json") };
         request.Headers.Add("X-Test-User",fixture.Owner.ToString());request.Headers.Add("X-Test-Role",role);
+        if (selectedLocation.HasValue) request.Headers.Add("X-Shell-Location", selectedLocation.Value.ToString());
         return fixture.Client.SendAsync(request);
     }
 
@@ -3474,13 +3486,14 @@ public sealed partial class ProcurementRequestHttpTests
             null, null, null, "Goods", null, null, null, null, null, null)]);
 
     private static Task<HttpResponseMessage> Send(HttpClient client, HttpMethod method, string path,
-        Guid user, Guid? company = null, string? role = null, string? actions = null)
+        Guid user, Guid? company = null, string? role = null, string? actions = null, Guid? selectedLocation = null)
     {
         var request = new HttpRequestMessage(method, path);
         request.Headers.Add("X-Test-User", user.ToString());
         if (company.HasValue) request.Headers.Add("X-Shell-Entity", company.Value.ToString());
         if (role is not null) request.Headers.Add("X-Test-Role", role);
         if (actions is not null) request.Headers.Add("X-Test-Actions", actions);
+        if (selectedLocation.HasValue) request.Headers.Add("X-Shell-Location", selectedLocation.Value.ToString());
         return client.SendAsync(request);
     }
 
@@ -4254,6 +4267,16 @@ public sealed partial class ProcurementRequestHttpTests
             builder.Services.AddDbContext<ProcurementDbContext>(options =>
                 options.UseInMemoryDatabase("proc-drafts-" + databaseId, procurementStoreRoot));
             builder.Services.AddSingleton<IProcurementFinanceCheckerSchemaReadiness>(new FinanceCheckerTestSchemaReadiness());
+            builder.Services.AddSingleton(new ProcurementPlanReviewOptions());
+            builder.Services.AddSingleton<IProcurementPlanReviewReadiness>(new PlanDraftFixtureReadiness(draftStoreAvailable: true));
+            // Read/cancel route binding requires the transaction service even when
+            // plan execution is off. No native connection is opened by this draft fixture.
+            builder.Services.AddScoped(sp =>
+            {
+                var scope = sp.GetRequiredService<ProcurementRequestScope>();
+                return new ProcurementApprovalTransaction(
+                    "Host=127.0.0.1;Port=1;Database=never_open;Username=fixture;Timeout=1", scope, scope);
+            });
             builder.Services.AddSingleton(new ProcurementApprovalExecutionOptions {PrincipalExecutionEnabled=principalApprovalEnabled});
             builder.Services.AddSingleton<IProcurementPrincipalApprovalSchemaReadiness>(new PrincipalApprovalTestSchemaReadiness(principalApprovalSchema));
             builder.Services.AddSingleton<SourcingPolicyIdentityTestReadiness>();

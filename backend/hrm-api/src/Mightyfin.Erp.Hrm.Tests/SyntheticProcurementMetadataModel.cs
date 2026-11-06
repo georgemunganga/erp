@@ -5,6 +5,9 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata;
 using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Migrations.Operations;
+using Microsoft.Extensions.DependencyInjection;
+using Mightyfin.Erp.Hrm.Api;
+using Mightyfin.Erp.Procurement.Infrastructure.Data;
 
 namespace Mightyfin.Erp.Hrm.Tests;
 
@@ -15,6 +18,23 @@ namespace Mightyfin.Erp.Hrm.Tests;
 /// </summary>
 internal static class SyntheticProcurementMetadataModel
 {
+    public static void AddUnavailablePlanAndRoundServices(IServiceCollection services)
+    {
+        // History-only fixtures own neither plan tables nor the native round contract.
+        services.AddSingleton(new ProcurementPlanReviewOptions());
+        services.AddSingleton<IProcurementPlanReviewReadiness>(new PlanDraftFixtureReadiness());
+        services.AddSingleton(new ProcurementCommercialRoundOptions());
+        services.AddSingleton<IProcurementCommercialRoundReadiness, UnavailableRoundReadiness>();
+        services.AddSingleton<IProcurementCommercialRoundReviewReadiness, UnavailableRoundReadiness>();
+    }
+
+    private sealed class UnavailableRoundReadiness : IProcurementCommercialRoundReadiness, IProcurementCommercialRoundReviewReadiness
+    {
+        public bool HasCapturedContract => false;
+        public Task<bool> ReadyAsync(ProcurementDbContext db, bool record, CancellationToken ct) => Task.FromResult(false);
+        public Task<bool> BarrierReadyAsync(ProcurementDbContext db, CancellationToken ct) => Task.FromResult(false);
+    }
+
     public static void Configure(DbContextOptionsBuilder options, string scenario)
     {
         if (scenario == "pending-model") options.ReplaceService<IMigrationsModelDiffer, Pending>();
@@ -58,4 +78,13 @@ internal static class SyntheticProcurementMetadataModel
         public override bool HasDifferences(IRelationalModel? source, IRelationalModel? target)
             => throw new InvalidOperationException("Synthetic model comparison unavailable.");
     }
+}
+
+/// <summary>Only the in-memory draft HTTP fixture opts into draft-table availability.
+/// This never proves PostgreSQL readiness or enables plan review/execution.</summary>
+internal sealed class PlanDraftFixtureReadiness(bool draftStoreAvailable = false) : IProcurementPlanReviewReadiness
+{
+    public Task<bool> CanReadPlanAsync(ProcurementDbContext db, CancellationToken ct) => Task.FromResult(draftStoreAvailable && db.Database.IsInMemory());
+    public Task<bool> CanReadReviewAsync(ProcurementDbContext db, CancellationToken ct) => Task.FromResult(false);
+    public Task<bool> IsReadyAsync(CancellationToken ct) => Task.FromResult(false);
 }
