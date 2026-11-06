@@ -6,6 +6,7 @@ FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
 WORKDIR /src
 COPY backend/hrm-api/ backend/hrm-api/
 COPY backend/procurement-api/ backend/procurement-api/
+COPY backend/core-api/ backend/core-api/
 WORKDIR /src/backend/hrm-api
 RUN dotnet test src/Mightyfin.Erp.Hrm.Tests \
     && dotnet publish src/Mightyfin.Erp.Hrm.Api -c Release -o /app/publish
