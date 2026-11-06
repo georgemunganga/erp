@@ -5,6 +5,12 @@ GRANT SELECT ON hrm.__hrm_migrations, hrm.tenant_role_assignments,
   hrm.audit_entries, hrm.local_users, hrm.local_sessions TO kuubu_core_runtime;
 -- Existing startup creates role catalogue definitions, never user memberships.
 GRANT INSERT ON hrm.tenant_role_assignments, hrm.audit_entries TO kuubu_core_runtime;
+-- Existing shell middleware resolves scope even on the anonymous session probe.
+-- Permit only its exact organization lookup columns, not operational records.
+GRANT SELECT (id, tenant_id, is_default, registered_name) ON hrm.legal_entities TO kuubu_core_runtime;
+GRANT SELECT (id, tenant_id, legal_entity_id) ON hrm.work_locations TO kuubu_core_runtime;
+GRANT SELECT (id, tenant_id, status, legal_entity_id) ON hrm.org_units TO kuubu_core_runtime;
+GRANT SELECT (user_id, tenant_id, location_id) ON hrm.hr_user_branch_assignments TO kuubu_core_runtime;
 DO $qualification$
 BEGIN
   IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname='kuubu_core_runtime'
