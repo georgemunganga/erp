@@ -172,7 +172,12 @@ public sealed class JobsAdminTests
                 "procurement-sourcing-submit", "procurement-sourcing-publish",
                 "procurement-invoice-owner-baseline-open", "procurement-invoice-owner-baseline-read",
                 "procurement-invoice-owner-baseline-review",
-                "procurement-return-read", "procurement-return-create", "procurement-return-edit"])
+                "procurement-return-read", "procurement-return-create", "procurement-return-edit",
+                "procurement-round-plan-read", "procurement-round-plan-manage", "procurement-round-plan-submit",
+                "procurement-round-plan-review", "procurement-round-plan-cancel",
+                "procurement-sourcing-contact", "procurement-quotation-read", "procurement-quotation-capture", "procurement-quotation-cancel",
+                "procurement-plan-claim-scope-all", "procurement-plan-submit", "procurement-plan-review",
+                "procurement-plan-approve", "procurement-plan-withdraw", "procurement-plan-review-read"])
             .Order(StringComparer.Ordinal).ToArray();
         Assert.Equal(expectedLegacyAdmin, admin.EffectiveProcurementPermissions);
         Assert.DoesNotContain("procurement-vendor-export", admin.EffectiveProcurementPermissions);
@@ -185,6 +190,12 @@ public sealed class JobsAdminTests
         Assert.DoesNotContain("procurement-return-read", admin.EffectiveProcurementPermissions);
         Assert.DoesNotContain("procurement-return-create", admin.EffectiveProcurementPermissions);
         Assert.DoesNotContain("procurement-return-edit", admin.EffectiveProcurementPermissions);
+        foreach (var explicitAction in new[] { "procurement-round-plan-read", "procurement-round-plan-manage", "procurement-round-plan-submit",
+            "procurement-round-plan-review", "procurement-round-plan-cancel", "procurement-sourcing-contact",
+            "procurement-quotation-read", "procurement-quotation-capture", "procurement-quotation-cancel",
+            "procurement-plan-claim-scope-all", "procurement-plan-submit", "procurement-plan-review",
+            "procurement-plan-approve", "procurement-plan-withdraw", "procurement-plan-review-read" })
+            Assert.DoesNotContain(explicitAction, admin.EffectiveProcurementPermissions);
         var disabled = Assert.Single(roles, x => x.RoleKey == "disabled_buyer");
         Assert.Equal(["procurement-access", "procurement-vendor-read"], disabled.Permissions);
         Assert.Empty(disabled.EffectiveProcurementPermissions);
