@@ -78,6 +78,7 @@ public sealed class ProcurementOrderCapabilityHttpTests
         var builder = WebApplication.CreateBuilder();
         builder.Logging.ClearProviders();
         builder.WebHost.UseTestServer();
+        SyntheticProcurementMetadataModel.AddUnavailablePlanAndRoundServices(builder.Services);
         builder.Services.AddSingleton(scope);
         builder.Services.AddSingleton<IProcurementScope>(scope);
         builder.Services.AddDbContext<ProcurementDbContext>(o => { o.UseSqlite(connection); SyntheticProcurementMetadataModel.Configure(o, scenario); });
@@ -121,6 +122,10 @@ public sealed class ProcurementOrderCapabilityHttpTests
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         var body = await response.Content.ReadFromJsonAsync<JsonElement>();
         Assert.Equal(expected, body.GetProperty("capabilities").GetProperty("orders").GetBoolean());
+        Assert.False(body.GetProperty("capabilities").GetProperty("planningDraft").GetBoolean());
+        Assert.False(body.GetProperty("capabilities").GetProperty("planReviewWorkflow").GetBoolean());
+        Assert.False(body.GetProperty("capabilities").GetProperty("roundPlanRead").GetBoolean());
+        Assert.False(body.GetProperty("capabilities").GetProperty("roundPlanReviewWorkflow").GetBoolean());
         Assert.False(body.GetProperty("capabilities").GetProperty("manualPaymentWorkflow").GetBoolean());
         Assert.False(body.GetProperty("capabilities").GetProperty("principalInvoiceComparisonRead").GetBoolean());
         Assert.False(body.GetProperty("capabilities").GetProperty("principalInvoiceComparison").GetBoolean());
@@ -149,6 +154,7 @@ public sealed class ProcurementOrderCapabilityHttpTests
         var builder = WebApplication.CreateBuilder();
         builder.Logging.ClearProviders();
         builder.WebHost.UseTestServer();
+        SyntheticProcurementMetadataModel.AddUnavailablePlanAndRoundServices(builder.Services);
         builder.Services.AddSingleton(scope);
         builder.Services.AddSingleton<IProcurementScope>(scope);
         builder.Services.AddDbContext<ProcurementDbContext>(o =>

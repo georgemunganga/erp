@@ -48,6 +48,7 @@ public sealed class ProcurementSourcingCapabilityHttpTests
         scope.AssignPrincipal(principal);
         await using var connection = new SqliteConnection("Data Source=:memory:"); await connection.OpenAsync();
         var builder = WebApplication.CreateBuilder(); builder.Logging.ClearProviders(); builder.WebHost.UseTestServer();
+        SyntheticProcurementMetadataModel.AddUnavailablePlanAndRoundServices(builder.Services);
         builder.Services.AddSingleton(scope); builder.Services.AddSingleton<IProcurementScope>(scope);
         builder.Services.AddDbContext<ProcurementDbContext>(o => { o.UseSqlite(connection); SyntheticProcurementMetadataModel.Configure(o, "synthetic-history-only"); });
         builder.Services.AddSingleton(new ProcurementSourcingDraftExecutionOptions { Enabled = enabled,
@@ -81,6 +82,10 @@ public sealed class ProcurementSourcingCapabilityHttpTests
         using var response = await client.GetAsync("/api/procurement/v1/meta"); Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         var body = await response.Content.ReadFromJsonAsync<JsonElement>(); var capabilities = body.GetProperty("capabilities");
         Assert.Equal(expected, capabilities.GetProperty("sourcingSourceDrafts").GetBoolean());
+        Assert.False(capabilities.GetProperty("planningDraft").GetBoolean());
+        Assert.False(capabilities.GetProperty("planReviewWorkflow").GetBoolean());
+        Assert.False(capabilities.GetProperty("roundPlanRead").GetBoolean());
+        Assert.False(capabilities.GetProperty("roundPlanReviewWorkflow").GetBoolean());
         // An explicit principal flag and an available RFQ fake cannot replace the
         // absent actual P25 owning-store inspector. No Core account is inferred.
         Assert.False(capabilities.GetProperty("principalSourcingSourceDrafts").GetBoolean());
