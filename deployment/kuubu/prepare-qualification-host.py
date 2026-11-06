@@ -16,6 +16,8 @@ image = 'kuubu/erp-api:408da398-build01'
 revision = '408da398210c6e5e220077f4000ecdfc6cedb0aa'
 metadata = json.loads(subprocess.check_output(['docker', 'image', 'inspect', image]))[0]
 assert metadata['Config']['Labels']['org.opencontainers.image.revision'] == revision
+smoke = json.loads(Path('/opt/kuubu-builds/runtime-408da398-build01/runtime-smoke-01.json').read_text())
+assert smoke['success'] is True and smoke['source'] == revision and smoke['image'] == metadata['Id'], 'The exact image must have a successful retained runtime smoke'
 app_uid = int(subprocess.check_output(['docker', 'run', '--rm', '--entrypoint', 'id', image, '-u']))
 assert app_uid != 0
 for kind, name in [('volume', 'kuubu-qualification_pgdata'), ('network', 'kuubu-qualification_database')]:
