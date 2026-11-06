@@ -10,6 +10,13 @@ reuse existing directories, project containers or database volumes during initia
 setup; inspect partial attempts and retain their evidence rather than deleting
 or restoring over them. Existing ERP installations elsewhere are unaffected.
 
+After the verified image and PDF smoke exist, `prepare-qualification-host.py`
+prepares private files with generated independent passwords, inspects the actual
+container UIDs and pins both image references. It refuses existing qualification
+resources and does not start containers, apply migrations or seed identities.
+The private bootstrap SQL must only be fed to privileged psql through stdin; never
+print it or run it against an existing installation.
+
 ## Inputs and owners
 
 Copy the Compose file into the exclusive host directory. Create root-private
