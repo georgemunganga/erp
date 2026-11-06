@@ -83,12 +83,12 @@ public sealed class LocalSessionTenantHttpTests
         using (PrincipalTenantAccessor.BeginSessionAuthentication(http, "tenant-b"))
         {
             Assert.Equal("tenant-b", accessor.GetTenantId());
-            Assert.Throws<InvalidOperationException>(() =>
+            Assert.Throws<InvalidOperationException>((Action)(() =>
             {
                 using var nested = PrincipalTenantAccessor.BeginSessionAuthentication(http, "tenant-c");
                 Assert.Equal("tenant-c", accessor.GetTenantId());
                 throw new InvalidOperationException("synthetic failure");
-            });
+            }));
             Assert.Equal("tenant-b", accessor.GetTenantId());
         }
         Assert.Equal("tenant-a", accessor.GetTenantId());
