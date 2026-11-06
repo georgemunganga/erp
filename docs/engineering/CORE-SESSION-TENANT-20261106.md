@@ -155,8 +155,9 @@ describe corrected source3f6c4b89; mutable working source is not a publication.
 
 The same changes are cherry-picked onto the qualified baseline as1f54ff04. Its
 application/session source and new tests match the reviewed source above; its
-own full Docker image test gate is now running under
-`kuubu-runtime-image-build03.service`; publication/PDF acceptance is not yet
-claimed. The running loopback runtime
-remains the earlier408da398 image. Local password login remains default-tenant
+own full Docker image test gate passed1,982/0/0, followed by nonroot PDF smoke.
+The running loopback runtime now uses1f54ff04 after a fresh backup/restore and
+checked image/configuration transition; no schema or public route changed.
+See `deployment/kuubu/QUALIFICATION-20261106.md` for exact hashes and receipts.
+Local password login remains default-tenant
 legacy behavior; explicit Laravel admission is still required for shared use.

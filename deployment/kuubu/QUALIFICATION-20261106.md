@@ -4,7 +4,35 @@ This is a separate release qualification on the authorized Kuubu host
 `2.24.140.104`. It does not update the older ERP production installation, enable
 held Procurement workflows or establish multi-customer SaaS readiness.
 
-## Exact source and evidence
+## Current session-qualified runtime
+
+The private API now runs exact source
+`1f54ff046cf69b7b4fb8604da9ad9bf6bc7b2f63`, tag
+`kuubu/erp-api:1f54ff04-build01`, image ID
+`sha256:3ff07382e6870f16fb0d22a7394be9cc8639ec91ffcf2ec2323fa495865334f6`.
+Its full Docker test-and-publish gate passed **1,982/0/0** in7m47s. The same
+session implementation separately passed34 focused,10 PostgreSQL and2,000 full
+main-line HRM cases. This image retains the qualified e340 application line and
+the bounded session fix; it does not include wholesale held main features.
+
+Source archive SHA256:
+`1fb5981aa66a42c9a11e6700f010e644a9651dda9c9f63d957688052ee9cbc6b`.
+Build log SHA256:
+`afac3f28f9a85756340341b9d1478cfd6d8ec6abce125a2e4c3bfd6614188556`.
+Nonroot PDF smoke passed: UID1654, WeasyPrint70.0, valid6,366-byte PDF with
+networking disabled. Root-private transition receipt:
+`/opt/kuubu-qualification/receipts/image_1f54ff04_01/result.json`.
+
+Before switching, a fresh actual backup/restore matched all98 HRM tables' record
+hashes, owners and table/column ACLs. Receipt:
+`/opt/kuubu-qualification/receipts/recovery_20261106T152523Z_081b2ee0/receipt.json`;
+dump SHA256`af2196f40443dd2b1831e7a14401ca8f480a45b7feefc66c210b068531c80013`.
+Previous image/configuration and API logs are retained. Post-switch HTTP returns
+ready200, anonymous session200/signed-out and administrator users401. Native
+counts remain57 migrations,0 users and0 sessions. No schema, DNS, public route or
+customer/identity data was changed. The API remains bound to127.0.0.1 only.
+
+## Earlier image packaging checkpoint
 
 - Documented application baseline: `e340a6f46ada8b2402b04eea8a7734c67004f348`.
 - Qualified image source: `408da398210c6e5e220077f4000ecdfc6cedb0aa` on the

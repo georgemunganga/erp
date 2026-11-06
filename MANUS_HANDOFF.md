@@ -5,7 +5,7 @@ permission to deploy wholesale ERP main. Inspected published main remains
 `7b7e3fc70b2d4866bb24e165a9646d598b589a8e`; existing ERP UI pin remains
 `2b3357d2de3c383ea2926264abc701b1564a5895`, unchanged by this work.
 
-Running Kuubu-host qualification image408da398 has57 genuine Core/HRM migrations,
+Running Kuubu-host qualification image1f54ff04 has57 genuine Core/HRM migrations,
 zero users/sessions, loopback-only API, native restricted-role denials and actual
 backup/independent restore proof for all98 HRM tables. See
 `deployment/kuubu/QUALIFICATION-20261106.md`. Historical ERP production elsewhere
@@ -14,8 +14,10 @@ was not accessed or changed.
 The session tenant repair from stacked draftPR200 is backported as exact image
 source `1f54ff046cf69b7b4fb8604da9ad9bf6bc7b2f63`. Identical reviewed application
 source passed34 focused,10 genuine-PostgreSQL and2,000 full main-line HRM tests.
-Its own Docker gate is running as `kuubu-runtime-image-build03.service`; no image
-success or deployment follows until actual terminal receipts and runtime checks.
+Its own Docker gate passed1,982/0/0; nonroot PDF smoke passed. A fresh verified
+backup/independent restore preceded the loopback-only API switch; actual ready200,
+signed-out session200 and administrator401 checks passed. No schema or public
+ingress change occurred. The previous408 image/configuration/logs are retained.
 Read `docs/engineering/CORE-SESSION-TENANT-20261106.md` for provenance and limits.
 
 Root retains integration/release ownership. No collaborator task/acknowledgment
