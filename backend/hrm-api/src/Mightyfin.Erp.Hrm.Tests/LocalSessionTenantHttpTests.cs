@@ -13,6 +13,7 @@ using Mightyfin.Erp.Hrm.Api;
 using Mightyfin.Erp.Hrm.Application.ConfigAndExtras;
 using Mightyfin.Erp.Hrm.Domain.Entities;
 using Mightyfin.Erp.Hrm.Infrastructure.Data;
+using Npgsql;
 
 namespace Mightyfin.Erp.Hrm.Tests;
 
@@ -113,7 +114,36 @@ public sealed class LocalSessionTenantHttpTests
         {
             var name = "session-tenant-"+Guid.NewGuid().ToString("N");
             var root = new InMemoryDatabaseRoot();
-            var options = new DbContextOptionsBuilder<HrmDbContext>().UseInMemoryDatabase(name, root).Options;
+            // Explicit opt-in uses a dedicated test server/control database and
+            // creates a fresh database per scenario. Never migrate a supplied DB.
+            var native = Environment.GetEnvironmentVariable("KUUBU_SESSION_TEST_POSTGRES");
+            string? nativeDatabase = null;
+            if (!string.IsNullOrWhiteSpace(native))
+            {
+                var connection = new NpgsqlConnectionStringBuilder(native);
+                Assert.Equal("kuubu_session_test_control", connection.Database);
+                var database = "session_tenant_"+Guid.NewGuid().ToString("N");
+                await using var control = new NpgsqlConnection(connection.ConnectionString);
+                await control.OpenAsync();
+                await using var create = new NpgsqlCommand("CREATE DATABASE \""+database+"\"", control);
+                await create.ExecuteNonQueryAsync();
+                connection.Database = database;
+                nativeDatabase = connection.ConnectionString;
+            }
+            void Configure(DbContextOptionsBuilder db)
+            {
+                if (nativeDatabase is not null)
+                    db.UseNpgsql(nativeDatabase, pg => pg.MigrationsHistoryTable("__hrm_migrations", "hrm"));
+                else db.UseInMemoryDatabase(name, root);
+            }
+            var optionsBuilder = new DbContextOptionsBuilder<HrmDbContext>();
+            Configure(optionsBuilder);
+            var options = optionsBuilder.Options;
+            if (nativeDatabase is not null)
+            {
+                await using var owner = new HrmDbContext(options, new FixedTenantAccessor("migration-only"));
+                await CoreSchemaStartup.EnsureAsync(owner, "Isolated session fixture", mayApply: true);
+            }
             var tokens = new[] { LocalSessionTokens.Create(), LocalSessionTokens.Create() };
             var users = new Guid[2];
             for (var index=0; index<2; index++)
@@ -147,8 +177,11 @@ public sealed class LocalSessionTenantHttpTests
             builder.Services.AddHttpContextAccessor();
             builder.Services.AddScoped<ITenantAccessor, PrincipalTenantAccessor>();
             builder.Services.AddScoped<AuditInterceptor>();
-            builder.Services.AddDbContext<HrmDbContext>((services, db) => db.UseInMemoryDatabase(name, root)
-                .AddInterceptors(services.GetRequiredService<AuditInterceptor>()));
+            builder.Services.AddDbContext<HrmDbContext>((services, db) =>
+            {
+                Configure(db);
+                db.AddInterceptors(services.GetRequiredService<AuditInterceptor>());
+            });
             builder.Services.AddAuthentication(LocalAuthenticationHandler.Scheme)
                 .AddScheme<LocalAuthOptions, LocalAuthenticationHandler>(LocalAuthenticationHandler.Scheme, _ => { });
             builder.Services.AddAuthorization();
