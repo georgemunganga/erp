@@ -1,0 +1,55 @@
+# One isolated qualification runtime. No customer traffic or per-company instances.
+name: kuubu-qualification
+services:
+  database:
+    image: ${KUUBU_POSTGRES_IMAGE:?Pin the inspected PostgreSQL 17 image digest}
+    environment:
+      POSTGRES_USER: kuubu_bootstrap_admin
+      POSTGRES_DB: kuubu
+      POSTGRES_PASSWORD_FILE: /run/secrets/postgres-bootstrap
+      POSTGRES_INITDB_ARGS: --auth-host=scram-sha-256
+    secrets:
+      - postgres-bootstrap
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    networks: [database]
+    restart: unless-stopped
+    healthcheck:
+      test: [CMD-SHELL, pg_isready -U kuubu_bootstrap_admin -d kuubu]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+  migrate:
+    image: ${KUUBU_ERP_IMAGE:?Pin the verified local ERP image}
+    pull_policy: never
+    profiles: [schema]
+    command: [--apply-migrations-only]
+    env_file: [./private/owner.env]
+    networks: [database]
+    depends_on:
+      database: {condition: service_healthy}
+    restart: 'no'
+  api:
+    image: ${KUUBU_ERP_IMAGE:?Pin the verified local ERP image}
+    pull_policy: never
+    env_file: [./private/runtime.env]
+    ports: ['127.0.0.1:28911:8080']
+    networks: [database]
+    depends_on:
+      database: {condition: service_healthy}
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    restart: unless-stopped
+    healthcheck:
+      test: [CMD, bash, -c, "exec 3<>/dev/tcp/127.0.0.1/8080 && printf 'GET /health/ready HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\n\r\n' >&3 && grep -q 'HTTP/1.1 200' <&3"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+networks:
+  database:
+    internal: true
+volumes:
+  pgdata:
+secrets:
+  postgres-bootstrap:
+    file: ./private/postgres-bootstrap.password
