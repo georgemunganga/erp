@@ -233,6 +233,7 @@ else
             };
         });
 }
+builder.Services.AddProductIdentity(builder.Configuration);
 builder.Services.AddAuthorization(options =>
 {
     // Authentication proves the shared platform identity. Admission to HRM
@@ -352,6 +353,7 @@ app.MapGet("/", () => Results.Ok(new
 // Standalone identity surface. These routes use the application database and
 // same-origin HttpOnly sessions; no external provider redirect is involved.
 LocalIdentityRoutes.Map(app);
+app.MapProductIdentity();
 
 // Global error handler: DomainException -> structured ApiError
 app.Use(async (ctx, next) =>
@@ -378,6 +380,7 @@ app.Use(async (ctx, next) =>
 
 app.UseRouting();
 app.UseRateLimiter();
+app.UseProductIdentityOriginGuard();
 app.UseAuthentication();
 // Current Procurement Core grants must precede named route authorization.
 if (!string.IsNullOrWhiteSpace(procurementConnStr))

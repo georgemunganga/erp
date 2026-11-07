@@ -49,6 +49,11 @@ public sealed class HrmDbContext(DbContextOptions<HrmDbContext> options, ITenant
             {
                 if (!string.Equals(entry.Entity.TenantId, tenantId, StringComparison.Ordinal))
                     throw new DomainException("cross-tenant-write", "A record from another tenant cannot be changed.");
+                if (entry.Entity is ExternalIdentityLink && (entry.State == EntityState.Deleted
+                    || entry.Properties.Any(p => p.IsModified && p.Metadata.Name is
+                        (nameof(ExternalIdentityLink.Issuer) or nameof(ExternalIdentityLink.Subject)
+                         or nameof(ExternalIdentityLink.LocalUserId) or nameof(Entity.TenantId)))))
+                    throw new DomainException("identity-link-immutable", "Revoke the existing identity link instead of changing or deleting its binding.");
                 if (entry.Entity is AuditEntry or PrivilegedActionEvent or CoreCurrencyPrecisionCommandReceipt or Mightyfin.Erp.Hrm.Domain.Entities.ComplianceEvidence or GoLiveSignoff)
                     throw new DomainException("audit-immutable", "Compliance and audit evidence is append-only.");
                 if (entry.Entity is CoreCurrencyPrecisionVersion version)
@@ -74,6 +79,7 @@ public sealed class HrmDbContext(DbContextOptions<HrmDbContext> options, ITenant
     public DbSet<Job> Jobs => Set<Job>();
     public DbSet<TenantRoleAssignment> TenantRoleAssignments => Set<TenantRoleAssignment>();
     public DbSet<LocalUser> LocalUsers => Set<LocalUser>();
+    public DbSet<ExternalIdentityLink> ExternalIdentityLinks => Set<ExternalIdentityLink>();
     public DbSet<LocalCredentialLink> LocalCredentialLinks => Set<LocalCredentialLink>();
     public DbSet<LocalSession> LocalSessions => Set<LocalSession>();
     public DbSet<HrUserBranchAssignment> UserBranchAssignments => Set<HrUserBranchAssignment>();
@@ -239,8 +245,19 @@ public sealed class HrmDbContext(DbContextOptions<HrmDbContext> options, ITenant
         ConfigureEntity<TenantRoleAssignment>(modelBuilder, "tenant_role_assignments", e => e.HasIndex(x => new { x.TenantId, x.RoleKey }).IsUnique());
         ConfigureEntity<LocalUser>(modelBuilder, "local_users", e =>
         {
+            e.HasAlternateKey(x => new { x.TenantId, x.Id });
             e.HasIndex(x => new { x.TenantId, x.NormalizedEmail }).IsUnique();
             e.HasIndex(x => new { x.TenantId, x.WorkerId }).HasFilter("worker_id IS NOT NULL");
+        });
+        ConfigureEntity<ExternalIdentityLink>(modelBuilder, "external_identity_links", e =>
+        {
+            e.Property(x => x.Issuer).HasMaxLength(200);
+            e.Property(x => x.Subject).HasMaxLength(200);
+            e.HasIndex(x => new { x.TenantId, x.Issuer, x.Subject }).IsUnique();
+            e.HasIndex(x => new { x.Issuer, x.Subject });
+            e.HasOne<LocalUser>().WithMany()
+                .HasForeignKey(x => new { x.TenantId, x.LocalUserId })
+                .HasPrincipalKey(x => new { x.TenantId, x.Id }).OnDelete(DeleteBehavior.Restrict);
         });
         ConfigureEntity<LocalSession>(modelBuilder, "local_sessions", e =>
         {
