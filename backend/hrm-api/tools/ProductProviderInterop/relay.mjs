@@ -22,8 +22,21 @@ assert.ok(child && !child.startsWith('..') && !isAbsolute(child));
 const { createSessionHandler } = await import(pathToFileURL(join(website, 'server/session.js')));
 const { createAccountClient } = await import(pathToFileURL(join(website, 'src/auth/client.js')));
 const origin = 'https://www.kuubuerp.com';
+const providerFetch = async (url, options) => {
+  const started = performance.now();
+  try {
+    const response = await fetch(url, options);
+    console.log(JSON.stringify({ event: 'provider_http', method: options.method,
+      path: new URL(url).pathname, status: response.status, elapsed_ms: Math.round(performance.now()-started) }));
+    return response;
+  } catch (error) {
+    console.error(JSON.stringify({ event: 'provider_transport_failed', kind: error.name,
+      elapsed_ms: Math.round(performance.now()-started) }));
+    throw error;
+  }
+};
 const relay = createSessionHandler({ upstream: 'http://localhost:8101', productClientId: manifest.client_id,
-  proxySecret: 'LocalProductProxySecret12345678901234567890', requireProxySecret: true });
+  proxySecret: 'LocalProductProxySecret12345678901234567890', requireProxySecret: true, fetcher: providerFetch });
 let cookie = '';
 const account = createAccountClient(async (path, options) => {
   const response = await relay(new Request(new URL(path, origin), { ...options,
@@ -39,6 +52,7 @@ function reply(response, status, body) {
   response.end(JSON.stringify(body));
 }
 const server = createServer(async (request, response) => {
+  let stage = 'fixture_dispatch';
   try {
     if (request.headers['x-kuubu-test-fixture'] !== manifest.fixture_marker) return reply(response, 403, { error: 'fixture_required' });
     if (request.method === 'GET' && request.url === '/health') return reply(response, 200, { fixture_marker: manifest.fixture_marker });
@@ -60,18 +74,25 @@ const server = createServer(async (request, response) => {
       let size = 0; const chunks = [];
       for await (const chunk of request) { size += chunk.length; assert.ok(size <= 16384); chunks.push(chunk); }
       const intent = JSON.parse(Buffer.concat(chunks).toString());
+      stage = 'login';
       const person = await account.login('staff@example.test', 'AcceptancePassword123!');
+      stage = 'identity_choices';
       assert.equal(String(person.id), manifest.staff_subject); assert.equal(person.email_verified, true);
       assert.deepEqual(await account.identityProducts(), []);
+      stage = 'pre_enrollment_denial';
       await assert.rejects(account.authorizeKuubu(intent), error => error.status === 403);
+      stage = 'explicit_enrollment';
       await account.enrollKuubu(true);
+      stage = 'authorization';
       const destination = await account.authorizeKuubu(intent);
       authorized = true;
       return reply(response, 200, { redirect_uri: destination, pre_enrollment_denied: true });
     }
     reply(response, 404, { error: 'fixture_action_unavailable' });
-  } catch {
+  } catch (error) {
     // Never echo tokens, protected state, credentials or provider request bodies.
+    console.error(JSON.stringify({ event: 'fixture_action_failed', stage, kind: error.constructor.name,
+      status: Number.isInteger(error.status) ? error.status : null }));
     reply(response, 500, { error: 'fixture_action_failed' });
   }
 });
