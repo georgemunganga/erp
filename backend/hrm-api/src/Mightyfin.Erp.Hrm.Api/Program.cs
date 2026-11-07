@@ -235,6 +235,7 @@ else
 }
 builder.Services.AddProductIdentity(builder.Configuration);
 builder.Services.AddProductCommercialLicense(builder.Configuration);
+builder.Services.AddProductWorkspaceSetup(builder.Configuration);
 builder.Services.AddAuthorization(options =>
 {
     // Authentication proves the shared platform identity. Admission to HRM
