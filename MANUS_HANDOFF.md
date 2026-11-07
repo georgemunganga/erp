@@ -1,3 +1,37 @@
+# Core commercial licensing channel — 7 November 2026
+
+Stacked draft [PR201](https://github.com/georgemunganga/erp/pull/201) now also
+contains a separate default-off confidential licensing client. Exact tested
+implementation `11879016777e077ec1adaa295aeaf7c149f753e9` passed105 focused
+checks and the complete2,076-case HRM suite, zero failures/zero skips. It uses
+only product:license machine credentials and exact Core-supplied enrollment
+references; it does not require staff billing membership, create principals or
+issue operational sessions. It validates bounded commercial leases, modules,
+issuer/product/reference and expiry, with monotonic time caps, bounded JSON,
+single-flight machine tokens, no redirects/cookies/logged credentials and no
+cached lease returned on failure. Licensing requires both product flags and a
+distinct machine client; no production configuration was changed.
+
+Read `docs/engineering/CORE-COMMERCIAL-LICENSE-20261107.md` for exact source,
+archive/log hashes, retained attempts and native qualification. The final gate
+ran with no network and no production database connection. Actual Laravel↔C#
+interoperability, company binding/admission and runtime permission enforcement
+are still required; no SaaS launch is claimed. Existing deployed image1f54ff04
+and public main/release baselines below are unchanged by this source increment.
+
+Discovery confirmed that current LocalUser requires email/password fields and
+LocalAuthenticationHandler emits email claims unconditionally. The next explicit
+principal model must not invent addresses or give federated users an independent
+local password recovery path. Design only:
+`docs/engineering/CORE-FEDERATED-PRINCIPALS-20261107.md`. It preserves local-mode
+deployments and requires explicit Core grants and exact external links. A billing
+access read alone is not setup/rebinding authority. Coalesce commercial reads per
+current company binding within the lease budget; always recheck Core grants.
+
+Private ERP ready200/image unchanged; both branded public logins and API health
+returned200. Perfex login rendered normally in browser after a scripted403.
+No credential, billing, Google, ingress, database or deployment change was made.
+
 # Kuubu owned authorization/provider follow-through — 7 November 2026
 
 The website relay/opt-in step is now implemented in [Kuubu PR3](https://github.com/Greenwebb/kuubuerp-website/pull/3),

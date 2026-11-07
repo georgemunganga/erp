@@ -26,8 +26,10 @@ Unavailable, denied or authorized commercial lease. None means ERP admission.
 Machine scope product:license only; one exact canonical enrollment per call.
 There is no HTTP route accepting a browser payer reference in this step.
 ## 11. Business Rules
-No cached lease fallback during failure. Lease at most60 seconds and never past
-subscription expiry; elapsed time and wall time both limit validity. Current
+ReadAsync returns no cached lease on failure. Callers may reuse a previously
+returned lease only while IsCurrent remains true; never extend or serialize its
+clock budget. Lease at most60 seconds and never past subscription expiry;
+elapsed time and wall time both limit validity. Current
 Core principal, company, branch and module permissions remain required.
 ## 12. Data Fields & Ownership
 Laravel owns enrollment/subscription/modules; Core will own company binding.
@@ -80,5 +82,46 @@ separate required integration gate, not implied by transport fixtures.
 Core-owned company binding, explicit link admission, session credential storage/
 refresh, runtime ACLs, company/branch/module checks, real provider interoperability
 and release-baseline qualification before public enablement. Existing holds stay.
+The admission layer must coalesce commercial reads per current company binding
+and reuse only current leases, respecting the provider's per-enrollment quota.
+Always recheck Core grants and binding/version; a commercial lease is not cached
+user authorization and never survives its own expiry or a binding change.
 ## 28. Delivery Evidence & Handover
-Implementation and qualification evidence will be recorded after running checks.
+Exact compiled source `11879016777e077ec1adaa295aeaf7c149f753e9`, source archive
+SHA256 `ec6abbc37b5f93626b250454cb2ba798b6a1217c0f54e7080c6053902b675ee7`.
+All105 focused checks passed (46 new licensing cases plus59 existing identity/
+session/workspace cases). Full HRM regression passed2,076 tests, zero failures
+and zero skips, in8m32s. No established test was removed or weakened.
+
+Retained native gate `/opt/kuubu-builds/commercial-license-11879016-02`, launcher
+`kuubu-commercial-license03.service`; SDK container
+`kuubu-commercial-license-gate02` exited0, OOMKilled=false. SDK10.0.403 pinned
+digest `sha256:212fe4cb74627d5adf9817a4088906ae3edff1bd853bb27565d4b46731efe61e`.
+Networking was disabled and no production database connection supplied. New
+protocol tests use the actual HttpClient with controlled transport; the existing
+normal suite uses its ordinary SQLite/InMemory fixtures. No schema changed in
+this increment and no new genuine-PostgreSQL gate is claimed.
+
+Log SHA256:
+- focused: `1892ca3d073687cea2dc8771e67d3e38d71245371fc05cc27184f4282011b991`
+- full: `acca261460dbbd708d6053a96d9ed760fc772dc94421b5358e3904f1eb2dbbaf`
+
+Earlier sourcea8be9511 passed105 focused checks. Its full run was deliberately
+stopped after review added JSON Accept headers, canonical UUID comparison and
+strict date termination; its exit137 has OOMKilled=false and retained logs.
+An initial launcher failed before the helper upload completed and created no
+test directory. All attempts remain retained; final qualification used an
+exclusive new directory and independent plain cache copies from the stopped
+previous workspace, never hardlinks or modified historical publications.
+
+Published in the existing stacked draftPR201, depending onPR200/PR199. Hosted
+ERP CI was previously billing-locked; this evidence is native, not a claim of
+hosted success. Real Laravel interoperability and operational admission remain
+unqualified. No production clients/credentials, flags, image/database, public
+ingress, Google or Lenco were changed. Private ERP readiness remained200 on the
+previous image3ff07382; both own public login pages and API health returned200.
+Perfex's login rendered normally in browser; a Python request received403, so
+no claim is made that scripted probes qualify authenticated Perfex workflows.
+
+Next principal prerequisite is specified in
+[CORE-FEDERATED-PRINCIPALS-20261107](CORE-FEDERATED-PRINCIPALS-20261107.md).

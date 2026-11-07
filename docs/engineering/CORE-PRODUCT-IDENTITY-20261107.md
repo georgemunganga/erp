@@ -162,6 +162,14 @@ add staff to Laravel billing memberships. Existing local-user email fields must
 not be filled with invented addresses; any requested profile/contact sharing
 needs an explicit provider contract and consent.
 
+Licensing client checkpoint: source11879016 adds the default-off machine
+commercial channel and validates exact enrollment/module/lease responses.105
+focused checks and the complete2,076-case HRM regression passed. This is not
+company binding or operational session enforcement. See
+`CORE-COMMERCIAL-LICENSE-20261107.md` for exact evidence and
+`CORE-FEDERATED-PRINCIPALS-20261107.md` for the next principal prerequisite;
+neither a commercial license nor global identity may fabricate local credentials.
+
 Provider/relay follow-through: Kuubu's fixed account relay currently rejects
 upstream redirects and lacks personal-enrollment/authorization actions. Add
 only fixed Kuubu actions and validate an authorization redirect against the
