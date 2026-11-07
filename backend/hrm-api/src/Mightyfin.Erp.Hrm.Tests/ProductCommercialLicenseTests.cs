@@ -200,6 +200,9 @@ public sealed class ProductCommercialLicenseTests
             ["ERP:ProductIdentity:ClientId"] = ClientId, ["ERP:ProductLicensing:ClientSecret"] = Credential };
         Assert.Throws<InvalidOperationException>(() => new ServiceCollection().AddProductCommercialLicense(
             new ConfigurationBuilder().AddInMemoryCollection(values).Build()));
+        values["ERP:ProductIdentity:ClientId"] = ClientId.ToUpperInvariant();
+        Assert.Throws<InvalidOperationException>(() => new ServiceCollection().AddProductCommercialLicense(
+            new ConfigurationBuilder().AddInMemoryCollection(values).Build()));
         values["ERP:ProductIdentity:ClientId"] = Guid.NewGuid().ToString();
         var configured = new ServiceCollection();
         configured.AddProductCommercialLicense(new ConfigurationBuilder().AddInMemoryCollection(values).Build());
@@ -243,6 +246,7 @@ public sealed class ProductCommercialLicenseTests
             Assert.Equal("https", request.RequestUri.Scheme);
             Assert.Empty(request.RequestUri.Query);
             Assert.False(request.Headers.Contains("Cookie"));
+            Assert.Contains(request.Headers.Accept, value => value.MediaType == "application/json");
             if (request.Method == HttpMethod.Post)
             {
                 Interlocked.Increment(ref TokenCalls);

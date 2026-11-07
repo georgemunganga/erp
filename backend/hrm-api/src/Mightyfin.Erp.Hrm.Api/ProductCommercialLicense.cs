@@ -57,6 +57,7 @@ internal sealed class ProductCommercialLicense(HttpClient http, TimeProvider clo
             var start = clock.GetUtcNow();
             var timestamp = clock.GetTimestamp();
             using var request = new HttpRequestMessage(HttpMethod.Get, Prefix+"/licensing/enrollments/"+enrollment);
+            request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
             request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", currentToken.Value);
             using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellation);
             timeout.CancelAfter(TimeSpan.FromSeconds(10));
@@ -129,6 +130,7 @@ internal sealed class ProductCommercialLicense(HttpClient http, TimeProvider clo
                     ["grant_type"] = "client_credentials", ["client_id"] = clientId,
                     ["client_secret"] = secret, ["scope"] = "product:license" })
             };
+            request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
             using var response = await http.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, timeout.Token);
             if (response.StatusCode != HttpStatusCode.OK) return null;
             using var json = await ReadJson(response, timeout.Token);
@@ -175,7 +177,7 @@ internal sealed class ProductCommercialLicense(HttpClient http, TimeProvider clo
     private static DateTimeOffset Date(JsonElement value)
     {
         var text = value.GetString();
-        if (text is null || !Regex.IsMatch(text, @"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d{1,7})?(Z|[+-]\d{2}:\d{2})$", RegexOptions.CultureInvariant)
+        if (text is null || !Regex.IsMatch(text, @"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d{1,7})?(Z|[+-]\d{2}:\d{2})\z", RegexOptions.CultureInvariant)
             || !DateTimeOffset.TryParse(text, CultureInfo.InvariantCulture, DateTimeStyles.None, out var date))
             throw new JsonException("Invalid commercial date.");
         return date;
@@ -189,8 +191,8 @@ internal static class ProductCommercialLicensingRegistration
         if (!ProductIdentity.Enabled(config) || !config.GetValue<bool>("ERP:ProductLicensing:Enabled")) return services;
         var id = config["ERP:ProductLicensing:ClientId"];
         var credential = config["ERP:ProductLicensing:ClientSecret"];
-        if (!Guid.TryParseExact(id, "D", out _) || string.IsNullOrWhiteSpace(credential) || credential.Length > 512
-            || id == config["ERP:ProductIdentity:ClientId"])
+        if (!Guid.TryParseExact(id, "D", out var licensingId) || string.IsNullOrWhiteSpace(credential) || credential.Length > 512
+            || (Guid.TryParse(config["ERP:ProductIdentity:ClientId"], out var identityId) && identityId == licensingId))
             throw new InvalidOperationException("A separate confidential commercial licensing client is required.");
         services.AddHttpClient(ProductCommercialLicense.HttpClientName, client => client.Timeout = Timeout.InfiniteTimeSpan)
             .ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler { AllowAutoRedirect = false, UseCookies = false })
