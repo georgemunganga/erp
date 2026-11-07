@@ -13,6 +13,19 @@ namespace Mightyfin.Erp.Hrm.Tests;
 public sealed class FederatedPrincipalConstraintTests
 {
     [Fact]
+    public async Task Existing_local_account_keeps_credentials_through_upgrade_and_defaults_to_local_mode()
+    {
+        await using var fixture = await Fixture.Start(seedLegacy: true);
+        await using var db = fixture.Context();
+        var user = await db.LocalUsers.SingleAsync();
+        Assert.Equal("local", user.CredentialMode);
+        Assert.Equal("legacy@example.test", user.Email);
+        Assert.Equal("LEGACY@EXAMPLE.TEST", user.NormalizedEmail);
+        Assert.Equal(fixture.LegacyHash, user.PasswordHash);
+        Assert.True(LocalPasswordHash.Verify("OriginalSyntheticPassword123!", user.PasswordHash));
+        Assert.Equal("employee", user.RolesCsv);
+    }
+    [Fact]
     public async Task Multiple_federated_principals_have_null_credentials_no_default_roles_or_automatic_links()
     {
         await using var fixture = await Fixture.Start();
@@ -128,8 +141,9 @@ public sealed class FederatedPrincipalConstraintTests
 
     private sealed class Fixture(DbContextOptions<HrmDbContext> options, SqliteConnection? sqlite) : IAsyncDisposable
     {
+        internal string LegacyHash { get; } = LocalPasswordHash.Hash("OriginalSyntheticPassword123!");
         internal HrmDbContext Context(string tenant = "federated-tests") => new(options, new FixedTenantAccessor(tenant));
-        internal static async Task<Fixture> Start()
+        internal static async Task<Fixture> Start(bool seedLegacy = false)
         {
             var builder = new DbContextOptionsBuilder<HrmDbContext>();
             SqliteConnection? sqlite = null;
@@ -149,12 +163,31 @@ public sealed class FederatedPrincipalConstraintTests
             else { sqlite = new SqliteConnection("Data Source=:memory:"); await sqlite.OpenAsync(); builder.UseSqlite(sqlite); }
             var fixture = new Fixture(builder.Options, sqlite);
             await using var db = fixture.Context();
-            if (native is not null)
+            if (!string.IsNullOrWhiteSpace(native))
             {
+                if (seedLegacy)
+                {
+                    await db.GetService<IMigrator>().MigrateAsync("20261107170241_CoreExternalIdentityLinks");
+                    await db.Database.ExecuteSqlInterpolatedAsync($"""
+                        INSERT INTO hrm.local_users (id,email,normalized_email,display_name,password_hash,roles_csv,
+                            is_active,must_change_password,failed_login_count,tenant_id,created_at,created_by,is_archived)
+                        VALUES ({Guid.NewGuid()},'legacy@example.test','LEGACY@EXAMPLE.TEST','Legacy person',{fixture.LegacyHash},
+                            'employee',TRUE,FALSE,0,'federated-tests',{DateTimeOffset.UtcNow},'upgrade-fixture',FALSE)
+                        """);
+                }
                 await CoreSchemaStartup.EnsureAsync(db, "Isolated federated principal fixture", mayApply: true);
                 Assert.False(db.Database.HasPendingModelChanges());
             }
-            else await db.Database.EnsureCreatedAsync();
+            else
+            {
+                await db.Database.EnsureCreatedAsync();
+                if (seedLegacy)
+                {
+                    db.LocalUsers.Add(new LocalUser { Email = "legacy@example.test", NormalizedEmail = "LEGACY@EXAMPLE.TEST",
+                        DisplayName = "Legacy person", PasswordHash = fixture.LegacyHash, RolesCsv = "employee", MustChangePassword = false });
+                    await db.SaveChangesAsync();
+                }
+            }
             return fixture;
         }
         public async ValueTask DisposeAsync() { if (sqlite is not null) await sqlite.DisposeAsync(); }
