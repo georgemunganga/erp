@@ -130,10 +130,11 @@ public sealed class FederatedPrincipalConstraintTests
         if (check.Database.IsNpgsql())
         {
             var migrations = (await check.Database.GetAppliedMigrationsAsync()).ToArray();
-            Assert.EndsWith("_CoreFederatedPrincipals", migrations[^1]);
-            var error = await Assert.ThrowsAsync<PostgresException>(() => check.GetService<IMigrator>().MigrateAsync(migrations[^2]));
+            var owning = Assert.Single(migrations, x => x.EndsWith("_CoreFederatedPrincipals", StringComparison.Ordinal));
+            var target = migrations[Array.IndexOf(migrations, owning)-1];
+            var error = await Assert.ThrowsAsync<PostgresException>(() => check.GetService<IMigrator>().MigrateAsync(target));
             Assert.Equal(PostgresErrorCodes.CheckViolation, error.SqlState);
-            Assert.Contains(migrations[^1], await check.Database.GetAppliedMigrationsAsync());
+            Assert.Contains(owning, await check.Database.GetAppliedMigrationsAsync());
         }
         Assert.Equal("federated", (await check.LocalUsers.SingleAsync()).CredentialMode);
         Assert.Single(await check.ExternalIdentityLinks.ToArrayAsync());
