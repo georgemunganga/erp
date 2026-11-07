@@ -1,6 +1,8 @@
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
+using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Mightyfin.Erp.Hrm.Api;
 using Mightyfin.Erp.Hrm.Application;
 using Mightyfin.Erp.Hrm.Domain.Entities;
@@ -140,6 +142,62 @@ public sealed class CoreWorkspaceProvisionerTests
                 $"DELETE FROM hrm.core_workspace_bindings WHERE id = {row.Id}"));
             Assert.Equal(PostgresErrorCodes.CheckViolation, removed.SqlState);
         }
+    }
+
+    [NativeWorkspaceFact]
+    public async Task SaaS_company_admin_cannot_bypass_capacity_while_classic_multi_company_still_works()
+    {
+        await using var f = await Fixture.Start();
+        await f.Create(Key(1));
+        await using var inspect = f.Context("inspect");
+        var row = await inspect.WorkspaceBindings.IgnoreQueryFilters().SingleAsync();
+        await using var bound = f.Context(row.TenantId);
+        bound.LegalEntities.Add(new LegalEntity { Code = "BYPASS", RegisteredName = "Unallocated company" });
+        var denied = await Assert.ThrowsAsync<DbUpdateException>(() => bound.SaveChangesAsync());
+        Assert.Equal(PostgresErrorCodes.CheckViolation, Assert.IsType<PostgresException>(denied.InnerException).SqlState);
+        await using var classic = f.Context("classic-installation");
+        classic.LegalEntities.AddRange(new LegalEntity { Code = "ONE", RegisteredName = "One" },
+            new LegalEntity { Code = "TWO", RegisteredName = "Two" });
+        await classic.SaveChangesAsync();
+        Assert.Equal(2, await classic.LegalEntities.CountAsync());
+    }
+
+    [NativeWorkspaceFact]
+    public async Task Populated_migration_rollback_preserves_company_allocation_and_owning_schema()
+    {
+        await using var f = await Fixture.Start();
+        await f.Create(Key(1));
+        await using var db = f.Context("inspect");
+        var migrations = (await db.Database.GetAppliedMigrationsAsync()).ToArray();
+        var owning = Assert.Single(migrations, x => x.EndsWith("_CoreWorkspaceAllocations", StringComparison.Ordinal));
+        var target = migrations[Array.IndexOf(migrations, owning)-1];
+        var denied = await Assert.ThrowsAsync<PostgresException>(() => db.GetService<IMigrator>().MigrateAsync(target));
+        Assert.Equal(PostgresErrorCodes.CheckViolation, denied.SqlState);
+        Assert.Contains(owning, await db.Database.GetAppliedMigrationsAsync());
+        Assert.Single(await db.WorkspaceBindings.IgnoreQueryFilters().ToArrayAsync());
+    }
+
+    [Theory]
+    [InlineData(false)][InlineData(true)]
+    public async Task Binding_cannot_reference_another_tenants_company_or_owner(bool foreignOwner)
+    {
+        await using var f = await Fixture.Start();
+        await f.Create(Key(1));
+        await using var inspect = f.Context("inspect");
+        var first = await inspect.WorkspaceBindings.IgnoreQueryFilters().SingleAsync();
+        await using var other = f.Context("other-tenant");
+        var company = new LegalEntity { Code = "MAIN", RegisteredName = "Other company" };
+        var user = LocalUser.Federated("Other owner"); user.TenantId = "other-tenant";
+        other.LegalEntities.Add(company); other.LocalUsers.Add(user); await other.SaveChangesAsync();
+        other.WorkspaceBindings.Add(new CoreWorkspaceBinding { Issuer = first.Issuer, Subject = first.Subject,
+            ClientId = first.ClientId, CustomerId = first.CustomerId, EnrollmentId = first.EnrollmentId,
+            Slot = 2, PurchasedLimit = 2, LegalEntityId = foreignOwner ? company.Id : first.LegalEntityId,
+            OwnerLocalUserId = foreignOwner ? first.OwnerLocalUserId : user.Id,
+            IdempotencyHash = new string('a', 64), RequestHash = new string('b', 64),
+            AuthorityUntil = first.AuthorityUntil, LicenseUntil = first.LicenseUntil });
+        var denied = await Assert.ThrowsAsync<DbUpdateException>(() => other.SaveChangesAsync());
+        if (other.Database.IsNpgsql())
+            Assert.Equal(PostgresErrorCodes.ForeignKeyViolation, Assert.IsType<PostgresException>(denied.InnerException).SqlState);
     }
 
     [NativeWorkspaceFact]
