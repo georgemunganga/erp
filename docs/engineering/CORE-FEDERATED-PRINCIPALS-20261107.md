@@ -1,6 +1,6 @@
-# Federated Core principals — next admission prerequisite
+# Federated Core principals
 
-Design only; not implemented or enabled by the commercial licensing client.
+Source implementation; production migration and operational admission remain gated.
 
 ## 1. Feature Identification
 CORE-FEDERATED-PRINCIPALS, Tier3, Core engineering owner under GW-ENG-STD-001.
@@ -21,9 +21,9 @@ administrator. Laravel remains the global identity/recovery authority.
 Existing local sign-in, reset, setup, change-password and administrator routes;
 future explicit Core workspace/invitation command creates a federated principal.
 ## 7. Preconditions
-Current authoritative code: LocalUser requires Email, NormalizedEmail and
-PasswordHash. LocalAuthenticationHandler emits email claims unconditionally;
-local password routes read/write those fields. ExternalIdentityLink already has
+Pre-implementation discovery: LocalUser required Email, NormalizedEmail and
+PasswordHash. LocalAuthenticationHandler emitted email claims unconditionally;
+local password routes read/wrote those fields. ExternalIdentityLink already has
 the exact tenant/user composite FK and immutable issuer/subject binding.
 ## 8. Workflow
 Keep existing rows in local credential mode by additive default. A future
@@ -39,8 +39,9 @@ Modes do not confer roles. Tenant, company and branch grants are separate and
 must be assigned explicitly. Empty branch assignments must not accidentally give
 new federated employees the legacy organisation-wide fallback.
 ## 11. Business Rules
-Local mode requires nonblank email, normalized email and valid local credential
-record. Federated mode has null login credentials and no password-change duty.
+Local mode requires nonblank email, normalized email and credential record;
+actual password verification still validates PBKDF2. Federated mode has null
+login credentials and no password-change duty.
 Do not reuse sentinel hashes, invented addresses, empty strings or email/domain
 matching to join identities. Contact information is separate from login authority.
 ## 12. Data Fields & Ownership
@@ -49,9 +50,11 @@ principal. Provider owns immutable global issuer/subject and account recovery.
 An optional shared contact/profile requires a separate explicit consent contract;
 it is not a prerequisite for recognizing the federated principal.
 ## 13. Screens & Data Views
-Account APIs expose credential capabilities, not hashes. Existing local account
-screens continue to work. Federated screens direct identity recovery to the own
-Kuubu account flow and do not offer local password setup/reset.
+Account APIs expose credential mode and per-principal password capabilities,
+not hashes. Clients must intersect them with deployment AuthCapabilities. Existing
+local account screens remain supported. Before admission is enabled, federated
+screens must direct recovery to the own Kuubu account flow and omit local password
+setup/reset; the connected federated account UI is not implemented in this step.
 ## 14. User Experience / Human Behaviour
 No fake successful reset/setup, no duplicate account creation and no silent
 identity linking. Missing workspace grants remain an honest empty/denied state.
@@ -83,7 +86,7 @@ counts separate. Authentication success must not be reported as ERP admission.
 No new public feature flag enables workspace access in this prerequisite. Local
 mode remains the migration default; product identity/licensing flags stay off.
 ## 22. Non-Functional Requirements
-Additive migration; PostgreSQL and SQLite constraint parity; no global email
+Additive migration; PostgreSQL and SQLite credential-state check parity; no global email
 uniqueness requirement for federated principals; preserve exact tenant/user FK.
 ## 23. Postconditions
 Data model can represent a real federated principal without a local login.
@@ -107,9 +110,86 @@ refresh/revocation, licensed operational session, complete company/branch/module
 checks, public anonymous intake scope, private runtime ACLs and actual provider
 interoperability. A billing member may read commercial access today; that read
 alone must not be treated as authority to create or rebind an ERP company.
+The public product deployment must also disable anonymous local credential entry
+and reject local-session admission into commercially bound tenants, regardless
+of account mode. Local admin-create/reset routes must not become a SaaS licensing
+bypass. Those product deployment/session policies are not implemented by merely
+adding the credential discriminator; standalone local flows remain supported.
 ## 28. Delivery Evidence & Handover
 Discovery sources: Domain/Entities/LocalIdentity.cs; API/LocalIdentity.cs;
 Infrastructure/Data/HrmDbContext.cs local user/index/link mapping;
 API/CoreWorkspaceContextRoutes.cs legacy empty-assignment fallback; provider
 ProductSubjectController and ProductCommercialAccess. This document records the
-next implementation contract, not successful tests or a completed admission flow.
+implementation contract. This prerequisite is not a completed operational
+admission flow.
+
+Exact tested implementation `2c6f9085e029138ebdb0eb311c49a98ae81b9741`;
+source archive SHA256
+`78776212da87a436989cc87d8d253a8f5a7255826c67c78e3849b3de4bcd00ac`.
+All122 focused HTTP/identity/session/workspace/licensing/constraint cases passed,
+then28 genuine PostgreSQL scenarios (13 new principal constraints/upgrade cases,
+five existing identity-link cases and ten existing tenant-session cases). The
+complete HRM regression passed2,093 tests, zero failures/zero skips, in7m37s.
+
+The actual migration `20261107194704_CoreFederatedPrincipals` keeps existing rows
+local by default, permits absent credentials only in federated mode and adds a
+credential-state check and immutable-mode PostgreSQL trigger. The upgrade case
+inserts an account before the migration and verifies its original email, hash,
+password verification and roles afterward. Populated rollback refuses to drop
+federated principals. The generated Down's empty credential defaults were removed;
+it never supplies invented credentials to force an old schema onto these users.
+The EF-generated designer/snapshot changed only the expected local-user metadata.
+
+HTTP tests map the real existing routes and handler with synthetic route authority
+for authorized administrator/self-service cases. Both auth route aliases reject
+federated password setup/reset/change, credential email and login-email edits;
+even a preexisting credential link cannot be redeemed. A local session row cannot
+admit a federated principal or update its activity. Existing local sign-in and
+the established regression tests remain. The existing link test now identifies
+its owning migration by name instead of assuming it is always the newest one;
+all FK, raw binding, populated rollback and retained-history assertions remain.
+No test was removed or weakened to make a credential bypass pass.
+
+Retained native gate `/opt/kuubu-builds/federated-principals-2c6f9085-02`, launcher
+`kuubu-federated-principals02.service`, SDK container
+`kuubu-federated-principals-gate02` exited0/OOMKilled=false. SDK10.0.403 pinned
+digest `sha256:212fe4cb74627d5adf9817a4088906ae3edff1bd853bb27565d4b46731efe61e`.
+Only the dedicated native filter receives the synthetic control connection; the
+full/focused jobs use their ordinary SQLite/InMemory fixtures. The internal
+synthetic PostgreSQL container was returned to stopped. No production DB used.
+
+Log SHA256:
+- focused: `54e0df78ab9f3b30a4ee53f6dffe6badadbdd96170af5251590c65cdefa58493`
+- native: `f85755de034cfb68db6e1eada4a8d9199aa5baa6d52602766df72ddbb42af7c7`
+- full: `66d398cfb7e49101e4511072531faf7a74717619068a7d268badd5530271d60a`
+
+An independent read-only metadata audit found the migration, credential check,
+mode trigger and two-column identity FK in all13 new `federated_principal_*`
+databases. They retain one local and five federated synthetic principals; every
+federated email/normalized-email/password field is null, no password-change duty.
+Receipt `/opt/kuubu-builds/federated-principals-native-metadata-01/receipt.json`.
+The audit read only schema metadata and aggregate counts, no credential values.
+Earlier sourcee06aa668 passed121 focused checks before EF scaffolding. Every
+attempt is retained; subsequent work used exclusive directories and independent
+plain cache copies from stopped workspaces, not hardlinks or historical edits.
+
+Reproduce normal checks from the repo root with the .NET10 SDK:
+```sh
+dotnet test backend/hrm-api/src/Mightyfin.Erp.Hrm.Tests --filter 'FullyQualifiedName~FederatedPrincipal'
+dotnet test backend/hrm-api/src/Mightyfin.Erp.Hrm.Tests
+```
+For genuine PostgreSQL, privately provide KUUBU_SESSION_TEST_POSTGRES pointing
+only to a dedicated `kuubu_session_test_control` DB, with permission to create
+new synthetic DBs. With that private variable set, run:
+```sh
+dotnet test backend/hrm-api/src/Mightyfin.Erp.Hrm.Tests --filter 'FullyQualifiedName~FederatedPrincipalConstraintTests|FullyQualifiedName~ProductIdentityLinkConstraintTests|FullyQualifiedName~LocalSessionTenantHttpTests'
+```
+Never supply a production connection.
+The tests validate the exact control DB name, create uniquely named databases,
+apply genuine migrations and retain their evidence. Do not print the connection.
+
+Source published in stacked draftPR201, dependent onPR200/PR199. No production
+migration, client/flag, image or ingress change. Private ERP readiness remained200
+on image3ff07382. Public main7b7e3fc7 and qualified release6b47bbeb were re-read
+and remain unchanged. Actual Laravel↔C# interoperability, federated UI, licensed
+workspace admission and the section27 release gates still remain.

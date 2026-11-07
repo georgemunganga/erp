@@ -1,3 +1,34 @@
+# Federated Core principal prerequisite — 7 November 2026
+
+Stacked draft [PR201](https://github.com/georgemunganga/erp/pull/201) now adds
+explicit local/federated credential mode, a role-free federated principal factory,
+nullable credentials constrained by mode, immutable mode and populated rollback
+guards. Existing local accounts keep their credentials. Federated principals
+cannot use local sign-in/recovery/setup/change/admin reset or acquire a local
+session; account DTOs expose per-principal credential capabilities. It creates
+no workspace, identity link, billing membership or operational session by itself.
+
+Exact tested source `2c6f9085e029138ebdb0eb311c49a98ae81b9741`:122 focused,
+28 genuine PostgreSQL and2,093 full HRM regression cases passed, zero failures/
+zero skips. An independent read of13 synthetic databases confirmed actual
+migration/check/trigger/composite-FK state and null credentials for all five
+federated fixtures. The dedicated PG and SDK containers are stopped. Read
+`docs/engineering/CORE-FEDERATED-PRINCIPALS-20261107.md` for hashes, retained gates,
+upgrade/rollback evidence, reproduction and scope. The older design-only checkpoint
+below records the prior source state; this prerequisite is now implemented.
+
+Still not ERP admission: actual provider interoperability, explicit company/payer
+binding and setup authority, team invitations, fresh PKCE link admission, protected
+server-side grants/refresh/revocation, licensed sessions and complete company/
+branch/module enforcement remain. Public SaaS must disable anonymous local entry
+and reject local-session licensing bypass regardless of principal mode. Federated
+account UI must respect both deployment and per-principal capabilities. Existing
+public-intake, runtime ACL, financial and operational release holds remain.
+
+No production DB migration/image, public ingress, clients, flags, Google or Lenco
+changed. Private ERP readiness200 on unchanged image3ff07382. Re-read public
+main7b7e3fc7 and qualified release6b47bbeb are unchanged. No whole-main deployment.
+
 # Core commercial licensing channel — 7 November 2026
 
 Stacked draft [PR201](https://github.com/georgemunganga/erp/pull/201) now also
