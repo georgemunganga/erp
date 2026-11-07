@@ -171,6 +171,16 @@ The current provider group has a30/minute source-IP quota shared across token,
 subject and licensing requests; replace that shared-backend bottleneck with
 bounded operation/actor-aware limits before multi-customer activation.
 
+Follow-through source checkpoint: foundationPR3/source62f8971 now implements
+the exact signed authorization path and bounded post-protocol actor/enrollment
+quotas;57 tests/482 assertions passed on native MySQL. Kuubu websitePR3/source
+d3452e6 implements its own enrollment/authorization page and fixed redirect relay;
+35 normal checks and its separate real Laravel protocol test passed, plus API
+build, browser QA and hosted CI. These changes are not deployed. They qualify
+the website/provider slice; real ASP.NET consumer interoperability, workspace
+admission and runtime/tenant/module checks remain. See MANUS_HANDOFF.md and the
+cross-repository acceptance documents rather than repeating the old source gap.
+
 ## 28. Delivery Evidence & Handover
 Stacked draft [PR201](https://github.com/georgemunganga/erp/pull/201) targets the
 session repair branch/PR200, itself dependent on packagingPR199. Exact compiled

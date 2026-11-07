@@ -1,3 +1,30 @@
+# Kuubu owned authorization/provider follow-through — 7 November 2026
+
+The website relay/opt-in step is now implemented in [Kuubu PR3](https://github.com/Greenwebb/kuubuerp-website/pull/3),
+source `d3452e6c6ad652206169a7f298222197692e5edf`. All92 tracked blobs were
+verified byte-exact against its published Git tree.35 normal tests, API build,
+14-page/252-link checks and hosted CI run42400939282 passed. The separate actual
+client→signed relay→Laravel confidential PKCE/RSA/replay/session test passed,
+with a read-only audit confirming no payer/customer/subscription creation.
+Browser checks preserved Kuubu's own login, explicit enrollment, account switch,
+disabled Google and390px layout. No production frontend was deployed.
+
+Foundation source `62f8971de47d489bc95b6d489ad7a794b7bc7c1f` in itsPR3 adds
+the exact signed authorization path and replaces the shared30/minute backend-IP
+bottleneck with bounded edge and post-protocol actor/enrollment quotas.57 tests/
+482 assertions passed on Linux PHP8.4.27 and genuine isolated MySQL. Read
+foundation `docs/PRODUCT-IDENTITY-ADMISSION.md` and website
+`PRODUCT-AUTHORIZATION.md` for hashes, fixture boundaries and retained evidence.
+Foundation hosted run42400388410 failed at startup before jobs; cause unproven.
+
+These source gates do not qualify an actual browser→deployed ASP.NET callback or
+operational workspace admission. Core still needs explicit invitation/owner setup,
+workspace/payer binding, protected server-side operational sessions, runtime ACLs
+and company/branch/module enforcement. No real client/key was registered and no
+production product flag, database/image, ingress, Google or Lenco state changed.
+The older checkpoint below records its own source state; do not redo the relay/
+quota work as if it were still unimplemented.
+
 # Kuubu product identity consumer — 7 November 2026
 
 Stacked draft [PR201](https://github.com/georgemunganga/erp/pull/201), branch
