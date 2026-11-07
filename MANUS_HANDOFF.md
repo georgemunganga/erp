@@ -1,3 +1,41 @@
+# Actual Laravel/Kuubu/Core interoperability —7 November2026
+
+The actual backend protocol now passes: published Kuubu signed relay/account
+client → genuine Laravel Passport PKCE/RSA resources → real ASP.NET OAuth/cookie
+handler, plus the Core machine licensing client. Exact implementation
+`3f5cd44bb280dd3770a9c4091f9b6289e9a9cc1b`, provider source8e96bef7, website
+source d3452e6c. The opt-in case passed in13s; Windows122 focused checks passed.
+Linux122 focused and all2,093 existing HRM regressions passed (only the new opt-in
+case skipped without a fixture). Read `docs/engineering/CORE-PROVIDER-INTEROP-20261107.md`
+for exact hashes, source/SDK/fixture scope, reproduction and retained failures.
+
+Real execution found a hidden contract mismatch: Laravel HasUlids emits lowercase
+enrollment IDs; the prior Core consumer required uppercase. Core and valid test
+fixtures now use the exact lowercase provider reference. Uppercase/transformed,
+trailing-newline and injected references remain denied before network traffic;
+no persisted ID was rewritten and no permission check was relaxed.
+
+Acceptance verifies explicit personal join, confidential S256 exchange, immutable
+verified subject, replay denial, a token-free/no-tenant/no-role pending cookie,
+no ERP operational session, machine licensing without staff billing membership,
+foreign-product denial, fresh denial after subscription suspension and bounded
+expiry. Provider counts stayed at the explicit seed baseline except one personal
+join; Core user/link/session tables stayed empty. All local fixture processes
+stopped and ports8101/8120 closed. The SDK test container also exited0.
+
+This does not enable licensed company access. Next: Core-owned company/payer
+binding and setup authority, invitations, fresh link-bound PKCE admission,
+encrypted grants/refresh/revocation and licensed operational sessions, plus
+company/branch/module enforcement and public SaaS local-auth/anonymous-intake
+policies. Public TLS/browser callback, UI, runtime ACL and existing financial/
+operational gates remain. Do not give staff billing membership or grant company
+access from matching email/domain or a commercial-access read alone.
+
+No production migration, image, clients/keys, flags or ingress changed; private
+ERP ready200 remains on image3ff07382. No SSH restriction was weakened. An early
+forwarding attempt stopped safely; the successful gate used local portable SDK,
+PHP and Node on loopback with fresh synthetic data and no mail/payment rail.
+
 # Federated Core principal prerequisite — 7 November 2026
 
 Stacked draft [PR201](https://github.com/georgemunganga/erp/pull/201) now adds

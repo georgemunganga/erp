@@ -93,6 +93,11 @@ Use actual ASP.NET OAuth/cookie handlers. Contract is Laravel schema_version1
 subject and product:identity scope. Tests use synthetic HTTP backchannel while
 exercising real state, correlation, code exchange and cookie protection. Real
 Laravel→consumer acceptance remains required, not implied by fixtures.
+Follow-through: CORE-PROVIDER-INTEROP-20261107.md now records the actual
+Kuubu relay/client + Laravel Passport + ASP.NET handler/license protocol gate,
+passed on source3f5cd44b. It preserves production issuer/callback checks via a
+test-only loopback transport adapter; deployed public TLS/browser admission
+and company/branch/module authorization remain unqualified.
 Framework reference: [ASP.NET Core10 OAuth handler source](https://github.com/dotnet/aspnetcore/blob/v10.0.0/src/Security/Authentication/OAuth/src/OAuthHandler.cs).
 
 ## 19. Audit / Security / Privacy

@@ -127,3 +127,12 @@ no claim is made that scripted probes qualify authenticated Perfex workflows.
 
 Next principal prerequisite is specified in
 [CORE-FEDERATED-PRINCIPALS-20261107](CORE-FEDERATED-PRINCIPALS-20261107.md).
+
+Actual-provider follow-through: source3f5cd44b corrected the enrollment key to
+Laravel's real lowercase HasUlids format. The actual Kuubu/Laravel/ASP.NET
+protocol gate now passes, including machine licensing and suspension without
+staff billing membership.122 focused and2,093 Linux regression checks passed;
+the one new opt-in case ran separately and passed. The principal prerequisite
+above is also implemented. Read CORE-PROVIDER-INTEROP-20261107.md for exact
+source/hashes, retained attempts and deployment/admission limitations. No live
+company admission or production key/flag/endpoint change follows from this gate.
