@@ -26,7 +26,9 @@ internal static class ProductIdentity
     {
         if (!Enabled(config)) return services;
         var issuer = ExactHttpsOrigin(config["ERP:ProductIdentity:Issuer"] ?? DefaultIssuer);
-        _ = ExactHttpsOrigin(config["ERP:ProductIdentity:PublicOrigin"] ?? DefaultOrigin);
+        var origin = ExactHttpsOrigin(config["ERP:ProductIdentity:PublicOrigin"] ?? DefaultOrigin);
+        if (issuer != DefaultIssuer || origin != DefaultOrigin)
+            throw new InvalidOperationException("The product issuer and callback origin must match the reviewed Kuubu deployment.");
         var authorize = config["ERP:ProductIdentity:AuthorizationEndpoint"] ?? "https://www.kuubuerp.com/account/authorize/";
         if (!Uri.TryCreate(authorize, UriKind.Absolute, out var authUri) || authUri.Scheme != "https"
             || authUri.Host != "www.kuubuerp.com" || !authUri.IsDefaultPort
@@ -46,6 +48,9 @@ internal static class ProductIdentity
             throw new InvalidOperationException("Product Data Protection keys must be private to the runtime user.");
         services.AddDataProtection().SetApplicationName("Kuubu.ProductIdentity.v1")
             .PersistKeysToFileSystem(new DirectoryInfo(keyPath));
+        // The framework's OAuth debug/correlation diagnostics can contain state
+        // or cookie identifiers. Emit our generic failure event instead.
+        services.AddLogging(logging => logging.AddFilter("Microsoft.AspNetCore.Authentication.OAuth", LogLevel.None));
         services.AddAuthentication()
             .AddCookie(PendingScheme, options =>
             {
@@ -115,6 +120,8 @@ internal static class ProductIdentity
                     context.HandleResponse();
                     context.Response.StatusCode = 403;
                     context.Response.Headers.CacheControl = "no-store";
+                    context.HttpContext.RequestServices.GetRequiredService<ILoggerFactory>()
+                        .CreateLogger("Kuubu.ProductIdentity").LogWarning("Product sign-in failed.");
                     await context.Response.WriteAsJsonAsync(new { error = "product_sign_in_failed" });
                 };
             });

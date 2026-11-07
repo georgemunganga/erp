@@ -1,6 +1,7 @@
 using System.Net;
 using System.Net.Http.Json;
 using System.Security.Cryptography;
+using System.Security.Claims;
 using System.Text;
 using System.Text.Json;
 using Microsoft.AspNetCore.Authentication;
@@ -15,6 +16,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Mightyfin.Erp.Hrm.Api;
+using Mightyfin.Erp.Hrm.Application;
 using Mightyfin.Erp.Hrm.Domain.Entities;
 using Mightyfin.Erp.Hrm.Infrastructure.Data;
 
@@ -88,6 +90,7 @@ public sealed class ProductIdentityHttpTests
     [InlineData("oversized-lifetime")]
     [InlineData("token-type")]
     [InlineData("timeout")]
+    [InlineData("oversized-response")]
     public async Task Untrusted_or_failed_provider_response_never_becomes_a_pending_identity(string condition)
     {
         await using var fixture = await Fixture.Start(condition);
@@ -324,6 +327,7 @@ public sealed class ProductIdentityHttpTests
             if (condition == "redirect") return new HttpResponseMessage(HttpStatusCode.Redirect) { Headers = { Location = new Uri("https://foreign.invalid/steal") } };
             if (condition == "unavailable") return new HttpResponseMessage(HttpStatusCode.ServiceUnavailable);
             if (condition == "json") return new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent("invalid-json") };
+            if (condition == "oversized-response") return new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent(new string('x', 70000)) };
             return new HttpResponseMessage(HttpStatusCode.OK) { Content = JsonContent.Create(new { data = new {
                 schema_version = condition == "schema" ? 2 : 1,
                 issuer = condition == "issuer" ? "https://foreign.invalid" : "https://commercial-api.greenwebb.tech",
