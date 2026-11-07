@@ -36,11 +36,14 @@ Observation holds only subject, client, payer, enrollment and deadline; never
 stores the access token. Future company binding and slot allocation must persist
 atomically in Core, with immutable ownership and idempotency receipts.
 
-Inspection found no existing subscription workspace-capacity field. Before the
-create command is enabled, Laravel must record the purchased allowance on the
-subscription rather than infer unlimited workspaces from active status or read a
-later mutable catalogue limit. Existing subscriptions without explicit allowance
-must not gain capacity automatically. Core must allocate capacity transactionally
+Laravel runtime2449fe9509454283d22da0bf29db54e06270c299 now records
+immutable purchased subscription workspace capacity and exposes workspace_limit
+on current licensing/setup resources.101 native MySQL tests/740 assertions and
+migration/preflight probes passed; see its WORKSPACE-CAPACITY.md. Before create
+is enabled, Core must consume the bounded allowance rather than infer unlimited
+workspaces from active status or read a mutable catalogue limit. Existing
+subscriptions without explicit allowance must not gain capacity automatically.
+Core must allocate capacity transactionally
 across all companies bound to that commercial enrollment; concurrent requests
 and retries must not over-allocate or create duplicate companies.
 

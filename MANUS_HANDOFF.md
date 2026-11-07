@@ -1,3 +1,21 @@
+# Purchased capacity provider checkpoint —8 November2026
+
+Laravel foundation PR3 now publishes runtime
+`2449fe9509454283d22da0bf29db54e06270c299`: bounded plan allowance,
+immutable purchased subscription snapshot, audit/outbox evidence and
+workspace_limit in current setup/licensing resources. Old subscriptions remain
+unassigned; plan edits/retries do not expand a purchase.101 tests/740 assertions
+passed on genuine MySQL8.0.46 plus upgrade/rollback and denied-host-DDL probes.
+See foundation WORKSPACE-CAPACITY.md for exact source/logs and the privileged
+schema migration requirement (no production global trust/SUPER grant changed).
+
+Core73b4afbe has not yet consumed/enforced that allowance. Next: bounded capacity
+parsing and atomic slot/company allocation, protected setup OAuth grants,
+company/payer binding/idempotency/audit and invitations before operational
+sessions. Missing/zero/unassigned capacity must never mean unlimited creation.
+No ERP runtime source, production schema/image, public ingress or flag changed
+by this documentation checkpoint. Keep previous consumer qualification separate.
+
 # Core workspace setup authority consumer —7 November2026
 
 Stacked draft PR201 now includes runtime
