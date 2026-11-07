@@ -64,10 +64,13 @@ public sealed class ProductIdentityLinkConstraintTests
                 $"DELETE FROM hrm.external_identity_links WHERE id = {row.Id}"));
             Assert.Equal(PostgresErrorCodes.CheckViolation, removed.SqlState);
             var applied = (await db.Database.GetAppliedMigrationsAsync()).ToArray();
-            Assert.EndsWith("_CoreExternalIdentityLinks", applied[^1]);
-            var rollback = await Assert.ThrowsAsync<PostgresException>(() => db.GetService<IMigrator>().MigrateAsync(applied[^2]));
+            // Later additive migrations must not make this owning migration's
+            // retained-evidence guard disappear from acceptance.
+            var owning = Assert.Single(applied, id => id.EndsWith("_CoreExternalIdentityLinks", StringComparison.Ordinal));
+            var beforeOwning = applied[Array.IndexOf(applied, owning)-1];
+            var rollback = await Assert.ThrowsAsync<PostgresException>(() => db.GetService<IMigrator>().MigrateAsync(beforeOwning));
             Assert.Equal(PostgresErrorCodes.CheckViolation, rollback.SqlState);
-            Assert.Contains(applied[^1], await db.Database.GetAppliedMigrationsAsync());
+            Assert.Contains(owning, await db.Database.GetAppliedMigrationsAsync());
             Assert.Single(await db.ExternalIdentityLinks.AsNoTracking().ToArrayAsync());
         }
         db.ExternalIdentityLinks.Add(Link(second));

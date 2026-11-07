@@ -38,6 +38,13 @@ public sealed class HrmDbContext(DbContextOptions<HrmDbContext> options, ITenant
         var tenantId = tenant.GetTenantId();
         foreach (var entry in ChangeTracker.Entries<Entity>())
         {
+            if (entry.Entity is LocalUser account && entry.State is EntityState.Added or EntityState.Modified)
+            {
+                if (entry.State == EntityState.Modified && entry.Property(nameof(LocalUser.CredentialMode)).IsModified)
+                    throw new DomainException("credential-mode-immutable", "Credential mode cannot be changed through ordinary account updates.");
+                if (!LocalCredentialModes.IsValid(account))
+                    throw new DomainException("invalid-credential-state", "The account credential state is invalid.");
+            }
             if (entry.State == EntityState.Added)
             {
                 // Never trust a tenant id supplied by a client or service. The
@@ -246,6 +253,13 @@ public sealed class HrmDbContext(DbContextOptions<HrmDbContext> options, ITenant
         ConfigureEntity<TenantRoleAssignment>(modelBuilder, "tenant_role_assignments", e => e.HasIndex(x => new { x.TenantId, x.RoleKey }).IsUnique());
         ConfigureEntity<LocalUser>(modelBuilder, "local_users", e =>
         {
+            e.Property(x => x.CredentialMode).HasMaxLength(16).HasDefaultValue(LocalCredentialModes.Local);
+            e.ToTable("local_users", "hrm", table => table.HasCheckConstraint("CK_local_users_credential_state",
+                "(credential_mode = 'local' AND email IS NOT NULL AND length(trim(email)) > 0 " +
+                "AND normalized_email IS NOT NULL AND length(trim(normalized_email)) > 0 " +
+                "AND password_hash IS NOT NULL AND length(trim(password_hash)) > 0) OR " +
+                "(credential_mode = 'federated' AND email IS NULL AND normalized_email IS NULL " +
+                "AND password_hash IS NULL AND must_change_password = FALSE AND password_changed_at IS NULL)"));
             // Composite principal keys must be complete before tracking. Legacy
             // callers omit TenantId and rely on SaveChanges stamping; generate
             // that same trusted scope early without taking browser input.
