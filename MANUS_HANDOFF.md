@@ -1,3 +1,36 @@
+# Kuubu product identity consumer — 7 November 2026
+
+Stacked draft [PR201](https://github.com/georgemunganga/erp/pull/201), branch
+`codex/kuubu-product-consumer-20261107`, depends onPR200/PR199. Exact compiled
+source `7d67f6d16a414aacf3a8a6242dc94aa9576ff3b6` passed59 focused checks,
+15 genuine-PostgreSQL scenarios and the full2,030-case HRM suite/0fail/0skip.
+The default-off confidential OAuth/PKCE consumer uses a separate protected,
+short-lived product identity cookie, containing no provider tokens, ERP roles or
+tenant. It never creates an ERP operational session. Core reads only explicit
+active issuer/subject links and same-tenant active principals; no email join.
+
+The additive owning migration enforces tenant/user FK pairing and durable unique
+bindings, with raw-SQL binding and populated-rollback guards. A trusted scoped
+tenant key generator preserves existing local-user constructors while completing
+the composite key before EF tracking. The native audit verified all five new
+synthetic databases' actual migration/FK/trigger state. SDK and dedicated test
+PostgreSQL containers are stopped; prior attempts/evidence remain retained.
+
+Read `docs/engineering/CORE-PRODUCT-IDENTITY-20261107.md` for exact hashes,
+receipts, source limits and release gates. Hosted GitHub CI remains account
+billing-locked before its job starts; native results do not claim hosted success.
+No public ingress or production database/image change accompanied this step.
+Published main is still7b7e3fc7; qualified release6b47bbeb and deployed1f54ff04
+remain unchanged. Existing financial/tenant/module holds remain.
+
+Next: connect Kuubu's fixed own authorization/opt-in relay and allow only its
+registered Core callback; remove the provider's shared30/minute backend-IP quota
+bottleneck. Then implement explicit invitation/workspace admission, Core-owned
+workspace/payer licensing bindings, protected server-side operational sessions
+and company/branch/module enforcement. Never give ERP teammates billing
+membership to make company licensing pass. Anonymous speak-up organization
+selection and callback/query log redaction also gate shared public ingress.
+
 # Core session tenant repair — 6 November 2026
 
 Stacked draftPR200 (`codex/kuubu-session-tenant-20261106`, compiled source
