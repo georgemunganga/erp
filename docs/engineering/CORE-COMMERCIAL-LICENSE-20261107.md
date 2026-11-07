@@ -24,7 +24,9 @@ exact enrollment resource; validate issuer/product/schema/ID and lease bounds.
 Unavailable, denied or authorized commercial lease. None means ERP admission.
 ## 10. Permissions & Data Scope
 Machine scope product:license only; one exact canonical enrollment per call.
-There is no HTTP route accepting a browser payer reference in this step.
+There is no HTTP route accepting a browser payer reference in this step. The
+canonical reference is the exact lowercase ULID emitted by Laravel HasUlids;
+do not uppercase, case-fold or substitute an unrelated customer/workspace ID.
 ## 11. Business Rules
 ReadAsync returns no cached lease on failure. Callers may reuse a previously
 returned lease only while IsCurrent remains true; never extend or serialize its

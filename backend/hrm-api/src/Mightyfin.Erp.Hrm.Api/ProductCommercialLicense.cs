@@ -42,7 +42,9 @@ internal sealed class ProductCommercialLicense(HttpClient http, TimeProvider clo
     private const string Prefix = Issuer+"/api/v1/product-identity";
     private readonly SemaphoreSlim tokenLock = new(1, 1);
     private MachineToken? token;
-    private static readonly Regex EnrollmentPattern = new("^[0-7][0-9A-HJKMNP-TV-Z]{25}\\z", RegexOptions.CultureInvariant);
+    // Laravel HasUlids emits lowercase keys. Preserve that exact provider ID;
+    // never case-fold a browser or binding reference into a different DB key.
+    private static readonly Regex EnrollmentPattern = new("^[0-7][0-9a-hjkmnp-tv-z]{25}\\z", RegexOptions.CultureInvariant);
     private static readonly Regex ModulePattern = new("^[a-z][a-z0-9_-]{0,63}\\z", RegexOptions.CultureInvariant);
     private sealed record MachineToken(string Value, DateTimeOffset Expiry, long Started, TimeSpan Lifetime);
 

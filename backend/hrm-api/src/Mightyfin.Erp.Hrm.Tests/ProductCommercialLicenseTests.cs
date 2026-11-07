@@ -9,8 +9,8 @@ namespace Mightyfin.Erp.Hrm.Tests;
 
 public sealed class ProductCommercialLicenseTests
 {
-    private const string Enrollment = "01ARZ3NDEKTSV4RRFFQ69G5FAV";
-    private const string OtherEnrollment = "01ARZ3NDEKTSV4RRFFQ69G5FAW";
+    private const string Enrollment = "01arz3ndektsv4rrffq69g5fav";
+    private const string OtherEnrollment = "01arz3ndektsv4rrffq69g5faw";
     private const string ClientId = "391bdeaa-87b3-44b3-8e64-2110dcc1a564";
     private const string Credential = "synthetic-machine-secret";
 
@@ -162,8 +162,8 @@ public sealed class ProductCommercialLicenseTests
     [Theory]
     [InlineData("")]
     [InlineData("../../token")]
-    [InlineData("01arz3ndektsv4rrffq69g5fav")]
-    [InlineData("01ARZ3NDEKTSV4RRFFQ69G5FAV\n")]
+    [InlineData("01ARZ3NDEKTSV4RRFFQ69G5FAV")]
+    [InlineData("01arz3ndektsv4rrffq69g5fav\n")]
     public async Task Noncanonical_enrollment_never_generates_network_traffic(string reference)
     {
         using var fixture = new Fixture();
