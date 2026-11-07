@@ -89,11 +89,14 @@ Use actual ASP.NET OAuth/cookie handlers. Contract is Laravel schema_version1
 subject and product:identity scope. Tests use synthetic HTTP backchannel while
 exercising real state, correlation, code exchange and cookie protection. Real
 Laravel→consumer acceptance remains required, not implied by fixtures.
+Framework reference: [ASP.NET Core10 OAuth handler source](https://github.com/dotnet/aspnetcore/blob/v10.0.0/src/Security/Authentication/OAuth/src/OAuthHandler.cs).
 
 ## 19. Audit / Security / Privacy
 No tokens, code, state, correlation, confidential secret or sensitive provider
 error in app logs. Use generic remote-failure response. Existing Core audit covers
 link changes once authorized link commands are added. No email stored in links.
+Before public ingress, proxy access logging must also omit callback and
+authorization query strings; application log redaction alone is insufficient.
 
 ## 20. Reports / Dashboards / Metrics
 Observe generic auth failure/latency and operational401 rates. Never label
@@ -134,6 +137,10 @@ Own Kuubu authorization relay/opt-in UI, confidential provider deployment,
 credential/key delivery, external link invitation/administration commands,
 Core workspace admission, runtime ACLs and company/module licensing acceptance
 must pass before public SaaS access. Existing financial release holds remain.
+The existing anonymous `/experience/speak-up` submission/status routes also need
+an explicit product-owned organization context before shared public ingress:
+anonymous callers currently have no authenticated tenant. Do not turn a request
+header, email/domain or the process-default tenant into customer authorization.
 
 ## 28. Delivery Evidence & Handover
 Implementation/acceptance evidence will be recorded against exact source commits.

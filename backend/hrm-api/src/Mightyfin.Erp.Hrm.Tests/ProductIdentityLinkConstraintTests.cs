@@ -1,5 +1,7 @@
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Mightyfin.Erp.Hrm.Api;
 using Mightyfin.Erp.Hrm.Domain.Entities;
 using Mightyfin.Erp.Hrm.Infrastructure.Data;
@@ -53,6 +55,21 @@ public sealed class ProductIdentityLinkConstraintTests
         row.IsActive = !revoke;
         db.ExternalIdentityLinks.Add(row);
         await db.SaveChangesAsync();
+        if (db.Database.IsNpgsql())
+        {
+            var changed = await Assert.ThrowsAsync<PostgresException>(() => db.Database.ExecuteSqlInterpolatedAsync(
+                $"UPDATE hrm.external_identity_links SET subject = 'changed' WHERE id = {row.Id}"));
+            Assert.Equal(PostgresErrorCodes.CheckViolation, changed.SqlState);
+            var removed = await Assert.ThrowsAsync<PostgresException>(() => db.Database.ExecuteSqlInterpolatedAsync(
+                $"DELETE FROM hrm.external_identity_links WHERE id = {row.Id}"));
+            Assert.Equal(PostgresErrorCodes.CheckViolation, removed.SqlState);
+            var applied = (await db.Database.GetAppliedMigrationsAsync()).ToArray();
+            Assert.EndsWith("_CoreExternalIdentityLinks", applied[^1]);
+            var rollback = await Assert.ThrowsAsync<PostgresException>(() => db.GetService<IMigrator>().MigrateAsync(applied[^2]));
+            Assert.Equal(PostgresErrorCodes.CheckViolation, rollback.SqlState);
+            Assert.Contains(applied[^1], await db.Database.GetAppliedMigrationsAsync());
+            Assert.Single(await db.ExternalIdentityLinks.AsNoTracking().ToArrayAsync());
+        }
         db.ExternalIdentityLinks.Add(Link(second));
         await Assert.ThrowsAsync<DbUpdateException>(() => db.SaveChangesAsync());
     }
