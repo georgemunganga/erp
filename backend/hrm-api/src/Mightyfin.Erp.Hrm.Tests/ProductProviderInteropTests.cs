@@ -42,8 +42,8 @@ public sealed class ProductProviderInteropTests
         Assert.Equal("greenwebb-loopback-interop-v1", Field("fixture_scope"));
         Assert.True(Guid.TryParse(Field("fixture_marker"), out _));
         Assert.NotEqual(Field("client_id"), Field("licensing_client_id"));
-        using var bridge = new HttpClient(new HttpClientHandler { AllowAutoRedirect = false, UseCookies = false })
-        { BaseAddress = new Uri("http://127.0.0.1:28120"), Timeout = TimeSpan.FromSeconds(40) };
+        using var bridge = new HttpClient(new HttpClientHandler { AllowAutoRedirect = false, UseCookies = false, UseProxy = false })
+        { BaseAddress = new Uri("http://127.0.0.1:8120"), Timeout = TimeSpan.FromSeconds(40) };
         bridge.DefaultRequestHeaders.Add("X-Kuubu-Test-Fixture", Field("fixture_marker"));
         using (var health = await bridge.GetAsync("/health"))
         {
@@ -166,7 +166,7 @@ public sealed class ProductProviderInteropTests
     private sealed class FixtureBackchannel : DelegatingHandler
     {
         internal int TokenCalls, SubjectCalls, LicenseCalls;
-        internal FixtureBackchannel() : base(new HttpClientHandler { AllowAutoRedirect = false, UseCookies = false }) { }
+        internal FixtureBackchannel() : base(new HttpClientHandler { AllowAutoRedirect = false, UseCookies = false, UseProxy = false }) { }
         protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellation)
         {
             // Qualification adapter only. Runtime issuer/configuration stays pinned;
@@ -182,7 +182,7 @@ public sealed class ProductProviderInteropTests
                     Assert.StartsWith("/api/v1/product-identity/licensing/enrollments/", target.AbsolutePath);
                     LicenseCalls++; Assert.Equal(HttpMethod.Get, request.Method); break;
             }
-            request.RequestUri = new Uri("http://127.0.0.1:28101"+target.AbsolutePath);
+            request.RequestUri = new Uri("http://127.0.0.1:8101"+target.AbsolutePath);
             return base.SendAsync(request, cancellation);
         }
     }

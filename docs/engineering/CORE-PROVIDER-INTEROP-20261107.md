@@ -26,20 +26,20 @@ a real browser callback, operational sessions or company/module authorization.
 Use a .NET10 SDK, locked foundation dependencies with PHP8.4/SQLite, Python and
 Node, plus the exact published Kuubu website source. On the owning workstation:
 ```text
-python backend/hrm-api/tools/ProductProviderInterop/run.py --workspace <new-absolute-exclusive-directory> --foundation <foundation/backend> --website <exact-kuubu-source> --php <php8.4-path> --ssh-host <authorized-qualification-host>
+python backend/hrm-api/tools/ProductProviderInterop/run.py --workspace <new-absolute-exclusive-directory> --foundation <foundation/backend> --website <exact-kuubu-source> --php <php8.4-path>
 ```
 The helper prepares fresh fixtures with mail=array/payments=false, owns PHP and
-Node processes, and creates temporary SSH forwards bound only to remote loopback
-28101/28120. Local ports8101/8120 must be free. Stop the owning helper after the
+Node processes, and verifies both local services before recording readiness.
+Local ports8101/8120 must be free. Stop the owning helper after the
 gate: its finally block stops its direct children and retains logs/data/receipts.
 Do not rerun a consumed fixture; generate a new exclusive workspace.
 
-Copy only the synthetic provider/core-interop.json manifest privately to the
-qualification container and set KUUBU_REAL_PROVIDER_FIXTURE to that private
-absolute file. Never print or commit it; it contains only fresh synthetic client
+Set KUUBU_REAL_PROVIDER_FIXTURE to the private absolute path of the synthetic
+provider/core-interop.json manifest on the same host. Never print or commit it;
+it contains only fresh synthetic client
 credentials, not production credentials. The bridge verifies the same fixture
-marker. Run the single opt-in ProductProviderInteropTests case with the two
-loopback forwards reachable. It is explicitly skipped when no fixture is set.
+marker. Run the single opt-in ProductProviderInteropTests case with both local
+fixtures reachable. It is explicitly skipped when no fixture is set.
 Normal existing tests and the production API remain independent of this fixture.
 
 Retain exact source/website hashes, native SDK, logs, counts, job status and
