@@ -22,9 +22,9 @@ public sealed class ProductCommercialLicenseTests
         Assert.Equal(CommercialLicenseStatus.Authorized, result.Status);
         Assert.NotNull(result.Lease);
         Assert.Equal(Enrollment, result.Lease.EnrollmentId);
-        Assert.True(result.Lease.AllowsModule("hrm"));
-        Assert.False(result.Lease.AllowsModule("accounting"));
-        Assert.False(result.Lease.AllowsModule("HRM"));
+        Assert.True(result.Lease.AllowsWorkspaceModule(1, "hrm"));
+        Assert.False(result.Lease.AllowsWorkspaceModule(1, "accounting"));
+        Assert.False(result.Lease.AllowsWorkspaceModule(1, "HRM"));
         Assert.Equal(1, fixture.Transport.TokenCalls);
         Assert.Equal(1, fixture.Transport.ResourceCalls);
     }
@@ -66,6 +66,9 @@ public sealed class ProductCommercialLicenseTests
     [InlineData("network")]
     [InlineData("timeout")]
     [InlineData("date-without-zone")]
+    [InlineData("capacity-missing")][InlineData("capacity-null")][InlineData("capacity-string")]
+    [InlineData("capacity-negative")][InlineData("capacity-over")][InlineData("capacity-fraction")]
+    [InlineData("capacity-boolean")][InlineData("capacity-overflow")]
     public async Task Invalid_or_unavailable_provider_does_not_return_a_commercial_lease(string fault)
     {
         using var fixture = new Fixture();
@@ -73,6 +76,25 @@ public sealed class ProductCommercialLicenseTests
         var result = await fixture.Client.ReadAsync(Enrollment);
         Assert.Equal(CommercialLicenseStatus.Unavailable, result.Status);
         Assert.Null(result.Lease);
+    }
+
+    [Theory]
+    [InlineData(0)][InlineData(1)][InlineData(10000)]
+    public async Task Purchased_capacity_is_required_for_each_allocated_slot_and_module(int capacity)
+    {
+        using var fixture = new Fixture();
+        fixture.Transport.Capacity = capacity;
+        var lease = (await fixture.Client.ReadAsync(Enrollment)).Lease!;
+        Assert.Equal(capacity, lease.WorkspaceLimit);
+        foreach (var slot in new[] { -1, 0, 1, capacity, capacity+1 })
+        {
+            var allowed = slot >= 1 && slot <= capacity;
+            Assert.Equal(allowed, lease.AllowsWorkspace(slot));
+            Assert.Equal(allowed, lease.AllowsWorkspaceModule(slot, "hrm"));
+            Assert.False(lease.AllowsWorkspaceModule(slot, "unlicensed"));
+        }
+        fixture.Clock.Advance(TimeSpan.FromSeconds(60));
+        Assert.False(lease.AllowsWorkspace(1));
     }
 
     [Theory]
@@ -129,11 +151,11 @@ public sealed class ProductCommercialLicenseTests
         fixture.Transport.ShortLease = true;
         var lease = (await fixture.Client.ReadAsync(Enrollment)).Lease!;
         fixture.Clock.Advance(TimeSpan.FromSeconds(9));
-        Assert.True(lease.AllowsModule("hrm"));
+        Assert.True(lease.AllowsWorkspaceModule(1, "hrm"));
         fixture.Clock.Advance(TimeSpan.FromSeconds(1));
         Assert.False(lease.IsCurrent);
         fixture.Clock.Now -= TimeSpan.FromHours(1);
-        Assert.False(lease.AllowsModule("hrm"));
+        Assert.False(lease.AllowsWorkspaceModule(1, "hrm"));
     }
 
     [Fact]
@@ -236,6 +258,7 @@ public sealed class ProductCommercialLicenseTests
     private sealed class Transport(Clock clock) : HttpMessageHandler
     {
         internal int TokenCalls, ResourceCalls;
+        internal int Capacity = 2;
         internal string Fault = "", TokenFault = "";
         internal bool DelayToken, DelayUntilCanceled, ShortLease;
         internal TimeSpan AdvanceResource;
@@ -283,12 +306,20 @@ public sealed class ProductCommercialLicenseTests
             var observed = clock.Now;
             var fields2 = new Dictionary<string, object?> { ["schema_version"] = 1, ["issuer"] = ProductCommercialLicense.Issuer,
                 ["product_code"] = "kuubu", ["product_enrollment_id"] = enrollment,
-                ["commercial_access_authorized"] = true, ["operational_access_granted"] = false,
+                ["workspace_limit"] = Capacity, ["commercial_access_authorized"] = true, ["operational_access_granted"] = false,
                 ["module_codes"] = new[] { "hrm", "payroll" }, ["observed_at"] = observed,
                 ["lease_until"] = observed.AddSeconds(ShortLease ? 10 : 60),
                 ["access_until"] = observed.AddSeconds(ShortLease ? 10 : 600) };
             switch (Fault)
             {
+                case "capacity-missing": fields2.Remove("workspace_limit"); break;
+                case "capacity-null": fields2["workspace_limit"] = null; break;
+                case "capacity-string": fields2["workspace_limit"] = "2"; break;
+                case "capacity-negative": fields2["workspace_limit"] = -1; break;
+                case "capacity-over": fields2["workspace_limit"] = 10001; break;
+                case "capacity-fraction": fields2["workspace_limit"] = 1.5; break;
+                case "capacity-boolean": fields2["workspace_limit"] = true; break;
+                case "capacity-overflow": fields2["workspace_limit"] = 10000000000L; break;
                 case "issuer": fields2["issuer"] = "https://foreign.invalid"; break;
                 case "product": fields2["product_code"] = "hosting"; break;
                 case "enrollment": fields2["product_enrollment_id"] = "another-payer"; break;
@@ -304,7 +335,7 @@ public sealed class ProductCommercialLicenseTests
                 case "invalid-module": fields2["module_codes"] = new[] { "hrm\n" }; break;
                 case "duplicate-module": fields2["module_codes"] = new[] { "hrm", "hrm" }; break;
                 case "date-without-zone": fields2["observed_at"] = "2026-11-07T12:00:00"; break;
-                case "denied": fields2["commercial_access_authorized"] = false; fields2["access_until"] = null;
+                case "denied": fields2["workspace_limit"] = 0; fields2["commercial_access_authorized"] = false; fields2["access_until"] = null;
                     fields2["module_codes"] = Array.Empty<string>(); fields2["lease_until"] = observed; break;
             }
             var payload = JsonSerializer.Serialize(new { data = fields2 });

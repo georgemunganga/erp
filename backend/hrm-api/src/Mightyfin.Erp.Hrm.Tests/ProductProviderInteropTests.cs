@@ -120,8 +120,8 @@ public sealed class ProductProviderInteropTests
         var machine = new ProductCommercialLicense(machineHttp, clock, Field("licensing_client_id"), Field("licensing_secret"));
         var licensed = await machine.ReadAsync(Field("enrollment_id"));
         Assert.Equal(CommercialLicenseStatus.Authorized, licensed.Status);
-        Assert.NotNull(licensed.Lease); Assert.True(licensed.Lease.AllowsModule("hrm"));
-        Assert.False(licensed.Lease.AllowsModule("payroll"));
+        Assert.NotNull(licensed.Lease); Assert.True(licensed.Lease.AllowsWorkspaceModule(1, "hrm"));
+        Assert.False(licensed.Lease.AllowsWorkspaceModule(1, "payroll"));
         Assert.Equal(CommercialLicenseStatus.Denied, (await machine.ReadAsync(Field("foreign_enrollment_id"))).Status);
         var suspended = await bridge.PostAsJsonAsync("/suspend", new { });
         Assert.Equal(HttpStatusCode.OK, suspended.StatusCode);

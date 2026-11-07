@@ -55,6 +55,8 @@ public sealed class HrmDbContext(DbContextOptions<HrmDbContext> options, ITenant
             }
             if (entry.State is EntityState.Modified or EntityState.Deleted)
             {
+                if (entry.Entity is CoreWorkspaceBinding)
+                    throw new DomainException("workspace-binding-immutable", "Workspace allocation evidence cannot be changed or deleted.");
                 if (!string.Equals(entry.Entity.TenantId, tenantId, StringComparison.Ordinal))
                     throw new DomainException("cross-tenant-write", "A record from another tenant cannot be changed.");
                 if (entry.Entity is ExternalIdentityLink && (entry.State == EntityState.Deleted
@@ -88,6 +90,7 @@ public sealed class HrmDbContext(DbContextOptions<HrmDbContext> options, ITenant
     public DbSet<TenantRoleAssignment> TenantRoleAssignments => Set<TenantRoleAssignment>();
     public DbSet<LocalUser> LocalUsers => Set<LocalUser>();
     public DbSet<ExternalIdentityLink> ExternalIdentityLinks => Set<ExternalIdentityLink>();
+    public DbSet<CoreWorkspaceBinding> WorkspaceBindings => Set<CoreWorkspaceBinding>();
     public DbSet<LocalCredentialLink> LocalCredentialLinks => Set<LocalCredentialLink>();
     public DbSet<LocalSession> LocalSessions => Set<LocalSession>();
     public DbSet<HrUserBranchAssignment> UserBranchAssignments => Set<HrUserBranchAssignment>();
@@ -209,6 +212,28 @@ public sealed class HrmDbContext(DbContextOptions<HrmDbContext> options, ITenant
         {
             e.HasKey(x => x.Id);
             e.Property(x => x.TimeZoneId).HasMaxLength(100).HasDefaultValue("UTC");
+            e.Property(x => x.TenantId).ValueGeneratedOnAdd()
+                .HasValueGenerator((_, _) => new ScopedTenantKeyGenerator());
+            e.HasAlternateKey(x => new { x.TenantId, x.Id });
+        });
+        ConfigureEntity<CoreWorkspaceBinding>(modelBuilder, "core_workspace_bindings", e =>
+        {
+            e.Property(x => x.Issuer).HasMaxLength(200);
+            e.Property(x => x.Subject).HasMaxLength(19);
+            e.Property(x => x.ClientId).HasMaxLength(36);
+            e.Property(x => x.CustomerId).HasMaxLength(26);
+            e.Property(x => x.EnrollmentId).HasMaxLength(26);
+            e.Property(x => x.IdempotencyHash).HasMaxLength(64);
+            e.Property(x => x.RequestHash).HasMaxLength(64);
+            e.HasIndex(x => x.TenantId).IsUnique();
+            e.HasIndex(x => new { x.Issuer, x.EnrollmentId, x.Slot }).IsUnique();
+            e.HasIndex(x => new { x.Issuer, x.Subject, x.IdempotencyHash }).IsUnique();
+            e.HasOne<LegalEntity>().WithMany().HasForeignKey(x => new { x.TenantId, x.LegalEntityId })
+                .HasPrincipalKey(x => new { x.TenantId, x.Id }).OnDelete(DeleteBehavior.Restrict);
+            e.HasOne<LocalUser>().WithMany().HasForeignKey(x => new { x.TenantId, x.OwnerLocalUserId })
+                .HasPrincipalKey(x => new { x.TenantId, x.Id }).OnDelete(DeleteBehavior.Restrict);
+            e.ToTable("core_workspace_bindings", "hrm", t => t.HasCheckConstraint("CK_workspace_capacity",
+                "slot >= 1 AND slot <= purchased_limit AND purchased_limit <= 10000"));
         });
         ConfigureEntity<CoreCurrencyPrecisionVersion>(modelBuilder, "currency_precision_versions", e =>
         {

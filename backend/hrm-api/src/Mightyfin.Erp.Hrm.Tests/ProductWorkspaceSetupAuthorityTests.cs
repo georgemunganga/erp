@@ -41,6 +41,9 @@ public sealed class ProductWorkspaceSetupAuthorityTests
     [InlineData("duplicate")][InlineData("duplicate-root")][InlineData("json")][InlineData("oversized")]
     [InlineData("media-type")][InlineData("redirect")][InlineData("unavailable")]
     [InlineData("network")][InlineData("timeout")]
+    [InlineData("capacity-missing")][InlineData("capacity-null")][InlineData("capacity-string")]
+    [InlineData("capacity-negative")][InlineData("capacity-over")][InlineData("capacity-fraction")]
+    [InlineData("capacity-boolean")][InlineData("capacity-overflow")]
     public async Task Foreign_ambiguous_expired_or_unavailable_provider_never_returns_authority(string fault)
     {
         using var f = new Fixture();
@@ -169,10 +172,18 @@ public sealed class ProductWorkspaceSetupAuthorityTests
             var fields = new Dictionary<string, object?> { ["schema_version"] = 1, ["issuer"] = ProductCommercialLicense.Issuer,
                 ["subject"] = "42", ["client_id"] = ClientId, ["customer_id"] = Customer,
                 ["product_code"] = "kuubu", ["product_enrollment_id"] = Enrollment,
-                ["action"] = "request_workspace_creation", ["payer_control_verified"] = true,
+                ["workspace_limit"] = 2, ["action"] = "request_workspace_creation", ["payer_control_verified"] = true,
                 ["operational_access_granted"] = false, ["observed_at"] = now, ["authority_until"] = now.AddSeconds(Lifetime) };
             switch (Fault)
             {
+                case "capacity-missing": fields.Remove("workspace_limit"); break;
+                case "capacity-null": fields["workspace_limit"] = null; break;
+                case "capacity-string": fields["workspace_limit"] = "2"; break;
+                case "capacity-negative": fields["workspace_limit"] = -1; break;
+                case "capacity-over": fields["workspace_limit"] = 10001; break;
+                case "capacity-fraction": fields["workspace_limit"] = 1.5; break;
+                case "capacity-boolean": fields["workspace_limit"] = true; break;
+                case "capacity-overflow": fields["workspace_limit"] = 10000000000L; break;
                 case "issuer": fields["issuer"] = "https://foreign.invalid"; break;
                 case "subject": fields["subject"] = "43"; break;
                 case "client": fields["client_id"] = Guid.NewGuid().ToString(); break;

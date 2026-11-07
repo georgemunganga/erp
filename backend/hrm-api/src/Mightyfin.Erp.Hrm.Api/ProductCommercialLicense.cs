@@ -18,11 +18,13 @@ internal sealed class CommercialLicenseLease
     private readonly TimeSpan lifetime;
     private readonly FrozenSet<string> modules;
     internal string EnrollmentId { get; }
+    internal int WorkspaceLimit { get; }
     internal DateTimeOffset ExpiresAt { get; }
-    internal CommercialLicenseLease(string enrollment, IEnumerable<string> modules, DateTimeOffset expiry,
+    internal CommercialLicenseLease(string enrollment, IEnumerable<string> modules, int workspaceLimit, DateTimeOffset expiry,
         TimeProvider clock, long started, TimeSpan lifetime)
     {
         EnrollmentId = enrollment;
+        WorkspaceLimit = workspaceLimit;
         this.modules = modules.ToFrozenSet(StringComparer.Ordinal);
         ExpiresAt = expiry;
         this.clock = clock;
@@ -31,7 +33,8 @@ internal sealed class CommercialLicenseLease
     }
     internal bool IsCurrent => clock.GetUtcNow() < ExpiresAt
         && clock.GetElapsedTime(started) is var elapsed && elapsed >= TimeSpan.Zero && elapsed < lifetime;
-    internal bool AllowsModule(string module) => IsCurrent && modules.Contains(module);
+    internal bool AllowsWorkspace(int allocatedSlot) => IsCurrent && allocatedSlot >= 1 && allocatedSlot <= WorkspaceLimit;
+    internal bool AllowsWorkspaceModule(int allocatedSlot, string module) => AllowsWorkspace(allocatedSlot) && modules.Contains(module);
 }
 
 /// <summary>Fixed service-to-service channel. Never use a browser-supplied payer as company authority.</summary>
@@ -73,6 +76,9 @@ internal sealed class ProductCommercialLicense(HttpClient http, TimeProvider clo
             if (response.StatusCode != HttpStatusCode.OK) return new(CommercialLicenseStatus.Unavailable);
             using var json = await ReadJson(response, timeout.Token);
             var data = Property(json.RootElement, "data");
+            var capacity = Property(data, "workspace_limit");
+            if (capacity.ValueKind != JsonValueKind.Number || !capacity.TryGetInt32(out var workspaceLimit)
+                || workspaceLimit is < 0 or > 10000) return new(CommercialLicenseStatus.Unavailable);
             if (Property(data, "schema_version").GetInt32() != 1
                 || Property(data, "issuer").GetString() != Issuer
                 || Property(data, "product_code").GetString() != "kuubu"
@@ -93,7 +99,7 @@ internal sealed class ProductCommercialLicense(HttpClient http, TimeProvider clo
             if (modules.Any(x => x is null || !ModulePattern.IsMatch(x)) || modules.Distinct(StringComparer.Ordinal).Count() != modules.Length)
                 return new(CommercialLicenseStatus.Unavailable);
             if (!Property(data, "commercial_access_authorized").GetBoolean())
-                return modules.Length == 0 && Property(data, "access_until").ValueKind == JsonValueKind.Null && deadline == observed
+                return workspaceLimit == 0 && modules.Length == 0 && Property(data, "access_until").ValueKind == JsonValueKind.Null && deadline == observed
                     ? new(CommercialLicenseStatus.Denied) : new(CommercialLicenseStatus.Unavailable);
             var accessUntil = Date(Property(data, "access_until"));
             if (deadline <= observed || deadline > observed.AddSeconds(60) || deadline > accessUntil || accessUntil <= now)
@@ -101,7 +107,7 @@ internal sealed class ProductCommercialLicense(HttpClient http, TimeProvider clo
             // Conservative local cap includes the full resource round-trip; monotonic time
             // prevents a backward wall-clock correction from prolonging the commercial lease.
             var expiry = deadline < start.AddSeconds(60) ? deadline : start.AddSeconds(60);
-            var lease = new CommercialLicenseLease(enrollment, modules.Select(x => x!), expiry, clock, timestamp, expiry-start);
+            var lease = new CommercialLicenseLease(enrollment, modules.Select(x => x!), workspaceLimit, expiry, clock, timestamp, expiry-start);
             return lease.IsCurrent ? new(CommercialLicenseStatus.Authorized, lease) : new(CommercialLicenseStatus.Unavailable);
         }
         catch (OperationCanceledException) when (!cancellation.IsCancellationRequested) { return new(CommercialLicenseStatus.Unavailable); }
@@ -182,7 +188,7 @@ internal sealed class ProductCommercialLicense(HttpClient http, TimeProvider clo
         if (text is null || !Regex.IsMatch(text, @"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d{1,7})?(Z|[+-]\d{2}:\d{2})\z", RegexOptions.CultureInvariant)
             || !DateTimeOffset.TryParse(text, CultureInfo.InvariantCulture, DateTimeStyles.None, out var date))
             throw new JsonException("Invalid commercial date.");
-        return date;
+        return date.ToUniversalTime();
     }
 }
 

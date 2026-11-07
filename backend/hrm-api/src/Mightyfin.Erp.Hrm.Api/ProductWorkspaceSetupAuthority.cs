@@ -11,12 +11,13 @@ internal sealed record WorkspaceAuthorityResult(WorkspaceAuthorityStatus Status,
 
 /// <summary>Current payer control only: never a company, capacity or operational grant.</summary>
 internal sealed class WorkspaceSetupObservation(string subject, string clientId, string customerId, string enrollmentId,
-    DateTimeOffset deadline, TimeProvider clock, long started, TimeSpan lifetime)
+    int workspaceLimit, DateTimeOffset deadline, TimeProvider clock, long started, TimeSpan lifetime)
 {
     internal string Subject { get; } = subject;
     internal string ClientId { get; } = clientId;
     internal string CustomerId { get; } = customerId;
     internal string EnrollmentId { get; } = enrollmentId;
+    internal int WorkspaceLimit { get; } = workspaceLimit;
     internal DateTimeOffset ExpiresAt { get; } = deadline;
     internal bool IsCurrent => clock.GetUtcNow() < ExpiresAt
         && clock.GetElapsedTime(started) is var elapsed && elapsed >= TimeSpan.Zero && elapsed < lifetime;
@@ -54,6 +55,9 @@ internal sealed class ProductWorkspaceSetupAuthority(HttpClient http, TimeProvid
             using var json = JsonDocument.Parse(await response.Content.ReadAsByteArrayAsync(timeout.Token), new JsonDocumentOptions { MaxDepth = 8 });
             RejectDuplicates(json.RootElement);
             var data = json.RootElement.GetProperty("data");
+            var capacity = data.GetProperty("workspace_limit");
+            if (capacity.ValueKind != JsonValueKind.Number || !capacity.TryGetInt32(out var workspaceLimit)
+                || workspaceLimit is < 0 or > 10000) return new(WorkspaceAuthorityStatus.Unavailable);
             var enrollment = data.GetProperty("product_enrollment_id").GetString();
             if (data.GetProperty("schema_version").GetInt32() != 1
                 || data.GetProperty("issuer").GetString() != ProductCommercialLicense.Issuer
@@ -73,7 +77,7 @@ internal sealed class ProductWorkspaceSetupAuthority(HttpClient http, TimeProvid
                 || deadline <= observed || deadline > observed.AddSeconds(60)
                 || elapsed < TimeSpan.Zero || elapsed >= TimeSpan.FromSeconds(60)) return new(WorkspaceAuthorityStatus.Unavailable);
             var expiry = deadline < start.AddSeconds(60) ? deadline : start.AddSeconds(60);
-            var observation = new WorkspaceSetupObservation(subject, clientId, customer, enrollment, expiry, clock, timestamp, expiry-start);
+            var observation = new WorkspaceSetupObservation(subject, clientId, customer, enrollment, workspaceLimit, expiry, clock, timestamp, expiry-start);
             return observation.IsCurrent ? new(WorkspaceAuthorityStatus.Verified, observation) : new(WorkspaceAuthorityStatus.Unavailable);
         }
         catch (OperationCanceledException) when (!cancellation.IsCancellationRequested) { return new(WorkspaceAuthorityStatus.Unavailable); }
@@ -103,7 +107,7 @@ internal sealed class ProductWorkspaceSetupAuthority(HttpClient http, TimeProvid
         if (text is null || !Regex.IsMatch(text, @"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d{1,7})?(Z|[+-]\d{2}:\d{2})\z", RegexOptions.CultureInvariant)
             || !DateTimeOffset.TryParse(text, CultureInfo.InvariantCulture, DateTimeStyles.None, out var date))
             throw new JsonException("Invalid workspace authority date.");
-        return date;
+        return date.ToUniversalTime();
     }
 }
 
