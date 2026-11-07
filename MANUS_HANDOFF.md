@@ -1,3 +1,128 @@
+# Federated Core principal prerequisite — 7 November 2026
+
+Stacked draft [PR201](https://github.com/georgemunganga/erp/pull/201) now adds
+explicit local/federated credential mode, a role-free federated principal factory,
+nullable credentials constrained by mode, immutable mode and populated rollback
+guards. Existing local accounts keep their credentials. Federated principals
+cannot use local sign-in/recovery/setup/change/admin reset or acquire a local
+session; account DTOs expose per-principal credential capabilities. It creates
+no workspace, identity link, billing membership or operational session by itself.
+
+Exact tested source `2c6f9085e029138ebdb0eb311c49a98ae81b9741`:122 focused,
+28 genuine PostgreSQL and2,093 full HRM regression cases passed, zero failures/
+zero skips. An independent read of13 synthetic databases confirmed actual
+migration/check/trigger/composite-FK state and null credentials for all five
+federated fixtures. The dedicated PG and SDK containers are stopped. Read
+`docs/engineering/CORE-FEDERATED-PRINCIPALS-20261107.md` for hashes, retained gates,
+upgrade/rollback evidence, reproduction and scope. The older design-only checkpoint
+below records the prior source state; this prerequisite is now implemented.
+
+Still not ERP admission: actual provider interoperability, explicit company/payer
+binding and setup authority, team invitations, fresh PKCE link admission, protected
+server-side grants/refresh/revocation, licensed sessions and complete company/
+branch/module enforcement remain. Public SaaS must disable anonymous local entry
+and reject local-session licensing bypass regardless of principal mode. Federated
+account UI must respect both deployment and per-principal capabilities. Existing
+public-intake, runtime ACL, financial and operational release holds remain.
+
+No production DB migration/image, public ingress, clients, flags, Google or Lenco
+changed. Private ERP readiness200 on unchanged image3ff07382. Re-read public
+main7b7e3fc7 and qualified release6b47bbeb are unchanged. No whole-main deployment.
+
+# Core commercial licensing channel — 7 November 2026
+
+Stacked draft [PR201](https://github.com/georgemunganga/erp/pull/201) now also
+contains a separate default-off confidential licensing client. Exact tested
+implementation `11879016777e077ec1adaa295aeaf7c149f753e9` passed105 focused
+checks and the complete2,076-case HRM suite, zero failures/zero skips. It uses
+only product:license machine credentials and exact Core-supplied enrollment
+references; it does not require staff billing membership, create principals or
+issue operational sessions. It validates bounded commercial leases, modules,
+issuer/product/reference and expiry, with monotonic time caps, bounded JSON,
+single-flight machine tokens, no redirects/cookies/logged credentials and no
+cached lease returned on failure. Licensing requires both product flags and a
+distinct machine client; no production configuration was changed.
+
+Read `docs/engineering/CORE-COMMERCIAL-LICENSE-20261107.md` for exact source,
+archive/log hashes, retained attempts and native qualification. The final gate
+ran with no network and no production database connection. Actual Laravel↔C#
+interoperability, company binding/admission and runtime permission enforcement
+are still required; no SaaS launch is claimed. Existing deployed image1f54ff04
+and public main/release baselines below are unchanged by this source increment.
+
+Discovery confirmed that current LocalUser requires email/password fields and
+LocalAuthenticationHandler emits email claims unconditionally. The next explicit
+principal model must not invent addresses or give federated users an independent
+local password recovery path. Design only:
+`docs/engineering/CORE-FEDERATED-PRINCIPALS-20261107.md`. It preserves local-mode
+deployments and requires explicit Core grants and exact external links. A billing
+access read alone is not setup/rebinding authority. Coalesce commercial reads per
+current company binding within the lease budget; always recheck Core grants.
+
+Private ERP ready200/image unchanged; both branded public logins and API health
+returned200. Perfex login rendered normally in browser after a scripted403.
+No credential, billing, Google, ingress, database or deployment change was made.
+
+# Kuubu owned authorization/provider follow-through — 7 November 2026
+
+The website relay/opt-in step is now implemented in [Kuubu PR3](https://github.com/Greenwebb/kuubuerp-website/pull/3),
+source `d3452e6c6ad652206169a7f298222197692e5edf`. All92 tracked blobs were
+verified byte-exact against its published Git tree.35 normal tests, API build,
+14-page/252-link checks and hosted CI run42400939282 passed. The separate actual
+client→signed relay→Laravel confidential PKCE/RSA/replay/session test passed,
+with a read-only audit confirming no payer/customer/subscription creation.
+Browser checks preserved Kuubu's own login, explicit enrollment, account switch,
+disabled Google and390px layout. No production frontend was deployed.
+
+Foundation source `62f8971de47d489bc95b6d489ad7a794b7bc7c1f` in itsPR3 adds
+the exact signed authorization path and replaces the shared30/minute backend-IP
+bottleneck with bounded edge and post-protocol actor/enrollment quotas.57 tests/
+482 assertions passed on Linux PHP8.4.27 and genuine isolated MySQL. Read
+foundation `docs/PRODUCT-IDENTITY-ADMISSION.md` and website
+`PRODUCT-AUTHORIZATION.md` for hashes, fixture boundaries and retained evidence.
+Foundation hosted run42400388410 failed at startup before jobs; cause unproven.
+
+These source gates do not qualify an actual browser→deployed ASP.NET callback or
+operational workspace admission. Core still needs explicit invitation/owner setup,
+workspace/payer binding, protected server-side operational sessions, runtime ACLs
+and company/branch/module enforcement. No real client/key was registered and no
+production product flag, database/image, ingress, Google or Lenco state changed.
+The older checkpoint below records its own source state; do not redo the relay/
+quota work as if it were still unimplemented.
+
+# Kuubu product identity consumer — 7 November 2026
+
+Stacked draft [PR201](https://github.com/georgemunganga/erp/pull/201), branch
+`codex/kuubu-product-consumer-20261107`, depends onPR200/PR199. Exact compiled
+source `7d67f6d16a414aacf3a8a6242dc94aa9576ff3b6` passed59 focused checks,
+15 genuine-PostgreSQL scenarios and the full2,030-case HRM suite/0fail/0skip.
+The default-off confidential OAuth/PKCE consumer uses a separate protected,
+short-lived product identity cookie, containing no provider tokens, ERP roles or
+tenant. It never creates an ERP operational session. Core reads only explicit
+active issuer/subject links and same-tenant active principals; no email join.
+
+The additive owning migration enforces tenant/user FK pairing and durable unique
+bindings, with raw-SQL binding and populated-rollback guards. A trusted scoped
+tenant key generator preserves existing local-user constructors while completing
+the composite key before EF tracking. The native audit verified all five new
+synthetic databases' actual migration/FK/trigger state. SDK and dedicated test
+PostgreSQL containers are stopped; prior attempts/evidence remain retained.
+
+Read `docs/engineering/CORE-PRODUCT-IDENTITY-20261107.md` for exact hashes,
+receipts, source limits and release gates. Hosted GitHub CI remains account
+billing-locked before its job starts; native results do not claim hosted success.
+No public ingress or production database/image change accompanied this step.
+Published main is still7b7e3fc7; qualified release6b47bbeb and deployed1f54ff04
+remain unchanged. Existing financial/tenant/module holds remain.
+
+Next: connect Kuubu's fixed own authorization/opt-in relay and allow only its
+registered Core callback; remove the provider's shared30/minute backend-IP quota
+bottleneck. Then implement explicit invitation/workspace admission, Core-owned
+workspace/payer licensing bindings, protected server-side operational sessions
+and company/branch/module enforcement. Never give ERP teammates billing
+membership to make company licensing pass. Anonymous speak-up organization
+selection and callback/query log redaction also gate shared public ingress.
+
 # Core session tenant repair — 6 November 2026
 
 Stacked draftPR200 (`codex/kuubu-session-tenant-20261106`, compiled source

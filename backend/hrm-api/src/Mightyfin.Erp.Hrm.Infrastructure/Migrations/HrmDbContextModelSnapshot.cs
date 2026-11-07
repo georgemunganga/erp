@@ -2865,6 +2865,71 @@ namespace Mightyfin.Erp.Hrm.Infrastructure.Migrations
                     b.ToTable("exit_interviews", "hrm");
                 });
 
+            modelBuilder.Entity("Mightyfin.Erp.Hrm.Domain.Entities.ExternalIdentityLink", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("CreatedBy")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("created_by");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("boolean")
+                        .HasColumnName("is_active");
+
+                    b.Property<bool>("IsArchived")
+                        .HasColumnType("boolean")
+                        .HasColumnName("is_archived");
+
+                    b.Property<string>("Issuer")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("issuer");
+
+                    b.Property<Guid>("LocalUserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("local_user_id");
+
+                    b.Property<string>("Subject")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("subject");
+
+                    b.Property<string>("TenantId")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("tenant_id");
+
+                    b.Property<DateTimeOffset?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasColumnType("text")
+                        .HasColumnName("updated_by");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Issuer", "Subject");
+
+                    b.HasIndex("TenantId", "LocalUserId");
+
+                    b.HasIndex("TenantId", "Issuer", "Subject")
+                        .IsUnique();
+
+                    b.ToTable("external_identity_links", "hrm");
+                });
+
             modelBuilder.Entity("Mightyfin.Erp.Hrm.Domain.Entities.ExternalWorkHistory", b =>
                 {
                     b.Property<Guid>("Id")
@@ -4258,13 +4323,20 @@ namespace Mightyfin.Erp.Hrm.Infrastructure.Migrations
                         .HasColumnType("text")
                         .HasColumnName("created_by");
 
+                    b.Property<string>("CredentialMode")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)")
+                        .HasDefaultValue("local")
+                        .HasColumnName("credential_mode");
+
                     b.Property<string>("DisplayName")
                         .IsRequired()
                         .HasColumnType("text")
                         .HasColumnName("display_name");
 
                     b.Property<string>("Email")
-                        .IsRequired()
                         .HasColumnType("text")
                         .HasColumnName("email");
 
@@ -4293,7 +4365,6 @@ namespace Mightyfin.Erp.Hrm.Infrastructure.Migrations
                         .HasColumnName("must_change_password");
 
                     b.Property<string>("NormalizedEmail")
-                        .IsRequired()
                         .HasColumnType("text")
                         .HasColumnName("normalized_email");
 
@@ -4302,7 +4373,6 @@ namespace Mightyfin.Erp.Hrm.Infrastructure.Migrations
                         .HasColumnName("password_changed_at");
 
                     b.Property<string>("PasswordHash")
-                        .IsRequired()
                         .HasColumnType("text")
                         .HasColumnName("password_hash");
 
@@ -4313,6 +4383,7 @@ namespace Mightyfin.Erp.Hrm.Infrastructure.Migrations
 
                     b.Property<string>("TenantId")
                         .IsRequired()
+                        .ValueGeneratedOnAdd()
                         .HasColumnType("text")
                         .HasColumnName("tenant_id");
 
@@ -4336,7 +4407,10 @@ namespace Mightyfin.Erp.Hrm.Infrastructure.Migrations
                     b.HasIndex("TenantId", "WorkerId")
                         .HasFilter("worker_id IS NOT NULL");
 
-                    b.ToTable("local_users", "hrm");
+                    b.ToTable("local_users", "hrm", t =>
+                        {
+                            t.HasCheckConstraint("CK_local_users_credential_state", "(credential_mode = 'local' AND email IS NOT NULL AND length(trim(email)) > 0 AND normalized_email IS NOT NULL AND length(trim(normalized_email)) > 0 AND password_hash IS NOT NULL AND length(trim(password_hash)) > 0) OR (credential_mode = 'federated' AND email IS NULL AND normalized_email IS NULL AND password_hash IS NULL AND must_change_password = FALSE AND password_changed_at IS NULL)");
+                        });
                 });
 
             modelBuilder.Entity("Mightyfin.Erp.Hrm.Domain.Entities.MasterDataBatch", b =>
@@ -8362,6 +8436,16 @@ namespace Mightyfin.Erp.Hrm.Infrastructure.Migrations
                     b.Navigation("Request");
 
                     b.Navigation("Worker");
+                });
+
+            modelBuilder.Entity("Mightyfin.Erp.Hrm.Domain.Entities.ExternalIdentityLink", b =>
+                {
+                    b.HasOne("Mightyfin.Erp.Hrm.Domain.Entities.LocalUser", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId", "LocalUserId")
+                        .HasPrincipalKey("TenantId", "Id")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
                 });
 
             modelBuilder.Entity("Mightyfin.Erp.Hrm.Domain.Entities.ExternalWorkHistory", b =>
