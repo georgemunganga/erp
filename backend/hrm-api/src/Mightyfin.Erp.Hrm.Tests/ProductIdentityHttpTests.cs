@@ -192,7 +192,7 @@ public sealed class ProductIdentityHttpTests
     }
     private sealed record Challenge(Dictionary<string, string> Parameters, string Cookie, string CookieHeader);
 
-    private sealed class Fixture(WebApplication app, HttpClient client, HrmDbContext db, Backchannel backchannel, Clock clock) : IAsyncDisposable
+    private sealed class Fixture(WebApplication app, HttpClient client, HrmDbContext db, Backchannel backchannel, Clock clock, AsyncServiceScope rootScope) : IAsyncDisposable
     {
         internal WebApplication App => app;
         internal HrmDbContext Db => db;
@@ -234,10 +234,10 @@ public sealed class ProductIdentityHttpTests
             await app.StartAsync();
             var client = app.GetTestClient();
             client.BaseAddress = new Uri("https://app.kuubuerp.com");
-            await using var scope = app.Services.CreateAsyncScope();
+            var scope = app.Services.CreateAsyncScope();
             return new Fixture(app, client, new HrmDbContext(
                 scope.ServiceProvider.GetRequiredService<DbContextOptions<HrmDbContext>>(),
-                new FixedTenantAccessor("tenant-a")), channel, clock);
+                new FixedTenantAccessor("tenant-a")), channel, clock, scope);
         }
         internal async Task<Challenge> Challenge()
         {
@@ -294,7 +294,7 @@ public sealed class ProductIdentityHttpTests
             await seed.SaveChangesAsync();
             return user.Id;
         }
-        public async ValueTask DisposeAsync() { client.Dispose(); await db.DisposeAsync(); await app.DisposeAsync(); }
+        public async ValueTask DisposeAsync() { client.Dispose(); await db.DisposeAsync(); await rootScope.DisposeAsync(); await app.DisposeAsync(); }
     }
 
     private sealed class Backchannel(string? condition) : HttpMessageHandler

@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.ChangeTracking;
 using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
+using Microsoft.EntityFrameworkCore.ValueGeneration;
 using Microsoft.Extensions.Configuration;
 using Mightyfin.Erp.Hrm.Application;
 using Mightyfin.Erp.Hrm.Application.ConfigAndExtras;
@@ -245,6 +246,11 @@ public sealed class HrmDbContext(DbContextOptions<HrmDbContext> options, ITenant
         ConfigureEntity<TenantRoleAssignment>(modelBuilder, "tenant_role_assignments", e => e.HasIndex(x => new { x.TenantId, x.RoleKey }).IsUnique());
         ConfigureEntity<LocalUser>(modelBuilder, "local_users", e =>
         {
+            // Composite principal keys must be complete before tracking. Legacy
+            // callers omit TenantId and rely on SaveChanges stamping; generate
+            // that same trusted scope early without taking browser input.
+            e.Property(x => x.TenantId).ValueGeneratedOnAdd()
+                .HasValueGenerator((_, _) => new ScopedTenantKeyGenerator());
             e.HasAlternateKey(x => new { x.TenantId, x.Id });
             e.HasIndex(x => new { x.TenantId, x.NormalizedEmail }).IsUnique();
             e.HasIndex(x => new { x.TenantId, x.WorkerId }).HasFilter("worker_id IS NOT NULL");
@@ -565,6 +571,12 @@ public sealed class HrmDbContext(DbContextOptions<HrmDbContext> options, ITenant
     /// instance method so the tenant id is resolved at query evaluation time
     /// rather than baked into the model cache (which is shared across contexts).</summary>
     private string CurrentTenantId() => tenant.GetTenantId();
+
+    private sealed class ScopedTenantKeyGenerator : ValueGenerator<string>
+    {
+        public override bool GeneratesTemporaryValues => false;
+        public override string Next(EntityEntry entry) => ((HrmDbContext)entry.Context).CurrentTenantId();
+    }
 
     private static System.Linq.Expressions.Expression<System.Func<T, bool>> MakeTenantFilter<T>(HrmDbContext self) where T : Entity
     {
