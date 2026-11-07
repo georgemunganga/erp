@@ -1,3 +1,37 @@
+# Core workspace setup authority consumer —7 November2026
+
+Stacked draft PR201 now includes runtime
+`73b4afbe620328410090b5e1ff89b559ba3807b4`: a separate default-off Core
+reader for Laravel's current payer owner/admin workspace-setup authority.
+It binds the exact verified subject, configured identity client and canonical
+customer/enrollment references; validates the creation action, schema, issuer,
+product and non-operational result; and caps observations using wall/monotonic
+time. It stores no token, caches no authority and returns no old result on outage.
+The fixed channel has bounded JSON/timeout, duplicate rejection, no redirects,
+cookies or request loggers. Setup requires identity and licensing prerequisites.
+
+Windows112 focused tests (including41 new cases), Linux163 focused tests and
+Linux2,134 full regressions passed, zero failures. The existing real provider
+opt-in case was skipped in the network-none full run; prior actual identity and
+license interoperability remains separately qualified. This new setup resource
+still needs actual Laravel→Core acceptance. Read
+`docs/engineering/CORE-WORKSPACE-SETUP-20261107.md` for exact source/archive/log
+hashes, runtime scope, architecture and remaining gates. Native launcher exited0.
+Hosted run42417243189 did not start because GitHub explicitly reports an account
+billing lock; no hosted pass is claimed.
+
+Laravel authority source db6921d and website explicit consent source b01985ee are
+published in their draft PR3s; neither new flow is production enabled. Next:
+subscription-snapshotted purchased capacity, protected setup PKCE grants, Core
+company/payer binding and idempotent create/invite/audit, then licensed sessions
+and company/branch/module scope. Initial SaaS companies use separate Core tenants
+within the shared app/database; one identity/payer can span explicit workspaces.
+No per-customer source/container. Existing tenant data is not rewritten.
+
+No production image, migration, flag, key/client, ingress, payment rail or Perfex
+state changed. The older qualified private image remains distinct from this
+source. Do not give employees billing memberships or infer grants from email.
+
 # Actual Laravel/Kuubu/Core interoperability —7 November2026
 
 The actual backend protocol now passes: published Kuubu signed relay/account

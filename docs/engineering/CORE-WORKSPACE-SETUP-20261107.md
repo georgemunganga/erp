@@ -35,6 +35,22 @@ at60 seconds including network time, using both wall and monotonic clocks.
 Observation holds only subject, client, payer, enrollment and deadline; never
 stores the access token. Future company binding and slot allocation must persist
 atomically in Core, with immutable ownership and idempotency receipts.
+
+Inspection found no existing subscription workspace-capacity field. Before the
+create command is enabled, Laravel must record the purchased allowance on the
+subscription rather than infer unlimited workspaces from active status or read a
+later mutable catalogue limit. Existing subscriptions without explicit allowance
+must not gain capacity automatically. Core must allocate capacity transactionally
+across all companies bound to that commercial enrollment; concurrent requests
+and retries must not over-allocate or create duplicate companies.
+
+The initial SaaS security boundary will be one Core tenant per company workspace
+within the shared application/database, with separate explicit identity links
+for each tenant. One payer can fund multiple such workspaces. This preserves the
+existing tenant-filtered modules without granting access to every company from
+one payer membership. Existing multi-company installations retain their own
+model; no production tenant is rewritten. Protected operational admission and
+explicit employee scope must still prevent legacy unassigned-branch fallback.
 ## 13. UI
 Own Kuubu login and explicit setup consent are in website PR3/b01985ee. Core
 must request setup scope only for setup; ordinary team sign-in stays unchanged.
@@ -79,4 +95,33 @@ operational sessions/revocation, company/branch/module enforcement, finite runti
 ACLs and public ingress/local-auth/query logging are required before launch.
 One shared maintained application/database; no per-customer source or container.
 ## 28. Evidence
-Pending implementation and actual qualification; no production deployment.
+Runtime source `73b4afbe620328410090b5e1ff89b559ba3807b4` passed112
+focused Windows tests (41 new authority cases) and163 focused Linux tests.
+Linux full HRM regression passed2,134 cases, zero failures, with the existing
+opt-in real provider case skipped in the no-network run (2,135 total). The old
+real provider case is separately qualified at its source documented in
+CORE-PROVIDER-INTEROP-20261107.md; it does not exercise this new setup reader.
+Actual setup-scoped Laravel→Core consumer integration remains required.
+
+Windows .NET10.0.403 log SHA256:
+`c818d6514553908c016c7e3e8852976e00c8e666e89f270370f323b88ddf1170`.
+Native SDK10.0.403 image is pinned to
+`sha256:212fe4cb74627d5adf9817a4088906ae3edff1bd853bb27565d4b46731efe61e`.
+Archive SHA256:
+`87ca0503becdf503f2cfe2e376e2a2463996b7a6f8ed2fbe03d50973d710acdf`.
+Linux focused log SHA256:
+`9973286e3ff59ec9013d092d2cf6e488cc02062f544fc5fe46d3469ca6ea46eb`.
+Linux full log SHA256:
+`940689582b19dea8e128f7b8fc2c2a3f9f132578e6e0f5d3175a1b432a18af3f`.
+
+Native workspace `/opt/kuubu-builds/workspace-authority-73b4afbe-01` used
+exclusive source/evidence and plain independent copies of stopped prior build
+caches; no retained output was edited or hardlinked. Container
+`kuubu-workspace-authority-gate01` ran with network none; launcher
+`kuubu-workspace-authority01.service` finished exit0. Build warnings in existing
+unmodified ERP files remain; no new reader/test warning was reported.
+
+Hosted run42417243189/check128537885549 never started its backend job:
+GitHub's annotation says the account is locked for a billing issue. Independent
+native results do not mean hosted CI passed. No production schema, runtime image,
+key, grant, feature flag, public route, Google, Lenco or Perfex state changed.
