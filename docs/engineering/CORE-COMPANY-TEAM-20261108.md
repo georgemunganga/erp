@@ -154,6 +154,11 @@ stored binding. Failure evidence was retained, not excluded from the suite.
 
 The older qualified source below is a separate checkpoint and does not qualify
 the new receipt/revision schema or role/revoke workflow.
+Published source3cc775323cbe89d434fde5dbdebf77b082b26516 is under native
+qualification at /opt/kuubu-builds/company-team-commands-3cc77532-01,
+systemd unitkuubu-company-team-commands01. Archive SHA256
+`96aa59719eaf077101e1b450424597e04fc0dee3ccf4faa1853fe8e32b9501c8`;
+local focused log `52b4a4c631617ed85ef1f68d980005c3d98349f081524da85243805a5ed5c028`.
 
 ### Qualified membership allocation —8 November2026
 

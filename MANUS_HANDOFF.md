@@ -1,4 +1,40 @@
-# Company membership allocation qualified —8 November2026
+# Company role/revoke commands —8 November2026; native job running
+
+Published source `3cc775323cbe89d434fde5dbdebf77b082b26516` adds internal
+confirmed role-change/revoke commands, positive membership revisions, immutable
+actor/key-bound retry receipts and atomic audit/outbox. Owners alone assign
+roles; administrators can revoke ordinary members. Last-owner removal requires
+another locally usable owner. Replays recheck current action authority and cannot
+undo a newer change. No-op commands reserve their key. Reactivation, invitations,
+public command authentication/CSRF and team UI are not implemented in this increment.
+
+Local build/focused cohort265 passed, zero failures,13 opt-in skips; EF reports
+no model drift. Initial58 failures/10 passes exposed a tenant_id NOT NULL failure
+after adding the composite receipt key. Trusted tenant is now supplied before
+tracking the initial membership; the repaired company cohort69 and broader265
+passed. Failed logs retained. Company key retargeting is rejected before the
+ordinary ORM guard and the stored binding is verified unchanged.
+
+Native qualification is running on kuubu-workloads under systemd unit
+kuubu-company-team-commands01, SDK container kuubu-company-team-commands-gate01,
+root /opt/kuubu-builds/company-team-commands-3cc77532-01. It runs new native team
+commands first, then the shared native cohort, focused and full Linux suites.
+Check authoritative unit/container/log state; do not restart because a poll times
+out or because the container has not yet been created during cache preparation.
+The controller restores synthetic kuubu-session-native-db01 to stopped on exit.
+The internal network has no published test database ports or production credentials.
+
+Source archive SHA256 `96aa59719eaf077101e1b450424597e04fc0dee3ccf4faa1853fe8e32b9501c8`;
+local evidence root inspection/qualifications/company-team-commands-3cc77532-01;
+focused log `52b4a4c631617ed85ef1f68d980005c3d98349f081524da85243805a5ed5c028`.
+New migration20261108113644 preserves predecessor memberships and refuses to
+discard populated command history/changed revisions. Four new native cases cover
+real governance queries, concurrent owner demotions/retries, receipt FK/immutability
+and empty/populated rollback. Native/full and refreshed actual integration for
+this source remain pending. The older qualified49780a39 below does not qualify
+this new schema/workflow. No production change; do not enable public team actions.
+
+# Earlier company membership allocation qualification —8 November2026
 
 Runtime/source `49780a39a13c89cd496f92283c1f20ba6effb3c2` passed Linux
 focused237, native qualification89 and full regression2,208, zero failures.
