@@ -1,4 +1,31 @@
-# Company-team HTTP proof increment —8 November2026
+# Company-team directory and mutation API —8 November2026
+
+Published source `2607cd697bb0c959b39e7e2091d3fbfe8d5a2c03` connects company discovery,
+licensed member reads and strict confirmed role/revoke HTTP commands to the
+existing audited Core commands. Every member read/command resolves the enrollment
+from the immutable binding, fetches a current license and rechecks exact Core
+identity/company membership. No browser tenant/payer/subject grants authority.
+Owners alone assign roles; administrators may revoke ordinary members only.
+
+Windows API and test builds passed;331 focused tests passed, zero failures,
+including43 new HTTP-to-database cases. Twelve opt-ins skipped. Evidence:
+inspection/qualifications/company-team-api-tests-01/verification.json; source
+archive inputs under company-team-api-2607cd69-01. The initial ASP0016 route-mapping
+warning was corrected in a new independent API build before running the tests.
+Native/full qualification is running in systemd unit kuubu-company-team-api02,
+isolated Docker container kuubu-company-team-api-gate02, root
+/opt/kuubu-builds/company-team-api-2607cd69-02. Attempt01 exited125 before SDK
+creation because a two-CPU quota exceeded the one-CPU host; its source/receipt are
+retained and test PostgreSQL was restored to stopped. Attempt02 uses one CPU.
+Poll those live handles, not this
+note, before treating it as still running or terminal. The controller stops the
+labeled test PostgreSQL container in finally. Never restart a timed-out observation.
+
+Invitations/acceptance/delivery, /team UI and licensed operational admission remain
+unfinished. Current source still needs native/full results and actual provider/
+browser refresh; no production runtime/schema/feature flag/Perfex change.
+
+# Earlier company-team HTTP proof increment —8 November2026
 
 Published source `dfe69f81531546ba547adfde42d516f7f3ec1eb3` adds an explicit signed team-management OAuth purpose,
 a per-sign-in nonce and framework antiforgery-protected session/cancel endpoints.
