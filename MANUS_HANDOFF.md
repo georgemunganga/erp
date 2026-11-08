@@ -1,4 +1,46 @@
-# Internal invitation lifecycle implemented; native qualification pending —8 November2026
+# Internal invitation lifecycle qualified —8 November2026
+
+Published runtime a419439942a77db22a968ef5d94bb2c10f53921e passed97 genuine
+PostgreSQL invitation/team and90 shared identity/session/schema checks, zero skips;
+focused Linux261/14 native skips and full Linux2,355/18 opt-in skips, zero failures.
+All14 native-only opt-ins ran separately. Four new native cases cover issue/accept
+and revoke/accept races, physical history guards and empty/populated rollback.
+
+Read-only audit:97 new company/team databases,96 current schemas with six validated
+FKs/two history triggers, one exact retained legacy team rollback signature.
+24 invitations/29 immutable receipts/24 delivery intents/33 audits/57 events;
+exact actor/tenant/company/subject, request hash, revisions and correlation checked.
+Four accepted memberships; no credentials, sessions or module roles. The older
+rollback fixture has no invitation history and retains its guarded team receipt;
+the audit did not migrate it. Multi-migration Down can commit an earlier empty
+rollback before a later history guard refuses another; reapply latest before
+current-runtime admission.
+
+Native01 retained:97 pass then shared-memory/recovery failures in23 shared cases.
+Native02 uses a new512MB-shm isolated database and586 independent byte-identical
+binary files from the exact published source; hashes/sizes/mtime unchanged.
+Both test clusters stopped. Audit02's missing-table assumption retained; audit03
+classifies the legacy rollback state read-only. No assertion or scope guard removed.
+
+Existing actual website/Laravel/Core/SSR browser compatibility passed47.167s with
+APIa4194399, unchanged UI661c30a0 and websiteb01985ee. Own Kuubu login/Google off,
+explicit enrollment/setup consent, create/retry, fresh team sign-in, licensed
+role/revoke, ambiguous retry and suspension/replay denial remain working. It uses
+a preaccepted member: new invitation UI/recipient wire/delivery is not qualified.
+Three older standalone actual provider/browser opt-ins remain unrefreshed.
+SQLite audit: no invitation records and no credentials/sessions/module grants;
+487 SSR output files unchanged; owned services stopped. Private ERP health and
+Perfex login returned200. No production application/configuration/DNS/payment change.
+
+Evidence: inspection/qualifications/company-invitations-native-a4194399-02,
+company-invitations-audit-a4194399-03 and invitation-browser-compat-01, verification.json.
+Archive909df1c6ba7a869b3258375527e410503ea9c6e88a1e517cf2c5608a86ccaf7c;
+auditb4a0a7f68da91196456a89974753048edf4ea4398cf0483114404827e700051f.
+PR201 remains draft; main/B1/release holds remain. Next: verified recipient wire,
+account consent/relay, protected invitation HTTP and UI, durable mail delivery,
+then licensed operational tenant admission. New commands remain unregistered.
+
+## Earlier internal lifecycle checkpoint (before native qualification)
 
 Published a419439942a77db22a968ef5d94bb2c10f53921e adds internal Core invitation
 issue/revoke/explicit acceptance, schema and PostgreSQL history guards, immutable

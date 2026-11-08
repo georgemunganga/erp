@@ -110,7 +110,58 @@ delivery retry, browser acceptance, cross-tenant and recovery gates afterward.
 Do not enable this contract before account consent/relay, Core invitations,
 delivery, migrations/runtime grants, audit and complete browser flow qualify.
 ## 28. Evidence
-### Internal lifecycle increment: local gate passed; native gate pending
+### Qualified internal lifecycle; public/delivery integration pending
+
+Published source a419439942a77db22a968ef5d94bb2c10f53921e passed97 genuine
+PostgreSQL invitation/team checks and90 shared identity/session/schema checks,
+zero skips. Focused Linux passed261/14 native skips; full Linux passed2,355/18
+opt-in skips, zero failures. All14 native-only opt-ins ran in the separate
+cohorts. The four new native cases exercised real concurrent issue/accept,
+revoke/accept races, history triggers and empty/populated rollback.
+
+Read-only SQL audit verified97 new company/team databases:96 have the current
+invitation schema, six validated FKs and both enabled history guards; one legacy
+team-command rollback fixture intentionally retains the previous schema, two
+members and its guarded role-change receipt. EF can commit an earlier empty
+Down migration before a later populated-history guard refuses another Down;
+reapply the qualified latest schema before current-runtime admission. The audit
+verifies that exact legacy signature rather than altering the fixture. There
+are24 invitations,29 immutable invitation receipts,24 delivery intents,33 matching
+audits and57 events, including four accepted memberships. Request hashes,
+actor/company/tenant/subject links, before/after revisions and correlations match.
+No credentials, operational sessions or module roles were created.
+
+Native attempt01 passed97, then the original64MB /dev/shm test database exhausted
+shared memory and entered recovery;23 shared cases failed and later phases did
+not run. No application assertion changed. Attempt02 uses a fresh isolated
+PostgreSQL container with512MB shared memory, the same pinned engine image and
+586 independently copied byte-identical binary input files. All hashes/sizes/
+mtime remained unchanged after consumers. Both test clusters are stopped. Source
+archive909df1c6ba7a869b3258375527e410503ea9c6e88a1e517cf2c5608a86ccaf7c;
+full log6c2c1683b04885c3b7f1ebecc6d22624d8f1ed6362e5be21efb7306d44e09b20;
+auditb4a0a7f68da91196456a89974753048edf4ea4398cf0483114404827e700051f.
+Audit02's initial missing-table assumption failed on the intentional older
+rollback fixture; audit03 retains that result and classifies the exact older
+schema read-only. No test database was upgraded to make the audit pass.
+
+Actual existing website/Laravel/Core/SSR browser compatibility passed47.167s
+against this API and the unchanged UI661c30a0/websiteb01985ee. It covers own Kuubu
+login/Google unavailable, explicit enrollment/setup consent, company create/retry,
+fresh team sign-in, licensed reads, role/revoke, response loss/retry and subscription
+suspension/replay denial. It uses a preaccepted-member fixture, not the new
+invitation flow. Read-only SQLite audit verifies exact links/events, zero new
+invitation rows/receipts and zero credentials/sessions/module roles. All487 SSR
+output files unchanged; owned local services stopped. Three other standalone
+provider/browser opt-ins remain unrefreshed for this runtime. New recipient wire,
+mail delivery, public invitation HTTP/CSRF, consent relay and acceptance UI are
+still unqualified. No deployed TLS/DNS or production activation.
+
+Evidence: inspection/qualifications/company-invitations-native-a4194399-02,
+company-invitations-audit-a4194399-03 and invitation-browser-compat-01, each with
+verification.json. Read-only existing private ERP readiness and Perfex sign-in
+returned200 after qualification. Production/Perfex/DNS/payment unchanged.
+
+### Earlier local lifecycle gate
 
 Fresh Infrastructure/API/test builds passed. Final local gate in
 inspection/qualifications/company-invitations-04 passed243 tests, zero failures,
@@ -119,7 +170,8 @@ the existing identity constraints, not only new invitation cases. Design-only EF
 10.0.11 generation and read-only model comparison passed without a database
 connection. Four new native cases cover issue/accept concurrency, revoke/accept
 race, physical binding/receipt immutability and safe empty/populated rollback.
-They are authored but not yet proven by this local result.
+They are not proven by this local-only result; the native qualification above
+exercises them separately.
 
 Attempt01 exposed missing link tenant persistence after introducing the scoped
 inviter/link composite FK. Explicit trusted tenant construction restored setup/
