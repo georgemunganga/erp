@@ -414,7 +414,7 @@ function CompanySetup() {
                         <SelectTrigger id="setup-payer" className="min-h-11">
                           <SelectValue placeholder="Choose an account" />
                         </SelectTrigger>
-                        <SelectContent>
+                        <SelectContent className="kuubu-product-shell">
                           {payers.map((payer) => (
                             <SelectItem key={payer.customerId} value={payer.customerId}>
                               {payer.name}

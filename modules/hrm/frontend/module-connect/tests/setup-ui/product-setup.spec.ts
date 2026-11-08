@@ -125,6 +125,15 @@ test("account pagination makes later billing accounts selectable", async ({ page
   await page.getByRole("option", { name: "Synthetic account 22", exact: true }).click();
   await expect(page.getByRole("button", { name: "Continue", exact: true })).toBeEnabled();
 });
+test("the portaled billing-account menu keeps Kuubu product branding", async ({ page }) => {
+  await scenario(page);
+  await page.getByRole("combobox", { name: "Billing account" }).click();
+  const option = page.getByRole("option", { name: "Synthetic billing account", exact: true });
+  await expect(option).toBeVisible();
+  expect(await option.evaluate((element) => getComputedStyle(element).color)).toBe(
+    "rgb(0, 75, 59)",
+  );
+});
 test("capacity denial retains the same reviewed request and communicates the allowance", async ({
   page,
 }) => {
