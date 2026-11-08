@@ -193,6 +193,8 @@ internal static class ProductCompanyTeamFlow
         if (!result.Succeeded || result.Principal is null || result.Properties is null
             || !result.Properties.Items.TryGetValue(Purpose, out var purpose) || purpose != PurposeValue
             || result.Properties.Items.ContainsKey(ProductIdentity.SetupPurpose)
+            || result.Properties.Items.ContainsKey(ProductInvitationAcceptanceFlow.Purpose)
+            || result.Principal.HasClaim(x => x.Type == ProductInvitationAcceptanceFlow.HandleClaim)
             || result.Principal.HasClaim(x => x.Type == ProductIdentity.SetupHandleClaim)
             || result.Properties.ExpiresUtc is not { } expires) return null;
         var issuer = result.Principal.FindFirstValue(ProductIdentity.IssuerClaim);

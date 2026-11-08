@@ -121,6 +121,10 @@ internal static class CoreCompanyTeamApiRegistration
                 tenant => new HrmDbContext(options, new TeamTenant(tenant)),
                 provider.GetRequiredService<CoreCompanyTeamApi>(), TimeProvider.System,
                 provider.GetRequiredService<IDataProtectionProvider>().CreateProtector(CoreCompanyInvitationsApi.DeliveryPurpose)));
+        if (ProductInvitationAcceptanceFlow.Enabled(config))
+            services.AddSingleton(provider => new CoreCompanyInvitationAcceptanceApi(
+                tenant => new HrmDbContext(options,new TeamTenant(tenant)),provider.GetRequiredService<CoreCompanyTeamApi>(),TimeProvider.System,
+                provider.GetRequiredService<IDataProtectionProvider>().CreateProtector(CoreCompanyInvitationsApi.DeliveryPurpose)));
         return services;
     }
 

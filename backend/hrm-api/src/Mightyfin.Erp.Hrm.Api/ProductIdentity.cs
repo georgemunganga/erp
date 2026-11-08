@@ -55,6 +55,22 @@ internal static class ProductIdentity
         // or cookie identifiers. Emit our generic failure event instead.
         services.AddLogging(logging => logging.AddFilter("Microsoft.AspNetCore.Authentication.OAuth", LogLevel.None));
         services.AddProductCompanyTeam(config);
+        if (ProductInvitationAcceptanceFlow.Enabled(config))
+        {
+            var intentPath = config["ERP:CompanyInvitationAcceptance:IntentPath"];
+            ProductSetupGrantStore.ValidateDirectory(intentPath, keyPath);
+            if (string.Equals(Path.TrimEndingDirectorySeparator(Path.GetFullPath(intentPath!)),
+                Path.TrimEndingDirectorySeparator(Path.GetFullPath(config["ERP:WorkspaceSetup:GrantPath"] ?? keyPath)),
+                OperatingSystem.IsWindows() ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal))
+                throw new InvalidOperationException("Invitation intents require a separate private directory.");
+            services.AddSingleton(provider => {
+                ProductSetupGrantStore.ValidateDirectory(intentPath,keyPath,provider.GetRequiredService<IWebHostEnvironment>().ContentRootPath);
+                return new ProductInvitationIntentStore(intentPath!,clientId!,provider.GetRequiredService<IDataProtectionProvider>(),TimeProvider.System);
+            });
+            services.AddHostedService<ProductInvitationIntentCleanup>();
+            services.AddSingleton(new ProductInvitationRecipient(new HttpClient(new HttpClientHandler { AllowAutoRedirect=false,UseCookies=false })
+                {Timeout=TimeSpan.FromSeconds(10)},TimeProvider.System,clientId!));
+        }
         if (ProductSetupFlow.Enabled(config))
         {
             var grantPath = config["ERP:WorkspaceSetup:GrantPath"];
@@ -134,6 +150,19 @@ internal static class ProductIdentity
                     var prior = await context.HttpContext.AuthenticateAsync(PendingScheme);
                     if (store is not null && prior.Succeeded && prior.Principal?.FindFirstValue(SetupHandleClaim) is { } oldHandle)
                         store.Revoke(oldHandle);
+                    var invitationStore=context.HttpContext.RequestServices.GetService<ProductInvitationIntentStore>();
+                    if(prior.Succeeded && prior.Principal?.FindFirstValue(ProductInvitationAcceptanceFlow.HandleClaim) is { } oldInvitation)
+                        invitationStore?.Revoke(oldInvitation);
+                    if(context.Properties.Items.TryGetValue(ProductInvitationAcceptanceFlow.Purpose,out var invitationPurpose))
+                    {
+                        if(invitationPurpose!=ProductInvitationAcceptanceFlow.PurposeValue || !ProductInvitationAcceptanceFlow.Enabled(config)
+                            || context.Properties.Items.ContainsKey(SetupPurpose) || context.Properties.Items.ContainsKey(ProductCompanyTeamFlow.Purpose))
+                            throw new AuthenticationFailureException("Invitation authorization is unavailable.");
+                        var handle=await ProductInvitationAcceptanceFlow.CompleteAsync(context.HttpContext,context.Properties,subject,context.AccessToken!,expires.Value);
+                        if(handle is null)throw new AuthenticationFailureException("Invitation sign-in expired.");
+                        context.Identity.AddClaim(new Claim(ProductInvitationAcceptanceFlow.HandleClaim,handle));
+                    }
+                    else ProductInvitationAcceptanceFlow.Revoke(context.HttpContext);
                     if (context.Properties.Items.TryGetValue(ProductCompanyTeamFlow.Purpose, out var teamPurpose))
                     {
                         if (teamPurpose != ProductCompanyTeamFlow.PurposeValue || !ProductCompanyTeamFlow.Enabled(config)
@@ -212,9 +241,11 @@ internal static class ProductIdentity
             var proof = await context.AuthenticateAsync(PendingScheme);
             if (proof.Succeeded && proof.Principal?.FindFirstValue(SetupHandleClaim) is { } handle)
                 context.RequestServices.GetService<ProductSetupGrantStore>()?.Revoke(handle);
+            ProductInvitationAcceptanceFlow.Revoke(context);
             await context.SignOutAsync(PendingScheme);
             return Results.NoContent();
         }).AllowAnonymous();
+        app.MapProductInvitationAcceptance();
     }
 
     private static string ExactHttpsOrigin(string origin)
