@@ -117,6 +117,14 @@ test("empty eligible-account state cannot create a company", async ({ page }) =>
   ).toBeVisible();
   await expect(page.getByRole("button", { name: "Continue", exact: true })).toBeDisabled();
 });
+test("disabled or unavailable setup does not offer a broken authorization link", async ({
+  page,
+}) => {
+  await scenario(page, "unavailable");
+  await expect(page.getByRole("heading", { name: "Company setup is unavailable." })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Check again" })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Continue with Kuubu", exact: true })).toHaveCount(0);
+});
 test("account pagination makes later billing accounts selectable", async ({ page }) => {
   await scenario(page, "paged");
   await page.getByRole("button", { name: "Load more accounts" }).click();

@@ -35,6 +35,7 @@ createServer(async (req, res) => {
     }
     if (url.pathname.startsWith(prefix)) {
       const path = url.pathname.slice(prefix.length);
+      if (state.scenario === 'unavailable') return json(res, {}, 503);
       if (path === '/start') { state.authorized = true; state.scenario = 'ready'; res.writeHead(302, { Location: '/setup' }); return res.end(); }
       if (!state.authorized || state.scenario === 'expired') return json(res, {}, 401);
       if (path === '/session') return json(res, { verified: true, subject: state.subject, csrf_token: 'x'.repeat(43), expires_at: new Date(Date.now() + 300000).toISOString(), operational_access_granted: false });

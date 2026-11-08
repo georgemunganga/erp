@@ -74,6 +74,7 @@ function CompanySetup() {
   const [result, setResult] = useState<SetupCompany | null>(null);
   const [busy, setBusy] = useState(false);
   const [expired, setExpired] = useState(false);
+  const [unavailable, setUnavailable] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const heading = useRef<HTMLHeadingElement>(null);
   const sending = useRef(false);
@@ -92,6 +93,7 @@ function CompanySetup() {
     setError(null);
     setConfirmed(false);
     setExpired(false);
+    setUnavailable(false);
     setSession(null);
     setPayers([]);
     setCursor(null);
@@ -103,8 +105,10 @@ function CompanySetup() {
     }
     setStored(saved);
     (async () => {
+      let proofReady = false;
       try {
         const proof = await api.session(controller.signal);
+        proofReady = true;
         if (!current()) return;
         setSession(proof);
         if (saved.status === "ready" && saved.attempt.subject === proof.subject) {
@@ -129,6 +133,11 @@ function CompanySetup() {
           if (failure instanceof ProductSetupError && failure.status === 401) {
             setSession(null);
             setExpired(true);
+          } else if (!proofReady) {
+            setUnavailable(true);
+            setError(
+              "Company setup is temporarily unavailable. Your retained request, if any, is unchanged.",
+            );
           }
         }
       } finally {
@@ -245,19 +254,21 @@ function CompanySetup() {
     ? "Your company is saved."
     : loading
       ? "Getting things ready…"
-      : !session || expired
-        ? "A home for your company."
-        : identityMismatch
-          ? "Resume with the original account."
-          : storageBlocked
-            ? "Keep your request safe."
-            : step === "account"
-              ? "Choose your billing account."
-              : step === "details"
-                ? "Tell us about your company."
-                : attempt
-                  ? "Check your previous request."
-                  : "Ready to create your company?";
+      : unavailable
+        ? "Company setup is unavailable."
+        : !session || expired
+          ? "A home for your company."
+          : identityMismatch
+            ? "Resume with the original account."
+            : storageBlocked
+              ? "Keep your request safe."
+              : step === "account"
+                ? "Choose your billing account."
+                : step === "details"
+                  ? "Tell us about your company."
+                  : attempt
+                    ? "Check your previous request."
+                    : "Ready to create your company?";
   const activeStep = result ? 3 : step === "account" ? 0 : step === "details" ? 1 : 2;
 
   return (
@@ -361,6 +372,10 @@ function CompanySetup() {
                     {busy ? "Closing setup…" : "Return to Kuubu"}
                   </Button>
                 </>
+              ) : unavailable ? (
+                <Button className="w-full" onClick={() => setLoadVersion((v) => v + 1)}>
+                  Check again
+                </Button>
               ) : !session || expired ? (
                 <>
                   <p className="text-sm leading-relaxed text-muted-foreground">
