@@ -46,6 +46,14 @@ provider bearer. Historical allocation remains immutable.
 ## 13. UI
 Existing own Kuubu login/setup retained. Team UI must consume authoritative Core
 commands; no fake successful invitations or browser-local team persistence.
+Inspected published websiteb01985ee: apps/account/pages/Team.jsx is a browser
+prototype of billing delegates, not ERP company membership. API mode instead uses
+ConnectedAccount, whose team section is not connected to mutation commands. Keep
+billing delegation separate from company governance and module data access.
+Existing Core settings routes reuse UsersConfiguration/UserDetail for local and
+directory-backed accounts. Reuse their shared shell/controls where appropriate,
+but do not send SaaS invitations through local password-account creation or treat
+commercial/team preview state as a persisted Core grant.
 ## 14. UX
 Later invitation UI requires explicit recipient, role/scope and confirmation.
 Acceptance must require verified identity, explicit product enrollment and consent;
@@ -92,22 +100,76 @@ Company create/retry/rollback; bounded governance roles; revoked/foreign proof a
 license denial; same-tenant/unique/check constraints; genuine migration/backfill/
 rollback and model drift; full ERP regression and later browser team journeys.
 ## 27. Release gates
-Native schema qualification, full regression, audited invitation/accept/revoke/
+Native schema/allocation and full regression passed for49780a39. Remaining:
+native governance-reader/command execution, audited invitation/accept/revoke/
 role-change commands, last-owner/concurrency guards, team UI, licensed sessions,
 deployed acceptance and dedicated/on-premise install/upgrade/restore qualification.
 ## 28. Evidence
+### Qualified membership allocation —8 November2026
+
+Source `49780a39a13c89cd496f92283c1f20ba6effb3c2` passed Linux focused237
+with six native skips, the89-case native qualification cohort with zero skips,
+and full Linux regression2,208 passed/zero failures/nine opt-in skips in8m8s.
+All nine opt-ins ran separately: six allocation/membership PostgreSQL cases in
+the native cohort and three actual provider/browser cases on Windows. The native
+cohort includes real PostgreSQL migration/allocation/concurrency/physical guards,
+shared HTTP/store checks and24 SQLite company-governance cases; it does not mean
+all89 cases execute PostgreSQL. The governance reader itself remains SQLite-tested
+until its native query/command integration gate is exercised before exposure.
+
+Actual Laravel helperb71b29fe and published Kuubu websiteb01985ee passed the
+refreshed own-login/enrollment/consent/create/reload/retry browser case in39s,
+protected setup protocol in32s and ordinary identity/licensing in14s. Browser
+DNS was disabled; every redirect stayed inside the test transport. Browser SQL
+verified exactly one company/membership/federated owner/exact link/audit/outbox,
+zero credentials/sessions/module roles and clean FKs. Protocol SQL verified two
+separate company tenants with two exact owner-membership-link pairs and zero
+operational grants. Purchased capacity, retry, revoked payer authority, suspended
+license and cancellation denial passed. Ordinary staff retained zero billing
+memberships. This is isolated cross-application acceptance, not deployed ingress.
+
+Independent read-only PostgreSQL audit covered21 synthetic allocation databases,
+16 company memberships, exact tenant/company/owner/link pairing, two validated
+same-tenant FKs, role check, scope uniqueness and enabled binding trigger in each
+schema. New creates have audit/outbox records; two migration-backfilled owners
+retain their original identity binding, including one inactive membership from a
+revoked link. Membership-linked principals remain credential-free/module-role-free;
+the intentional classic local-admin fixture gains no inferred company membership.
+Classic multiple companies remain supported. Test runner and PostgreSQL stopped0,
+OOMKilled=false; local fixture/SSR ports closed. Read-only Perfex sign-in and the
+existing private ERP readiness endpoint returned200. No production changes.
+
+Evidence roots: inspection/qualifications/company-membership-linux-49780a39-01,
+company-membership-browser-49780a39-01 and company-membership-protocol-49780a39-01.
+Remote source/results retained at /opt/kuubu-builds/company-membership-49780a39-01;
+independent audit at /opt/kuubu-builds/company-membership-audit-49780a39-01.
+Verified SHA256:
+
+- Source archive `0b336f22a1e5146a858f6b799556359e567160ff6fe303934efe5d0795d6b9b9`.
+- Linux focused `11c31d50930a1d03b5770626d7eda907489a987f61a97265c6f0c2a33e8edc55`.
+- Native cohort `21adb53025c0194fe5e5830e938608ef422e1e0f8f507e8717311044a0fc17ef`.
+- Full regression `b23517d020b82c442936fe3991fe12b0a65308783f8d5d79d9cfe90c9dc4f42f`.
+- Native SQL audit `0bf20bf0a0f5a7a95e3af22c32ae099eb1c058c1ba54cb1834967b79418b5d32`.
+- Browser log `fb63331a21f2fcc2cd861fc575819fa69d94956d341745dbb41434e893812d8c`.
+- Protected protocol `6735fde9d46e3337aac8e18d5bfec8b642c4355b9aaa31340bc64547739e7e01`.
+- Ordinary protocol `9a6ccaf6d3c2797a0435f19b1cd322e2180981fe1806784e7cc9a6faacaf3d9e`.
+
+### Earlier local implementation checkpoint
+
 Local Windows SDK10.0.403 build passed. The focused identity/federation/workspace/
 company/local-auth cohort passed238 tests, zero failures, with nine opt-in skips:
 six PostgreSQL allocation/membership cases and three actual provider/browser
 cases. EF10.0.11 reported no pending model changes. Earlier local increments
 passed38/4 skips and237/9 skips; logs are retained. New company access tests use
 real SQLite, not a fabricated repository response. Native migration/backfill/
-immutability/rollback tests are implemented but have not run for this source.
+immutability/rollback tests were pending at that checkpoint; they passed in the
+later cohort above.
 
 This source changes the allocation transaction/schema after the previously
 qualified runtimea8134a9a. Its older full regression and actual browser receipts
-must not be presented as qualifying this new increment. Genuine PostgreSQL,
-full Linux regression and refreshed actual integration checks remain required.
+must not be presented as qualifying this new increment. Its new PostgreSQL,
+full Linux regression and refreshed actual integration are recorded separately
+above rather than borrowed from the older runtime's receipts.
 No production migration, privilege, runtime/image, feature flag or Perfex change.
 
 Published source `49780a39a13c89cd496f92283c1f20ba6effb3c2` is retained in

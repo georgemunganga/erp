@@ -1,4 +1,30 @@
-# Company membership source —8 November2026; native qualification pending
+# Company membership allocation qualified —8 November2026
+
+Runtime/source `49780a39a13c89cd496f92283c1f20ba6effb3c2` passed Linux
+focused237, native qualification89 and full regression2,208, zero failures.
+All nine full opt-ins ran separately: six native allocation/membership plus
+actual browser39s, protected setup32s and ordinary identity/license14s against
+real Laravel helperb71b29fe/published Kuubu websiteb01985ee. Owner-policy cases
+in the mixed native cohort use SQLite; actual PostgreSQL governance-query/command
+integration remains a gate before team endpoints are exposed.
+
+Read-only native audit verified21 synthetic databases/16 memberships, exact
+tenant/company/owner/link, validated FKs/check/unique/trigger, new-create audit/
+outbox and two explicit legacy owner backfills (one inactive). Classic local
+admin gains no membership and classic multi-company still works. Refreshed
+browser/protocol SQL verified membership creation and safe retries without
+credentials, sessions or module-role grants; staff retain no billing membership.
+
+Exact sources/hashes/bounds: CORE-COMPANY-TEAM-20261108.md. Local evidence roots
+company-membership-linux/browser/protocol-49780a39-01 under inspection/qualifications;
+remote /opt/kuubu-builds/company-membership-49780a39-01 and separate audit root.
+SDK runner and test PostgreSQL stopped0/OOMfalse; local ports closed. Perfex
+sign-in and existing private ERP readiness returned200. No production changes.
+Next: audited invitation/accept/revoke/role-change commands, last-owner/concurrency
+guards and team UI, then licensed operational admission. Dedicated/on-premise
+installer/licensing/upgrade/recovery and all deployed release holds remain.
+
+# Earlier company membership source checkpoint —8 November2026
 
 Draft PR201 source `49780a39a13c89cd496f92283c1f20ba6effb3c2` adds
 Core company membership, atomic initial-owner creation, exact verified-identity/
