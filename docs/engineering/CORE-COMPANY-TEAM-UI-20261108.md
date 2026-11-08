@@ -125,8 +125,7 @@ Core owns governance, Laravel verified identity/enrollment/licensing, Perfex its
 current invoice/payment responsibilities. GreenWebb portal and Kuubu remain
 separately branded, separately authorized product surfaces.
 ## 28. Remaining work
-Complete actual provider/Core/browser qualification;
-implement invitations/acceptance/delivery; connect qualified navigation/activation;
+Implement invitations/acceptance/delivery; connect qualified navigation/activation;
 qualify operational sessions, tenant/module isolation, recovery and dedicated
 installation/licensing/upgrades. The ecosystem goal remains incomplete.
 
@@ -171,6 +170,8 @@ writes explicit UTF-8, retains the same assertions and uses bounded real-service
 waits. The audit canonicalizes SQLite's uppercase stored UUIDs before checking
 the command correlation hash; it does not weaken typed identity/scope comparisons.
 No application behavior or production configuration was changed to pass the gate.
+The byte-identical successful runner is versioned at
+backend/hrm-api/tools/ProductTeamBrowser/browser.mjs with preparation instructions.
 
 Next: capability-gated entry navigation, invitations/acceptance/delivery and the
 remaining operational/deployment milestones. Older standalone protocol opt-ins
