@@ -1,5 +1,24 @@
 # Core commercial licensing channel
 
+## Current purchased-capacity contract —8 November2026
+
+Runtime3e967e96 now requires integer workspace_limit0..10000 in provider
+resources. Missing/null/string/fractional/negative/oversized values fail closed;
+denied licensing must carry0. Zero remains no workspace allowance, never
+unlimited. The module helper is now AllowsWorkspaceModule(allocatedSlot,module),
+requiring a current lease and a slot within the purchased allowance; the old
+bare module-list helper is removed. Core independently binds the slot/company/
+actor and permissions. Setup observation parsing also requires bounded capacity,
+and both channels normalize provider dates to UTC before persistence.
+
+CoreWorkspaceProvisioner now serializes company allocation transactionally with
+immutable slot/owner/receipt evidence and SQL guards against direct company-admin
+bypass. Read CORE-WORKSPACE-PROVISIONING-20261108.md for exact197 focused,
+47 native,2,168 regression and actual-provider qualification evidence/limits.
+The older channel checkpoints below retain their original source/scope. Public
+setup grants, invitation/owner policy, operational admission and deployment
+remain separate release gates; no production feature was enabled.
+
 ## 1. Feature Identification
 CORE-COMMERCIAL-LICENSE, Tier3 under GW-ENG-STD-001; Core engineering owns it.
 ## 2. Purpose & Business Outcome

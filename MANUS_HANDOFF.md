@@ -1,3 +1,41 @@
+# Core capacity-controlled company transaction —8 November2026
+
+Draft PR201 runtime `3e967e965217800c0996b3d9c0bd23cc79e810af` now
+consumes bounded purchased capacity and provides an internal explicit company
+create transaction. A fresh separately scoped payer observation and independent
+machine lease must agree; Core serializes by enrollment, allocates a unique slot
+and persists a company/HQ, role-free credential-free Core owner, explicit link,
+immutable owner/payer/slot receipt and audit/outbox together. Exact retries return
+the committed IDs; changed payload conflicts. No public setup route, automatic
+signup provisioner or operational session is added. Module checks now require
+the allocated slot as well as the licensed module. Missing/zero/malformed
+capacity never becomes unlimited.
+
+Migration `20261107231550_CoreWorkspaceAllocations` adds same-tenant owner/company
+FKs, global slot/key constraints and immutable evidence/rollback guards. SaaS
+tenants cannot add another legal entity through the legacy company-admin path;
+classic multi-company installations remain supported. Native concurrency proves
+two allocations within a two-workspace allowance and twelve retries yielding one
+company/audit/outbox pair. Post-save expiry/failure/cancellation roll back all.
+
+Final Linux197 focused,47 native PostgreSQL and2,168 full regressions passed,
+zero failures. Five normal-suite skips were exercised separately: four in the
+native cohort, one actual Laravel/Kuubu relay/ASP.NET identity/licensing case on
+Windows. Windows146 focused cases also passed. A read-only audit of38 synthetic
+DBs/26 allocations verified constraints, scope, role-free owners and audit/outbox.
+Read CORE-WORKSPACE-PROVISIONING-20261108.md for exact source/log hashes and
+the retained first native attempt's stale migration-order test fix. No production
+code changed between Windows runtime dae2c340 and final3e967e96; only that test.
+
+Provider fixture source2ebee45 uses explicit synthetic purchased capacity and
+zero staff billing memberships; websiteb01985ee retains its own login/consent.
+Actual protected setup OAuth→company-create/UI acceptance still remains, along
+with invitations/owner policy, licensed operational sessions/refresh/revocation,
+branch/module/local-auth enforcement, finite runtime DB ACLs and public ingress.
+Do not deploy wholesale main or treat this internal transaction as a SaaS launch.
+All old source/image/financial release holds remain. Private API image3ff07382
+and /health/ready200 are unchanged; test containers and local fixture stopped.
+
 # Purchased capacity provider checkpoint —8 November2026
 
 Laravel foundation PR3 now publishes runtime

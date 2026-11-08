@@ -1,5 +1,12 @@
 # Core workspace setup authority and provisioning
 
+Current8 November checkpoint: reader3e967e96 requires bounded workspace_limit,
+normalizes dates to UTC and feeds the separately documented internal company
+allocation transaction. Read CORE-WORKSPACE-PROVISIONING-20261108.md for the
+new197-focused/47-native/2,168-regression evidence. The older read-only reader
+checkpoint below remains source-bound history; genuine setup-grant→create/UI
+acceptance and licensed operational sessions remain required.
+
 ## 1. Identification
 Tier3 Core child feature; company creation within the maintained shared ERP.
 ## 2. Purpose
