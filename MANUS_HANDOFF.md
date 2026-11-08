@@ -1,4 +1,32 @@
-# Actual browser setup acceptance —8 November2026
+# Company membership source —8 November2026; native qualification pending
+
+Draft PR201 source `49780a39a13c89cd496f92283c1f20ba6effb3c2` adds
+Core company membership, atomic initial-owner creation, exact verified-identity/
+licensed company-governance reader and migration20261108104749. Membership does
+not create module roles, local credentials or operational sessions. Historical
+allocation remains immutable; legacy backfill uses only explicit allocation
+owners and exact links, not local admin/billing/email inference. No team endpoint
+is exposed yet. Invitation/change/revoke commands and last-owner safeguards are
+still required before enabling team administration.
+
+Windows SDK10.0.403 build passed; focused identity/federation/workspace/company/
+local-auth cohort238 passed, zero failures, nine opt-in skips (six native,
+three actual-provider/browser). EF10.0.11 reports no pending model changes.
+Retained source/local evidence: inspection/qualifications/company-membership-49780a39-01.
+Archive SHA256 `0b336f22a1e5146a858f6b799556359e567160ff6fe303934efe5d0795d6b9b9`;
+test log `42690b1df85bdfc308bb7369686e4d6ad5b504e3aa6014111ca55238d1595320`.
+Next: genuine PostgreSQL migration/backfill/physical guards/concurrency, full
+Linux regression and refreshed actual integration for this changed transaction.
+The older full/browser qualification below does not qualify this new source.
+
+User confirmed shared SaaS plus dedicated/on-premise installations from the same
+maintained codebase. Preserve classic local login and multi-company behavior;
+SaaS enrollment/provisioning is not mandatory on-premise. Dedicated installer,
+licensing/renewal/offline policy, upgrades and backup/recovery remain acceptance
+work. See deployment/kuubu/DEPLOYMENT-MODES.md and CORE-COMPANY-TEAM-20261108.md.
+No production migration/image/flag/privilege, DNS, payment or Perfex change.
+
+# Earlier actual browser setup acceptance —8 November2026
 
 Draft PR201 published runner `aee65eebf468275997912e60b906c6c6e2a3a662`
 and compiled test source `ba98d8399a138dbc900dffc1c20b3e928f0ed8d7` passed

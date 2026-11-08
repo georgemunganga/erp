@@ -109,3 +109,9 @@ qualified runtimea8134a9a. Its older full regression and actual browser receipts
 must not be presented as qualifying this new increment. Genuine PostgreSQL,
 full Linux regression and refreshed actual integration checks remain required.
 No production migration, privilege, runtime/image, feature flag or Perfex change.
+
+Published source `49780a39a13c89cd496f92283c1f20ba6effb3c2` is retained in
+inspection/qualifications/company-membership-49780a39-01. Backend archive SHA256
+`0b336f22a1e5146a858f6b799556359e567160ff6fe303934efe5d0795d6b9b9`;
+focused log `42690b1df85bdfc308bb7369686e4d6ad5b504e3aa6014111ca55238d1595320`;
+build log `070ce0d467040e0729a1fc97c34f8b4a3fc6ad8ce21b541b787622adc392495b`.
