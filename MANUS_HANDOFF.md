@@ -1,3 +1,35 @@
+# Branded company setup UI checkpoint —8 November2026
+
+Draft PR201 UI source `43bc0aa1a5f9003399a052d2ae95236fb8d87107` now provides
+public `/setup`: own Kuubu brand, account selection, company details, review with
+unchecked confirmation, create/retry and honest non-operational success. It
+bypasses tenant branding and operational auth providers while reusing pinned
+shared controls. Portaled account options retain product branding. Responses are
+no-store/no-referrer; unavailable setup offers recheck rather than a broken login.
+
+The reviewed request/key is retained before sending in versioned sessionStorage,
+bound to the server-verified subject, without bearer/CSRF. Submitted values stay
+fixed across lost response/reload/fresh consent; another identity cannot resume
+them or see draft details. Storage failure prevents sending. Only acknowledged
+server success clears the retained request. Expiry/cancellation grant no ERP access.
+
+14 installed-Chrome synthetic-API browser cases and34 Node contract/recovery
+tests passed, plus full strict TypeScript, targeted lint and production build.
+Desktop/mobile screenshots inspected. Native backendc138aef39f26b16e0f46de99b758a627be4469e0
+adds the recovery subject and passed213 focused,63 PostgreSQL and2,184 full
+regressions. Four native skips exercised separately; existing real provider
+identity/licensing test not rerun. All qualification services stopped. Exact
+source/archive/log hashes are in CORE-PROTECTED-SETUP-20261108.md; prior attempts
+are retained. Deploy the qualified subject-returning backend before this UI.
+
+Next: real Laravel→Kuubu consent→Core create/browser acceptance, then owner/team
+invitations and licensed operational sessions/refresh/revocation. Company/branch/
+module scope, finite runtime ACLs, shared-volume/key operations, ingress/log
+redaction and deployed recovery remain gates. No production schema/image/flag,
+DNS, payment, Google or Perfex change. This is not a SaaS production release.
+
+The older checkpoints below remain historical evidence.
+
 # Protected company setup backend checkpoint —8 November2026
 
 Draft PR201 adds runtime `e8a1f38a269265c6a30c620e92b1b68e55780642`:

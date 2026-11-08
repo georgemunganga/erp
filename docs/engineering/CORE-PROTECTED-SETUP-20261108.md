@@ -36,6 +36,9 @@ email join, tenant/role/quota input or company creation from enrollment.
 Random opaque handle hashes name encrypted grant files; DP purpose binds schema
 and client. Payload binds handle, subject/client, token, CSRF and lifetime.
 Private directory/file permissions, bounded reads, no links or public static path.
+Retained browser commands are untrusted drafts, not an access boundary or proof
+of persistence. Core validates all input/current authority independently; the UI
+withholds a draft from another signed-in subject but does not encrypt tab storage.
 ## 13. UI
 Own Kuubu login/explicit setup consent; select owned eligible payer, enter company
 name, review and explicitly create. Handle loading/empty/denied/expiry/retry.
@@ -68,6 +71,10 @@ Provider denial/outage prevents creation; no stale grant substitutes for authori
 ## 18. Integration
 Fixed Laravel resources only. Payer choices are UX, never create authority. Fresh
 setup authority and machine licensing are fetched for the submitted payer.
+The setup session includes the verified numeric subject solely to bind reviewed
+browser recovery state. It conveys no membership or operational permission. The
+new UI requires this additive field; deploy its qualified backend prerequisite
+before enabling the screen. Disabled/unavailable setup offers only a recheck.
 ## 19. Audit/privacy
 No token, OAuth state, cookie, secret or body diagnostic logging. Committed
 creation retains existing durable allocation evidence without raw idempotency.
@@ -99,6 +106,39 @@ Genuine provider→protected grant→create/UI, private runtime ACLs/shared-volu
 operations, owner/invite policy, licensed sessions/refresh/revocation, branch/
 module scope, public ingress/log redaction and deployed recovery acceptance.
 ## 28. Evidence
+Current UI source `43bc0aa1a5f9003399a052d2ae95236fb8d87107` passed14
+installed-Chrome browser scenarios against the real production SSR build and an
+explicit loopback synthetic API,34 Node contract/recovery tests, full strict
+TypeScript checking, targeted ESLint and production build. Desktop/mobile review
+screenshots were visually inspected. UI qualification includes the disabled
+state, explicit confirmation, no operational auth/branding fetches, lost-response
+reload recovery, fresh-consent retry, another identity blocked without draft
+details, storage write failure, pagination/empty/capacity states, portaled product
+branding, expiry, cancellation and acknowledgement. No genuine protected
+Laravel→Core setup acceptance or production rollout is claimed.
+
+UI archive SHA256:
+`8e84a2c672d85962b7eb8b34a242ca08d65419076d00696345ae2fe586de29b8`;
+final build log `164d1cd2bb1af5a50cf2d9aeceaf6b47e2ccb94124c6039501fd61af1e888791`;
+browser log `bff82e7604f4a13b936408a3ad41790fa705004b467704513e0d3ff3910f2552`;
+contract log `d9c808bbc1e550fdef6aca5b1026601bb725e105f419ba26d4f0cd5aa379a929`.
+Local receipt: inspection/qualifications/kuubu-setup-ui-20261108-01/receipt01.json.
+The first browser run failed before launch because the bundled browser was
+absent; the dedicated suite uses installed Chrome. Earlier logs/runs are retained.
+Both local loopback services stopped and their listening ports closed.
+
+Verified-subject backend runtime `c138aef39f26b16e0f46de99b758a627be4469e0`
+passed213 focused,63 genuine PostgreSQL and2,184 full Linux regressions, zero
+failures. Four native skips passed separately; the fifth opt-in real provider
+identity/licensing case was not rerun here. Runner and test PostgreSQL stopped0.
+Backend archive `49e2051706feb57cce0f2c2c54655ab6612d66bf92186cf6c3238b45c4ca3c74`;
+focused log `cbbc777a6aa33e6c139cdf0f6c23ea012a0e165bcc02f2fcb78a4fdcbd8e991d`;
+native log `3cf8a8e6a28a2d44a7df9e3a69e8e0801a13d47f613aaa171ebcdd3069aae200`;
+full log `98b845313a351dfb4d439dd019c6433ba16ce49d402058b37a5f2c4267dc0f4c`.
+The UI adds no backend changes after that runtime. Production remains unchanged.
+
+The earlier backend/client-only checkpoints below remain historical evidence.
+
 Backend runtime `e8a1f38a269265c6a30c620e92b1b68e55780642` passed213
 focused Linux checks (four native-only skips) and63 genuine PostgreSQL cohort
 checks with zero skips. Full Linux regression passed2,184 tests with zero failures
@@ -124,7 +164,8 @@ Tests include fixed request policy, repeated ambiguous command identity, denial
 codes, bounded conflict recovery, malformed results/pagination, rejected HTML200,
 and no operational grant. Test log SHA256:
 `532292508d7c75d3ac931e87d21961a8b0cf1e4da49f0f827201b9be86547fe4`.
-No rendered setup form or genuine protected provider→create acceptance is claimed.
+That earlier client-only checkpoint included no rendered setup form. Genuine
+protected provider→create acceptance remains a separate gate.
 
 Laravel payer resource15adde5 separately passed112 tests/874 assertions on native
 MySQL8.0.46. Current read-only checks returned200 for Perfex sign-in and the
