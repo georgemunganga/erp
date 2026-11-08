@@ -17,7 +17,7 @@ const relay = createSessionHandler({ upstream: 'http://localhost:8101', productC
   proxySecret: 'LocalProductProxySecret12345678901234567890', requireProxySecret: true });
 const appOrigin = 'https://app.kuubuerp.com'; const accountOrigin = 'https://www.kuubuerp.com';
 const auth = { 'X-Kuubu-Test-Fixture': manifest.fixture_marker };
-const commands = []; let stage = 'launch'; let browser; let page;
+const commands = []; const transportFailures = []; let stage = 'launch'; let browser; let page;
 function headers(entries) {
   return Object.fromEntries(entries.filter(([name]) => !['content-length', 'content-encoding', 'transfer-encoding', 'connection'].includes(name.toLowerCase())));
 }
@@ -26,10 +26,45 @@ async function audit() {
   assert.equal(response.status, 200); return response.json();
 }
 try {
-  browser = await chromium.launch({ channel: 'chrome', headless: true });
-  const context = await browser.newContext({ viewport: { width: 1360, height: 900 } });
-  await context.route('**/*', async route => {
+  // A missed interception must fail closed, never resolve the deployed sites.
+  browser = await chromium.launch({ channel: 'chrome', headless: true,
+    args: ['--host-resolver-rules=MAP * ~NOTFOUND'] });
+  const context = await browser.newContext({ viewport: { width: 1360, height: 900 }, serviceWorkers: 'block' });
+  page = await context.newPage();
+  const cdp = await context.newCDPSession(page);
+  // Playwright routing skips subsequent redirect URLs. Use Fetch interception
+  // directly so every navigation hop stays inside this qualification transport.
+  // The browser still processes original statuses, redirects and Set-Cookie.
+  cdp.on('Fetch.requestPaused', event => {
+    const incoming = event.request;
+    const body = incoming.postDataEntries?.length
+      ? Buffer.concat(incoming.postDataEntries.map(part => Buffer.from(part.bytes || '', 'base64')))
+      : incoming.postData === undefined ? null : Buffer.from(incoming.postData);
+    const request = {
+      url: () => incoming.url, method: () => incoming.method,
+      allHeaders: async () => Object.fromEntries(Object.entries(incoming.headers).map(([k, v]) => [k.toLowerCase(), v])),
+      postDataBuffer: () => body, postDataJSON: () => JSON.parse(body.toString()),
+    };
+    const route = {
+      request: () => request,
+      abort: () => cdp.send('Fetch.failRequest', { requestId: event.requestId, errorReason: 'Aborted' }),
+      fulfill: ({ status, headers: outgoing = {}, contentType, body: responseBody }) => cdp.send('Fetch.fulfillRequest', {
+        requestId: event.requestId, responseCode: status,
+        responseHeaders: Object.entries({ ...outgoing, ...(contentType ? { 'content-type': contentType } : {}) })
+          .flatMap(([name, value]) => name.toLowerCase() === 'set-cookie' ? value.split('\n').map(value => ({ name, value })) : [{ name, value }]),
+        body: Buffer.from(responseBody || '').toString('base64'),
+      }),
+    };
+    dispatch(route).catch(error => {
+      transportFailures.push({ kind: error.constructor.name });
+    });
+  });
+  await cdp.send('Fetch.enable', { patterns: [{ urlPattern: '*', requestStage: 'Request' }] });
+  async function dispatch(route) {
     const request = route.request(); const url = new URL(request.url());
+    // Paths only: never record OAuth parameters, bodies, cookies or headers.
+    console.log(JSON.stringify({ event: 'browser_request', origin: url.origin, path: url.pathname }));
+    try {
     if (url.origin === appOrigin) {
       if (url.pathname.startsWith('/api/core/product-identity/') || url.pathname === '/erp-protected') {
         const incoming = await request.allHeaders(); assert.ok(!incoming.authorization);
@@ -58,18 +93,30 @@ try {
       const path = resolve(website, 'dist', '.' + decodeURIComponent(url.pathname), url.pathname.endsWith('/') ? 'index.html' : '');
       assert.ok(path.startsWith(join(website, 'dist') + sep));
       const type = path.endsWith('.html') ? 'text/html' : path.endsWith('.js') ? 'text/javascript' : path.endsWith('.css') ? 'text/css' : path.endsWith('.svg') ? 'image/svg+xml' : 'application/octet-stream';
-      return route.fulfill({ status: 200, contentType: type, body: await readFile(path) });
+      let content;
+      try { content = await readFile(path); }
+      catch (error) {
+        if (error.code !== 'ENOENT') throw error;
+        // Normal static-server behavior (including optional favicon requests).
+        return route.fulfill({ status: 404, contentType: 'text/plain', body: 'Not found' });
+      }
+      return route.fulfill({ status: 200, contentType: type, body: content });
     }
     // No user profile or off-fixture network is used, including external fonts.
     return route.abort('blockedbyclient');
-  });
-  page = await context.newPage();
+    } catch (error) {
+      transportFailures.push({ origin: url.origin, path: url.pathname, kind: error.constructor.name });
+      console.error(JSON.stringify({ event: 'browser_transport_failed', origin: url.origin, path: url.pathname, kind: error.constructor.name }));
+      return route.abort('failed');
+    }
+  }
   assert.deepEqual(await audit(), { companies: 0, sessions: 0, roles: 0 });
   stage = 'start_setup';
   await page.goto(appOrigin + '/setup');
   await page.getByRole('link', { name: 'Continue with Kuubu', exact: true }).click();
   stage = 'own_branded_login';
   await expect(page.getByRole('button', { name: 'Continue with Google', exact: true })).toBeDisabled();
+  await page.screenshot({ path: join(output, 'real-provider-login.png'), fullPage: true });
   await page.getByLabel('Email address', { exact: true }).fill('owner@example.test');
   await page.getByLabel('Password', { exact: true }).fill('AcceptancePassword123!');
   await page.getByRole('button', { name: 'Sign in', exact: false }).click();
@@ -79,6 +126,7 @@ try {
   const consent = page.locator('#workspace-setup-consent');
   await expect(consent).not.toBeChecked();
   await expect(page.getByRole('button', { name: 'Continue to Kuubu ERP', exact: false })).toBeDisabled();
+  await page.screenshot({ path: join(output, 'real-provider-consent.png'), fullPage: true });
   await consent.check();
   await page.getByRole('button', { name: 'Continue to Kuubu ERP', exact: false }).click();
   stage = 'protected_setup_callback';
@@ -114,6 +162,7 @@ try {
   assert.deepEqual(await audit(), { companies: 1, sessions: 0, roles: 0 });
   assert.equal(await page.evaluate(async () => (await fetch('/erp-protected', { cache: 'no-store' })).status), 401);
   await page.screenshot({ path: join(output, 'real-provider-saved.png'), fullPage: true });
+  assert.deepEqual(transportFailures, [], 'Every scoped browser transport request must succeed.');
   await writeFile(join(output, 'result.json'), JSON.stringify({ passed: true, created: 1, retried: 1, companies: 1, operational_sessions: 0,
     module_roles: 0, isolated_cookie_origins: true, transport: 'scoped browser routes to actual loopback services; no deployed TLS claim' }, null, 2), { flag: 'wx' });
   console.log('Actual browser login, consent, company creation and same-request retry passed.');

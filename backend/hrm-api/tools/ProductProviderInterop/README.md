@@ -44,3 +44,34 @@ verified SDK and fresh result/log paths. The private manifest contains synthetic
 client credentials; no tokens, cookies, OAuth state, passwords, request bodies or
 manifest content belong in public logs or PR descriptions. Read-only aggregate
 provider/Core database audits are suitable evidence after the processes stop.
+
+## Browser setup qualification
+
+Use a separate fresh `--with-setup-owner` fixture. Set these absolute paths:
+
+- `KUUBU_REAL_BROWSER_SETUP_FIXTURE`: private `provider/core-interop.json`.
+- `KUUBU_REAL_BROWSER_SETUP_RUNNER`: this directory's `browser.mjs`.
+- `KUUBU_REAL_BROWSER_SETUP_WEBSITE`: exact source with its API-mode website build.
+- `KUUBU_REAL_BROWSER_SETUP_OUTPUT`: exclusive, not-yet-existing output directory.
+- `KUUBU_REAL_BROWSER_SETUP_PLAYWRIGHT`: installed `@playwright/test/index.mjs`.
+
+Serve the built ERP setup UI on loopback3186 and run only
+`ProductSetupBrowserInteropTests`. The test owns the marker-protected Core bridge
+on loopback8121. It invokes the real website session relay directly, while Core's
+real provider channel uses the fresh Laravel service. Do not expose the bridge.
+
+The runner uses Chrome DevTools Fetch interception for **every redirect hop**;
+Playwright's higher-level routing intercepts only the first URL of a redirect
+chain. Original HTTP statuses, Location and Set-Cookie are processed by Chrome.
+DNS resolution is disabled for this isolated browser, service workers are blocked,
+and non-fixture origins are aborted. No certificate exceptions or existing user
+profile are used. Diagnostics contain origins/paths and error types only. Missing
+static files receive404 as on an ordinary static server.
+
+The browser executes own branded login, explicit personal enrollment and setup
+consent, verifies zero pre-confirmation companies, confirms one creation, reloads
+and retries the same command, checks separate secure HttpOnly account/Core
+cookies, and verifies operational access remains401. The test also verifies one
+company/owner/link/audit/outbox and zero sessions/module-role grants in actual
+Core SQLite. Screenshots and a bounded `result.json` are retained. This remains
+isolated browser acceptance, not deployed DNS/TLS or live SaaS acceptance.
