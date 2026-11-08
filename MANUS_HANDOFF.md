@@ -1,4 +1,33 @@
-# Actual Kuubu team sign-in and browser/Core changes passed —8 November2026
+# Setup-to-team entry qualified —8 November2026
+
+Published implementation661c30a01220c431e808b5449e08df2db2f58f79 adds a
+configuration-derived team_management_available boolean to company create/retry,
+a fixed /team link only when true, fail-closed older API handling, and the
+generator's previously untracked21-line team route registration. No new records,
+permissions, feature activation or operational admission. Existing classic local
+authentication and dedicated-instance architecture remain unchanged.
+
+Fresh build zero errors;143 targeted backend tests passed/10 native opt-ins
+skipped;59 contracts,18 synthetic setup browser cases, production SSR, TypeScript
+and final lint passed. Actual website/Laravel/Core/SSR browser gate passed41.395s
+through the visible link, then fresh team sign-in/current license/role change/
+lost committed response/exact retry/revoke/last-owner/suspension/replay denial.
+Independent SQL audit: one binding/two exact members/two receipts/two matching
+team changes; zero credentials, operational sessions and module roles. Staff has
+zero payer memberships. The member is still an explicit preaccepted/enrolled
+fixture: invitations/acceptance/delivery remain unfinished.
+
+Evidence: inspection/qualifications/company-team-entry-01/source-verification.json,
+team-entry-browser-01/verification.json. All487 SSR output files unchanged after
+consumers; all owned services stopped. Runtime source matches the tested copy;
+final test-only formatting has an identical complete syntax tree. Failed initial
+typecheck, formatting lint and unsuitable emission-comparison evidence checks
+are retained. Native refresh and deployed TLS/DNS were not run for this metadata/
+navigation increment. No production, Perfex, payment or DNS change. PR201 stays
+draft; existing release/main/B1 holds remain. Next: website product entry links,
+invitations/acceptance/delivery and licensed operational tenant isolation.
+
+## Earlier actual Kuubu team sign-in and browser/Core checkpoint
 
 Published harness/runner `bb047f489b01c86ce8685b7bd1dffd1bf19be7d4` (test fixture
 first published86a75ee1) passed the actual branded website/Laravel/Core/SSR team
