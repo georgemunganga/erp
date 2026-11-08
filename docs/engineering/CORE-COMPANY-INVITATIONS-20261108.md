@@ -26,6 +26,32 @@ Issue commits invitation/audit/durable delivery intent before attempting deliver
 Acceptance checks a protected invitation token, current recipient observation,
 current company/license/inviter authority, explicit confirmation and then commits
 exact principal/link/membership/audit/outbox together. No automatic acceptance.
+
+Recipient HTTP/browser implementation contract (not implemented yet):
+
+- The fixed `/accept-invitation#token=` landing consumes and removes the fragment
+  immediately. Never put the secret in a query, OAuth state, redirect, browser
+  storage, logs or referrer. Before redirecting for authentication, hold it in
+  short-lived encrypted server state bound to an opaque secure HttpOnly cookie;
+  purpose, browser binding and expiry must survive only the reviewed callback.
+- Use a distinct invitation-purpose authorization, requesting exactly
+  `product:identity product:invitation-recipient`. Kuubu account consent must
+  explain recipient verification and require explicit unchecked confirmation;
+  ordinary identity, setup and team proofs cannot stand in for it. Account consent
+  is not company acceptance. No provider access token is saved in a browser cookie.
+- The callback binds the authenticated subject/client to the protected intent.
+  Review reads fresh recipient observation and exact targeted invitation, then
+  current company/license/inviter authority before revealing company name/role.
+  Missing/expired/wrong-recipient invitations reveal no company metadata.
+- Acceptance is a separate same-origin JSON/CSRF-protected command with unchecked
+  company/role confirmation, stable request key and expected reviewed revision.
+  Recipient email/issuer/subject, inviter, tenant, payer and role come from trusted
+  server records, never browser overrides. Refresh recipient observation and
+  license immediately before the atomic existing domain command.
+- Cancel, expiry, account switching and new sign-in revoke prior protected intent
+  and grants. Ambiguous retry retains the exact reviewed request but still checks
+  current identity/inviter/license; an old accepted receipt cannot restore revoked
+  access. Successful acceptance creates no default ERP operational session.
 ## 9. States
 Pending at revision1; accepted/revoked at revision2. Expiry is computed from
 ExpiresAt without rewriting history. Terminal outcomes cannot be repurposed.
@@ -147,7 +173,23 @@ All485 production output files retained hash/size/nsmtime; owned services stoppe
 Evidence: inspection/qualifications/invitation-sender-api-02,
 invitation-sender-ui-02/verification.json and
 invitation-sender-browser-01/verification.json. Source hashes are in the UI
-verification record. New sender HTTP PostgreSQL gate is pending; earlier native
+verification record. New sender HTTP PostgreSQL qualification passed20 sender and
+97 invitation/team regression cases, zero skips/failures, on published runtime
+e14982865b94b3d147ea7a019c4947ee6c22d02e. Attempt01 stopped at compilation because
+the helper omitted unchanged Procurement references; attempt02 includes all
+unchanged backend dependencies as87 independent files, unchanged after consumers.
+No previous project restore/clean metadata was copied. Fresh API/test builds
+passed with27/20 existing warnings and no errors; the isolated database was
+restored to stopped. Evidence: inspection/qualifications/
+invitation-sender-native-e1498286-02. Independent read-only SQL audit checked118
+new databases:117 current invitation schemas and one exact retained legacy team
+rollback signature. It verified47 invitations/53 receipts/47 delivery intents/
+57 matching audits/104 matching events and four accepted memberships, exact
+tenant/company/inviter/recipient bindings, immutable history constraints and no
+credentials/sessions/module roles. Prior databases were excluded using the
+pre-run inventory. Audit restarted only the isolated test database, then stopped
+it again. Read-only private ERP readiness and Perfex login both returned200.
+Earlier native
 lifecycle qualification below covers the unchanged domain/schema only. Recipient
 wire/consent/acceptance HTTP/UI and actual delivery remain outstanding. No live
 configuration, production application, payment, DNS or Perfex change.

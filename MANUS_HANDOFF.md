@@ -11,9 +11,23 @@ existing role/retry/license denial. Read-only SQL audit: one revoked invitation,
 two invitation receipts, unchanged two members, five audits/six events and zero
 credentials/sessions/module roles. All485 SSR output files unchanged; owned
 services stopped. Evidence: inspection/qualifications/invitation-sender-ui-02
-and invitation-sender-browser-01. New HTTP PostgreSQL qualification, recipient
-wire/consent/acceptance UI and real delivery remain pending. Production unchanged;
-main/B1/release holds and PR201 draft remain. Earlier checkpoint follows.
+and invitation-sender-browser-01. Recipient wire/consent/acceptance UI and real
+delivery remain pending. Production unchanged;
+main/B1/release holds and PR201 draft remain.
+
+Sender PostgreSQL qualification now passed on that published runtime:20 sender
+HTTP cases plus97 invitation/team regressions, no skips/failures. Fresh API/test
+builds use87 independent unchanged dependency files, hash/size/mtime unchanged;
+no old restore/clean metadata. Attempt01's missing Procurement references are
+retained; attempt02 includes all unchanged projects without application/assertion
+changes. Read-only SQL audit verified118 new databases,117 current schemas and
+one exact legacy rollback fixture;47 invitations/53 receipts/47 delivery intents/
+57 audits/104 events, four accepted memberships and no credentials/sessions/
+module grants. The test database is stopped. Evidence:
+inspection/qualifications/invitation-sender-native-e1498286-02/verification.json.
+Private ERP readiness and Perfex login returned200. Recipient token handoff,
+separate scope/consent and explicit acceptance contract is recorded in the child
+feature document; it remains unimplemented. Earlier checkpoint follows.
 
 # Internal invitation lifecycle qualified —8 November2026
 
