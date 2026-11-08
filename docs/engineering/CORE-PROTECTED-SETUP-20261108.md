@@ -101,6 +101,16 @@ token/grant, wrong origin/CSRF and unconfirmed/extra input cannot create.
 ## 26. Tests
 Actual OAuth handlers/PKCE/correlation, private encrypted storage, CSRF/host scope,
 current payer/licensing denial, explicit create/idempotent retry and UI states.
+The real-provider opt-in cohort uses a fresh loopback Laravel Passport/RSA
+fixture, the pinned actual Kuubu account client/signed relay, ASP.NET OAuth and
+encrypted pending grants, and actual Core SQLite allocation. Only an explicit
+fixture flag seeds one owner membership; staff retain none. Separate environment
+variables keep ordinary identity qualification independent. Confirm scoped
+consent/enrollment, callback/list with zero companies, explicit create/retry,
+purchased capacity, revoked owner/suspended purchase/canceled grant denial and
+read-only provider/Core audits. No fabricated upstream response or production
+TLS/issuer override. This protocol gate does not prove deployed browser ingress,
+production PostgreSQL integration, operational admission or a public SaaS release.
 ## 27. Release gates
 Genuine provider→protected grant→create/UI, private runtime ACLs/shared-volume
 operations, owner/invite policy, licensed sessions/refresh/revocation, branch/

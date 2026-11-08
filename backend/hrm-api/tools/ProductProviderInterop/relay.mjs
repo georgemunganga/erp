@@ -47,6 +47,7 @@ const account = createAccountClient(async (path, options) => {
   return response;
 });
 let authorized = false;
+let setupAuthorized = false;
 function reply(response, status, body) {
   response.writeHead(status, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' });
   response.end(JSON.stringify(body));
@@ -58,35 +59,52 @@ const server = createServer(async (request, response) => {
     if (request.method === 'GET' && request.url === '/health') return reply(response, 200, { fixture_marker: manifest.fixture_marker });
     if (request.method === 'GET' && request.url === '/audit') {
       const result = spawnSync(args['--python'] || 'python', ['-c',
-        "import json,pathlib,sqlite3,sys; db=sqlite3.connect(pathlib.Path(sys.argv[1]).as_uri()+'?mode=ro',uri=True); names=['users','customers','customer_memberships','identity_product_enrollments','product_enrollments','subscriptions']; data={name:db.execute('SELECT count(*) FROM '+name).fetchone()[0] for name in names}; data['subscription_status']=db.execute('SELECT status FROM subscriptions').fetchone()[0]; print(json.dumps(data))", env.DB_DATABASE], { encoding: 'utf8' });
+        `import json,pathlib,sqlite3,sys
+db=sqlite3.connect(pathlib.Path(sys.argv[1]).as_uri()+'?mode=ro',uri=True)
+names=['users','customers','customer_memberships','identity_product_enrollments','product_enrollments','subscriptions']
+data={name:db.execute('SELECT count(*) FROM '+name).fetchone()[0] for name in names}
+data['subscription_status']=db.execute('SELECT status FROM subscriptions').fetchone()[0]
+data['staff_memberships']=db.execute('SELECT count(*) FROM customer_memberships m JOIN users u ON u.id=m.user_id WHERE u.email=?',('staff@example.test',)).fetchone()[0]
+print(json.dumps(data))`, env.DB_DATABASE], { encoding: 'utf8' });
       assert.equal(result.status, 0);
       return reply(response, 200, JSON.parse(result.stdout));
     }
     if (request.method === 'POST' && request.url === '/suspend') {
-      assert.equal(authorized, true);
+      assert.ok(authorized || setupAuthorized);
       const result = spawnSync(args['--php'], [join(workspace, 'core-interop-suspend.php')],
         { cwd: backend, env: { ...process.env, ...env, FIXTURE_WORKSPACE: workspace }, encoding: 'utf8' });
       assert.equal(result.status, 0);
       return reply(response, 200, { suspended: true });
     }
-    if (request.method === 'POST' && request.url === '/authorize') {
-      assert.equal(authorized, false, 'Use a fresh retained fixture for each run.');
+    if (request.method === 'POST' && ['/revoke-setup-owner', '/restore-setup-owner'].includes(request.url)) {
+      assert.equal(manifest.setup_owner_enabled, true); assert.equal(setupAuthorized, true);
+      const result = spawnSync(args['--php'], [join(workspace, 'core-interop-owner.php')], {
+        cwd: backend, env: { ...process.env, ...env, FIXTURE_WORKSPACE: workspace,
+          FIXTURE_OWNER_ACTION: request.url === '/revoke-setup-owner' ? 'revoke' : 'restore' }, encoding: 'utf8' });
+      assert.equal(result.status, 0);
+      return reply(response, 200, { owner_control_applied: true });
+    }
+    if (request.method === 'POST' && ['/authorize', '/authorize-setup'].includes(request.url)) {
+      const setup = request.url === '/authorize-setup';
+      if (setup) { assert.equal(manifest.setup_owner_enabled, true); assert.equal(setupAuthorized, false); }
+      else assert.equal(authorized, false, 'Use a fresh retained fixture for each run.');
       let size = 0; const chunks = [];
       for await (const chunk of request) { size += chunk.length; assert.ok(size <= 16384); chunks.push(chunk); }
       const intent = JSON.parse(Buffer.concat(chunks).toString());
       stage = 'login';
-      const person = await account.login('staff@example.test', 'AcceptancePassword123!');
+      const person = await account.login(setup ? 'owner@example.test' : 'staff@example.test', 'AcceptancePassword123!');
       stage = 'identity_choices';
-      assert.equal(String(person.id), manifest.staff_subject); assert.equal(person.email_verified, true);
+      assert.equal(String(person.id), setup ? manifest.owner_subject : manifest.staff_subject); assert.equal(person.email_verified, true);
       assert.deepEqual(await account.identityProducts(), []);
       stage = 'pre_enrollment_denial';
-      await assert.rejects(account.authorizeKuubu(intent), error => error.status === 403);
+      if (setup) await assert.rejects(account.authorizeKuubu(intent), error => error.status === 422);
+      await assert.rejects(account.authorizeKuubu(intent, setup), error => error.status === 403);
       stage = 'explicit_enrollment';
       await account.enrollKuubu(true);
       stage = 'authorization';
-      const destination = await account.authorizeKuubu(intent);
-      authorized = true;
-      return reply(response, 200, { redirect_uri: destination, pre_enrollment_denied: true });
+      const destination = await account.authorizeKuubu(intent, setup);
+      if (setup) setupAuthorized = true; else authorized = true;
+      return reply(response, 200, { redirect_uri: destination, pre_enrollment_denied: true, setup_consent_checked: setup });
     }
     reply(response, 404, { error: 'fixture_action_unavailable' });
   } catch (error) {

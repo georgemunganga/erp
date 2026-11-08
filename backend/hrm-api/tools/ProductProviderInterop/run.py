@@ -13,6 +13,7 @@ import urllib.request
 parser = argparse.ArgumentParser()
 for name in ['workspace', 'foundation', 'website', 'php']:
     parser.add_argument('--'+name, required=True)
+parser.add_argument('--with-setup-owner', action='store_true')
 args = parser.parse_args()
 os.umask(0o077)
 workspace = Path(args.workspace).resolve()
@@ -29,7 +30,8 @@ try:
         subprocess.run([sys.executable, str(foundation/'tools/product-identity-acceptance.py'), '--workspace', str(provider),
             '--php', args.php, '--prepare-only'], cwd=foundation, stdout=output, stderr=subprocess.STDOUT, check=True)
         subprocess.run([sys.executable, str(foundation/'tools/seed-core-product-interop.py'), '--workspace', str(provider),
-            '--php', args.php], cwd=foundation, stdout=output, stderr=subprocess.STDOUT, check=True)
+            '--php', args.php]+(['--with-setup-owner'] if args.with_setup_owner else []),
+            cwd=foundation, stdout=output, stderr=subprocess.STDOUT, check=True)
     env = os.environ | json.loads((provider/'private-environment.json').read_text())
     env['FOUNDATION_FIXTURE_FRAMEWORK_ROUTER'] = str(foundation/'vendor/laravel/framework/src/Illuminate/Foundation/resources/server.php')
     log = (workspace/'php.log').open('x', encoding='utf-8'); logs.append(log)
