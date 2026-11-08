@@ -1,5 +1,8 @@
 # Sender invitation API/UI checkpoint —8 November2026
 
+Published runtime: e14982865b94b3d147ea7a019c4947ee6c22d02e on
+codex/kuubu-product-consumer-20261107. Main/UI-main/B1 remain unchanged.
+
 New default-off sender issue/list/revoke HTTP and company-team UI passed263
 focused checks/14 native skips,72 frontend contracts, lint/build/typecheck and14
 browser scenarios. Actual isolated website/Laravel/Core/SSR flow passed40.374s,
