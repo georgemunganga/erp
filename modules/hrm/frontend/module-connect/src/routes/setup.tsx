@@ -26,6 +26,7 @@ import {
   readSetupAttempt,
   saveSetupAttempt,
   clearSetupAttempt,
+  reviseRejectedSetupAttempt,
   type SetupAttempt,
   type StoredSetupAttempt,
 } from "@/modules/core/product-setup-attempt";
@@ -71,6 +72,8 @@ function CompanySetup() {
   const [confirmed, setConfirmed] = useState(false);
   const [stored, setStored] = useState<StoredSetupAttempt>({ status: "empty" });
   const [attempt, setAttempt] = useState<SetupAttempt | null>(null);
+  const [capacityRejected, setCapacityRejected] = useState(false);
+  const [revising, setRevising] = useState(false);
   const [result, setResult] = useState<SetupCompany | null>(null);
   const [busy, setBusy] = useState(false);
   const [expired, setExpired] = useState(false);
@@ -94,6 +97,8 @@ function CompanySetup() {
     setConfirmed(false);
     setExpired(false);
     setUnavailable(false);
+    setCapacityRejected(false);
+    setRevising(false);
     setSession(null);
     setPayers([]);
     setCursor(null);
@@ -196,19 +201,26 @@ function CompanySetup() {
     sending.current = true;
     setBusy(true);
     setError(null);
+    setCapacityRejected(false);
     try {
-      const reviewed: SetupAttempt = attempt ?? {
-        version: 1,
-        subject: session.subject,
-        command: {
-          customerId,
-          companyName: name,
-          idempotencyKey: crypto.randomUUID().replaceAll("-", ""),
-        },
-      };
+      const reviewed: SetupAttempt =
+        attempt && !revising
+          ? attempt
+          : {
+              version: 1,
+              subject: session.subject,
+              command: {
+                customerId,
+                companyName: name,
+                idempotencyKey:
+                  attempt?.command.idempotencyKey ?? crypto.randomUUID().replaceAll("-", ""),
+              },
+            };
       // Retain before sending; a lost response/reload must never generate another key.
       try {
-        saveSetupAttempt(window.sessionStorage, reviewed);
+        if (revising && attempt)
+          reviseRejectedSetupAttempt(window.sessionStorage, attempt, reviewed);
+        else saveSetupAttempt(window.sessionStorage, reviewed);
       } catch {
         setStored({ status: "unavailable" });
         setError(
@@ -217,6 +229,7 @@ function CompanySetup() {
         return;
       }
       setAttempt(reviewed);
+      setRevising(false);
       setStored({ status: "ready", attempt: reviewed });
       const created = await api.create(session, reviewed.command);
       if (mounted.current) {
@@ -226,6 +239,11 @@ function CompanySetup() {
     } catch (failure) {
       if (mounted.current) {
         setError(message(failure));
+        setCapacityRejected(
+          failure instanceof ProductSetupError &&
+            failure.status === 409 &&
+            failure.code === "CapacityExhausted",
+        );
         if (failure instanceof ProductSetupError && failure.status === 401) setExpired(true);
       }
     } finally {
@@ -266,7 +284,7 @@ function CompanySetup() {
                 ? "Choose your billing account."
                 : step === "details"
                   ? "Tell us about your company."
-                  : attempt
+                  : attempt && !revising
                     ? "Check your previous request."
                     : "Ready to create your company?";
   const activeStep = result ? 3 : step === "account" ? 0 : step === "details" ? 1 : 2;
@@ -537,7 +555,7 @@ function CompanySetup() {
                       </div>
                     ) : null}
                   </dl>
-                  {attempt ? (
+                  {attempt && !revising ? (
                     <p className="text-sm leading-relaxed text-muted-foreground">
                       This request may already have been saved. Retrying checks the same request and
                       cannot create an additional company.
@@ -588,11 +606,28 @@ function CompanySetup() {
                   >
                     {busy
                       ? "Confirming your company…"
-                      : attempt
+                      : attempt && !revising
                         ? "Retry reviewed request"
                         : "Create company"}
                   </Button>
-                  {!attempt ? (
+                  {capacityRejected && attempt ? (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="w-full"
+                      disabled={busy}
+                      onClick={() => {
+                        setRevising(true);
+                        setCapacityRejected(false);
+                        setConfirmed(false);
+                        setError(null);
+                        setStep("account");
+                      }}
+                    >
+                      Choose another billing account
+                    </Button>
+                  ) : null}
+                  {!attempt || revising ? (
                     <Button
                       type="button"
                       variant="ghost"

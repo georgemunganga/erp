@@ -4,6 +4,7 @@ import {
   readSetupAttempt,
   saveSetupAttempt,
   clearSetupAttempt,
+  reviseRejectedSetupAttempt,
 } from "../src/modules/core/product-setup-attempt.ts";
 
 const attempt = {
@@ -23,6 +24,28 @@ function storage() {
     removeItem: (key) => values.delete(key),
   };
 }
+test("a rejected correction retains the same actor/key and cannot overwrite a different request", () => {
+  const s = storage();
+  saveSetupAttempt(s, attempt);
+  const revised = {
+    ...attempt,
+    command: {
+      ...attempt.command,
+      customerId: "01arz3ndektsv4rrffq69g5faw",
+      companyName: "Corrected company",
+    },
+  };
+  reviseRejectedSetupAttempt(s, attempt, revised);
+  assert.deepEqual(readSetupAttempt(s).attempt, revised);
+  assert.throws(() => reviseRejectedSetupAttempt(s, attempt, revised));
+  assert.throws(() => reviseRejectedSetupAttempt(s, revised, { ...revised, subject: "18" }));
+  assert.throws(() =>
+    reviseRejectedSetupAttempt(s, revised, {
+      ...revised,
+      command: { ...revised.command, idempotencyKey: "synthetic_request_0000000000000002" },
+    }),
+  );
+});
 test("reviewed request survives reload exactly and saves no credentials", () => {
   const s = storage();
   assert.equal(readSetupAttempt(s).status, "empty");

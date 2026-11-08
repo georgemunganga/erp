@@ -42,6 +42,7 @@ createServer(async (req, res) => {
       if (path === '/payers') {
         let customers = [{ customer_id: customer, name: 'Synthetic billing account', workspace_limit: 2 }];
         let next_cursor = null;
+        if (state.scenario === 'capacity-switch') customers.push({ customer_id: '01arz3ndektsv4rrffq69g5faw', name: 'Available billing account', workspace_limit: 2 });
         if (state.scenario === 'empty') customers = [];
         if (state.scenario === 'paged') {
           const alphabet = '0123456789abcdefghjkmnpqrstvwxyz';
@@ -57,7 +58,7 @@ createServer(async (req, res) => {
         if (req.headers['x-kuubu-setup-csrf'] !== 'x'.repeat(43) || data.confirm !== true) return json(res, {}, 403);
         if (req.headers.authorization) throw new Error('Browser bearer not allowed');
         state.calls.push(data);
-        if (state.scenario === 'capacity') return json(res, { status: 'CapacityExhausted' }, 409);
+        if (state.scenario === 'capacity' || (state.scenario === 'capacity-switch' && data.customer_id === customer)) return json(res, { status: 'CapacityExhausted' }, 409);
         const key = state.subject + ':' + data.idempotency_key;
         const previous = state.receipts.has(key);
         state.receipts.set(key, data);

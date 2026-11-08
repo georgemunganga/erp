@@ -166,6 +166,28 @@ test("mobile layout stays inside the viewport with readable controls", async ({
   expect(box!.height).toBeGreaterThanOrEqual(44);
   await page.screenshot({ path: testInfo.outputPath("mobile-review.png"), fullPage: true });
 });
+test("a capacity rejection permits explicit correction without minting another request key", async ({
+  page,
+}) => {
+  await scenario(page, "capacity-switch");
+  await review(page);
+  await confirm(page);
+  await expect(page.getByRole("alert")).toContainText("no company places available");
+  await page.getByRole("button", { name: "Choose another billing account" }).click();
+  await page.getByRole("combobox", { name: "Billing account" }).click();
+  await page.getByRole("option", { name: "Available billing account", exact: true }).click();
+  await page.getByRole("button", { name: "Continue", exact: true }).click();
+  await page.getByLabel("Company name", { exact: true }).fill("Corrected company");
+  await page.getByRole("button", { name: "Review company" }).click();
+  await expect(page.getByRole("checkbox")).not.toBeChecked();
+  await confirm(page);
+  await expect(page.getByRole("heading", { name: "Your company is saved." })).toBeVisible();
+  const state = await (await page.request.get(`${base}/_fixture/state`)).json();
+  expect(state.calls).toHaveLength(2);
+  expect(state.receipts).toBe(1);
+  expect(state.calls[0].idempotency_key).toBe(state.calls[1].idempotency_key);
+  expect(state.calls[0].customer_id).not.toBe(state.calls[1].customer_id);
+});
 
 test("cancelling before submission revokes setup without creating a company", async ({ page }) => {
   await page.route("https://www.kuubuerp.com/**", (route) =>

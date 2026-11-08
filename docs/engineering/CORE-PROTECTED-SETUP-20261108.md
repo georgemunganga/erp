@@ -57,6 +57,11 @@ identity cannot reuse it. Storage failure prevents sending. Ambiguous failures
 retain the request; explicit retry may create or retrieve the same company.
 No cached/local success is treated as server-confirmed creation. Session expiry
 requires new consent, with the reviewed request retained for safe recovery.
+An explicit correction after a CapacityExhausted reply retains the original
+subject/idempotency key and requires another review/confirmation. It never clears
+the retained request or creates a new key; Core's global actor/key uniqueness
+protects against an older delayed command. Unknown, denied or conflicting outcomes
+remain locked. Reload during correction resumes the last retained command.
 Real browser/provider acceptance remains a separate release gate.
 ## 14. UX
 Setup is separate from ordinary sign-in. Successful creation grants no operational
@@ -111,6 +116,14 @@ purchased capacity, revoked owner/suspended purchase/canceled grant denial and
 read-only provider/Core audits. No fabricated upstream response or production
 TLS/issuer override. This protocol gate does not prove deployed browser ingress,
 production PostgreSQL integration, operational admission or a public SaaS release.
+The separate browser opt-in uses the exact published website build, built ERP
+setup screen, actual relay/provider and Core API/SQLite allocator. An isolated
+Chrome context routes only the reviewed public HTTPS origins to marker-protected
+loopback transports, preserving real cookie/origin/CSRF/state behavior. No browser
+profile, certificate exception or production flag is used. Verify own login,
+disabled Google, explicit Join/setup consent, zero callback provisioning,
+confirmed creation, reload retry, separate HttpOnly cookie hosts and denied
+operational access. This does not certify deployed TLS, DNS or PostgreSQL ingress.
 ## 27. Release gates
 Actual browser→provider→protected grant→create acceptance, definitive no-allocation
 form recovery, private runtime ACLs/shared-volume

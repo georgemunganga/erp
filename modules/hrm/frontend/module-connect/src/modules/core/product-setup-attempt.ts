@@ -64,6 +64,28 @@ export function saveSetupAttempt(storage: AttemptStorage, attempt: SetupAttempt)
     throw new Error("The reviewed request could not be retained.");
 }
 
+/** Explicit correction after a capacity rejection. Preserve the key so a late
+ * original request and the correction still cannot allocate two companies. */
+export function reviseRejectedSetupAttempt(
+  storage: AttemptStorage,
+  original: SetupAttempt,
+  revised: SetupAttempt,
+): void {
+  const current = readSetupAttempt(storage);
+  if (
+    !valid(original) ||
+    !valid(revised) ||
+    current.status !== "ready" ||
+    JSON.stringify(current.attempt) !== JSON.stringify(original) ||
+    original.subject !== revised.subject ||
+    original.command.idempotencyKey !== revised.command.idempotencyKey
+  )
+    throw new Error("The retained request cannot be replaced.");
+  const raw = JSON.stringify(revised);
+  storage.setItem(storageKey, raw);
+  if (storage.getItem(storageKey) !== raw) throw new Error("The correction could not be retained.");
+}
+
 /** Only after a server-confirmed successful outcome has been acknowledged. */
 export function clearSetupAttempt(storage: AttemptStorage): void {
   storage.removeItem(storageKey);

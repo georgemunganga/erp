@@ -225,7 +225,7 @@ public sealed class ProductSetupProviderInteropTests
         }
     }
 
-    private sealed class RealProviderChannel : DelegatingHandler
+    internal sealed class RealProviderChannel : DelegatingHandler
     {
         internal RealProviderChannel() : base(new HttpClientHandler { AllowAutoRedirect=false, UseCookies=false, UseProxy=false }) { }
         protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request,CancellationToken cancellation)
