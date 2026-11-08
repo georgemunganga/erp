@@ -11,8 +11,9 @@ immutable receipts/audit and durable delivery intent. Sender issue/list/revoke
 HTTP endpoints and company-team UI are implemented behind a default-off flag.
 Kuubu account recipient consent/relay is implemented and tested separately.
 Core protected recipient handoff, review and acceptance HTTP are implemented
-behind a separate default-off flag. ERP recipient UI, real-provider recipient
-interoperability, native qualification and delivery remain. No production activation.
+behind a separate default-off flag. ERP recipient UI is implemented and tested
+with synthetic API responses. Real-provider recipient/browser interoperability,
+guest controls and delivery remain. No production activation.
 ## 4. Parent
 CORE-COMPANY-TEAM-20261108.md; one ERP release for SaaS and dedicated installations.
 ## 5. Actors
@@ -29,7 +30,7 @@ Acceptance checks a protected invitation token, current recipient observation,
 current company/license/inviter authority, explicit confirmation and then commits
 exact principal/link/membership/audit/outbox together. No automatic acceptance.
 
-Recipient HTTP/browser contract (Core HTTP/account consent implemented; ERP UI pending):
+Recipient HTTP/browser contract (Core HTTP, account consent and ERP UI implemented; joint real-provider gate pending):
 
 - The fixed `/accept-invitation#token=` landing consumes and removes the fragment
   immediately. Never put the secret in a query, OAuth state, redirect, browser
@@ -78,6 +79,16 @@ apply in ORM and PostgreSQL; receipts are append-only. Populated rollback refuse
 to discard invitation history or delivery obligations.
 ## 13. UI
 Preserve Kuubu login. Separate company invitations from GreenWebb billing-team UI.
+The `/accept-invitation` page uses the shared Kuubu semantic theme and controls,
+with generated route registration and no default ERP auth/branding requests.
+Blocking self-hosted bootstrap removes the fragment/query before hydration and
+provides one-use memory-only access to a correctly shaped fragment secret. The
+page and error reporter do not send invitation context to telemetry. No secret or
+CSRF data enters browser storage; router scroll-position metadata is permitted.
+Fresh links always require explicit handoff; a previous grant cannot silently
+select its old company. Company/role review requires unchecked confirmation;
+an uncertain acceptance locks the reviewed request/key for exact retry. Module
+permissions and operational access remain separate from the receipt acknowledgement.
 Company-team UI shows invitations only when the server advertises availability.
 Review company/email/role, require unchecked confirmation and preserve exact
 request/key after an uncertain response. Lock surrounding actions during review.
@@ -170,6 +181,55 @@ delivery retry, browser acceptance, cross-tenant and recovery gates afterward.
 Do not enable this contract before account consent/relay, Core invitations,
 delivery, migrations/runtime grants, audit and complete browser flow qualify.
 ## 28. Evidence
+### ERP recipient page checkpoint
+
+Published UI067362a0e4cf1f42b4fb427c5fc06446e6023662 adds entry/handoff, targeted
+company/role review, unchecked confirmation, stable-key acceptance retry, denial,
+expiry and end-sign-in states. Shared Kuubu green theme/controls reused. Source
+matches the tested build, including generated route tree; early fragment bootstrap
+and route telemetry exclusion prevent secret-bearing URL/error state persistence.
+
+82 frontend contracts passed, ESLint, production build and TypeScript passed.
+Eight recipient browser scenarios passed: early removal/explicit preparation,
+review/confirmation, response-loss exact retry, fresh link with previous grant,
+unavailable/missing link, denied recipient, cancel and390px mobile layout. Storage
+asserts empty localStorage and only finite router scroll positions in sessionStorage,
+with no invitation/CSRF secret. Existing14 team cases passed on the same application
+before the wrapper-only visual fix; no team code changed afterward. Desktop/mobile
+render inspected; final490 output files retained hash/size/nsmtime and services
+stopped. React checklist covers shared controls, abort/stale response handling,
+per-instance transient refs, primitive effect dependencies and labelled controls.
+
+UI01 retains the no-control-regex lint correction. UI02 retains five recipient/
+14 team passes and three overstrict storage assertions that rejected router
+metadata; corrected assertions explicitly check permitted metadata and secret
+absence. UI03 passes eight cases, with missing Kuubu theme wrapper found in visual
+QA; UI04 fixes the wrapper and passes. No application privacy assertion was removed.
+Evidence: inspection/qualifications/recipient-ui-04/verification.json, with the
+earlier team gate in recipient-ui-02. These browser cases use synthetic API responses;
+native API/store qualification below is separate. New real provider→Core→ERP-page
+recipient acceptance is still unqualified. No production deployment or activation.
+
+### Native recipient API and filesystem checkpoint
+
+Published runtimeacc3ae39e7f4e42973f69f5d5bc05eb3cd0d7929 passed37 recipient
+HTTP/store cases,20 sender HTTP cases and97 invitation/team regressions on Linux
+with genuine PostgreSQL, zero failures/skips. The focused Linux SQLite cohort
+passed300/14 native skips. Callback reservations/marker revocation,160 competing
+callbacks, reader contention, Unix file privacy and new recipient queries are
+exercised by the native gate. Independent copied unchanged dependencies retain
+hash/size/nsmtime; fresh API/tests restore/build do not use old restore metadata.
+
+Read-only SQL audit checked141 new databases (140 current invitation schemas,
+one exact legacy rollback fixture);69 invitations/76 receipts/69 delivery intents/
+81 matching audits/150 matching events and five accepted memberships. Exact actor,
+tenant/company, recipient, immutable history and correlation assertions passed;
+zero credentials/sessions/module grants. Prior databases excluded by pre-run
+inventory. Isolated SDK/test database stopped; no public ports or production
+mutations. Evidence: inspection/qualifications/recipient-native-acc3ae39-01/
+verification.json. Actual recipient provider/browser wire and ERP page still need
+joint qualification; native results are not live customer acceptance.
+
 ### Core recipient handoff and acceptance HTTP checkpoint
 
 Published runtimeacc3ae39e7f4e42973f69f5d5bc05eb3cd0d7929 adds protected browser/

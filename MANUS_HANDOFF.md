@@ -1,4 +1,27 @@
+# ERP recipient page checkpoint —8 November2026
+
+Published UI067362a0e4cf1f42b4fb427c5fc06446e6023662 on existing Core branch.
+Early secret removal, explicit Kuubu handoff, company/role confirmation and
+exact-request retry use the protected API; previous grant cannot silently select
+the wrong invitation. Shared Kuubu theme and generated route registration saved.
+82 frontend contracts, lint/build/typecheck and eight recipient browser cases
+passed;14 existing team cases passed before wrapper-only visual fix.490 output
+files unchanged, owned services stopped. Evidence:
+inspection/qualifications/recipient-ui-04/verification.json. Browser uses synthetic
+responses; current new real-provider recipient acceptance remains next. No live
+activation, migration, payment, mail, DNS or Perfex change. Backend remainsacc3ae39
+and has native qualification below. Main/UI-main/B1 holds and PR201 draft remain.
+
 # Core recipient HTTP checkpoint —8 November2026
+
+Native gate now passed onacc3ae39:37 recipient/store +20 sender +97 invitation/
+team checks, zero skips/failures; focused Linux300/14 native skips. Read-only SQL
+audit141 new databases (140 current/one exact legacy rollback):69 invitations,
+76 receipts,69 delivery intents,81 audits,150 events/five accepted memberships;
+zero credentials/sessions/module grants. Dependencies unchanged; SDK/database
+stopped. Evidence: inspection/qualifications/recipient-native-acc3ae39-01.
+ERP recipient page is being connected; real recipient wire/browser acceptance,
+guest limits, actual mail and operational admission remain release gates.
 
 Published runtimeacc3ae39e7f4e42973f69f5d5bc05eb3cd0d7929 on the existing Core
 branch adds default-off protected invitation handoff, purpose-specific OAuth,
