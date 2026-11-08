@@ -18,6 +18,8 @@ internal static class ProductIdentity
     internal const string Prefix = "/api/core/product-identity";
     internal const string SubjectClaim = "kuubu:product:subject";
     internal const string IssuerClaim = "kuubu:product:issuer";
+    internal const string SetupHandleClaim = "kuubu:setup:handle";
+    internal const string SetupPurpose = "kuubu:setup:purpose";
     private const string DefaultIssuer = "https://commercial-api.greenwebb.tech";
     private const string DefaultOrigin = "https://app.kuubuerp.com";
 
@@ -51,6 +53,18 @@ internal static class ProductIdentity
         // The framework's OAuth debug/correlation diagnostics can contain state
         // or cookie identifiers. Emit our generic failure event instead.
         services.AddLogging(logging => logging.AddFilter("Microsoft.AspNetCore.Authentication.OAuth", LogLevel.None));
+        if (ProductSetupFlow.Enabled(config))
+        {
+            var grantPath = config["ERP:WorkspaceSetup:GrantPath"];
+            ProductSetupGrantStore.ValidateDirectory(grantPath, keyPath);
+            services.AddSingleton(provider =>
+            {
+                ProductSetupGrantStore.ValidateDirectory(grantPath, keyPath,
+                    provider.GetRequiredService<IWebHostEnvironment>().ContentRootPath);
+                return new ProductSetupGrantStore(grantPath!, clientId!, provider.GetRequiredService<IDataProtectionProvider>(), TimeProvider.System);
+            });
+            services.AddHostedService<ProductSetupGrantCleanup>();
+        }
         services.AddAuthentication()
             .AddCookie(PendingScheme, options =>
             {
@@ -114,6 +128,17 @@ internal static class ProductIdentity
                     context.Properties.ExpiresUtc = expires;
                     context.Properties.IsPersistent = false;
                     context.Properties.AllowRefresh = false;
+                    var store = context.HttpContext.RequestServices.GetService<ProductSetupGrantStore>();
+                    var prior = await context.HttpContext.AuthenticateAsync(PendingScheme);
+                    if (store is not null && prior.Succeeded && prior.Principal?.FindFirstValue(SetupHandleClaim) is { } oldHandle)
+                        store.Revoke(oldHandle);
+                    if (context.Properties.Items.TryGetValue(SetupPurpose, out var purpose))
+                    {
+                        if (purpose != "company-create-v1" || !ProductSetupFlow.Enabled(config) || store is null)
+                            throw new AuthenticationFailureException("Setup authorization is unavailable.");
+                        var handle = await store.IssueAsync(subject, context.AccessToken!, expires.Value, context.HttpContext.RequestAborted);
+                        context.Identity.AddClaim(new Claim(SetupHandleClaim, handle));
+                    }
                 };
                 options.Events.OnRemoteFailure = async context =>
                 {
@@ -174,6 +199,9 @@ internal static class ProductIdentity
         }).AllowAnonymous();
         group.MapPost("/logout", async (HttpContext context) =>
         {
+            var proof = await context.AuthenticateAsync(PendingScheme);
+            if (proof.Succeeded && proof.Principal?.FindFirstValue(SetupHandleClaim) is { } handle)
+                context.RequestServices.GetService<ProductSetupGrantStore>()?.Revoke(handle);
             await context.SignOutAsync(PendingScheme);
             return Results.NoContent();
         }).AllowAnonymous();

@@ -86,7 +86,7 @@ internal sealed class ProductWorkspaceSetupAuthority(HttpClient http, TimeProvid
         { return new(WorkspaceAuthorityStatus.Unavailable); }
     }
 
-    private static void RejectDuplicates(JsonElement element)
+    internal static void RejectDuplicates(JsonElement element)
     {
         if (element.ValueKind == JsonValueKind.Object)
         {
@@ -125,6 +125,8 @@ internal static class ProductWorkspaceSetupRegistration
             .RemoveAllLoggers();
         services.AddSingleton(provider => new ProductWorkspaceSetupAuthority(
             provider.GetRequiredService<IHttpClientFactory>().CreateClient(ProductWorkspaceSetupAuthority.HttpClientName), TimeProvider.System, id!));
+        services.AddSingleton(provider => new ProductSetupPayers(
+            provider.GetRequiredService<IHttpClientFactory>().CreateClient(ProductWorkspaceSetupAuthority.HttpClientName), id!));
         return services;
     }
 }
