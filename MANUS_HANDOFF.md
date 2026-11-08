@@ -1,3 +1,17 @@
+# Account-side recipient consent —8 November2026
+
+Kuubu website published02f42d39880e587b4ccaa4b0f650f1e6a2984219, draft website
+PR3, adds exact identity/recipient scope pair, unchecked distinct consent and
+independent client/relay checks. Mixed scopes and substituted/duplicate consent
+fail closed. Same-person email and account changes reset consent/review; own
+login/Google-off retained.42 account tests/two existing skips, API-mode builds,
+14 routes/252 links and seven synthetic browser scenarios passed.25 dist files
+unchanged; owned local service stopped. Seven blobs verified byte-exact; remote
+comparison confirms one fast-forward commit/seven files fromb01985ee, expected
+head lease used. Evidence: inspection/qualifications/recipient-consent-website-04.
+Core protected handoff, fresh real-provider proof, company review/acceptance and
+delivery remain next; no production activation. ERP runtime remains e1498286.
+
 # Sender invitation API/UI checkpoint —8 November2026
 
 Published runtime: e14982865b94b3d147ea7a019c4947ee6c22d02e on

@@ -9,8 +9,9 @@ Separate confidential-client recipient identity observation and strict Core
 reader, followed by internal invitation issue/revoke/accept commands, persistence,
 immutable receipts/audit and durable delivery intent. Sender issue/list/revoke
 HTTP endpoints and company-team UI are implemented behind a default-off flag.
-Actual delivery worker, recipient authorization/consent relay and acceptance
-HTTP/UI remain to build. No production activation.
+Kuubu account recipient consent/relay is implemented and tested separately.
+Actual delivery worker, Core protected recipient handoff and acceptance HTTP/UI
+remain to build. No production activation.
 ## 4. Parent
 CORE-COMPANY-TEAM-20261108.md; one ERP release for SaaS and dedicated installations.
 ## 5. Actors
@@ -27,7 +28,7 @@ Acceptance checks a protected invitation token, current recipient observation,
 current company/license/inviter authority, explicit confirmation and then commits
 exact principal/link/membership/audit/outbox together. No automatic acceptance.
 
-Recipient HTTP/browser implementation contract (not implemented yet):
+Recipient HTTP/browser implementation contract (Core pending; account consent implemented):
 
 - The fixed `/accept-invitation#token=` landing consumes and removes the fragment
   immediately. Never put the secret in a query, OAuth state, redirect, browser
@@ -102,8 +103,10 @@ email_verified=true, purpose=company-invitation-v1, observed_at/proof_until,
 and operational_access_granted=false. Proof is short-lived and server-consumed;
 not a browser-supplied email, signed admission token or membership grant.
 Normal subject responses continue to exclude email. Kuubu account authorization
-UI/relay must separately support this scope and explain recipient verification
-before any production activation; currently unsupported scopes fail closed.
+UI/relay now supports this exact separate scope pair and requires unchecked
+recipient-verification consent. It explains verification is not company acceptance;
+mixed scopes and substituted setup consent fail closed. Core does not yet request
+or consume it through the real callback. Backend flag remains default-off.
 ## 19. Audit/privacy
 Return only the current person's email to their scoped confidential product
 client. Reject selectors; no user lookup, email directory, payer or company list.
@@ -149,6 +152,25 @@ delivery retry, browser acceptance, cross-tenant and recovery gates afterward.
 Do not enable this contract before account consent/relay, Core invitations,
 delivery, migrations/runtime grants, audit and complete browser flow qualify.
 ## 28. Evidence
+### Account-side recipient consent checkpoint
+
+Website source02f42d39880e587b4ccaa4b0f650f1e6a2984219 passed42 account tests,
+two existing opt-in skips, API-mode client/SSR builds,14 rendered pages/252 links
+and connected entry checks. Seven synthetic browser scenarios passed: unchecked/
+checked gating,390px checkbox sizing/no overflow, same-person email change,
+account change, own branded login/Google unavailable, ordinary identity and mixed
+scope denial. All25 dist files retained hash/size/nsmtime; owned service stopped.
+Seven changed blobs verified byte-exact and remote comparison confirms exactly
+one fast-forward commit/seven changes fromb01985ee, with expected-head lease.
+Retained attempts caught a test error-message mismatch, checkbox flex shrink and
+missing email dependency; final gate preserves the relevant assertions.
+
+Evidence: inspection/qualifications/recipient-consent-website-04. This is the
+account-side scope/consent contract, using synthetic API responses. New real
+provider recipient wire, Core encrypted intent/callback, review/acceptance HTTP/UI
+and delivery remain unqualified. Sender runtime is unchanged. No production flag,
+configuration, payment, DNS, Perfex or application deployment change.
+
 ### Sender HTTP and UI checkpoint
 
 Default-off sender API/UI adds licensed scoped issue/list/revoke, bounded paging,
