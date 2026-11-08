@@ -1,3 +1,21 @@
+# Company-team HTTP proof increment —8 November2026
+
+Published source `dfe69f81531546ba547adfde42d516f7f3ec1eb3` adds an explicit signed team-management OAuth purpose,
+a per-sign-in nonce and framework antiforgery-protected session/cancel endpoints.
+It does not yet expose role/revoke mutations, company/member reads, invitations,
+the /team screen or operational ERP admission. All new endpoints are opt-in.
+Windows full dependency build passed;263 focused tests passed with zero failures,
+including16 new team cases. Twelve environment-dependent opt-ins were skipped.
+Evidence is under inspection/qualifications/company-team-http-local-04,
+verification02.json and published-source.json. The first exact cache-header test
+assertion and a missing apphost in test-only preparation failed; all attempts are
+retained. Do not borrow the earlier3cc77532 native/full/browser results for this
+changed identity source. Those gates and real provider/browser refresh remain
+pending for the new source. The runtime dependency DLLs were copied independently
+from the full build and their API checksum matches; no old build was patched.
+See docs/engineering/CORE-COMPANY-TEAM-HTTP-20261108.md for the contract and remaining
+work. No production runtime, database, flag, ingress or Perfex change.
+
 # Internal company role/revoke commands qualified —8 November2026
 
 Source/runtime `3cc775323cbe89d434fde5dbdebf77b082b26516` passed31 genuine
