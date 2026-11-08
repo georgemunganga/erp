@@ -1,4 +1,39 @@
-# Company-team directory and mutation API —8 November2026
+# Company-team API native/full and isolated UI gates passed —8 November2026
+
+API source `2607cd697bb0c959b39e7e2091d3fbfe8d5a2c03` passed74 genuine PostgreSQL
+team/API cases,89 shared native-cohort checks,326 Linux focused and2,294 full
+regressions, zero failures. Ten native opt-ins were exercised in the native
+cohorts; the three actual provider/browser refresh opt-ins remain pending.
+Independent read-only audit of74 new databases (previous31 excluded) verified165
+memberships,28 immutable receipts,23 audit/outbox changes and five no-op receipts.
+Four actor-loss fixtures deliberately remove the last owner outside commands;
+the audit records that scope instead of claiming an all-companies owner invariant.
+No credentials, operational sessions or module roles were introduced.
+
+Runner kuubu-company-team-api-gate02 exited0/OOMKilled=false. Controller/audit
+restored the labeled test PostgreSQL to stopped. Read-only private ERP readiness
+and Perfex sign-in both returned200. Evidence/hashes are recorded in
+CORE-COMPANY-TEAM-HTTP-20261108.md and local qualification roots
+company-team-api-linux-2607cd69-02 / company-team-api-audit-2607cd69-01.
+
+Published UI source `aaafdf25649b6fa8feca59be1c97452407004462` adds /team with shared
+ERP controls and its own Kuubu product shell, without operational admission.
+Backend source is byte-for-byte unchanged from2607cd69. UI02 independently passed
+18 contracts, TypeScript, ESLint, production SSR build and nine synthetic-API
+Chrome scenarios, including visible mobile actions. All487 output files retained
+hash/size/nanosecond mtime after consumers; SSR stopped and port3188 closed.
+Desktop/mobile/review previews inspected under company-team-ui-02. UI01 remains
+unchanged with its earlier offscreen mobile table actions. Frontend archive
+48dddf823abdfbe0b4d754d381f0177a4567e2f9ebaa317b51e38bd2d757ca43.
+
+Next: actual Laravel/Kuubu relay/Core team-sign-in/browser integration (the UI gate
+above uses a synthetic API), invitations/acceptance/delivery and qualified entry
+navigation. Licensed operational ERP sessions, tenant/module isolation, Lenco,
+other product adapters, recovery and dedicated deployment remain unfinished.
+No production activation or invitation workflow yet. See
+CORE-COMPANY-TEAM-UI-20261108.md and company-team-ui-02/verification.json.
+
+# Earlier company-team directory and mutation API checkpoint —8 November2026
 
 Published source `2607cd697bb0c959b39e7e2091d3fbfe8d5a2c03` connects company discovery,
 licensed member reads and strict confirmed role/revoke HTTP commands to the
