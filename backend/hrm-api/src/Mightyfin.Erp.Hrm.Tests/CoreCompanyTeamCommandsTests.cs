@@ -239,9 +239,9 @@ public sealed class CoreCompanyTeamCommandsTests
 
     public sealed class NativeTeamFactAttribute:FactAttribute
     {public NativeTeamFactAttribute(){if(string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable("KUUBU_SESSION_TEST_POSTGRES")))Skip="Requires isolated native team-command PostgreSQL fixture.";}}
-    private sealed record Person(string Subject,Guid Link,Guid User,Guid Member)
+    internal sealed record Person(string Subject,Guid Link,Guid User,Guid Member)
     {internal CompanyTeamActor Proof=>new(ProductCommercialLicense.Issuer,Subject,Link);}
-    private sealed class Probe(CoreWorkspaceProvisionerTests.Clock clock):SaveChangesInterceptor
+    internal sealed class Probe(CoreWorkspaceProvisionerTests.Clock clock):SaveChangesInterceptor
     {
         internal string Mode="";internal CancellationTokenSource? Stop;internal string? Failure;
         public override Task SaveChangesFailedAsync(DbContextErrorEventData data,CancellationToken cancellation=default)
@@ -250,7 +250,7 @@ public sealed class CoreCompanyTeamCommandsTests
         {if(Mode=="expire")clock.Advance();if(Mode=="fail")throw new DbUpdateException("Synthetic post-save failure");
             if(Mode=="cancel"){Stop!.Cancel();cancellation.ThrowIfCancellationRequested();}return ValueTask.FromResult(result);}
     }
-    private sealed class Fixture(DbContextOptions<HrmDbContext> options,SqliteConnection? sqlite,CoreWorkspaceProvisionerTests.Clock clock,Probe probe):IAsyncDisposable
+    internal sealed class Fixture(DbContextOptions<HrmDbContext> options,SqliteConnection? sqlite,CoreWorkspaceProvisionerTests.Clock clock,Probe probe):IAsyncDisposable
     {
         private const string Enrollment="01arz3ndektsv4rrffq69g5fav";
         internal CoreWorkspaceProvisionerTests.Clock Clock=>clock;internal Probe Probe=>probe;

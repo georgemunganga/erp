@@ -274,7 +274,7 @@ public sealed class ProductIdentityHttpTests
     public async Task Team_endpoints_are_unavailable_without_both_identity_and_explicit_team_enablement(bool identityEnabled, bool teamEnabled)
     {
         await using var fixture = await Fixture.Start(enabled: identityEnabled, teamEnabled: teamEnabled);
-        foreach (var path in new[] { "/start", "/session" })
+        foreach (var path in new[] { "/start", "/session", "/companies", "/members" })
         {
             var response = await fixture.Get(ProductCompanyTeamFlow.Prefix+path);
             Assert.Equal(HttpStatusCode.ServiceUnavailable, response.StatusCode);
