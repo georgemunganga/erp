@@ -99,7 +99,8 @@ Node contracts, TypeScript, ESLint, production SSR build and isolated Chrome che
 cover own branded sign-in, confirmation/no double send, historical retry/fresh
 read, bounded admin actions, last-owner denial, access denial, pagination,
 unavailable boundary and mobile actions. These use a synthetic API, not the actual
-Laravel OAuth provider/Core browser integration. That remains a release gate.
+Laravel OAuth provider/Core browser integration. The later actual-provider gate
+below records its distinct protocol/fixture scope; deployed ingress is not tested.
 ## 26. Release
 Qualification in progress. First UI build passed18 contracts, TypeScript and nine
 browser cases; visual review found mobile actions offscreen in the wide table.
@@ -119,7 +120,8 @@ build/contracts/typecheck/browser logs and team-desktop/mobile/review.png.
 UI01 and its earlier offscreen-actions screenshots remain unchanged. The React
 review covered scope cancellation, stable retry intent, no shared SSR identity
 state, confirmation/focus/keyboard behavior and bounded rendering. Actual
-provider/Core/browser acceptance and production activation remain pending.
+provider/Core/browser acceptance is recorded separately below; production activation
+remains pending.
 ## 27. Ownership
 Core owns governance, Laravel verified identity/enrollment/licensing, Perfex its
 current invoice/payment responsibilities. GreenWebb portal and Kuubu remain

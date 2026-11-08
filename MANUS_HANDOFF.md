@@ -1,4 +1,36 @@
-# Company-team API native/full and isolated UI gates passed —8 November2026
+# Actual Kuubu team sign-in and browser/Core changes passed —8 November2026
+
+Published harness/runner `bb047f489b01c86ce8685b7bd1dffd1bf19be7d4` (test fixture
+first published86a75ee1) passed the actual branded website/Laravel/Core/SSR team
+journey in36.589s. API2607cd69/UIaaafdf25 runtime source is unchanged. Websiteb01985ee
+matched all92 published source blobs. Test-only bridge controls and explicit
+preaccepted-member/personal-enrollment fixtures are not invitation implementation.
+
+Verified: login/Google unavailable; explicit enrollment/setup consent; create and
+same-request retry; setup proof cannot authorize /team; fresh identity-only team
+sign-in; licensed member reads; role change; committed-response loss and same-key
+retry; current-team refresh; revocation; last-owner denial; subscription suspension
+and receipt replay denied403; default ERP protected probe401.
+
+Independent read-only audit: one binding, two exact membership/principal/link
+pairs, two receipts and two matching team audit/outbox changes (three total with
+company creation), owner active/revision1, member administrator/inactive/revision3.
+No Core credentials, sessions or module roles. Staff has no payer membership;
+personal enrollments remain separate. Fourteen runtime libraries and487 UI output
+files unchanged. Owned PHP/SSR/bridge stopped and8101/8121/3186 closed.
+
+Evidence: inspection/qualifications/real-team-browser-acceptance-03/verification.json,
+component-inputs.json, published-inputs.json; runner is now versioned under
+backend/hrm-api/tools/ProductTeamBrowser with preparation instructions. Earlier
+failure01 timed out before login;02 completed real role change but had a CP1252
+test assertion. Both retained;03 writes UTF-8 and keeps the same assertions.
+
+Next: capability-gated setup/website entry navigation and invitations/acceptance/
+delivery, then licensed ERP sessions and tenant/module isolation. This new case
+does not rerun all older standalone protocol opt-ins. No deployed TLS/DNS or
+production activation/payment/Perfex change; the full ecosystem remains unfinished.
+
+# Earlier company-team API native/full and isolated UI checkpoint —8 November2026
 
 API source `2607cd697bb0c959b39e7e2091d3fbfe8d5a2c03` passed74 genuine PostgreSQL
 team/API cases,89 shared native-cohort checks,326 Linux focused and2,294 full
