@@ -177,7 +177,8 @@ try {
   const seed = await fetch('http://127.0.0.1:8121/seed-accepted-member', { method: 'POST', headers: auth });
   assert.equal(seed.status, 200);
   stage = 'setup_proof_cannot_manage_team';
-  await page.goto(appOrigin + '/team');
+  await expect(page.getByRole('link', { name: 'Manage company team', exact: true })).toHaveAttribute('href', '/team');
+  await page.getByRole('link', { name: 'Manage company team', exact: true }).click();
   await expect(page.getByRole('link', { name: 'Continue with Kuubu', exact: true })).toBeVisible();
   await expect(page.getByRole('button', { name: /Change role for|Revoke access for/ })).toHaveCount(0);
   stage = 'fresh_team_signin';

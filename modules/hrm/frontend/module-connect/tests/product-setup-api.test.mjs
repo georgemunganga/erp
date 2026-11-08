@@ -98,6 +98,9 @@ for (const code of ["Conflict", "CapacityExhausted"])
     );
   });
 for (const patch of [
+  { team_management_available: "true" },
+  { team_management_available: 1 },
+  { team_management_available: null },
   { operational_access_granted: true },
   { status: "Existing" },
   { company_id: "unknown" },
@@ -111,6 +114,14 @@ for (const patch of [
     );
   });
 }
+
+for (const available of [undefined, false, true])
+  test(`team entry availability requires an explicit server boolean: ${available}`, async () => {
+    const client = createProductSetupClient(async () =>
+      reply({ ...validCompany, team_management_available: available }, 201),
+    );
+    assert.equal((await client.create(session, command)).teamManagementAvailable, available === true);
+  });
 test("HTML successful response cannot masquerade as a created company", async () => {
   const client = createProductSetupClient(
     async () => new Response("<html>Sign in</html>", { headers: { "Content-Type": "text/html" } }),

@@ -175,6 +175,9 @@ No application behavior or production configuration was changed to pass the gate
 The byte-identical successful runner is versioned at
 backend/hrm-api/tools/ProductTeamBrowser/browser.mjs with preparation instructions.
 
-Next: capability-gated entry navigation, invitations/acceptance/delivery and the
+Setup-to-team capability-gated entry navigation is now qualified in
+CORE-PROTECTED-SETUP-20261108.md, including a fresh41.395s real-provider browser
+run through the visible link. Website-level product navigation remains separate.
+Next: website entry links, invitations/acceptance/delivery and the
 remaining operational/deployment milestones. Older standalone protocol opt-ins
 are not all rerun by this combined browser case. No production activation.

@@ -1,5 +1,56 @@
 # Protected Kuubu company setup
 
+### Setup to company-team navigation (2026-11-08, isolated qualification passed)
+
+Create and exact-request retry responses add the boolean
+`team_management_available`, derived from the existing ProductIdentity,
+ProductLicensing and CompanyTeam switches. It describes deployed capability,
+not the person's membership, current license or operational admission. The
+setup client defaults a missing field to false for older APIs and rejects
+non-boolean values. Only true offers the fixed `/team` link after confirmed
+creation/retry; no identity, payer or company selectors travel in that URL.
+
+Core still checks a fresh team-purpose sign-in, explicit membership, license
+and command permissions. Setup authorization cannot substitute. No new records,
+events, scopes, cookies, migration, or feature activation are introduced. Flags
+default off; standalone/dedicated setup behavior remains available independently
+of this optional product flow. Rollback removes the navigation/optional metadata
+without changing stored commands or companies. Acceptance covers true, false,
+legacy missing metadata, malformed metadata, retry, and fresh team authorization.
+
+Fresh Windows build passed (83 inherited warnings, zero errors). Targeted tests
+passed143 with10 native PostgreSQL opt-ins skipped;59 Node contracts passed.
+The production SSR build, generated route registration, TypeScript and final lint
+passed.18 synthetic-API setup browser scenarios passed, including true/false/
+missing availability and the fixed link leading to fresh team authorization.
+The generator's21-line `/team` registration is now tracked so a clean checkout
+can type-check without depending on a preceding build.
+
+Actual Laravel/Passport, published website relay, Core and the new SSR build
+passed the updated combined browser case in41.3947592s. The case clicks the
+visible setup-to-team link rather than navigating there directly, verifies setup
+proof cannot authorize team operations, then exercises fresh sign-in, licensed
+reads, role change with committed-response loss/exact-key retry, revocation,
+last-owner denial, suspension/read/replay denial and default ERP probe401.
+Independent read-only audit verified one binding, two exact memberships/identity
+links, two command receipts/two matching team audit/outbox changes and zero Core
+credentials, sessions or module grants. Staff has no payer membership. The member
+remains an explicit preaccepted/enrolled fixture; invitation delivery/acceptance
+is still unfinished. All487 output files retained hashes/sizes/mtime after both
+browser consumers. Owned local services stopped; ports8101/8121/3186 closed.
+
+Evidence: inspection/qualifications/company-team-entry-01/source-verification.json
+and team-entry-browser-01/verification.json. Browser log SHA256
+8201e9348a93f9ad54d22b8cc69ff3eb494d0619d3ffa282e7aec481e075690b;
+runner7deb991d0a386a3754f0a0c386c4ee26252dc8a83f9c795f63efdfb293df2cd1.
+Initial clean-checkout typecheck failed on the previously missing generated route;
+regeneration plus the tracked update fixed it. Initial lint found only test
+formatting; final source lint passed and the complete parsed test syntax tree
+matches the executed fixture copy. A first emission-based evidence check retained
+trailing-comma formatting and was unsuitable for equality; the full syntax-tree
+comparison passed. All failed logs/scripts remain. No production activation,
+deployed TLS/DNS verification, native refresh, payment or Perfex change occurred.
+
 ## 1. Identification
 Tier3 Core child feature; authenticated setup without operational ERP admission.
 ## 2. Purpose

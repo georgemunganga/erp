@@ -7,7 +7,12 @@ export const productSetupStart = `${prefix}/start`;
 export type SetupSession = { subject: string; csrfToken: string; expiresAt: string };
 export type SetupPayer = { customerId: string; name: string; workspaceLimit: number };
 export type SetupPayerPage = { customers: SetupPayer[]; nextCursor: string | null };
-export type SetupCompany = { status: "Created" | "Existing"; companyId: string; bindingId: string };
+export type SetupCompany = {
+  status: "Created" | "Existing";
+  companyId: string;
+  bindingId: string;
+  teamManagementAvailable: boolean;
+};
 export type SetupCommand = { customerId: string; companyName: string; idempotencyKey: string };
 
 export class ProductSetupError extends Error {
@@ -155,13 +160,16 @@ export function createProductSetupClient(fetcher: typeof fetch = fetch) {
         typeof data.company_id !== "string" ||
         !uuid.test(data.company_id) ||
         typeof data.binding_id !== "string" ||
-        !uuid.test(data.binding_id)
+        !uuid.test(data.binding_id) ||
+        (data.team_management_available !== undefined &&
+          typeof data.team_management_available !== "boolean")
       )
         return invalid();
       return {
         status: data.status as SetupCompany["status"],
         companyId: data.company_id,
         bindingId: data.binding_id,
+        teamManagementAvailable: data.team_management_available === true,
       };
     },
     async cancel(session: SetupSession, signal?: AbortSignal): Promise<void> {

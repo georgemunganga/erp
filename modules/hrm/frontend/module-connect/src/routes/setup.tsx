@@ -386,7 +386,24 @@ function CompanySetup() {
                         : "Saved successfully."}
                     </p>
                   </div>
-                  <Button className="w-full" disabled={busy} onClick={() => void finish()}>
+                  {result.teamManagementAvailable ? (
+                    <>
+                      <p className="text-sm leading-relaxed text-muted-foreground">
+                        Continue with Kuubu to review your company team and manage access.
+                      </p>
+                      <Button asChild className="w-full">
+                        <a href="/team">
+                          Manage company team <ArrowRight className="size-4" aria-hidden="true" />
+                        </a>
+                      </Button>
+                    </>
+                  ) : null}
+                  <Button
+                    variant={result.teamManagementAvailable ? "outline" : "default"}
+                    className="w-full"
+                    disabled={busy}
+                    onClick={() => void finish()}
+                  >
                     {busy ? "Closing setup…" : "Return to Kuubu"}
                   </Button>
                 </>

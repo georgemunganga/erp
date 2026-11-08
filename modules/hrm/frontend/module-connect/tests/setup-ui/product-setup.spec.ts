@@ -19,6 +19,34 @@ async function confirm(page: Page, retry = false) {
     .getByRole("button", { name: retry ? "Retry reviewed request" : "Create company", exact: true })
     .click();
 }
+for (const availability of ["team-enabled", "ready", "team-legacy"]) {
+  test(`saved company offers team navigation only when explicitly available: ${availability}`, async ({
+    page,
+  }) => {
+    await scenario(page, availability);
+    await review(page);
+    await confirm(page);
+    await expect(page.getByRole("heading", { name: "Your company is saved." })).toBeVisible();
+    const link = page.getByRole("link", { name: "Manage company team", exact: true });
+    if (availability !== "team-enabled") {
+      await expect(link).toHaveCount(0);
+      return;
+    }
+    await expect(link).toHaveAttribute("href", "/team");
+    await page.route("**/api/core/product-identity/team/session", (route) =>
+      route.fulfill({ status: 401, contentType: "application/json", body: "{}" }),
+    );
+    await link.click();
+    await expect(page).toHaveURL(`${base}/team`);
+    await expect(
+      page.getByRole("link", { name: "Continue with Kuubu", exact: true }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole("button", { name: /Change role for|Revoke access for/ }),
+    ).toHaveCount(0);
+  });
+}
+
 test("public branded setup renders without operational auth/branding calls and requires review confirmation", async ({
   page,
 }, testInfo) => {

@@ -44,5 +44,12 @@ identity/tenant links, receipts, audit/outbox, revisions and zero credentials,
 operational sessions or module roles. Stop every owned process and verify ports
 closed; retain failed attempts and private diagnostics without publishing secrets.
 
+The current runner requires setup response `team_management_available=true` and
+clicks the visible fixed `/team` link. Use matching API/UI builds; the prior
+API2607cd69/UIaaafdf25 pair does not implement that new entry contract. The updated
+combined gate passed41.395s; evidence is
+inspection/qualifications/team-entry-browser-01/verification.json. No operational
+admission or invitation acceptance is implied.
+
 Known successful reference: source API2607cd69/UIaaafdf25/websiteb01985ee,
 36.589s; evidence `inspection/qualifications/real-team-browser-acceptance-03`.

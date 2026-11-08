@@ -13,6 +13,7 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as SetupRouteImport } from './routes/setup'
 import { Route as SignInRouteImport } from './routes/sign-in'
 import { Route as SpeakUpRouteImport } from './routes/speak-up'
+import { Route as TeamRouteImport } from './routes/team'
 import { Route as CoreIndexRouteImport } from './routes/core.index'
 import { Route as CoreBranchAccessRouteImport } from './routes/core.branch-access'
 import { Route as CoreBrandingRouteImport } from './routes/core.branding'
@@ -170,6 +171,11 @@ const SignInRoute = SignInRouteImport.update({
 const SpeakUpRoute = SpeakUpRouteImport.update({
   id: '/speak-up',
   path: '/speak-up',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const TeamRoute = TeamRouteImport.update({
+  id: '/team',
+  path: '/team',
   getParentRoute: () => rootRouteImport,
 } as any)
 const CoreIndexRoute = CoreIndexRouteImport.update({
@@ -893,6 +899,7 @@ export interface FileRoutesByFullPath {
   '/setup': typeof SetupRoute
   '/sign-in': typeof SignInRoute
   '/speak-up': typeof SpeakUpRoute
+  '/team': typeof TeamRoute
   '/core/branch-access': typeof CoreBranchAccessRoute
   '/core/branding': typeof CoreBrandingRoute
   '/core/organization': typeof CoreOrganizationRoute
@@ -1037,6 +1044,7 @@ export interface FileRoutesByTo {
   '/setup': typeof SetupRoute
   '/sign-in': typeof SignInRoute
   '/speak-up': typeof SpeakUpRoute
+  '/team': typeof TeamRoute
   '/core/branch-access': typeof CoreBranchAccessRoute
   '/core/branding': typeof CoreBrandingRoute
   '/core/organization': typeof CoreOrganizationRoute
@@ -1182,6 +1190,7 @@ export interface FileRoutesById {
   '/setup': typeof SetupRoute
   '/sign-in': typeof SignInRoute
   '/speak-up': typeof SpeakUpRoute
+  '/team': typeof TeamRoute
   '/core/branch-access': typeof CoreBranchAccessRoute
   '/core/branding': typeof CoreBrandingRoute
   '/core/organization': typeof CoreOrganizationRoute
@@ -1328,6 +1337,7 @@ export interface FileRouteTypes {
     | '/setup'
     | '/sign-in'
     | '/speak-up'
+    | '/team'
     | '/core/branch-access'
     | '/core/branding'
     | '/core/organization'
@@ -1472,6 +1482,7 @@ export interface FileRouteTypes {
     | '/setup'
     | '/sign-in'
     | '/speak-up'
+    | '/team'
     | '/core/branch-access'
     | '/core/branding'
     | '/core/organization'
@@ -1616,6 +1627,7 @@ export interface FileRouteTypes {
     | '/setup'
     | '/sign-in'
     | '/speak-up'
+    | '/team'
     | '/core/branch-access'
     | '/core/branding'
     | '/core/organization'
@@ -1761,6 +1773,7 @@ export interface RootRouteChildren {
   SetupRoute: typeof SetupRoute
   SignInRoute: typeof SignInRoute
   SpeakUpRoute: typeof SpeakUpRoute
+  TeamRoute: typeof TeamRoute
   CoreBranchAccessRoute: typeof CoreBranchAccessRoute
   CoreBrandingRoute: typeof CoreBrandingRoute
   CoreOrganizationRoute: typeof CoreOrganizationRoute
@@ -1912,6 +1925,13 @@ declare module '@tanstack/react-router' {
       path: '/speak-up'
       fullPath: '/speak-up'
       preLoaderRoute: typeof SpeakUpRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/team': {
+      id: '/team'
+      path: '/team'
+      fullPath: '/team'
+      preLoaderRoute: typeof TeamRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/core/': {
@@ -3078,6 +3098,7 @@ const rootRouteChildren: RootRouteChildren = {
   SetupRoute: SetupRoute,
   SignInRoute: SignInRoute,
   SpeakUpRoute: SpeakUpRoute,
+  TeamRoute: TeamRoute,
   CoreBranchAccessRoute: CoreBranchAccessRoute,
   CoreBrandingRoute: CoreBrandingRoute,
   CoreOrganizationRoute: CoreOrganizationRoute,

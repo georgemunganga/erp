@@ -63,7 +63,8 @@ createServer(async (req, res) => {
         const previous = state.receipts.has(key);
         state.receipts.set(key, data);
         if (state.scenario === 'ambiguous' && !previous) return json(res, {}, 503);
-        return json(res, { status: previous ? 'Existing' : 'Created', company_id: uuid, binding_id: uuid, operational_access_granted: false }, previous ? 200 : 201);
+        const availability = state.scenario === 'team-legacy' ? {} : { team_management_available: state.scenario === 'team-enabled' };
+        return json(res, { status: previous ? 'Existing' : 'Created', company_id: uuid, binding_id: uuid, ...availability, operational_access_granted: false }, previous ? 200 : 201);
       }
       if (path === '/cancel' && req.method === 'POST') { state.cancelCalls++; state.authorized = false; res.writeHead(204); return res.end(); }
       return json(res, {}, 404);

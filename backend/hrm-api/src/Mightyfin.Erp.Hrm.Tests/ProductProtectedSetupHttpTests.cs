@@ -70,10 +70,12 @@ public sealed class ProductProtectedSetupHttpTests
         Assert.Empty(Directory.GetFiles(f.Grants));
     }
 
-    [Fact]
-    public async Task Confirmed_create_rechecks_payer_and_license_and_retries_the_same_company()
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task Confirmed_create_rechecks_payer_and_license_and_retries_the_same_company(bool teamEnabled)
     {
-        await using var f = await Fixture.Start();
+        await using var f = await Fixture.Start(teamEnabled);
         var cookie = await f.Callback(await f.Challenge(true));
         var csrf = await f.Csrf(cookie);
         var page = await f.Get("/payers", cookie);
@@ -86,6 +88,8 @@ public sealed class ProductProtectedSetupHttpTests
         var retry = await f.Post(cookie, csrf);
         Assert.Equal(HttpStatusCode.OK, retry.StatusCode);
         using var second = JsonDocument.Parse(await retry.Content.ReadAsStringAsync());
+        Assert.Equal(teamEnabled, first.RootElement.GetProperty("team_management_available").GetBoolean());
+        Assert.Equal(teamEnabled, second.RootElement.GetProperty("team_management_available").GetBoolean());
         Assert.Equal(first.RootElement.GetProperty("company_id").GetString(), second.RootElement.GetProperty("company_id").GetString());
         Assert.False(second.RootElement.GetProperty("operational_access_granted").GetBoolean());
         Assert.Equal(2, f.Provider.AuthorityCalls); Assert.Equal(2, f.Provider.LicenseCalls);
@@ -130,7 +134,7 @@ public sealed class ProductProtectedSetupHttpTests
         internal HttpClient Http => http;
         internal Provider Provider => provider;
         internal string Grants => grants;
-        internal static async Task<Fixture> Start()
+        internal static async Task<Fixture> Start(bool teamEnabled = false)
         {
             var builder = WebApplication.CreateBuilder(); builder.WebHost.UseTestServer(); builder.Logging.ClearProviders();
             var root = Path.Combine(Path.GetTempPath(), "kuubu-protected-setup-"+Guid.NewGuid().ToString("N"));
@@ -140,6 +144,7 @@ public sealed class ProductProtectedSetupHttpTests
             builder.Configuration.AddInMemoryCollection(new Dictionary<string, string?> {
                 ["ERP:ProductIdentity:Enabled"]="true", ["ERP:WorkspaceSetup:Enabled"]="true", ["ERP:WorkspaceProvisioning:Enabled"]="true",
                 ["ERP:ProductLicensing:Enabled"]="true", ["ERP:ProductIdentity:ClientId"]=ClientId,
+                ["ERP:CompanyTeam:Enabled"]=teamEnabled.ToString(),
                 ["ERP:ProductIdentity:ClientSecret"]="synthetic-identity-secret", ["ERP:ProductIdentity:DataProtectionPath"]=keys,
                 ["ERP:WorkspaceSetup:GrantPath"]=grants });
             var connection = new SqliteConnection("Data Source=:memory:"); await connection.OpenAsync();

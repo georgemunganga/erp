@@ -119,6 +119,7 @@ internal static class ProductSetupFlow
             WorkspaceCreateStatus.Invalid => 400, WorkspaceCreateStatus.Denied => 403,
             WorkspaceCreateStatus.CapacityExhausted or WorkspaceCreateStatus.Conflict => 409, _ => 503 };
         return Results.Json(new { status = result.Status.ToString(), company_id = result.CompanyId, binding_id = result.BindingId,
+            team_management_available = ProductCompanyTeamFlow.Enabled(http.RequestServices.GetRequiredService<IConfiguration>()),
             operational_access_granted = false }, statusCode: status);
     }
 }
