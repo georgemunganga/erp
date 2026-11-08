@@ -1,4 +1,32 @@
-# Invitation recipient proof contract qualified —8 November2026
+# Internal invitation lifecycle implemented; native qualification pending —8 November2026
+
+Published a419439942a77db22a968ef5d94bb2c10f53921e adds internal Core invitation
+issue/revoke/explicit acceptance, schema and PostgreSQL history guards, immutable
+receipts, protected48-hour delivery envelopes and ID-only durable delivery intent.
+Owner may invite administrators/members; admin may invite only members. Acceptance
+requires targeted secret plus fresh recipient proof, current inviter and license,
+and explicit confirmation. Active membership cannot be changed through acceptance;
+reactivation requires a new invitation and restores only its requested role.
+Retry cannot revive a later-revoked member. No credentials, sessions or module roles.
+
+Local exact-source gate:243 pass/14 native skips, including19 new lifecycle cases
+and four new native cases pending. EF10.0.11 design generation/model comparison
+passed without a DB connection. Evidence: inspection/qualifications/company-invitations-04/verification.json.
+Retained01 exposed scoped-link insertions;02 restored setup/team but broader
+identity tests still found five failures. Trusted tenant assignment through EF's
+property entry fixes generated composite key persistence.03/04 preserve and pass
+those identity constraints. Source also carries explicit scopes before tracking.
+
+Native source archive909df1c6ba7a869b3258375527e410503ea9c6e88a1e517cf2c5608a86ccaf7c
+is qualifying in exclusive /opt/kuubu-builds/company-invitations-a4194399-01,
+container kuubu-company-invitations-gate01. Fresh source/restore, read-only package
+cache, no reused project bin/obj; synthetic PostgreSQL only. Native results are
+not yet established here. No DI/public HTTP, delivery worker or UI activation.
+Existing main/B1/release holds and draft PR201 remain. Production applications,
+configuration, DNS, Perfex and payments unchanged. Next: finish native gates and
+read-only audit, then actual recipient wire/consent/HTTP/UI and delivery integration.
+
+## Earlier recipient proof contract checkpoint
 
 Published ERP57ee105877e963980ed593d737804a40bccbf3b6 adds a strict server-side
 recipient reader and41 new proof cases;191 focused checks passed, zero skips,
