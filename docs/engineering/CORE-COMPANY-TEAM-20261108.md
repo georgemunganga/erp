@@ -102,7 +102,8 @@ revocation, stale historical ownership and cross-tenant FKs. Role/revoke command
 protect the last locally usable owner: another active/unarchived owner membership
 must have an active federated account, active issuer link and no current lock.
 This checks known Core state, not the future availability of an external identity.
-Native concurrency and public command authentication/CSRF remain exposure gates.
+Native concurrency passed for3cc77532. Public command authentication/CSRF and
+audited external-identity recovery remain exposure gates.
 ## 22. Operations
 New schema must be qualified through genuine PostgreSQL migrations and finite
 runtime grants before deployment. Preserve existing release holds and Perfex.
@@ -127,21 +128,61 @@ Company create/retry/rollback; bounded governance roles; revoked/foreign proof a
 license denial; same-tenant/unique/check constraints; genuine migration/backfill/
 rollback and model drift; full ERP regression and later browser team journeys.
 ## 27. Release gates
-Native schema/allocation and full regression passed for49780a39. New role/revoke
-schema/commands require fresh native/full qualification. Remaining: native
-governance-reader/command execution, public verified-identity/origin/CSRF command
+Native schema, governance reader, role/revoke commands and full regression passed
+for3cc77532. Remaining: public verified-identity/origin/CSRF command
 integration, invitation/acceptance delivery, team UI, licensed sessions,
 deployed acceptance and dedicated/on-premise install/upgrade/restore qualification.
 ## 28. Evidence
-### Role/revoke command increment — local qualification
+### Qualified internal role/revoke commands —8 November2026
 
 Windows build passed;265 focused identity/federation/workspace/company/local-auth
 tests passed, zero failures,13 opt-in skips (10 native, three actual provider/
 browser). EF10.0.11 reports no pending model changes. Four new native cases cover
 the real governance query, concurrent owner demotions, concurrent identical
 retries, receipt scope/immutability and safe empty/populated migration rollback.
-These native cases and new full regression have not run yet. No public command
-endpoint or new operational session is enabled.
+The full31-case team-command cohort ran against genuine PostgreSQL and passed
+with zero skips, closing the governance-query integration gap. Shared native
+cohort89 passed, Linux focused267 passed/10 native skips, and full Linux
+regression2,235 passed/zero failures/13 opt-in skips in8m30s. All13 opt-ins ran
+separately:10 native cases in the two cohorts plus actual browser/setup/ordinary
+provider cases. No public command endpoint or operational session is enabled.
+
+Independent read-only audit of31 native team databases verified62 memberships,
+14 immutable command receipts,10 matching revisioned audit/outbox changes and
+four no-op receipts with no false change event. Validated same-company/tenant
+FKs, positive revisions, actor/key uniqueness, enabled immutability trigger,
+exact actor-link binding, historical result revisions and retained active-owner
+memberships all passed. No credentials, module roles or operational sessions
+were granted. Global identity disablement remains independent of company
+membership; this is not a promise that an external identity is always usable.
+
+Refreshed actual browser36s, protected setup83s and ordinary identity/licensing
+31s passed against real Laravel helperb71b29fe and published websiteb01985ee.
+Independent browser/setup SQL verified respectively one/two company tenants,
+matching owner/member/link pairs at revision1, zero team-command receipts and
+zero credentials/sessions/module roles. Staff retain zero billing memberships.
+This verifies normal setup is unchanged; it does not test a public team API.
+
+Exact source `3cc775323cbe89d434fde5dbdebf77b082b26516`; source archive SHA256
+`96aa59719eaf077101e1b450424597e04fc0dee3ccf4faa1853fe8e32b9501c8`.
+Local evidence roots under inspection/qualifications: company-team-linux-3cc77532-01,
+company-team-browser-3cc77532-01 and company-team-protocol-3cc77532-01. Remote
+source/results: /opt/kuubu-builds/company-team-commands-3cc77532-01; independent
+audit: /opt/kuubu-builds/company-team-audit-3cc77532-01. Verified SHA256:
+
+- Native team `57ffd7570e28a54cf1573a9e49cdd3f2c5048be0b46aeb33f8751a0acf9a51de`.
+- Native shared `2abf00b7418ea7446bf42d2e4333a36b3cee70a08a7ad96b93c7d43be10d1923`.
+- Linux focused `4ded146080790e39cd36532c35d5aa49d7395a1c03008e7f2a80cff1e06f340f`.
+- Full regression `ff0cf95ca20203a2476611f48037823a8af46df8020b909d86efd902cc930b91`.
+- Native SQL audit `9a3672a9e6d49a4d29a77f539b0a9336a2964c7990755a867ec1b0dff190e369`.
+- Browser log `3adc1acf9fb7d61a35f760d224718236ac6a1f406e09a39fd0fdd242ffad24c2`.
+- Protected setup `6e9099716cc399cfe67f683dccebd146216059a22750f9e4a8b06d5c657cb310`.
+- Ordinary identity `20d32f989116eae60178f05c091a8855152f68394844e19b85cc49801e84aac1`.
+
+SDK/test PostgreSQL stopped0/OOMfalse; local fixture/SSR ports closed. Read-only
+private ERP readiness and Perfex sign-in returned200. No production image,
+migration, privilege, feature flag, identity client/key, Google/payment/DNS or
+Perfex change. Hosted CI success is not claimed.
 
 The first focused run retained58 failures/10 passes: company creation's new
 composite membership key omitted tenant_id at insertion. A single diagnostic
@@ -154,13 +195,13 @@ stored binding. Failure evidence was retained, not excluded from the suite.
 
 The older qualified source below is a separate checkpoint and does not qualify
 the new receipt/revision schema or role/revoke workflow.
-Published source3cc775323cbe89d434fde5dbdebf77b082b26516 is under native
-qualification at /opt/kuubu-builds/company-team-commands-3cc77532-01,
-systemd unitkuubu-company-team-commands01. Archive SHA256
+Published source3cc775323cbe89d434fde5dbdebf77b082b26516 completed native
+qualification at /opt/kuubu-builds/company-team-commands-3cc77532-01;
+systemd jobkuubu-company-team-commands01 and its containers stopped. Archive SHA256
 `96aa59719eaf077101e1b450424597e04fc0dee3ccf4faa1853fe8e32b9501c8`;
 local focused log `52b4a4c631617ed85ef1f68d980005c3d98349f081524da85243805a5ed5c028`.
 
-### Qualified membership allocation —8 November2026
+### Earlier qualified membership allocation —8 November2026
 
 Source `49780a39a13c89cd496f92283c1f20ba6effb3c2` passed Linux focused237
 with six native skips, the89-case native qualification cohort with zero skips,

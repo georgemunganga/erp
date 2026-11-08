@@ -1,4 +1,43 @@
-# Company role/revoke commands —8 November2026; native job running
+# Internal company role/revoke commands qualified —8 November2026
+
+Source/runtime `3cc775323cbe89d434fde5dbdebf77b082b26516` passed31 genuine
+PostgreSQL team-command checks,89 shared native-cohort checks,267 Linux focused
+and2,235 full Linux regressions, zero failures. All13 full opt-ins ran separately:
+10 native cases plus actual browser36s, protected setup83s and ordinary product
+identity/licensing31s on Windows. Windows focused265 and EF no-model-drift passed.
+
+Independent read-only audit verified31 synthetic native team databases with62
+memberships,14 actor/key-bound immutable receipts,10 revisioned audit/outbox
+changes and four no-op receipts. Exact tenant/company/member/actor identity,
+validated FK/check/unique/trigger, historical snapshots and retained active-owner
+memberships passed. Real PostgreSQL governance queries/concurrent owner demotions/
+retries/rollback are now exercised, not just SQLite policy. Public command
+authentication/origin/CSRF, invitation delivery/acceptance and team UI remain next.
+
+Actual setup/browser SQL verified one/two company tenants with exact owner links,
+revision1 and zero team-command receipts, credentials, sessions or module roles.
+Staff still have zero billing memberships. This proves normal setup remains
+unchanged; no public team HTTP/API or licensed ERP admission is qualified yet.
+
+Exact hashes/bounds: CORE-COMPANY-TEAM-20261108.md. Evidence under
+inspection/qualifications/company-team-linux/browser/protocol-3cc77532-01
+(three separate directories); remote source/results
+/opt/kuubu-builds/company-team-commands-3cc77532-01 and independent audit root
+/opt/kuubu-builds/company-team-audit-3cc77532-01. Source archive
+`96aa59719eaf077101e1b450424597e04fc0dee3ccf4faa1853fe8e32b9501c8`;
+full log `ff0cf95ca20203a2476611f48037823a8af46df8020b909d86efd902cc930b91`.
+SDK/test DB stopped0/OOMfalse; local ports closed. Existing private ERP readiness
+and Perfex sign-in returned200. No production changes. Preserve on-premise/local
+authentication compatibility and all deployed release/ACL/ingress/recovery holds.
+
+Next API boundary must derive issuer/subject from verified product authentication,
+resolve the commercial lease from the exact Core binding, and reject client
+tenant/payer/subject grants. Require the reviewed app origin, JSON, anti-CSRF and
+explicit command confirmation; a setup grant is not a team-management grant.
+Keep billing-delegate UI separate from Core company governance. New membership
+writers must set trusted tenant before tracking composite principal keys.
+
+# Earlier company role/revoke local source checkpoint —8 November2026
 
 Published source `3cc775323cbe89d434fde5dbdebf77b082b26516` adds internal
 confirmed role-change/revoke commands, positive membership revisions, immutable
@@ -15,7 +54,7 @@ tracking the initial membership; the repaired company cohort69 and broader265
 passed. Failed logs retained. Company key retargeting is rejected before the
 ordinary ORM guard and the stored binding is verified unchanged.
 
-Native qualification is running on kuubu-workloads under systemd unit
+Native qualification was running at this checkpoint on kuubu-workloads under unit
 kuubu-company-team-commands01, SDK container kuubu-company-team-commands-gate01,
 root /opt/kuubu-builds/company-team-commands-3cc77532-01. It runs new native team
 commands first, then the shared native cohort, focused and full Linux suites.
