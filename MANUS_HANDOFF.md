@@ -1,4 +1,32 @@
-# Setup-to-team entry qualified —8 November2026
+# Invitation recipient proof contract qualified —8 November2026
+
+Published ERP57ee105877e963980ed593d737804a40bccbf3b6 adds a strict server-side
+recipient reader and41 new proof cases;191 focused checks passed, zero skips,
+API/test builds zero errors. The reader is not registered or exposed yet. It
+accepts only exact issuer/subject/client/product/purpose, canonical verified email,
+bounded wall/monotonic time and operational_access_granted=false. No token cache,
+company grant, payer role, module permission, credential or ERP session.
+
+Foundation15707bd9eb04ee813aedc3797e425e5548548223 adds the separate
+product:invitation-recipient scope/resource for confidential Kuubu clients only.
+Both existing identity and new default-off recipient switches are required.
+Ordinary subject responses remain email-free. Current verified personal enrollment
+is required; payer membership is not. Proof <=30 seconds and token record expiry.
+Full SQLite123 tests/980 assertions and genuine MySQL8.0.46 (123/981) passed, Pint
+passed. MySQL ran in an exclusive network-none/no-host-port test container with
+no host SQL/privilege changes; container stopped. Read-only production Perfex login
+and Laravel /up returned200. Production configuration/application/DNS/payment and
+existing release/main/B1 holds remain unchanged. PR201 remains draft.
+
+Evidence: inspection/qualifications/invitation-recipient-core-01/verification.json,
+invitation-recipient-foundation-03/verification.json and
+invitation-recipient-mysql-15707bd9-01/verification.json. See
+docs/engineering/CORE-COMPANY-INVITATIONS-20261108.md for boundaries and retained
+formatting/harness failures. Actual Laravel-to-Core wire proof, account consent/
+relay, invitation schema/commands/delivery/acceptance UI and licensed operational
+tenant admission remain unfinished. Do not enable staged proof as company access.
+
+## Earlier setup-to-team entry checkpoint
 
 Published implementation661c30a01220c431e808b5449e08df2db2f58f79 adds a
 configuration-derived team_management_available boolean to company create/retry,
