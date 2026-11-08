@@ -76,7 +76,8 @@ internal sealed class CoreWorkspaceProvisioner(Func<string, HrmDbContext> contex
             db.LegalEntities.Add(company);
             db.WorkLocations.Add(new WorkLocation { Code = "HQ", Name = "Head office", Type = "headquarters", LegalEntityId = company.Id, CreatedBy = actor });
             db.LocalUsers.Add(owner);
-            var membership = new CoreCompanyMembership { LegalEntityId = company.Id, LocalUserId = owner.Id,
+            // Composite principal keys must carry the trusted scope before tracking.
+            var membership = new CoreCompanyMembership { TenantId = tenant, LegalEntityId = company.Id, LocalUserId = owner.Id,
                 Role = CoreCompanyRoles.Owner, CreatedBy = actor };
             db.CompanyMemberships.Add(membership);
             db.ExternalIdentityLinks.Add(new ExternalIdentityLink { Issuer = ProductCommercialLicense.Issuer,

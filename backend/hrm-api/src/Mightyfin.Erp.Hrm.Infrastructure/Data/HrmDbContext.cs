@@ -48,6 +48,9 @@ public sealed class HrmDbContext(DbContextOptions<HrmDbContext> options, ITenant
             if (entry.Entity is CoreCompanyMembership membership && entry.State is EntityState.Added or EntityState.Modified
                 && !CoreCompanyRoles.IsValid(membership.Role))
                 throw new DomainException("invalid-company-role", "The company role is invalid.");
+            if (entry.Entity is CoreCompanyMembership versioned && entry.State is EntityState.Added or EntityState.Modified
+                && versioned.Revision < 1)
+                throw new DomainException("invalid-company-revision", "The company membership revision is invalid.");
             if (entry.State == EntityState.Added)
             {
                 // Never trust a tenant id supplied by a client or service. The
@@ -71,7 +74,7 @@ public sealed class HrmDbContext(DbContextOptions<HrmDbContext> options, ITenant
                         (nameof(ExternalIdentityLink.Issuer) or nameof(ExternalIdentityLink.Subject)
                          or nameof(ExternalIdentityLink.LocalUserId) or nameof(Entity.TenantId)))))
                     throw new DomainException("identity-link-immutable", "Revoke the existing identity link instead of changing or deleting its binding.");
-                if (entry.Entity is AuditEntry or PrivilegedActionEvent or CoreCurrencyPrecisionCommandReceipt or Mightyfin.Erp.Hrm.Domain.Entities.ComplianceEvidence or GoLiveSignoff)
+                if (entry.Entity is AuditEntry or PrivilegedActionEvent or CoreCurrencyPrecisionCommandReceipt or CoreCompanyTeamCommandReceipt or Mightyfin.Erp.Hrm.Domain.Entities.ComplianceEvidence or GoLiveSignoff)
                     throw new DomainException("audit-immutable", "Compliance and audit evidence is append-only.");
                 if (entry.Entity is CoreCurrencyPrecisionVersion version)
                 {
@@ -99,6 +102,7 @@ public sealed class HrmDbContext(DbContextOptions<HrmDbContext> options, ITenant
     public DbSet<ExternalIdentityLink> ExternalIdentityLinks => Set<ExternalIdentityLink>();
     public DbSet<CoreWorkspaceBinding> WorkspaceBindings => Set<CoreWorkspaceBinding>();
     public DbSet<CoreCompanyMembership> CompanyMemberships => Set<CoreCompanyMembership>();
+    public DbSet<CoreCompanyTeamCommandReceipt> CompanyTeamCommandReceipts => Set<CoreCompanyTeamCommandReceipt>();
     public DbSet<LocalCredentialLink> LocalCredentialLinks => Set<LocalCredentialLink>();
     public DbSet<LocalSession> LocalSessions => Set<LocalSession>();
     public DbSet<HrUserBranchAssignment> UserBranchAssignments => Set<HrUserBranchAssignment>();
@@ -246,13 +250,38 @@ public sealed class HrmDbContext(DbContextOptions<HrmDbContext> options, ITenant
         ConfigureEntity<CoreCompanyMembership>(modelBuilder, "core_company_memberships", e =>
         {
             e.Property(x => x.Role).HasMaxLength(16);
+            e.Property(x => x.Revision).HasDefaultValue(1).IsConcurrencyToken();
+            e.Property(x => x.TenantId).ValueGeneratedOnAdd()
+                .HasValueGenerator((_, _) => new ScopedTenantKeyGenerator());
+            e.HasAlternateKey(x => new { x.TenantId, x.LegalEntityId, x.Id });
             e.HasIndex(x => new { x.TenantId, x.LegalEntityId, x.LocalUserId }).IsUnique();
             e.HasOne<LegalEntity>().WithMany().HasForeignKey(x => new { x.TenantId, x.LegalEntityId })
                 .HasPrincipalKey(x => new { x.TenantId, x.Id }).OnDelete(DeleteBehavior.Restrict);
             e.HasOne<LocalUser>().WithMany().HasForeignKey(x => new { x.TenantId, x.LocalUserId })
                 .HasPrincipalKey(x => new { x.TenantId, x.Id }).OnDelete(DeleteBehavior.Restrict);
-            e.ToTable("core_company_memberships", "hrm", t => t.HasCheckConstraint("CK_company_membership_role",
-                "role IN ('owner','administrator','member')"));
+            e.ToTable("core_company_memberships", "hrm", t =>
+            {
+                t.HasCheckConstraint("CK_company_membership_role", "role IN ('owner','administrator','member')");
+                t.HasCheckConstraint("CK_company_membership_revision", "revision >= 1");
+            });
+        });
+        ConfigureEntity<CoreCompanyTeamCommandReceipt>(modelBuilder, "core_company_team_command_receipts", e =>
+        {
+            e.Property(x => x.ActorIssuer).HasMaxLength(200);
+            e.Property(x => x.ActorSubject).HasMaxLength(19);
+            e.Property(x => x.RequestHash).HasMaxLength(64);
+            e.Property(x => x.Operation).HasMaxLength(16);
+            e.Property(x => x.ResultRole).HasMaxLength(16);
+            e.HasIndex(x => new { x.ActorIssuer, x.ActorSubject, x.CommandKey }).IsUnique();
+            e.HasOne<LegalEntity>().WithMany().HasForeignKey(x => new { x.TenantId, x.LegalEntityId })
+                .HasPrincipalKey(x => new { x.TenantId, x.Id }).OnDelete(DeleteBehavior.Restrict);
+            e.HasOne<LocalUser>().WithMany().HasForeignKey(x => new { x.TenantId, x.ActorLocalUserId })
+                .HasPrincipalKey(x => new { x.TenantId, x.Id }).OnDelete(DeleteBehavior.Restrict);
+            e.HasOne<CoreCompanyMembership>().WithMany().HasForeignKey(x => new { x.TenantId, x.LegalEntityId, x.MembershipId })
+                .HasPrincipalKey(x => new { x.TenantId, x.LegalEntityId, x.Id }).OnDelete(DeleteBehavior.Restrict);
+            e.ToTable("core_company_team_command_receipts", "hrm", t => t.HasCheckConstraint("CK_company_team_receipt",
+                "result_revision >= 1 AND length(request_hash) = 64 AND operation IN ('role-change','revoke') " +
+                "AND result_role IN ('owner','administrator','member')"));
         });
         ConfigureEntity<CoreCurrencyPrecisionVersion>(modelBuilder, "currency_precision_versions", e =>
         {

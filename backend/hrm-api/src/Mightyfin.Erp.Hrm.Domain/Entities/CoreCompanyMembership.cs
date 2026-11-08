@@ -7,6 +7,23 @@ public sealed class CoreCompanyMembership : Entity
     public Guid LocalUserId { get; set; }
     public string Role { get; set; } = CoreCompanyRoles.Member;
     public bool IsActive { get; set; } = true;
+    public int Revision { get; set; } = 1;
+}
+
+/// <summary>Immutable outcome of a confirmed company-governance command.</summary>
+public sealed class CoreCompanyTeamCommandReceipt : Entity
+{
+    public Guid LegalEntityId { get; set; }
+    public Guid ActorLocalUserId { get; set; }
+    public string ActorIssuer { get; set; } = null!;
+    public string ActorSubject { get; set; } = null!;
+    public Guid CommandKey { get; set; }
+    public Guid MembershipId { get; set; }
+    public string RequestHash { get; set; } = null!;
+    public string Operation { get; set; } = null!;
+    public string ResultRole { get; set; } = null!;
+    public bool ResultActive { get; set; }
+    public int ResultRevision { get; set; }
 }
 
 public static class CoreCompanyRoles

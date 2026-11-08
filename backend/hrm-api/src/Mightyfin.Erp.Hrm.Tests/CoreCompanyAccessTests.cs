@@ -102,7 +102,12 @@ public sealed class CoreCompanyAccessTests
             if (change == "user") member.LocalUserId = Guid.NewGuid();
             if (change == "delete") db.CompanyMemberships.Remove(member);
             if (change == "role") member.Role = "erp_admin";
-            await Assert.ThrowsAsync<DomainException>(() => db.SaveChangesAsync());
+            // Company now participates in the receipt's composite principal key;
+            // EF rejects retargeting before the ordinary domain write guard.
+            if (change == "company") await Assert.ThrowsAsync<InvalidOperationException>(() => db.SaveChangesAsync());
+            else await Assert.ThrowsAsync<DomainException>(() => db.SaveChangesAsync());
+            await using var unchanged = f.Context(f.Binding.TenantId);
+            Assert.Equal(f.Binding.LegalEntityId, (await unchanged.CompanyMemberships.SingleAsync()).LegalEntityId);
         }
     }
 
@@ -114,7 +119,7 @@ public sealed class CoreCompanyAccessTests
         {
             await Assert.ThrowsAsync<SqliteException>(() => db.Database.ExecuteSqlRawAsync(
                 "UPDATE core_company_memberships SET role='erp_admin'"));
-            db.CompanyMemberships.Add(new() { LegalEntityId = f.Binding.LegalEntityId,
+            db.CompanyMemberships.Add(new() { TenantId = f.Binding.TenantId, LegalEntityId = f.Binding.LegalEntityId,
                 LocalUserId = f.Binding.OwnerLocalUserId, Role = CoreCompanyRoles.Member });
             await Assert.ThrowsAsync<DbUpdateException>(() => db.SaveChangesAsync());
         }
@@ -126,7 +131,7 @@ public sealed class CoreCompanyAccessTests
         }
         await using (var db = f.Context(f.Binding.TenantId))
         {
-            db.CompanyMemberships.Add(new() { LegalEntityId = f.Binding.LegalEntityId,
+            db.CompanyMemberships.Add(new() { TenantId = f.Binding.TenantId, LegalEntityId = f.Binding.LegalEntityId,
                 LocalUserId = foreignUser, Role = CoreCompanyRoles.Member });
             await Assert.ThrowsAsync<DbUpdateException>(() => db.SaveChangesAsync());
         }

@@ -2545,6 +2545,13 @@ namespace Mightyfin.Erp.Hrm.Infrastructure.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("local_user_id");
 
+                    b.Property<int>("Revision")
+                        .IsConcurrencyToken()
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasDefaultValue(1)
+                        .HasColumnName("revision");
+
                     b.Property<string>("Role")
                         .IsRequired()
                         .HasMaxLength(16)
@@ -2553,6 +2560,7 @@ namespace Mightyfin.Erp.Hrm.Infrastructure.Migrations
 
                     b.Property<string>("TenantId")
                         .IsRequired()
+                        .ValueGeneratedOnAdd()
                         .HasColumnType("text")
                         .HasColumnName("tenant_id");
 
@@ -2573,7 +2581,111 @@ namespace Mightyfin.Erp.Hrm.Infrastructure.Migrations
 
                     b.ToTable("core_company_memberships", "hrm", t =>
                         {
+                            t.HasCheckConstraint("CK_company_membership_revision", "revision >= 1");
+
                             t.HasCheckConstraint("CK_company_membership_role", "role IN ('owner','administrator','member')");
+                        });
+                });
+
+            modelBuilder.Entity("Mightyfin.Erp.Hrm.Domain.Entities.CoreCompanyTeamCommandReceipt", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<string>("ActorIssuer")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("actor_issuer");
+
+                    b.Property<Guid>("ActorLocalUserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("actor_local_user_id");
+
+                    b.Property<string>("ActorSubject")
+                        .IsRequired()
+                        .HasMaxLength(19)
+                        .HasColumnType("character varying(19)")
+                        .HasColumnName("actor_subject");
+
+                    b.Property<Guid>("CommandKey")
+                        .HasColumnType("uuid")
+                        .HasColumnName("command_key");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("CreatedBy")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("created_by");
+
+                    b.Property<bool>("IsArchived")
+                        .HasColumnType("boolean")
+                        .HasColumnName("is_archived");
+
+                    b.Property<Guid>("LegalEntityId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("legal_entity_id");
+
+                    b.Property<Guid>("MembershipId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("membership_id");
+
+                    b.Property<string>("Operation")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)")
+                        .HasColumnName("operation");
+
+                    b.Property<string>("RequestHash")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("request_hash");
+
+                    b.Property<bool>("ResultActive")
+                        .HasColumnType("boolean")
+                        .HasColumnName("result_active");
+
+                    b.Property<int>("ResultRevision")
+                        .HasColumnType("integer")
+                        .HasColumnName("result_revision");
+
+                    b.Property<string>("ResultRole")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)")
+                        .HasColumnName("result_role");
+
+                    b.Property<string>("TenantId")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("tenant_id");
+
+                    b.Property<DateTimeOffset?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasColumnType("text")
+                        .HasColumnName("updated_by");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TenantId", "ActorLocalUserId");
+
+                    b.HasIndex("ActorIssuer", "ActorSubject", "CommandKey")
+                        .IsUnique();
+
+                    b.HasIndex("TenantId", "LegalEntityId", "MembershipId");
+
+                    b.ToTable("core_company_team_command_receipts", "hrm", t =>
+                        {
+                            t.HasCheckConstraint("CK_company_team_receipt", "result_revision >= 1 AND length(request_hash) = 64 AND operation IN ('role-change','revoke') AND result_role IN ('owner','administrator','member')");
                         });
                 });
 
@@ -8592,6 +8704,30 @@ namespace Mightyfin.Erp.Hrm.Infrastructure.Migrations
                         .WithMany()
                         .HasForeignKey("TenantId", "LocalUserId")
                         .HasPrincipalKey("TenantId", "Id")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Mightyfin.Erp.Hrm.Domain.Entities.CoreCompanyTeamCommandReceipt", b =>
+                {
+                    b.HasOne("Mightyfin.Erp.Hrm.Domain.Entities.LocalUser", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId", "ActorLocalUserId")
+                        .HasPrincipalKey("TenantId", "Id")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Mightyfin.Erp.Hrm.Domain.Entities.LegalEntity", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId", "LegalEntityId")
+                        .HasPrincipalKey("TenantId", "Id")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Mightyfin.Erp.Hrm.Domain.Entities.CoreCompanyMembership", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId", "LegalEntityId", "MembershipId")
+                        .HasPrincipalKey("TenantId", "LegalEntityId", "Id")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
                 });

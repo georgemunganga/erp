@@ -6,9 +6,10 @@ Tier3 Core child feature; explicit company governance for hosted SaaS.
 Separate current company membership from historical allocation, billing authority,
 identity authentication and module permissions.
 ## 3. Scope
-Company membership persistence, atomic initial-owner membership and exact-identity
-company governance reader. Invitation delivery/acceptance and operational session
-admission are subsequent parts of this feature, not yet implemented.
+Company membership persistence, atomic initial-owner membership, exact-identity
+governance reader and confirmed role-change/revocation commands. Commands remain
+internal and are under qualification. Invitation delivery/acceptance, public team
+API/UI and operational admission remain subsequent work.
 ## 4. Parent
 Product identity, purchased workspace allocation and existing Core company/branch
 masters. One maintained ERP supports hosted SaaS and dedicated/on-premise modes.
@@ -26,6 +27,9 @@ active explicit membership and licensed allocated workspace slot.
 Company create commits membership with the company/owner/link/allocation/audit/
 outbox. Reader joins exact tenant/company/principal keys and fresh current state;
 it returns governance capabilities only after checking the matching license.
+Role/revoke commands resolve scope from verified identity, take key-then-company
+transaction locks on PostgreSQL, recheck current action authority, compare the
+expected membership revision and commit receipt/audit/outbox with the mutation.
 ## 9. States
 Active/inactive/archived membership; owner/administrator/member roles. Binding
 identifiers cannot be retargeted or deleted by ordinary ORM changes.
@@ -33,6 +37,9 @@ identifiers cannot be retargeted or deleted by ordinary ORM changes.
 Owner may manage team/owners; administrator may manage team but not owners;
 member has neither capability. These are not payroll/procurement/module roles.
 No result creates a session, assigns a branch or authenticates a local user.
+Role changes are owner-only. Administrators may revoke ordinary members, not
+owners or fellow administrators. Replay requires the current action permission,
+not merely possession of a successful old command key.
 ## 11. Rules
 Require exact reviewed issuer, canonical numeric subject, active exact identity
 link, federated active/unlocked principal, explicit same-company membership,
@@ -43,6 +50,10 @@ CoreCompanyMembership: ID, tenant, company, local principal, bounded role, activ
 and archive flags, existing creation/update provenance. Unique tenant/company/user;
 same-tenant company and principal FKs; database role check. No credentials or
 provider bearer. Historical allocation remains immutable.
+Membership revision is a positive optimistic concurrency token. Immutable team
+command receipts bind verified issuer/subject/key globally and retain exact
+company/member/actor, request hash and historical role/active/revision outcome.
+The receipt's composite member FK also binds its company, not just its tenant.
 ## 13. UI
 Existing own Kuubu login/setup retained. Team UI must consume authoritative Core
 commands; no fake successful invitations or browser-local team persistence.
@@ -61,11 +72,18 @@ matching an email/domain alone cannot grant company access.
 ## 15. Notifications
 No email or external delivery in this increment. Later invitation creation must
 commit before delivery, use bounded expiry/revocation and avoid token logging.
+Role/revoke changes emit core.company.member.access.changed.v1 transactionally;
+no-op commands reserve their receipt without emitting a false change event.
 ## 16. Documents
 No personnel/payroll or financial documents in company governance decisions.
 ## 17. Errors
 Missing/inactive/foreign/expired/malformed proof returns no decision. Database
 errors must not become access grants. Caller handles unavailable separately.
+Commands distinguish invalid, denied, revision/key conflict, last-owner rejection,
+changed/unchanged and replayed outcomes. Replaying a receipt is an acknowledgement
+of a historical command, never proof of the member's current access. Inactive
+membership cannot be reactivated through role change; it needs a separate
+consented invitation flow.
 ## 18. Integration
 Reuse Core legal entity, federated principal/link and purchased-slot allocation.
 The reader is not registered/exposed as an operational admission shortcut. Caller
@@ -73,13 +91,18 @@ must establish verified product identity; raw browser issuer/subject are no proo
 ## 19. Audit/privacy
 Allocation audit/outbox add membership ID. No raw credentials or email lookup.
 Future membership changes require explicit audited commands and concurrency guards.
+Role/revoke commands commit membership, immutable receipt, audit and outbox in
+one transaction. Post-save expiry/cancellation/failure rolls back every record.
 ## 20. Configuration
 SaaS creation retains existing opt-in identity/setup/licensing/provisioning flags.
 No global behavior switch is introduced for classic installations.
 ## 21. Security
 Test mismatched subject/link/company/enrollment/slot, account/link/member/company
-revocation, stale historical ownership and cross-tenant FKs. Team mutations still
-need last-owner protection, concurrency and bounded delegation before exposure.
+revocation, stale historical ownership and cross-tenant FKs. Role/revoke commands
+protect the last locally usable owner: another active/unarchived owner membership
+must have an active federated account, active issuer link and no current lock.
+This checks known Core state, not the future availability of an external identity.
+Native concurrency and public command authentication/CSRF remain exposure gates.
 ## 22. Operations
 New schema must be qualified through genuine PostgreSQL migrations and finite
 runtime grants before deployment. Preserve existing release holds and Perfex.
@@ -91,6 +114,10 @@ All allocation failures roll back membership too. Migration preserves historical
 allocation receipts and may seed only their explicit original owner; it must not
 infer grants from email, local admin roles or commercial membership. Populated
 membership rollback must not silently discard access records.
+No-op receipts reserve their key so retry cannot undo a later change. Changed
+payload/key reuse and stale revisions conflict. Receipt replay needs current
+action authority and a current license; it does not reapply an old mutation.
+The command migration refuses to drop populated receipts or changed revisions.
 ## 25. Acceptance
 Identity, payer, current company membership and module authorization remain
 separate. Classic local-auth deployments continue with SaaS flags disabled;
@@ -100,11 +127,34 @@ Company create/retry/rollback; bounded governance roles; revoked/foreign proof a
 license denial; same-tenant/unique/check constraints; genuine migration/backfill/
 rollback and model drift; full ERP regression and later browser team journeys.
 ## 27. Release gates
-Native schema/allocation and full regression passed for49780a39. Remaining:
-native governance-reader/command execution, audited invitation/accept/revoke/
-role-change commands, last-owner/concurrency guards, team UI, licensed sessions,
+Native schema/allocation and full regression passed for49780a39. New role/revoke
+schema/commands require fresh native/full qualification. Remaining: native
+governance-reader/command execution, public verified-identity/origin/CSRF command
+integration, invitation/acceptance delivery, team UI, licensed sessions,
 deployed acceptance and dedicated/on-premise install/upgrade/restore qualification.
 ## 28. Evidence
+### Role/revoke command increment — local qualification
+
+Windows build passed;265 focused identity/federation/workspace/company/local-auth
+tests passed, zero failures,13 opt-in skips (10 native, three actual provider/
+browser). EF10.0.11 reports no pending model changes. Four new native cases cover
+the real governance query, concurrent owner demotions, concurrent identical
+retries, receipt scope/immutability and safe empty/populated migration rollback.
+These native cases and new full regression have not run yet. No public command
+endpoint or new operational session is enabled.
+
+The first focused run retained58 failures/10 passes: company creation's new
+composite membership key omitted tenant_id at insertion. A single diagnostic
+case reproduced the NOT NULL failure. Creation now supplies the trusted tenant
+before tracking, matching the established composite-principal pattern. The
+repaired focused company cohort passed69; the wider cohort then passed265.
+The stronger company/member receipt FK makes company part of an EF principal key;
+the binding immutability test verifies its early key rejection and unchanged
+stored binding. Failure evidence was retained, not excluded from the suite.
+
+The older qualified source below is a separate checkpoint and does not qualify
+the new receipt/revision schema or role/revoke workflow.
+
 ### Qualified membership allocation —8 November2026
 
 Source `49780a39a13c89cd496f92283c1f20ba6effb3c2` passed Linux focused237
