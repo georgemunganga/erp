@@ -1,3 +1,34 @@
+# Protected company setup backend checkpoint —8 November2026
+
+Draft PR201 adds runtime `e8a1f38a269265c6a30c620e92b1b68e55780642`:
+separately consented setup OAuth, five-minute encrypted server-side grants,
+token-free opaque pending-cookie references, eligible payer choices, explicit
+CSRF-protected company creation and cancellation. Every create/retry obtains
+fresh payer authority and machine licensing before the existing atomic allocator.
+Normal sign-in remains identity-only; neither callback nor payer listing creates
+companies or operational sessions. Laravel PR3 runtime15adde50a5a401f06f42a60f80888b261465333d
+provides scoped paginated payer choices (112 native MySQL tests/874 assertions).
+
+Linux213 focused,63 native PostgreSQL and2,184 full regressions passed, zero
+failures. Four native opt-in skips passed separately; the existing real provider
+identity/licensing test was not rerun in this job. Earlier provider evidence is
+not genuine protected setup acceptance. Both failed earlier setup attempts are
+retained; the fixed route now executes its IResult rather than discarding it.
+Test runner and private synthetic PostgreSQL cluster stopped0. Source/archive/log
+hashes are in CORE-PROTECTED-SETUP-20261108.md.
+
+Source `d0de0c1a8838269bd76b96088917f7e918b0340d` adds only a typed browser
+setup client and19 passing Node contract tests, with strict TypeScript checking.
+No setup form is implemented yet. Next: public setup shell, account selection,
+company details, review/confirmation, retained retry/reload handling and result;
+then genuine Laravel→Kuubu consent→Core create/browser acceptance. Owner/team
+invites, licensed operational sessions/refresh/revocation, module/company/branch
+scope, runtime ACLs, shared-volume operations and public ingress remain gates.
+No production migration/image/flag/key/DNS/payment or Perfex change. Read-only
+Perfex sign-in and existing private ERP /health/ready both returned200.
+
+The older checkpoints below remain historical evidence.
+
 # Core capacity-controlled company transaction —8 November2026
 
 Draft PR201 runtime `3e967e965217800c0996b3d9c0bd23cc79e810af` now
