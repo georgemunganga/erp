@@ -11,6 +11,9 @@ company discovery, licensed member reads and the role/revoke HTTP adapter.
 The existing internal commands remain the authoritative mutation path. Invitations
 remain unfinished. The separately qualified /team screen is documented in
 CORE-COMPANY-TEAM-UI-20261108.md; actual provider/Core/browser integration is pending.
+The later combined browser gate in that UI document passed against the unchanged
+API2607cd69 libraries. It covers current team sign-in and commands with an explicit
+preaccepted-member fixture; invitations and deployed ingress remain unfinished.
 ## 4. Parent
 CORE-COMPANY-TEAM-20261108.md and protected product identity/setup. One ERP release
 must continue supporting shared SaaS and dedicated installations.

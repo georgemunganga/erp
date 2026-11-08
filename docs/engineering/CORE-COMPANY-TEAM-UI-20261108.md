@@ -129,3 +129,49 @@ Complete actual provider/Core/browser qualification;
 implement invitations/acceptance/delivery; connect qualified navigation/activation;
 qualify operational sessions, tenant/module isolation, recovery and dedicated
 installation/licensing/upgrades. The ecosystem goal remains incomplete.
+
+### Actual provider/Core/browser gate —8 November2026
+
+The opt-in ProductTeamBrowserInteropTests fixture now exercises the published
+Kuubu websiteb01985ee (all92 source blobs matched), actual Laravel runtime15adde50
+with its b71b29fe fixture helper, native Core API2607cd69 assemblies and UIaaafdf25.
+Fresh Chrome uses the actual HTTPS origins and cookie rules with CDP interception
+on every redirect; DNS is disabled and off-fixture requests abort. This validates
+protocol/cookie behavior through scoped loopback services, not deployed TLS/DNS.
+
+Attempt03 passed36.589s, zero skips: branded login/Google disabled, explicit Kuubu
+enrollment, unchecked setup consent, company review/create/retry, rejection of a
+setup proof at the team boundary, fresh identity-only team sign-in, real licensed
+member reads, confirmed role change, response loss after commit, exact-key retry,
+current-team refresh, revocation, last-owner denial, and current subscription
+suspension denying member reads and replay. ERP protected access remained401.
+The member is an explicitly seeded preaccepted Core membership with separate
+verified personal product enrollment; this does not test invitation acceptance or
+delivery. Its identity has no payer membership. No email/domain grants access.
+
+Independent read-only SQLite audit verified one binding, two exact membership/
+identity-link/principal pairs, two immutable receipts and two matching team-change
+audit/outbox events (plus company creation: three audit/outbox rows total). The
+member ends administrator/inactive/revision3; the owner remains active/revision1.
+There are no credentials, local sessions or module-role assignments. Laravel has
+two personal enrollments, one payer membership and zero staff billing memberships;
+its test subscription ends suspended. Fourteen runtime libraries and all487 UI
+output files remain unchanged. Provider/SSR/bridge stopped;8101/8121/3186 closed.
+
+Evidence: inspection/qualifications/real-team-browser-acceptance-03/verification.json
+and component-inputs.json; private fixtures under
+inspection/fixtures/real-team-browser-provider-20261108-03. Test log SHA256
+379e9c32a54c821cd56974117da203e06fffdae3050483e4574a06ec27c746c7;
+runnercea8a61486e0a0eb6dd9a768c5fc68095ac65828338d460696be7cd138ee59be.
+
+Failed attempts retained:01 timed out at initial session/login discovery;02
+completed real sign-in and the first committed role change, but a CP1252-written
+apostrophe in the test's expected message decoded incorrectly in Node. Attempt03
+writes explicit UTF-8, retains the same assertions and uses bounded real-service
+waits. The audit canonicalizes SQLite's uppercase stored UUIDs before checking
+the command correlation hash; it does not weaken typed identity/scope comparisons.
+No application behavior or production configuration was changed to pass the gate.
+
+Next: capability-gated entry navigation, invitations/acceptance/delivery and the
+remaining operational/deployment milestones. Older standalone protocol opt-ins
+are not all rerun by this combined browser case. No production activation.
