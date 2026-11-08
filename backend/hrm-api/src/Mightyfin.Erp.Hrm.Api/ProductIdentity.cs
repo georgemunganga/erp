@@ -1,5 +1,6 @@
 using System.Net.Http.Headers;
 using System.Security.Claims;
+using System.Security.Cryptography;
 using System.Text.Json;
 using System.Text.RegularExpressions;
 using Microsoft.AspNetCore.Authentication;
@@ -53,6 +54,7 @@ internal static class ProductIdentity
         // The framework's OAuth debug/correlation diagnostics can contain state
         // or cookie identifiers. Emit our generic failure event instead.
         services.AddLogging(logging => logging.AddFilter("Microsoft.AspNetCore.Authentication.OAuth", LogLevel.None));
+        services.AddProductCompanyTeam(config);
         if (ProductSetupFlow.Enabled(config))
         {
             var grantPath = config["ERP:WorkspaceSetup:GrantPath"];
@@ -132,6 +134,14 @@ internal static class ProductIdentity
                     var prior = await context.HttpContext.AuthenticateAsync(PendingScheme);
                     if (store is not null && prior.Succeeded && prior.Principal?.FindFirstValue(SetupHandleClaim) is { } oldHandle)
                         store.Revoke(oldHandle);
+                    if (context.Properties.Items.TryGetValue(ProductCompanyTeamFlow.Purpose, out var teamPurpose))
+                    {
+                        if (teamPurpose != ProductCompanyTeamFlow.PurposeValue || !ProductCompanyTeamFlow.Enabled(config)
+                            || context.Properties.Items.ContainsKey(SetupPurpose))
+                            throw new AuthenticationFailureException("Company team authorization is unavailable.");
+                        context.Identity.AddClaim(new Claim(ProductCompanyTeamFlow.NonceClaim,
+                            Convert.ToHexStringLower(RandomNumberGenerator.GetBytes(32))));
+                    }
                     if (context.Properties.Items.TryGetValue(SetupPurpose, out var purpose))
                     {
                         if (purpose != "company-create-v1" || !ProductSetupFlow.Enabled(config) || store is null)

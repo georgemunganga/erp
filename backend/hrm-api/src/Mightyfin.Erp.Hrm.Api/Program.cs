@@ -357,6 +357,7 @@ app.MapGet("/", () => Results.Ok(new
 // same-origin HttpOnly sessions; no external provider redirect is involved.
 LocalIdentityRoutes.Map(app);
 app.MapProductIdentity();
+app.MapProductCompanyTeam();
 app.MapProductSetup();
 
 // Global error handler: DomainException -> structured ApiError

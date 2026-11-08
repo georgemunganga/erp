@@ -175,6 +175,114 @@ public sealed class ProductIdentityHttpTests
         }
     }
 
+    [Fact]
+    public async Task Team_sign_in_has_signed_intent_identity_scope_and_session_bound_antiforgery_without_ERP_access()
+    {
+        await using var fixture = await Fixture.Start(teamEnabled: true);
+        var challenge = await fixture.Challenge(ProductCompanyTeamFlow.Prefix+"/start");
+        Assert.Equal("product:identity", challenge.Parameters["scope"]);
+        var callback = await fixture.Callback(challenge);
+        Assert.Equal("/team", callback.Headers.Location!.OriginalString);
+        var pending = callback.Headers.GetValues("Set-Cookie").Single(x => x.StartsWith(ProductIdentity.PendingCookie+"=")).Split(';')[0];
+        var session = await fixture.Get(ProductCompanyTeamFlow.Prefix+"/session", pending);
+        Assert.Equal(HttpStatusCode.OK, session.StatusCode);
+        Assert.True(session.Headers.CacheControl!.NoStore);
+        using var json = JsonDocument.Parse(await session.Content.ReadAsStringAsync());
+        Assert.False(json.RootElement.GetProperty("operational_access_granted").GetBoolean());
+        Assert.Equal(ProductCompanyTeamFlow.PurposeValue, json.RootElement.GetProperty("purpose").GetString());
+        var token = json.RootElement.GetProperty("csrf_token").GetString()!;
+        var csrfSet = session.Headers.GetValues("Set-Cookie").Single(x => x.StartsWith(ProductCompanyTeamFlow.CsrfCookie+"="));
+        Assert.Contains("httponly", csrfSet.ToLowerInvariant());
+        Assert.Contains("secure", csrfSet.ToLowerInvariant());
+        Assert.Contains("samesite=strict", csrfSet.ToLowerInvariant());
+        Assert.Contains("path=/", csrfSet.ToLowerInvariant());
+        Assert.DoesNotContain("domain=", csrfSet.ToLowerInvariant());
+        var cookie = pending+"; "+csrfSet.Split(';')[0];
+        Assert.Equal(HttpStatusCode.Unauthorized, (await fixture.Get("/erp-protected", cookie)).StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, (await fixture.TeamCancel(cookie, null)).StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, (await fixture.TeamCancel(cookie, "forged")).StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, (await fixture.TeamCancel(pending, token)).StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, (await fixture.TeamCancel(cookie, token, "https://foreign.invalid")).StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, (await fixture.TeamCancel(cookie, token, json: false)).StatusCode);
+        Assert.Equal(HttpStatusCode.NoContent, (await fixture.TeamCancel(cookie, token)).StatusCode);
+        Assert.Empty(await fixture.Db.LocalSessions.IgnoreQueryFilters().ToArrayAsync());
+        Assert.Empty(await fixture.Db.LocalUsers.IgnoreQueryFilters().ToArrayAsync());
+    }
+
+    [Fact]
+    public async Task Team_token_from_an_earlier_sign_in_is_rejected_for_a_fresh_sign_in_by_the_same_person()
+    {
+        await using var fixture = await Fixture.Start(teamEnabled: true);
+        var first = await fixture.SignIn(ProductCompanyTeamFlow.Prefix+"/start");
+        var session = await fixture.Get(ProductCompanyTeamFlow.Prefix+"/session", first);
+        using var json = JsonDocument.Parse(await session.Content.ReadAsStringAsync());
+        var token = json.RootElement.GetProperty("csrf_token").GetString()!;
+        var csrfCookie = session.Headers.GetValues("Set-Cookie").Single(x => x.StartsWith(ProductCompanyTeamFlow.CsrfCookie+"=")).Split(';')[0];
+        // The synthetic channel uses one fixed code per fixture; open a fresh
+        // exchange window to model a distinct, newly correlated authorization.
+        fixture.Backchannel.Exchanges = 0;
+        var second = await fixture.SignIn(ProductCompanyTeamFlow.Prefix+"/start");
+        Assert.NotEqual(first, second);
+        Assert.Equal(HttpStatusCode.Forbidden, (await fixture.TeamCancel(second+"; "+csrfCookie, token)).StatusCode);
+        Assert.Equal(HttpStatusCode.NoContent, (await fixture.TeamCancel(first+"; "+csrfCookie, token)).StatusCode);
+    }
+
+    [Theory]
+    [InlineData("ordinary")]
+    [InlineData("missing-purpose")]
+    [InlineData("wrong-purpose")]
+    [InlineData("setup-purpose")]
+    [InlineData("setup-handle")]
+    [InlineData("missing-nonce")]
+    [InlineData("bad-nonce")]
+    [InlineData("wrong-issuer")]
+    [InlineData("wrong-subject")]
+    [InlineData("expired")]
+    [InlineData("tampered")]
+    [InlineData("absent")]
+    public async Task Team_session_rejects_unrelated_or_invalid_product_proofs(string condition)
+    {
+        await using var fixture = await Fixture.Start(teamEnabled: true);
+        var cookie = await fixture.SignIn(condition == "ordinary" ? null : ProductCompanyTeamFlow.Prefix+"/start");
+        var options = fixture.App.Services.GetRequiredService<Microsoft.Extensions.Options.IOptionsMonitor<CookieAuthenticationOptions>>().Get(ProductIdentity.PendingScheme);
+        var ticket = options.TicketDataFormat.Unprotect(cookie[(cookie.IndexOf('=')+1)..])!;
+        var identity = (ClaimsIdentity)ticket.Principal.Identity!;
+        switch (condition)
+        {
+            case "missing-purpose": ticket.Properties.Items.Remove(ProductCompanyTeamFlow.Purpose); break;
+            case "wrong-purpose": ticket.Properties.Items[ProductCompanyTeamFlow.Purpose] = "unreviewed"; break;
+            case "setup-purpose": ticket.Properties.Items[ProductIdentity.SetupPurpose] = "company-create-v1"; break;
+            case "setup-handle": identity.AddClaim(new Claim(ProductIdentity.SetupHandleClaim, "unrelated")); break;
+            case "missing-nonce": identity.RemoveClaim(identity.FindFirst(ProductCompanyTeamFlow.NonceClaim)); break;
+            case "bad-nonce": identity.RemoveClaim(identity.FindFirst(ProductCompanyTeamFlow.NonceClaim)); identity.AddClaim(new Claim(ProductCompanyTeamFlow.NonceClaim, "invalid")); break;
+            case "wrong-issuer": identity.RemoveClaim(identity.FindFirst(ProductIdentity.IssuerClaim)); identity.AddClaim(new Claim(ProductIdentity.IssuerClaim, "https://foreign.invalid")); break;
+            case "wrong-subject": identity.RemoveClaim(identity.FindFirst(ProductIdentity.SubjectClaim)); identity.AddClaim(new Claim(ProductIdentity.SubjectClaim, "email@example.test")); break;
+        }
+        cookie = ProductIdentity.PendingCookie+"="+options.TicketDataFormat.Protect(ticket);
+        if (condition == "expired") fixture.Clock.Now += TimeSpan.FromMinutes(6);
+        if (condition == "tampered") cookie += "invalid";
+        if (condition == "absent") cookie = "hrm_session=unrelated";
+        var response = await fixture.Get(ProductCompanyTeamFlow.Prefix+"/session", cookie);
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+        Assert.False(response.Headers.Contains("Set-Cookie"));
+        Assert.Equal(HttpStatusCode.Unauthorized, (await fixture.TeamCancel(cookie, "forged")).StatusCode);
+    }
+
+    [Theory]
+    [InlineData(true, false)]
+    [InlineData(false, true)]
+    public async Task Team_endpoints_are_unavailable_without_both_identity_and_explicit_team_enablement(bool identityEnabled, bool teamEnabled)
+    {
+        await using var fixture = await Fixture.Start(enabled: identityEnabled, teamEnabled: teamEnabled);
+        foreach (var path in new[] { "/start", "/session" })
+        {
+            var response = await fixture.Get(ProductCompanyTeamFlow.Prefix+path);
+            Assert.Equal(HttpStatusCode.ServiceUnavailable, response.StatusCode);
+            Assert.False(response.Headers.Contains("Set-Cookie"));
+        }
+        Assert.Equal(HttpStatusCode.ServiceUnavailable, (await fixture.TeamCancel("", "forged")).StatusCode);
+    }
+
     private static void AssertCookie(string value, string name)
     {
         Assert.StartsWith(name, value);
@@ -198,7 +306,7 @@ public sealed class ProductIdentityHttpTests
         internal HrmDbContext Db => db;
         internal Backchannel Backchannel => backchannel;
         internal Clock Clock => clock;
-        internal static async Task<Fixture> Start(string? condition = null, bool enabled = true)
+        internal static async Task<Fixture> Start(string? condition = null, bool enabled = true, bool teamEnabled = false)
         {
             var builder = WebApplication.CreateBuilder();
             builder.WebHost.UseTestServer();
@@ -209,6 +317,8 @@ public sealed class ProductIdentityHttpTests
             builder.Configuration.AddInMemoryCollection(new Dictionary<string, string?>
             {
                 ["ERP:ProductIdentity:Enabled"] = enabled.ToString(),
+                ["ERP:ProductLicensing:Enabled"] = teamEnabled.ToString(),
+                ["ERP:CompanyTeam:Enabled"] = teamEnabled.ToString(),
                 ["ERP:ProductIdentity:ClientId"] = ProductIdentityHttpTests.Backchannel.ClientId,
                 ["ERP:ProductIdentity:ClientSecret"] = ProductIdentityHttpTests.Backchannel.Secret,
                 ["ERP:ProductIdentity:DataProtectionPath"] = keys,
@@ -230,6 +340,7 @@ public sealed class ProductIdentityHttpTests
             app.UseAuthentication();
             app.UseAuthorization();
             app.MapProductIdentity();
+            app.MapProductCompanyTeam();
             app.MapGet("/erp-protected", () => "ERP records").RequireAuthorization();
             await app.StartAsync();
             var client = app.GetTestClient();
@@ -239,9 +350,9 @@ public sealed class ProductIdentityHttpTests
                 scope.ServiceProvider.GetRequiredService<DbContextOptions<HrmDbContext>>(),
                 new FixedTenantAccessor("tenant-a")), channel, clock, scope);
         }
-        internal async Task<Challenge> Challenge()
+        internal async Task<Challenge> Challenge(string? path = null)
         {
-            var response = await client.GetAsync(ProductIdentity.Prefix+"/start");
+            var response = await client.GetAsync(path ?? ProductIdentity.Prefix+"/start");
             Assert.Equal(HttpStatusCode.Redirect, response.StatusCode);
             var uri = response.Headers.Location!;
             Assert.Equal("www.kuubuerp.com", uri.Host);
@@ -258,13 +369,22 @@ public sealed class ProductIdentityHttpTests
             if (condition != "missing-correlation") request.Headers.Add("Cookie", condition == "wrong-correlation" ? "unrelated-cookie=1" : challenge.Cookie);
             return client.SendAsync(request);
         }
-        internal async Task<string> SignIn()
+        internal async Task<string> SignIn(string? path = null)
         {
-            var response = await Callback(await Challenge());
+            var response = await Callback(await Challenge(path));
             Assert.Equal(HttpStatusCode.Redirect, response.StatusCode);
             return response.Headers.GetValues("Set-Cookie").Single(x => x.StartsWith(ProductIdentity.PendingCookie+"=")).Split(';')[0];
         }
         internal Task<HttpResponseMessage> Read(string cookie) => Get(ProductIdentity.Prefix+"/session", cookie);
+        internal Task<HttpResponseMessage> TeamCancel(string cookie, string? token, string origin = "https://app.kuubuerp.com", bool json = true)
+        {
+            var request = new HttpRequestMessage(HttpMethod.Post, ProductCompanyTeamFlow.Prefix+"/cancel")
+            { Content = json ? JsonContent.Create(new { }) : new StringContent("{}") };
+            if (cookie.Length > 0) request.Headers.Add("Cookie", cookie);
+            request.Headers.Add("Origin", origin);
+            if (token is not null) request.Headers.Add(ProductCompanyTeamFlow.CsrfHeader, token);
+            return client.SendAsync(request);
+        }
         internal Task<HttpResponseMessage> Get(string path, string? cookie = null)
         {
             var request = new HttpRequestMessage(HttpMethod.Get, path);
