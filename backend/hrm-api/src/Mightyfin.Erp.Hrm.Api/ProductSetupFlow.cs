@@ -55,7 +55,8 @@ internal static class ProductSetupFlow
                     customer_id = x.CustomerId, name = x.Name, workspace_limit = x.WorkspaceLimit }), next_cursor = result.Page.NextCursor }),
                 _ => Results.StatusCode(503) };
         }).AllowAnonymous();
-        group.MapPost("/companies", Create).AllowAnonymous();
+        // Bind as a route handler: RequestDelegate would discard Task<IResult>.
+        group.MapPost("/companies", (Delegate)Create).AllowAnonymous();
         group.MapPost("/cancel", async (HttpContext http) =>
         {
             var grant = await Grant(http);
