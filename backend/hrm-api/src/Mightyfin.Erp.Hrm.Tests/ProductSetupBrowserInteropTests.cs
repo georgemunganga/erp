@@ -50,7 +50,7 @@ public sealed class ProductSetupBrowserInteropTests
         var options=new DbContextOptionsBuilder<HrmDbContext>().UseSqlite(connection).Options;
         HrmDbContext Context(string tenant)=>new(options,new FixedTenantAccessor(tenant));
         await using(var db=Context("schema-only"))await db.Database.EnsureCreatedAsync();
-        var builder=WebApplication.CreateBuilder();builder.WebHost.UseTestServer();builder.Logging.ClearProviders();
+        var builder=WebApplication.CreateBuilder();builder.WebHost.UseTestServer().UseContentRoot(AppContext.BaseDirectory);builder.Logging.ClearProviders();
         builder.Configuration.AddInMemoryCollection(new Dictionary<string,string?>{
             ["ERP:ProductIdentity:Enabled"]="true",["ERP:WorkspaceSetup:Enabled"]="true",["ERP:WorkspaceProvisioning:Enabled"]="true",["ERP:ProductLicensing:Enabled"]="true",
             ["ERP:ProductIdentity:ClientId"]=Field("client_id"),["ERP:ProductIdentity:ClientSecret"]=Field("client_secret"),
