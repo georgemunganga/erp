@@ -11,7 +11,7 @@
     "test:e2e": "playwright test",
     "test:setup-ui": "playwright test --config playwright.setup.config.ts",
     "test:team-ui": "playwright test --config playwright.team.config.ts",
-    "test:team-contracts": "node --experimental-strip-types --test tests/product-team-api.test.mjs tests/product-invitations-api.test.mjs",
+    "test:team-contracts": "node --experimental-strip-types --test tests/product-team-api.test.mjs tests/product-invitations-api.test.mjs tests/product-invitation-api.test.mjs tests/invitation-bootstrap.test.mjs",
     "test:setup-contracts": "node --experimental-strip-types --test tests/product-setup-api.test.mjs tests/product-setup-attempt.test.mjs",
     "lint": "eslint .",
     "format": "prettier --write ."

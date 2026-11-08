@@ -10,6 +10,7 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as AcceptInvitationRouteImport } from './routes/accept-invitation'
 import { Route as SetupRouteImport } from './routes/setup'
 import { Route as SignInRouteImport } from './routes/sign-in'
 import { Route as SpeakUpRouteImport } from './routes/speak-up'
@@ -156,6 +157,11 @@ import { Route as HrmPayrollRunsIdEditRouteImport } from './routes/hrm.payroll.r
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AcceptInvitationRoute = AcceptInvitationRouteImport.update({
+  id: '/accept-invitation',
+  path: '/accept-invitation',
   getParentRoute: () => rootRouteImport,
 } as any)
 const SetupRoute = SetupRouteImport.update({
@@ -896,6 +902,7 @@ const HrmPayrollRunsIdEditRoute = HrmPayrollRunsIdEditRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/accept-invitation': typeof AcceptInvitationRoute
   '/setup': typeof SetupRoute
   '/sign-in': typeof SignInRoute
   '/speak-up': typeof SpeakUpRoute
@@ -1041,6 +1048,7 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/accept-invitation': typeof AcceptInvitationRoute
   '/setup': typeof SetupRoute
   '/sign-in': typeof SignInRoute
   '/speak-up': typeof SpeakUpRoute
@@ -1187,6 +1195,7 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/accept-invitation': typeof AcceptInvitationRoute
   '/setup': typeof SetupRoute
   '/sign-in': typeof SignInRoute
   '/speak-up': typeof SpeakUpRoute
@@ -1334,6 +1343,7 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/accept-invitation'
     | '/setup'
     | '/sign-in'
     | '/speak-up'
@@ -1479,6 +1489,7 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/accept-invitation'
     | '/setup'
     | '/sign-in'
     | '/speak-up'
@@ -1624,6 +1635,7 @@ export interface FileRouteTypes {
   id:
     | '__root__'
     | '/'
+    | '/accept-invitation'
     | '/setup'
     | '/sign-in'
     | '/speak-up'
@@ -1770,6 +1782,7 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  AcceptInvitationRoute: typeof AcceptInvitationRoute
   SetupRoute: typeof SetupRoute
   SignInRoute: typeof SignInRoute
   SpeakUpRoute: typeof SpeakUpRoute
@@ -1904,6 +1917,13 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/accept-invitation': {
+      id: '/accept-invitation'
+      path: '/accept-invitation'
+      fullPath: '/accept-invitation'
+      preLoaderRoute: typeof AcceptInvitationRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/setup': {
@@ -3095,6 +3115,7 @@ const HrmWorkspaceSettingsRouteWithChildren =
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  AcceptInvitationRoute: AcceptInvitationRoute,
   SetupRoute: SetupRoute,
   SignInRoute: SignInRoute,
   SpeakUpRoute: SpeakUpRoute,
