@@ -151,8 +151,8 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
 });
 
 function RootShell({ children }: { children: ReactNode }) {
-  const productSetup = useRouterState({
-    select: (state) => state.location.pathname.replace(/\/$/, "") === "/setup",
+  const productIdentityPage = useRouterState({
+    select: (state) => ["/setup", "/team"].includes(state.location.pathname.replace(/\/$/, "")),
   });
   return (
     <html lang="en">
@@ -160,7 +160,7 @@ function RootShell({ children }: { children: ReactNode }) {
         <HeadContent />
       </head>
       <body>
-        {!productSetup ? (
+        {!productIdentityPage ? (
           <div
             id="erp-global-preloader"
             className="erp-global-preloader"
@@ -182,13 +182,13 @@ function RootShell({ children }: { children: ReactNode }) {
 
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
-  const productSetup = useRouterState({
-    select: (state) => state.location.pathname.replace(/\/$/, "") === "/setup",
+  const productIdentityPage = useRouterState({
+    select: (state) => ["/setup", "/team"].includes(state.location.pathname.replace(/\/$/, "")),
   });
 
   return (
     <QueryClientProvider client={queryClient}>
-      {productSetup ? (
+      {productIdentityPage ? (
         <Outlet />
       ) : (
         <AuthProvider>

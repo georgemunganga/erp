@@ -9,7 +9,8 @@ preserving the separation between identity, commercial entitlement and ERP acces
 This increment implements team sign-in, session/CSRF discovery, cancellation,
 company discovery, licensed member reads and the role/revoke HTTP adapter.
 The existing internal commands remain the authoritative mutation path. Invitations
-and the team screen remain unfinished; this changed source is under qualification.
+remain unfinished. The separately qualified /team screen is documented in
+CORE-COMPANY-TEAM-UI-20261108.md; actual provider/Core/browser integration is pending.
 ## 4. Parent
 CORE-COMPANY-TEAM-20261108.md and protected product identity/setup. One ERP release
 must continue supporting shared SaaS and dedicated installations.
@@ -18,7 +19,8 @@ Verified product identity. A team-session proof alone establishes no company rol
 ## 6. Entry
 GET /api/core/product-identity/team/start creates signed company-team-v1 OAuth
 intent and a fixed /team return path. It requests product:identity only.
-The /team screen is a subsequent UI deliverable, not supplied by this API change.
+The /team screen is supplied separately by the frontend increment; this API alone
+never authenticates an operational ERP session.
 ## 7. Preconditions
 ProductIdentity, ProductLicensing and CompanyTeam flags must all be enabled.
 Flags are off by default. Existing reviewed HTTPS origin/issuer/client/key checks
@@ -49,11 +51,11 @@ property invalidates a team proof. Never infer organization access from email.
 Signed cookie properties retain purpose; claims retain issuer/subject/nonce. No
 provider bearer is saved for team management. No database/model migration.
 ## 13. UI
-Existing Kuubu branding/login retained. Future /team UI must fetch this session
-and keep the request token in memory; no token in URL or browser persistent storage.
+Existing Kuubu branding/login retained. The /team UI fetches this session and
+keeps the request token in memory; no token in URL or browser persistent storage.
 ## 14. UX
 Explicit team-management entry. Invalid/expired proof requires a fresh sign-in.
-Company/role confirmation must precede the future mutation endpoint.
+Company/role confirmation precedes the protected mutation endpoint.
 ## 15. Notifications
 No email, invitations or external notifications in this increment.
 ## 16. Documents
@@ -139,7 +141,37 @@ origin/CSRF, exact company/link/subject scope, current Core state and fresh lice
 on retry, revocation during license retrieval, owner/admin limits, last-owner
 denial, receipts/audit/outbox/no-op behavior and no operational grants.
 Evidence: inspection/qualifications/company-team-api-tests-01/verification.json.
-Native PostgreSQL and broader Linux/actual provider/browser refresh remain next.
+Native source2607cd697bb0c959b39e7e2091d3fbfe8d5a2c03 subsequently passed74 genuine
+PostgreSQL team/API cases,89 shared native-cohort checks,326 Linux focused and
+2,294 full Linux regressions, zero failures. All10 native full-suite opt-ins ran
+in the separate native cohorts; three actual provider/browser refresh opt-ins
+remain pending. Do not claim that all89 shared checks are native transactions:
+that cohort also includes existing HTTP/store/SQLite policy coverage.
+
+Read-only SQL audit excluded the previous31 databases and inspected all74 new
+native team databases:165 memberships,28 immutable command receipts,23 matching
+audit/outbox changes and five no-op receipts. Exact actor/link/company/member
+scope, validated receipt FKs/checks/unique index/append-only trigger, historical
+revision snapshots and no credentials, operational sessions or module roles passed.
+Four deliberately disabled/demoted actor-loss fixtures leave no active owner
+membership outside the command path; the audit records these and does not infer
+an all-companies owner invariant from the snapshot. Command-path last-owner and
+concurrent self-demotion checks passed separately.
+
+Native container kuubu-company-team-api-gate02 exited0/OOMKilled=false; controller
+and audit both restored the labeled test PostgreSQL to stopped. Attempt01 exited125
+before SDK creation because its CPU quota exceeded the one-CPU host; its partial
+publication/cleanup receipt remain intact. Existing private ERP readiness and
+Perfex sign-in returned200 in read-only checks. No production change.
+
+Local evidence: inspection/qualifications/company-team-api-linux-2607cd69-02
+and company-team-api-audit-2607cd69-01. Source archive SHA256:
+322781aaf45a4e09428af05c08e70d73c3d12ce6b52e2faf2247a71005331edc.
+Native-team log4769c7bdab76bb864da97b8c26f14b78e0d31ee15b50085fb26c974aeeaee484;
+shared3b066dd6a6cf8e25d285938f9bfed0b682c3eb348c58ddc76bbb14c43fe4b305;
+focused48968b79af298bd9d01ec37f4a832b7b7167a238c0ebb0e3686e266608f28ae6;
+full08937f993d4a14ba9b999fe03b7162bc777b0d7116edd3d1c6dc5b08468c318f;
+audit a43e6f87eb6939f6a288b145e8412a4e05f2c52b425ea6c44703de3c97880d23.
 
 Earlier signed-proof source dfe69f81531546ba547adfde42d516f7f3ec1eb3:
 Windows SDK10.0.403 full dependency build passed (zero errors). A fresh test-only
