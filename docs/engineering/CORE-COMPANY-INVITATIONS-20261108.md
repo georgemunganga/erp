@@ -10,8 +10,9 @@ reader, followed by internal invitation issue/revoke/accept commands, persistenc
 immutable receipts/audit and durable delivery intent. Sender issue/list/revoke
 HTTP endpoints and company-team UI are implemented behind a default-off flag.
 Kuubu account recipient consent/relay is implemented and tested separately.
-Actual delivery worker, Core protected recipient handoff and acceptance HTTP/UI
-remain to build. No production activation.
+Core protected recipient handoff, review and acceptance HTTP are implemented
+behind a separate default-off flag. ERP recipient UI, real-provider recipient
+interoperability, native qualification and delivery remain. No production activation.
 ## 4. Parent
 CORE-COMPANY-TEAM-20261108.md; one ERP release for SaaS and dedicated installations.
 ## 5. Actors
@@ -28,7 +29,7 @@ Acceptance checks a protected invitation token, current recipient observation,
 current company/license/inviter authority, explicit confirmation and then commits
 exact principal/link/membership/audit/outbox together. No automatic acceptance.
 
-Recipient HTTP/browser implementation contract (Core pending; account consent implemented):
+Recipient HTTP/browser contract (Core HTTP/account consent implemented; ERP UI pending):
 
 - The fixed `/accept-invitation#token=` landing consumes and removes the fragment
   immediately. Never put the secret in a query, OAuth state, redirect, browser
@@ -105,13 +106,24 @@ not a browser-supplied email, signed admission token or membership grant.
 Normal subject responses continue to exclude email. Kuubu account authorization
 UI/relay now supports this exact separate scope pair and requires unchecked
 recipient-verification consent. It explains verification is not company acceptance;
-mixed scopes and substituted setup consent fail closed. Core does not yet request
-or consume it through the real callback. Backend flag remains default-off.
+mixed scopes and substituted setup consent fail closed. Core now requests and
+consumes the distinct purpose in isolated HTTP tests. Actual provider-to-Core
+recipient interoperability remains unqualified. Backend flag remains default-off.
 ## 19. Audit/privacy
 Return only the current person's email to their scoped confidential product
 client. Reject selectors; no user lookup, email directory, payer or company list.
 Never log raw proof bodies, provider tokens, invitation tokens or OAuth state.
 ## 20. Configuration
+ERP:CompanyInvitationAcceptance:Enabled=false requires existing identity, team and
+licensing flags. ERP:CompanyInvitationAcceptance:IntentPath must be an existing
+private absolute directory outside application assets and separate from the key
+ring/setup state. Linux directories are0700 and files0600. Protected bootstrap
+and intent cookies use distinct Data Protection purposes, secure HttpOnly host
+cookies, Lax callback semantics and five-minute expiry. JSON writes require exact
+same-origin and X-Kuubu-Invitation-CSRF; cookie-only or another workflow's proof
+cannot accept. Routes: /api/core/product-identity/invitation/{session,prepare,start,
+review,accept,cancel}. Tokens stay encrypted server-side; OAuth state carries only
+opaque intent binding. New purpose sign-in revokes prior workflow handles.
 ERP:CompanyInvitations:Enabled=false additionally requires the existing team,
 identity, provisioning and licensing flags. Sender routes reuse team-purpose
 proof, exact actor/link/company authority, live license checks and nonce-bound
@@ -128,6 +140,12 @@ default-off behavior. Core validates exact issuer/subject/client/product/purpose
 bounded observation time, email syntax and operational_access_granted=false.
 ## 22. Operations
 No real mail, customer access, production deployment or DNS changes in this stage.
+Unusable intents, retained exclusive callback reservations and revocation markers
+are purged after ten minutes; grants expire within five minutes from preparation.
+Claim reservation uses persistent exclusive CreateNew. Files held by readers may
+remain until cleanup; markers already make them unusable. New claims cannot undo
+cancellation. Qualify shared filesystem/permissions, guest prepare rate/volume
+controls and path-only ingress logging before public activation.
 ## 23. Postconditions
 Recipient observation creates no customer, enrollment, subscription or company
 membership. Later accepted invitation creates only consented Core governance.
@@ -152,7 +170,44 @@ delivery retry, browser acceptance, cross-tenant and recovery gates afterward.
 Do not enable this contract before account consent/relay, Core invitations,
 delivery, migrations/runtime grants, audit and complete browser flow qualify.
 ## 28. Evidence
-### Account-side recipient consent checkpoint
+### Core recipient handoff and acceptance HTTP checkpoint
+
+Published runtimeacc3ae39e7f4e42973f69f5d5bc05eb3cd0d7929 adds protected browser/
+intent binding, exact invitation-purpose OAuth, opaque authenticated grant and
+fresh recipient/license/inviter checks for review and explicit atomic acceptance.
+No browser company/tenant/email/role overrides; no provider token in cookies or
+responses. Ordinary sign-in cannot reuse the handoff. Callback replay, cancellation,
+cookie-purpose substitution, malformed/forged requests and inviter revocation deny.
+
+Fresh API/tests compile with27/20 existing warnings, zero errors. Final local gate
+passed300 checks/14 native skips:13 intent-store and24 new HTTP cases alongside
+the existing identity/setup/team/constraint cohort. Concurrency case runs20 rounds
+of eight callback attempts (160 total), exactly one grant per intent. A held file
+reader cannot restore consumed or cancelled state. Accept/replay checks preserve
+one membership effect and no credentials/sessions/module grants.
+
+Attempt05 retained298 passes/one claim-concurrency failure: rename-based claiming
+could produce two grants. Final implementation retains an exclusive CreateNew
+reservation until cleanup and treats revocation markers as authoritative even
+when file deletion is blocked. No assertion was removed; the race was strengthened.
+Attempt01's RegisteredName compile correction and all later build/test attempts
+remain retained. Source hashes, copies, API hash and unchanged independent
+dependency DLLs: inspection/qualifications/recipient-core-07/verification.json.
+
+Normal actual Laravel/website/Core/SSR compatibility passed95.070s at the pre-claim-
+fix API05 checkpoint, website02f42d39 and unchanged team UI: own login/Google off,
+setup/create/retry, fresh team sign-in, sender issue/revoke, role/retry/license
+denial. Acceptance flag was off; it does not exercise the modified claim path.
+Independent SQL audit verifies the prior two-member/five-audit/six-event scope,
+zero credentials/sessions/module grants and485 unchanged SSR files; owned services
+stopped. Source snapshot/evidence: recipient-core-05/source-before-claim-fix.json
+and recipient-core-normal-browser-01/verification.json. Current new acceptance
+cases use a synthetic HTTP provider and SQLite; they do not qualify the new real
+recipient wire, PostgreSQL/filesystem semantics, recipient ERP UI or public TLS.
+Those, guest prepare controls and actual delivery remain release gates. No schema,
+production configuration, application deployment, payment, DNS or Perfex change.
+
+### Earlier account-side recipient consent checkpoint
 
 Website source02f42d39880e587b4ccaa4b0f650f1e6a2984219 passed42 account tests,
 two existing opt-in skips, API-mode client/SSR builds,14 rendered pages/252 links
@@ -171,7 +226,7 @@ provider recipient wire, Core encrypted intent/callback, review/acceptance HTTP/
 and delivery remain unqualified. Sender runtime is unchanged. No production flag,
 configuration, payment, DNS, Perfex or application deployment change.
 
-### Sender HTTP and UI checkpoint
+### Earlier sender HTTP and UI checkpoint
 
 Default-off sender API/UI adds licensed scoped issue/list/revoke, bounded paging,
 team-purpose proof/CSRF and explicit reviewed confirmation. Local focused gate

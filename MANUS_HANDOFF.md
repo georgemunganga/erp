@@ -1,4 +1,24 @@
-# Account-side recipient consent —8 November2026
+# Core recipient HTTP checkpoint —8 November2026
+
+Published runtimeacc3ae39e7f4e42973f69f5d5bc05eb3cd0d7929 on the existing Core
+branch adds default-off protected invitation handoff, purpose-specific OAuth,
+fresh recipient/company review and explicit atomic acceptance. No provider token
+in browser state, company/actor overrides, credentials, ERP sessions or module
+grants.300 local checks/14 native skips passed, including13 store and24 HTTP cases
+and160 competing callbacks. Separate cookie purposes, original-intent revocation,
+late callbacks and held-file-reader behavior covered. Rename-based claim race
+in05 retained; final uses persistent exclusive CreateNew reservation and markers.
+Evidence: inspection/qualifications/recipient-core-07/verification.json.
+
+Actual normal login/setup/team/sender compatibility passed95.070s on API05 before
+the claim-only fix, website02f42d39, unchanged UI. Acceptance off; this is not new
+recipient acceptance qualification. SQL audit retains two members/five audits/six
+events, no credentials/sessions/module grants;485 SSR files unchanged; owned
+services stopped. New recipient real-provider wire, native filesystem/PostgreSQL,
+ERP acceptance page, guest prepare limits and real delivery remain next. No
+production activation. Main/UI-main/B1 unchanged; PR201 remains draft.
+
+# Earlier account-side recipient consent —8 November2026
 
 Kuubu website published02f42d39880e587b4ccaa4b0f650f1e6a2984219, draft website
 PR3, adds exact identity/recipient scope pair, unchecked distinct consent and
