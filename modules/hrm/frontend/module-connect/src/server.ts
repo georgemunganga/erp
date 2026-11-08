@@ -49,7 +49,18 @@ export default {
     try {
       const handler = await getServerEntry();
       const response = await handler.fetch(request, env, ctx);
-      return await normalizeCatastrophicSsrResponse(response);
+      const normalized = await normalizeCatastrophicSsrResponse(response);
+      if (new URL(request.url).pathname.replace(/\/$/, "") === "/setup") {
+        const headers = new Headers(normalized.headers);
+        headers.set("Cache-Control", "no-store");
+        headers.set("Referrer-Policy", "no-referrer");
+        return new Response(normalized.body, {
+          status: normalized.status,
+          statusText: normalized.statusText,
+          headers,
+        });
+      }
+      return normalized;
     } catch (error) {
       console.error(error);
       return new Response(renderErrorPage(), {

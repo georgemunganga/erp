@@ -10,6 +10,7 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as SetupRouteImport } from './routes/setup'
 import { Route as SignInRouteImport } from './routes/sign-in'
 import { Route as SpeakUpRouteImport } from './routes/speak-up'
 import { Route as CoreIndexRouteImport } from './routes/core.index'
@@ -154,6 +155,11 @@ import { Route as HrmPayrollRunsIdEditRouteImport } from './routes/hrm.payroll.r
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SetupRoute = SetupRouteImport.update({
+  id: '/setup',
+  path: '/setup',
   getParentRoute: () => rootRouteImport,
 } as any)
 const SignInRoute = SignInRouteImport.update({
@@ -884,6 +890,7 @@ const HrmPayrollRunsIdEditRoute = HrmPayrollRunsIdEditRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/setup': typeof SetupRoute
   '/sign-in': typeof SignInRoute
   '/speak-up': typeof SpeakUpRoute
   '/core/branch-access': typeof CoreBranchAccessRoute
@@ -1027,6 +1034,7 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/setup': typeof SetupRoute
   '/sign-in': typeof SignInRoute
   '/speak-up': typeof SpeakUpRoute
   '/core/branch-access': typeof CoreBranchAccessRoute
@@ -1171,6 +1179,7 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/setup': typeof SetupRoute
   '/sign-in': typeof SignInRoute
   '/speak-up': typeof SpeakUpRoute
   '/core/branch-access': typeof CoreBranchAccessRoute
@@ -1316,6 +1325,7 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/setup'
     | '/sign-in'
     | '/speak-up'
     | '/core/branch-access'
@@ -1459,6 +1469,7 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/setup'
     | '/sign-in'
     | '/speak-up'
     | '/core/branch-access'
@@ -1602,6 +1613,7 @@ export interface FileRouteTypes {
   id:
     | '__root__'
     | '/'
+    | '/setup'
     | '/sign-in'
     | '/speak-up'
     | '/core/branch-access'
@@ -1746,6 +1758,7 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  SetupRoute: typeof SetupRoute
   SignInRoute: typeof SignInRoute
   SpeakUpRoute: typeof SpeakUpRoute
   CoreBranchAccessRoute: typeof CoreBranchAccessRoute
@@ -1878,6 +1891,13 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/setup': {
+      id: '/setup'
+      path: '/setup'
+      fullPath: '/setup'
+      preLoaderRoute: typeof SetupRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/sign-in': {
@@ -3055,6 +3075,7 @@ const HrmWorkspaceSettingsRouteWithChildren =
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  SetupRoute: SetupRoute,
   SignInRoute: SignInRoute,
   SpeakUpRoute: SpeakUpRoute,
   CoreBranchAccessRoute: CoreBranchAccessRoute,

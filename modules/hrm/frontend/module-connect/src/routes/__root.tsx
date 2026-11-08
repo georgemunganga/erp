@@ -4,6 +4,7 @@ import {
   Link,
   createRootRouteWithContext,
   useRouter,
+  useRouterState,
   HeadContent,
   Scripts,
 } from "@tanstack/react-router";
@@ -122,7 +123,10 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { title: "HR workspace" },
       { name: "description", content: "HR workspace for leave, attendance, requests and pay." },
       { property: "og:title", content: "HR workspace" },
-      { property: "og:description", content: "HR operations workspace for leave, attendance, requests and pay." },
+      {
+        property: "og:description",
+        content: "HR operations workspace for leave, attendance, requests and pay.",
+      },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
     ],
@@ -147,17 +151,27 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
 });
 
 function RootShell({ children }: { children: ReactNode }) {
+  const productSetup = useRouterState({
+    select: (state) => state.location.pathname.replace(/\/$/, "") === "/setup",
+  });
   return (
     <html lang="en">
       <head>
         <HeadContent />
       </head>
       <body>
-        <div id="erp-global-preloader" className="erp-global-preloader" role="status" aria-label="Loading ERP">
-          <div className="erp-preloader-orbit" aria-hidden="true">
-            <img id="erp-preloader-logo" className="erp-preloader-logo" alt="" hidden />
+        {!productSetup ? (
+          <div
+            id="erp-global-preloader"
+            className="erp-global-preloader"
+            role="status"
+            aria-label="Loading ERP"
+          >
+            <div className="erp-preloader-orbit" aria-hidden="true">
+              <img id="erp-preloader-logo" className="erp-preloader-logo" alt="" hidden />
+            </div>
           </div>
-        </div>
+        ) : null}
         {children}
         <Toaster position="bottom-right" closeButton richColors />
         <Scripts />
@@ -168,18 +182,27 @@ function RootShell({ children }: { children: ReactNode }) {
 
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
+  const productSetup = useRouterState({
+    select: (state) => state.location.pathname.replace(/\/$/, "") === "/setup",
+  });
 
   return (
     <QueryClientProvider client={queryClient}>
-      <AuthProvider>
-        <BrandingProvider>
-          <PreloaderController />
-          <AppProvider>
-            {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
-            <TimesheetBoundary><Outlet /></TimesheetBoundary>
-          </AppProvider>
-        </BrandingProvider>
-      </AuthProvider>
+      {productSetup ? (
+        <Outlet />
+      ) : (
+        <AuthProvider>
+          <BrandingProvider>
+            <PreloaderController />
+            <AppProvider>
+              {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
+              <TimesheetBoundary>
+                <Outlet />
+              </TimesheetBoundary>
+            </AppProvider>
+          </BrandingProvider>
+        </AuthProvider>
+      )}
     </QueryClientProvider>
   );
 }

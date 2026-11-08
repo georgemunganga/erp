@@ -9,6 +9,8 @@
     "build:dev": "vite build --mode development",
     "preview": "vite preview",
     "test:e2e": "playwright test",
+    "test:setup-ui": "playwright test --config playwright.setup.config.ts",
+    "test:setup-contracts": "node --experimental-strip-types --test tests/product-setup-api.test.mjs tests/product-setup-attempt.test.mjs",
     "lint": "eslint .",
     "format": "prettier --write ."
   },

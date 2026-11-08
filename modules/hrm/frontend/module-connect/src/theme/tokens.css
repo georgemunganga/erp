@@ -86,6 +86,31 @@
   --color-chart-5: var(--accent);
 }
 
+/* Public Kuubu onboarding uses product branding before any company is selected.
+   Keep these semantic overrides here, separate from tenant branding. */
+.kuubu-product-shell {
+  --erp-font-family: "Poppins", ui-sans-serif, system-ui, sans-serif;
+  --primary: #004b3b;
+  --primary-foreground: #ffffff;
+  --button-primary: #004b3b;
+  --button-primary-foreground: #ffffff;
+  --accent: #69c829;
+  --accent-foreground: #004b3b;
+  --background: #fcfdf9;
+  --foreground: #004b3b;
+  --card: #ffffff;
+  --card-foreground: #004b3b;
+  --popover: #ffffff;
+  --popover-foreground: #004b3b;
+  --surface: #f4f7ef;
+  --muted: #f4f7ef;
+  --muted-foreground: #54675c;
+  --border: #dce4d9;
+  --input: #c4d2c0;
+  --ring: #004b3b;
+  font-family: var(--erp-font-family);
+}
+
 :root {
   --radius: 0.5rem;
 

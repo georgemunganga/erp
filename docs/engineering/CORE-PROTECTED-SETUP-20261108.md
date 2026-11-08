@@ -43,8 +43,18 @@ The typed browser client uses fixed same-origin, no-store, redirect-rejecting
 requests, keeps CSRF out of URLs, and accepts only the expected setup response
 contracts. Create retries reuse the caller's reviewed command/key; conflict and
 capacity-exhaustion remain distinct recovery states. It stores no credentials or
-session data. Screens, reviewed-command lifetime/reload recovery and real browser
-acceptance remain to be implemented; a tested client is not a completed form.
+session data. The public setup route bypasses tenant branding and operational
+auth providers, reusing the shared controls in a Kuubu product shell. Account,
+details and review are separate steps with an unchecked confirmation. A reviewed
+request/key is written to versioned sessionStorage before sending, bound to the
+server-verified setup subject. No bearer/CSRF is persisted. Once submitted, its
+values cannot be edited until the outcome is known. Reload or fresh consent can
+resume the exact request only after the same subject is verified; changing
+identity cannot reuse it. Storage failure prevents sending. Ambiguous failures
+retain the request; explicit retry may create or retrieve the same company.
+No cached/local success is treated as server-confirmed creation. Session expiry
+requires new consent, with the reviewed request retained for safe recovery.
+Real browser/provider acceptance remains a separate release gate.
 ## 14. UX
 Setup is separate from ordinary sign-in. Successful creation grants no operational
 session; display the resulting workspace and subsequent onboarding honestly.
