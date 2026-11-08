@@ -1,4 +1,22 @@
-# ERP recipient page checkpoint —8 November2026
+# Actual-provider invitation acceptance checkpoint —8 November2026
+
+The real Laravel/Core/Kuubu browser gate passed133.189s, zero skips. Qualified
+runtime remains Coreacc3ae39, UI067362a0, Foundation15707bd9, website02f42d39.
+New opt-in harness/driver exercises owner setup/invite, account switch, recipient
+login/explicit joining, separate recipient consent, company confirmation, commit
+response loss/exact retry and actual subscription suspension/replay denial.
+No preaccepted staff membership. Independent SQL: one company/two exact members,
+one accepted revision2 invitation/two receipts/four audits/five events; no
+passwords/credentials/ERP sessions/module grants or recipient billing membership.
+490 ERP outputs/25 website outputs unchanged,136 Foundation source files and49
+dependency DLLs unchanged; owned services stopped. Evidence:
+inspection/qualifications/real-recipient-browser-01/verification.json.
+Test-only delivery inspection does not qualify email; intercepted local transport
+does not qualify deployed TLS. Guest prepare controls, delivery and licensed ERP
+admission remain next. No production/Perfex/DNS/payment/main/UI-main/B1 change;
+PR201 remains draft.
+
+# Earlier ERP recipient page checkpoint —8 November2026
 
 Published UI067362a0e4cf1f42b4fb427c5fc06446e6023662 on existing Core branch.
 Early secret removal, explicit Kuubu handoff, company/role confirmation and

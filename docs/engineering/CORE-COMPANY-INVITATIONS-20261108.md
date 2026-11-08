@@ -12,8 +12,9 @@ HTTP endpoints and company-team UI are implemented behind a default-off flag.
 Kuubu account recipient consent/relay is implemented and tested separately.
 Core protected recipient handoff, review and acceptance HTTP are implemented
 behind a separate default-off flag. ERP recipient UI is implemented and tested
-with synthetic API responses. Real-provider recipient/browser interoperability,
-guest controls and delivery remain. No production activation.
+with synthetic API responses and now qualified against actual Laravel/Core
+handlers in an isolated browser fixture. Guest controls and delivery remain.
+No production activation.
 ## 4. Parent
 CORE-COMPANY-TEAM-20261108.md; one ERP release for SaaS and dedicated installations.
 ## 5. Actors
@@ -30,7 +31,7 @@ Acceptance checks a protected invitation token, current recipient observation,
 current company/license/inviter authority, explicit confirmation and then commits
 exact principal/link/membership/audit/outbox together. No automatic acceptance.
 
-Recipient HTTP/browser contract (Core HTTP, account consent and ERP UI implemented; joint real-provider gate pending):
+Recipient HTTP/browser contract (Core HTTP, account consent and ERP UI implemented; joint real-provider gate passed locally):
 
 - The fixed `/accept-invitation#token=` landing consumes and removes the fragment
   immediately. Never put the secret in a query, OAuth state, redirect, browser
@@ -119,7 +120,8 @@ UI/relay now supports this exact separate scope pair and requires unchecked
 recipient-verification consent. It explains verification is not company acceptance;
 mixed scopes and substituted setup consent fail closed. Core now requests and
 consumes the distinct purpose in isolated HTTP tests. Actual provider-to-Core
-recipient interoperability remains unqualified. Backend flag remains default-off.
+recipient interoperability passed the local browser gate below. Deployed TLS
+and ingress remain unqualified. Backend flag remains default-off.
 ## 19. Audit/privacy
 Return only the current person's email to their scoped confidential product
 client. Reject selectors; no user lookup, email directory, payer or company list.
@@ -181,6 +183,44 @@ delivery retry, browser acceptance, cross-tenant and recovery gates afterward.
 Do not enable this contract before account consent/relay, Core invitations,
 delivery, migrations/runtime grants, audit and complete browser flow qualify.
 ## 28. Evidence
+### Actual-provider recipient browser checkpoint
+
+The opt-in `ProductInvitationBrowserInteropTests` and
+`tools/ProductInvitationBrowser/browser.mjs` passed one real-provider browser
+case with zero skips in133.189s. Baselines: Core APIacc3ae39, ERP UI067362a0,
+Foundation15707bd9 and Kuubu website02f42d39. Test assembly compiled with zero
+errors/20 existing warnings, referencing independently copied qualified runtime.
+Evidence: inspection/qualifications/real-recipient-browser-01/verification.json;
+test build: inspection/qualifications/real-recipient-api-01.
+
+Both synthetic verified people began without personal enrollment; no Core
+preaccepted staff membership was seeded. Actual login, explicit product joining,
+owner setup/creation/exact retry, sender invitation issue, account switching,
+recipient login/joining, unchecked recipient-verification consent and unchecked
+company/role confirmation all use the real handlers. Before company acceptance,
+only the owner existed in Core. A deliberately dropped response after committed
+acceptance was retried with the same body/key, returning the existing receipt.
+Actual subscription suspension then denied the same acceptance replay403.
+
+Independent read-only SQLite audit found one company, two exact federated
+principal/link/memberships, one accepted invitation at revision2, two immutable
+invitation receipts, four matching audits and five outbox records. Recipient
+request hash and command/audit/event correlations match. No local passwords,
+credential links, operational sessions, team-change receipts or module grants.
+Foundation retains two users/two explicit personal enrollments and only the
+owner's payer membership; joining/accepting creates no recipient billing access.
+490 ERP output files and25 website dist files retained hash/size/nsmtime;
+136 Foundation source files and49 copied dependency DLLs retained hashes.
+Consent/review screenshots inspected. All owned services stopped/ports closed.
+
+Transport intercepts every browser redirect under the reviewed HTTPS origins
+and forwards only to isolated loopback handlers, with DNS disabled and no service
+workers. This proves handler/browser interoperability, not deployed TLS/ingress.
+The marker-protected test-only delivery preview reads the committed protected
+intent; it does not prove mail delivery. No production flag, schema, payment,
+mail, Perfex, DNS, main/UI-main/B1 or PR201 draft-state change. Anonymous prepare
+capacity controls, real delivery and licensed operational admission remain gates.
+
 ### ERP recipient page checkpoint
 
 Published UI067362a0e4cf1f42b4fb427c5fc06446e6023662 adds entry/handoff, targeted

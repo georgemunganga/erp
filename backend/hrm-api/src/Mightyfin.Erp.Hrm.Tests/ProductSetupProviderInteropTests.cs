@@ -234,6 +234,7 @@ public sealed class ProductSetupProviderInteropTests
             Assert.Equal("https",target.Scheme); Assert.Equal("commercial-api.greenwebb.tech",target.Host);
             Assert.Empty(target.Query); Assert.Empty(target.Fragment); Assert.False(request.Headers.Contains("Cookie"));
             Assert.True(target.AbsolutePath is "/api/v1/product-identity/token" or "/api/v1/product-identity/subject"
+                or "/api/v1/product-identity/invitation-recipient"
                 or "/api/v1/product-identity/workspace-setup-payers"
                 || target.AbsolutePath.StartsWith("/api/v1/product-identity/customers/",StringComparison.Ordinal)
                 || target.AbsolutePath.StartsWith("/api/v1/product-identity/licensing/enrollments/",StringComparison.Ordinal));
