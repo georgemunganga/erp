@@ -62,7 +62,8 @@ subject/idempotency key and requires another review/confirmation. It never clear
 the retained request or creates a new key; Core's global actor/key uniqueness
 protects against an older delayed command. Unknown, denied or conflicting outcomes
 remain locked. Reload during correction resumes the last retained command.
-Real browser/provider acceptance remains a separate release gate.
+Isolated real browser/provider acceptance passed; deployed acceptance remains a
+separate release gate.
 ## 14. UX
 Setup is separate from ordinary sign-in. Successful creation grants no operational
 session; display the resulting workspace and subsequent onboarding honestly.
@@ -125,11 +126,60 @@ disabled Google, explicit Join/setup consent, zero callback provisioning,
 confirmed creation, reload retry, separate HttpOnly cookie hosts and denied
 operational access. This does not certify deployed TLS, DNS or PostgreSQL ingress.
 ## 27. Release gates
-Actual browser→provider→protected grant→create acceptance, definitive no-allocation
-form recovery, private runtime ACLs/shared-volume
+Isolated browser→provider→protected grant→create and synthetic definitive-denial
+form recovery passed. Remaining gates: private runtime ACLs/shared-volume
 operations, owner/invite policy, licensed sessions/refresh/revocation, branch/
 module scope, public ingress/log redaction and deployed recovery acceptance.
 ## 28. Evidence
+### Actual browser acceptance —8 November2026
+
+Published runner `aee65eebf468275997912e60b906c6c6e2a3a662`, compiled test
+source `ba98d8399a138dbc900dffc1c20b3e928f0ed8d7`, unchanged production Core
+runtime `a8134a9a`, Laravel helper `b71b29fe` and website `b01985ee` passed
+the actual installed-Chrome browser case in48s, zero failures/skips. All92
+tracked website blobs were verified against the published Git tree before its
+API-mode build. Original compiled runtime assemblies were consumed read-only;
+only the test-only Node runner changed afterward. SDK10.0.403, PHP8.4.12 and
+Node24.18.0 were used.
+
+The browser performs Kuubu's own branded login, disabled Google, explicit Join
+Kuubu and separate unchecked setup consent, then actual OAuth callback/payer
+selection and an unchecked company review. There are zero companies before
+confirmation. Confirm creates201; reload requires a new confirmation and exact
+same-command retry returns200 for the existing company. Secure HttpOnly account
+and Core cookies have separate exact hosts. Operational access returns401.
+Independent read-only SQL verified one company binding, credential-free/role-free
+owner, exact subject/tenant-linked identity, audit and outbox; zero sessions,
+credential links and module-role grants; slot1 within purchased limit; clean FKs.
+Provider retains one explicitly seeded payer membership and one personal join.
+
+Evidence root `inspection/qualifications/real-browser-setup-20261108-05` holds
+the immutable runner, login/consent/review/result screenshots and SQL acceptance
+receipt. Log SHA256 `f3df65050fd481473b57fee9c03051342ab1c2a07cc39cb4715d5882c812d246`;
+runner SHA256 `58ac29e09d7946a9dc154fb141e6ac8205152d097c9608c8ba4a7a1032e9c06c`;
+result SHA256 `cbabafeb099d81d2c9073128bfb59d7e598dc48db60074c1f4a68b8cb1c93339`.
+
+Attempts01/02 exposed Playwright routing skipping subsequent redirect URLs,
+loading a deployed document with different asset hashes. Test-only CDP Fetch
+interception now handles every redirect. Attempt03 completed the journey but
+failed the strict transport assertion because missing favicons threw instead
+of returning404. Attempt04 passed with normal static404 handling; attempt05
+also disabled browser DNS (missed interception fails closed) and captured own
+login/consent screenshots. All attempts remain retained; no website source was
+changed to hide the mismatch. Service workers are blocked, off-fixture requests
+are aborted, no certificate exception/user browser profile is used. Logs exclude
+query parameters, bodies, cookies and secrets. Fixture/SSR processes stopped and
+ports8101/8120/8121/3186/3187 were verified closed.
+
+Setup UI035869f0 separately passed15 synthetic-API browser scenarios,35 contract
+tests, TypeScript, targeted lint and production build, including capacity-denial
+correction retaining the original actor/request key. Production C# did not
+change after the already qualified runtime; the older regression evidence below
+is not a claim that the new opt-in browser case ran in that earlier full suite.
+No production deployment, migration, DNS, credentials, Perfex or payment change.
+Deployed TLS/DNS, production PostgreSQL browser integration, licensed operational
+admission, owner/invitation policy and customer release remain unqualified.
+
 ### Actual protected provider protocol —8 November2026
 
 Runtime `a8134a9a90bc604ff392daf06c49daf697887fec`, Laravel fixture helper
@@ -152,7 +202,8 @@ two separately tenanted companies within a two-place purchase. Exact retry
 returns the same company; excess capacity, revoked owner and suspended purchase
 deny. Cancel invalidates the grant; no ERP session/module role is created.
 This is actual protocol acceptance, not deployed browser/TLS/production-PostgreSQL
-acceptance. A complete browser journey remains required before rollout.
+acceptance. The later isolated browser gate above passed; deployed browser
+acceptance remains required before rollout.
 
 Independent read-only SQL audit verified two company/owner/identity-link pairs in
 distinct tenants, slots1/2, clean foreign keys, one audit/outbox per company and

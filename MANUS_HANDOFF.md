@@ -1,4 +1,22 @@
-# Actual protected setup protocol —8 November2026
+# Actual browser setup acceptance —8 November2026
+
+Draft PR201 published runner `aee65eebf468275997912e60b906c6c6e2a3a662`
+and compiled test source `ba98d8399a138dbc900dffc1c20b3e928f0ed8d7` passed
+the real browser→Kuubu login/enrollment/consent→Laravel→Core create/reload/retry
+case in48s. Browser DNS disabled, every redirect intercepted, real signed relay
+and API allocation, exact published website92 blobs verified. Independent SQL:
+one company/owner/link/audit/outbox, zero credentials/sessions/module roles,
+matching tenant/subject and clean FKs. Separate secure cookies and operational401
+verified. Actual production Core runtime remainsa8134a9a; no production changes.
+Setup UI035869f0 passed15 synthetic-API browser scenarios and35 contract checks,
+TypeScript/lint/build, including explicit capacity-denial correction with the
+same request key. Failed/partial attempts retained; all local fixture/SSR ports
+closed. Exact sources/hashes/bounds: CORE-PROTECTED-SETUP-20261108.md, evidence
+root inspection/qualifications/real-browser-setup-20261108-05. Next: explicit
+owner/team policy, invitations and licensed operational admission. Deployed
+TLS/DNS/PostgreSQL, runtime ACLs and release holds remain; do not enable live.
+
+# Earlier actual protected setup protocol —8 November2026
 
 Draft PR201 runtime `a8134a9a90bc604ff392daf06c49daf697887fec`, provider
 helper `b71b29fe4bfbc81e34610983ef61461e02e14845` and published website
