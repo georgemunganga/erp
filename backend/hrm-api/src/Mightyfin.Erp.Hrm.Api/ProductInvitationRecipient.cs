@@ -79,7 +79,7 @@ internal sealed class ProductInvitationRecipient(HttpClient http, TimeProvider c
         { return new(InvitationRecipientStatus.Unavailable); }
     }
 
-    private static bool CanonicalEmail(string? email) => email is { Length: > 0 and <= 254 }
+    internal static bool CanonicalEmail(string? email) => email is { Length: > 0 and <= 254 }
         && email.All(c => c is >= '!' and <= '~') && email == email.ToLowerInvariant()
         && MailAddress.TryCreate(email, out var address) && address.Address == email;
 

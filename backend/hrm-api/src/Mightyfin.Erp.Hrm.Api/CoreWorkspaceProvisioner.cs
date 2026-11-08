@@ -80,7 +80,7 @@ internal sealed class CoreWorkspaceProvisioner(Func<string, HrmDbContext> contex
             var membership = new CoreCompanyMembership { TenantId = tenant, LegalEntityId = company.Id, LocalUserId = owner.Id,
                 Role = CoreCompanyRoles.Owner, CreatedBy = actor };
             db.CompanyMemberships.Add(membership);
-            db.ExternalIdentityLinks.Add(new ExternalIdentityLink { Issuer = ProductCommercialLicense.Issuer,
+            db.ExternalIdentityLinks.Add(new ExternalIdentityLink { TenantId = tenant, Issuer = ProductCommercialLicense.Issuer,
                 Subject = authority.Subject, LocalUserId = owner.Id, CreatedBy = actor });
             db.WorkspaceBindings.Add(binding);
             var evidence = JsonSerializer.Serialize(new { binding.Id, company_id = company.Id, owner_id = owner.Id,

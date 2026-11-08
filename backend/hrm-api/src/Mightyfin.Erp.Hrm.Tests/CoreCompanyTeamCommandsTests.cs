@@ -265,7 +265,7 @@ public sealed class CoreCompanyTeamCommandsTests
         internal async Task<Person> Add(string subject,string role)
         {
             await using var db=Context();var user=LocalUser.Federated("Explicitly accepted team fixture");user.TenantId=Tenant;
-            var link=new ExternalIdentityLink{Issuer=ProductCommercialLicense.Issuer,Subject=subject,LocalUserId=user.Id};
+            var link=new ExternalIdentityLink{TenantId=Tenant,Issuer=ProductCommercialLicense.Issuer,Subject=subject,LocalUserId=user.Id};
             var member=new CoreCompanyMembership{TenantId=Tenant,LegalEntityId=Company,LocalUserId=user.Id,Role=role};
             db.LocalUsers.Add(user);db.ExternalIdentityLinks.Add(link);db.CompanyMemberships.Add(member);await db.SaveChangesAsync();
             return new(subject,link.Id,user.Id,member.Id);

@@ -5,10 +5,11 @@ Tier3 Core child feature, 8 November2026. Implementation in progress; not live.
 ## 2. Purpose
 Let an authorized company actor invite a person who explicitly accepts access.
 ## 3. Scope
-First increment: separate confidential-client recipient identity observation
-and a strict server-side Core reader. Core reader is not yet registered or
-exposed by a public endpoint; no accept flow can use it accidentally.
-Invitation persistence/issue/revoke/accept, delivery, HTTP and UI remain to build.
+Separate confidential-client recipient identity observation and strict Core
+reader, followed by internal invitation issue/revoke/accept commands, persistence,
+immutable receipts/audit and durable delivery intent. All remain unregistered and
+unexposed by public endpoints. Actual delivery worker, HTTP/CSRF integration,
+account authorization/consent relay and acceptance/team UI remain to build.
 ## 4. Parent
 CORE-COMPANY-TEAM-20261108.md; one ERP release for SaaS and dedicated installations.
 ## 5. Actors
@@ -25,7 +26,8 @@ Acceptance checks a protected invitation token, current recipient observation,
 current company/license/inviter authority, explicit confirmation and then commits
 exact principal/link/membership/audit/outbox together. No automatic acceptance.
 ## 9. States
-Pending, accepted, revoked and expired; terminal outcomes cannot be repurposed.
+Pending at revision1; accepted/revoked at revision2. Expiry is computed from
+ExpiresAt without rewriting history. Terminal outcomes cannot be repurposed.
 ## 10. Permissions
 Owner may invite administrators/members; administrator may invite ordinary members only.
 Owner promotion remains an explicit owner-authorized action. Server enforces all.
@@ -34,9 +36,17 @@ Email match alone grants nothing. Require an exact targeted invitation, token,
 verified identity, enrollment, explicit acceptance and current Core guards.
 Do not canonicalize provider aliases/dots or infer access from email domains.
 ## 12. Data
-Planned invitation: immutable company/target/role/issuer, hashed secret, expiry,
-revision, actor and accepted exact subject/member references. No plain token in
-audit/logs; delivery payload encrypted at rest and bounded by invitation expiry.
+Invitation: immutable company/target hash/role/issuer/inviter binding, SHA256 secret
+hash,48-hour expiry, revision, actor and accepted exact subject/member references.
+Token is32 random bytes. Recipient hash is SHA256 of the provider-compatible
+trimmed/lowercase address; hashing does not anonymize it. No alias/domain inference.
+No plain token/email in receipts/audit/outbox. ProtectedDelivery encrypts recipient
+and fixed /accept-invitation#token= link through Data Protection. Delivery intent
+contains IDs only; worker must recheck expiry/state/license/inviter before sending.
+Key-ring backup/rotation, retention/erasure and actual mail transport remain release
+gates. Scoped company/principal/link/member FKs and guarded terminal transitions
+apply in ORM and PostgreSQL; receipts are append-only. Populated rollback refuses
+to discard invitation history or delivery obligations.
 ## 13. UI
 Preserve Kuubu login. Separate company invitations from GreenWebb billing-team UI.
 ## 14. UX
@@ -82,6 +92,14 @@ membership. Later accepted invitation creates only consented Core governance.
 ## 24. Recovery
 Lost responses retry the same operation key. No replay may resurrect revoked
 membership. Migrations must preserve populated invitations and immutable receipts.
+Issue retries return the historical receipt after current role/license checks;
+new keys conflict while the same recipient has an unexpired pending invitation.
+Acceptance retries require a still-usable explicit member/link/principal and
+current inviter/recipient/license. Active members cannot use acceptance as a role
+change. Inactive members need a new invitation and consent, which restores only
+the requested bounded role and advances membership revision. All membership,
+identity-link, receipt, audit and outbox writes roll back together on post-save
+expiry, cancellation or failure. Receipt acknowledgements never establish access.
 ## 25. Acceptance
 Explicit targeted acceptance and fresh provider/Core guards; zero operational
 sessions, credentials or module-role grants. Complete flow still unqualified.
@@ -92,6 +110,33 @@ delivery retry, browser acceptance, cross-tenant and recovery gates afterward.
 Do not enable this contract before account consent/relay, Core invitations,
 delivery, migrations/runtime grants, audit and complete browser flow qualify.
 ## 28. Evidence
+### Internal lifecycle increment: local gate passed; native gate pending
+
+Fresh Infrastructure/API/test builds passed. Final local gate in
+inspection/qualifications/company-invitations-04 passed243 tests, zero failures,
+14 native opt-ins skipped. The complete identity/link/setup/team cohort includes
+the existing identity constraints, not only new invitation cases. Design-only EF
+10.0.11 generation and read-only model comparison passed without a database
+connection. Four new native cases cover issue/accept concurrency, revoke/accept
+race, physical binding/receipt immutability and safe empty/populated rollback.
+They are authored but not yet proven by this local result.
+
+Attempt01 exposed missing link tenant persistence after introducing the scoped
+inviter/link composite FK. Explicit trusted tenant construction restored setup/
+team cases in02 (98 passed/four skips), but the broader identity cohort still
+found five failing link insertions. Assigning the tenant through EF's property
+entry fixes generated composite-key persistence;03 and04 pass the unchanged
+identity constraints. Added constructors carry their trusted scope before
+tracking.03 includes membership before/after audit and reactivation/expiry tests;
+04 also verifies token/email command string representations are redacted.
+All attempts and failures remain; no assertion or scope guard was removed.
+
+No DI registration, public endpoint, delivery worker, UI, schema application,
+production flag, payment, Perfex or DNS change. The following recipient-only
+checkpoint is historical and does not qualify the newer lifecycle schema.
+
+### Earlier recipient proof contract
+
 Recipient contract Foundation source15707bd9eb04ee813aedc3797e425e5548548223
 passed123 tests/980 assertions on isolated PHP8.4.12/SQLite and Pint. The same
 source passed123 tests/981 assertions on genuine MySQL8.0.46 in a new network-none container

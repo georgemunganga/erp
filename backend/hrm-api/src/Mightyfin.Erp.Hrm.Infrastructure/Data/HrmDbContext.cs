@@ -55,12 +55,28 @@ public sealed class HrmDbContext(DbContextOptions<HrmDbContext> options, ITenant
             {
                 // Never trust a tenant id supplied by a client or service. The
                 // authenticated request context is the only write authority.
-                entry.Entity.TenantId = tenantId;
+                // Assign through EF as well as the CLR value: a generated
+                // composite FK/key may otherwise retain a conceptual null.
+                entry.Property(nameof(Entity.TenantId)).CurrentValue = tenantId;
+                entry.Property(nameof(Entity.TenantId)).IsTemporary = false;
                 if (entry.Entity.CreatedAt == DateTimeOffset.MinValue)
                     entry.Entity.CreatedAt = DateTimeOffset.UtcNow;
             }
             if (entry.State is EntityState.Modified or EntityState.Deleted)
             {
+                if (entry.Entity is CoreCompanyInvitation)
+                {
+                    var mutable = new[] { nameof(CoreCompanyInvitation.State), nameof(CoreCompanyInvitation.Revision),
+                        nameof(CoreCompanyInvitation.AcceptedSubject), nameof(CoreCompanyInvitation.AcceptedMembershipId),
+                        nameof(Entity.UpdatedAt), nameof(Entity.UpdatedBy) };
+                    if (entry.State == EntityState.Deleted || entry.Properties.Any(p => p.IsModified && !mutable.Contains(p.Metadata.Name))
+                        || (string)entry.OriginalValues[nameof(CoreCompanyInvitation.State)]! != "pending"
+                        || (string)entry.CurrentValues[nameof(CoreCompanyInvitation.State)]! is not ("accepted" or "revoked")
+                        || (int)entry.CurrentValues[nameof(CoreCompanyInvitation.Revision)]! != (int)entry.OriginalValues[nameof(CoreCompanyInvitation.Revision)]!+1)
+                        throw new DomainException("company-invitation-immutable", "Only terminal invitation transitions are allowed.");
+                }
+                if (entry.Entity is CoreCompanyInvitationReceipt)
+                    throw new DomainException("company-invitation-receipt-immutable", "Invitation command evidence is append-only.");
                 if (entry.Entity is CoreWorkspaceBinding)
                     throw new DomainException("workspace-binding-immutable", "Workspace allocation evidence cannot be changed or deleted.");
                 if (entry.Entity is CoreCompanyMembership && (entry.State == EntityState.Deleted
@@ -102,6 +118,8 @@ public sealed class HrmDbContext(DbContextOptions<HrmDbContext> options, ITenant
     public DbSet<ExternalIdentityLink> ExternalIdentityLinks => Set<ExternalIdentityLink>();
     public DbSet<CoreWorkspaceBinding> WorkspaceBindings => Set<CoreWorkspaceBinding>();
     public DbSet<CoreCompanyMembership> CompanyMemberships => Set<CoreCompanyMembership>();
+    public DbSet<CoreCompanyInvitation> CompanyInvitations => Set<CoreCompanyInvitation>();
+    public DbSet<CoreCompanyInvitationReceipt> CompanyInvitationReceipts => Set<CoreCompanyInvitationReceipt>();
     public DbSet<CoreCompanyTeamCommandReceipt> CompanyTeamCommandReceipts => Set<CoreCompanyTeamCommandReceipt>();
     public DbSet<LocalCredentialLink> LocalCredentialLinks => Set<LocalCredentialLink>();
     public DbSet<LocalSession> LocalSessions => Set<LocalSession>();
@@ -247,6 +265,46 @@ public sealed class HrmDbContext(DbContextOptions<HrmDbContext> options, ITenant
             e.ToTable("core_workspace_bindings", "hrm", t => t.HasCheckConstraint("CK_workspace_capacity",
                 "slot >= 1 AND slot <= purchased_limit AND purchased_limit <= 10000"));
         });
+        ConfigureEntity<CoreCompanyInvitation>(modelBuilder, "core_company_invitations", e =>
+        {
+            e.Property(x => x.TenantId).ValueGeneratedOnAdd().HasValueGenerator((_, _) => new ScopedTenantKeyGenerator());
+            e.Property(x => x.Issuer).HasMaxLength(200); e.Property(x => x.InviterSubject).HasMaxLength(19);
+            e.Property(x => x.RecipientHash).HasMaxLength(64); e.Property(x => x.TokenHash).HasMaxLength(64);
+            e.Property(x => x.ProtectedDelivery).HasMaxLength(8192); e.Property(x => x.Role).HasMaxLength(16);
+            e.Property(x => x.State).HasMaxLength(16); e.Property(x => x.AcceptedSubject).HasMaxLength(19);
+            e.Property(x => x.Revision).IsConcurrencyToken();
+            e.HasAlternateKey(x => new { x.TenantId, x.LegalEntityId, x.Id });
+            e.HasIndex(x => x.TokenHash).IsUnique();
+            e.HasIndex(x => new { x.TenantId, x.LegalEntityId, x.RecipientHash, x.State });
+            e.HasOne<LegalEntity>().WithMany().HasForeignKey(x => new { x.TenantId, x.LegalEntityId })
+                .HasPrincipalKey(x => new { x.TenantId, x.Id }).OnDelete(DeleteBehavior.Restrict);
+            e.HasOne<LocalUser>().WithMany().HasForeignKey(x => new { x.TenantId, x.InviterLocalUserId })
+                .HasPrincipalKey(x => new { x.TenantId, x.Id }).OnDelete(DeleteBehavior.Restrict);
+            e.HasOne<ExternalIdentityLink>().WithMany().HasForeignKey(x => new { x.TenantId, x.InviterLocalUserId, x.InviterLinkId })
+                .HasPrincipalKey(x => new { x.TenantId, x.LocalUserId, x.Id }).OnDelete(DeleteBehavior.Restrict);
+            e.HasOne<CoreCompanyMembership>().WithMany().HasForeignKey(x => new { x.TenantId, x.LegalEntityId, x.AcceptedMembershipId })
+                .HasPrincipalKey(x => new { x.TenantId, x.LegalEntityId, x.Id }).OnDelete(DeleteBehavior.Restrict);
+            e.ToTable("core_company_invitations", "hrm", t => t.HasCheckConstraint("CK_company_invitation",
+                "role IN ('administrator','member') AND length(recipient_hash)=64 AND length(token_hash)=64 " +
+                "AND expires_at > created_at AND ((state='pending' AND revision=1 AND accepted_subject IS NULL AND accepted_membership_id IS NULL) " +
+                "OR (state='revoked' AND revision=2 AND accepted_subject IS NULL AND accepted_membership_id IS NULL) " +
+                "OR (state='accepted' AND revision=2 AND accepted_subject IS NOT NULL AND accepted_membership_id IS NOT NULL))"));
+        });
+        ConfigureEntity<CoreCompanyInvitationReceipt>(modelBuilder, "core_company_invitation_receipts", e =>
+        {
+            e.Property(x => x.ActorIssuer).HasMaxLength(200); e.Property(x => x.ActorSubject).HasMaxLength(19);
+            e.Property(x => x.RequestHash).HasMaxLength(64); e.Property(x => x.Operation).HasMaxLength(16);
+            e.Property(x => x.ResultState).HasMaxLength(16);
+            e.HasIndex(x => new { x.ActorIssuer, x.ActorSubject, x.CommandKey }).IsUnique();
+            e.HasOne<CoreCompanyInvitation>().WithMany().HasForeignKey(x => new { x.TenantId, x.LegalEntityId, x.InvitationId })
+                .HasPrincipalKey(x => new { x.TenantId, x.LegalEntityId, x.Id }).OnDelete(DeleteBehavior.Restrict);
+            e.HasOne<CoreCompanyMembership>().WithMany().HasForeignKey(x => new { x.TenantId, x.LegalEntityId, x.ResultMembershipId })
+                .HasPrincipalKey(x => new { x.TenantId, x.LegalEntityId, x.Id }).OnDelete(DeleteBehavior.Restrict);
+            e.ToTable("core_company_invitation_receipts", "hrm", t => t.HasCheckConstraint("CK_company_invitation_receipt",
+                "length(request_hash)=64 AND ((operation='issue' AND result_state='pending' AND result_revision=1 AND result_membership_id IS NULL) " +
+                "OR (operation='revoke' AND result_state='revoked' AND result_revision=2 AND result_membership_id IS NULL) " +
+                "OR (operation='accept' AND result_state='accepted' AND result_revision=2 AND result_membership_id IS NOT NULL))"));
+        });
         ConfigureEntity<CoreCompanyMembership>(modelBuilder, "core_company_memberships", e =>
         {
             e.Property(x => x.Role).HasMaxLength(16);
@@ -344,6 +402,7 @@ public sealed class HrmDbContext(DbContextOptions<HrmDbContext> options, ITenant
         });
         ConfigureEntity<ExternalIdentityLink>(modelBuilder, "external_identity_links", e =>
         {
+            e.Property(x => x.TenantId).ValueGeneratedOnAdd().HasValueGenerator((_, _) => new ScopedTenantKeyGenerator());
             e.Property(x => x.Issuer).HasMaxLength(200);
             e.Property(x => x.Subject).HasMaxLength(200);
             e.HasIndex(x => new { x.TenantId, x.Issuer, x.Subject }).IsUnique();
