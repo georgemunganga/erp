@@ -29,9 +29,11 @@ internal sealed class ProductSetupGrantStore(string directory, string clientId, 
             WebEncoders.Base64UrlEncode(RandomNumberGenerator.GetBytes(32)), now, expires.ToUniversalTime());
         var encrypted = Encoding.UTF8.GetBytes(protector.Protect(JsonSerializer.Serialize(grant)));
         if (encrypted.Length > 32768) throw new InvalidOperationException("Invalid setup grant size.");
-        await using var file = new FileStream(PathFor(handle), new FileStreamOptions { Mode = FileMode.CreateNew,
-            Access = FileAccess.Write, Share = FileShare.None, Options = FileOptions.Asynchronous,
-            UnixCreateMode = OperatingSystem.IsWindows() ? null : UnixFileMode.UserRead | UnixFileMode.UserWrite });
+        var options = new FileStreamOptions { Mode = FileMode.CreateNew,
+            Access = FileAccess.Write, Share = FileShare.None, Options = FileOptions.Asynchronous };
+        // Even assigning null to UnixCreateMode throws on Windows.
+        if (!OperatingSystem.IsWindows()) options.UnixCreateMode = UnixFileMode.UserRead | UnixFileMode.UserWrite;
+        await using var file = new FileStream(PathFor(handle), options);
         await file.WriteAsync(encrypted, ct);
         await file.FlushAsync(ct);
         return handle;
