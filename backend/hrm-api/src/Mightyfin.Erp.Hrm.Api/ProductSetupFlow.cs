@@ -39,7 +39,7 @@ internal static class ProductSetupFlow
         group.MapGet("/session", async (HttpContext http) =>
         {
             var grant = await Grant(http);
-            return grant is null ? Results.Unauthorized() : Results.Ok(new { verified = true, csrf_token = grant.CsrfToken,
+            return grant is null ? Results.Unauthorized() : Results.Ok(new { verified = true, subject = grant.Subject, csrf_token = grant.CsrfToken,
                 expires_at = grant.ExpiresAt, operational_access_granted = false });
         }).AllowAnonymous();
         group.MapGet("/payers", async (HttpContext http) =>

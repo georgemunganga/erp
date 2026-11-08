@@ -49,6 +49,8 @@ public sealed class ProductProtectedSetupHttpTests
         var session = await f.Get("/session", cookie);
         Assert.Equal(HttpStatusCode.OK, session.StatusCode);
         var text = await session.Content.ReadAsStringAsync();
+        using var sessionData = JsonDocument.Parse(text);
+        Assert.Equal("17", sessionData.RootElement.GetProperty("subject").GetString());
         Assert.DoesNotContain("access_token", text); Assert.DoesNotContain("refresh_token", text);
         Assert.Equal(HttpStatusCode.Unauthorized, (await f.GetAbsolute("/erp-protected", cookie)).StatusCode);
         await f.AssertCompanies(0);
