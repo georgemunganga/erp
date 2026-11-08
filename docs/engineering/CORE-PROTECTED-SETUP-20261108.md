@@ -112,10 +112,68 @@ read-only provider/Core audits. No fabricated upstream response or production
 TLS/issuer override. This protocol gate does not prove deployed browser ingress,
 production PostgreSQL integration, operational admission or a public SaaS release.
 ## 27. Release gates
-Genuine provider→protected grant→create/UI, private runtime ACLs/shared-volume
+Actual browser→provider→protected grant→create acceptance, definitive no-allocation
+form recovery, private runtime ACLs/shared-volume
 operations, owner/invite policy, licensed sessions/refresh/revocation, branch/
 module scope, public ingress/log redaction and deployed recovery acceptance.
 ## 28. Evidence
+### Actual protected provider protocol —8 November2026
+
+Runtime `a8134a9a90bc604ff392daf06c49daf697887fec`, Laravel fixture helper
+`b71b29fe4bfbc81e34610983ef61461e02e14845`, and published Kuubu website
+`b01985ee536978e11944b3d170595c83fc68b3f3` passed the genuine protected setup
+case in45 seconds on Windows SDK10.0.403/PHP8.4.12/Node24.18.0. The separate
+ordinary identity/licensing case passed in12 seconds with a fresh default fixture
+and zero billing memberships. Windows213 focused checks passed (four native
+skips exercised separately); Linux213 focused and63 PostgreSQL checks passed.
+Full Linux regression passed2,184 tests, zero failures, with six opt-in skips.
+All six were exercised separately: four in the63-case PostgreSQL cohort and the
+two actual provider cases above. The SDK runner and test PostgreSQL stopped0,
+OOMKilled=false. Exact Linux log hashes are recorded below.
+
+The protected case uses actual published account-client consent enforcement,
+signed relay, Passport confidential S256/RSA exchange, ASP.NET OAuth/cookie/
+encrypted grant handling, real payer/authority/licensing resources and the Core
+SQLite allocator. Callback/list creates no company; confirmed commands create
+two separately tenanted companies within a two-place purchase. Exact retry
+returns the same company; excess capacity, revoked owner and suspended purchase
+deny. Cancel invalidates the grant; no ERP session/module role is created.
+This is actual protocol acceptance, not deployed browser/TLS/production-PostgreSQL
+acceptance. A complete browser journey remains required before rollout.
+
+Independent read-only SQL audit verified two company/owner/identity-link pairs in
+distinct tenants, slots1/2, clean foreign keys, one audit/outbox per company and
+zero credentials, sessions, credential links or tenant-role assignments. Provider
+counts remained two users, one customer, two payer enrollments, one subscription;
+two explicit personal joins and one explicitly seeded/restored owner membership.
+Staff retained zero billing memberships. The ordinary fixture retained zero
+memberships and one explicit personal join. Both loopback services stopped.
+
+The first source preparation could not verify the private website through the
+local GitHub CLI; a new preparation used the connected GitHub app. All three
+runtime imports matched exact published Git blobs: session423f0cd3, clientee787361,
+authorizationfa7ad566. The first actual setup attempt then exposed a Windows-only
+FileStreamOptions bug: assigning even null to UnixCreateMode throws. Three store
+tests reproduced it; read-only SQL confirmed zero partial Core records. The
+fixed source sets that property only on non-Windows, preserving Unix0600.
+All failed inputs, logs, fixtures and Core databases remain retained.
+
+Exact ERP archive SHA256:
+`bac5386abae3f9131354b7bd23bf3ee6056b2f088690211cd356a55bf8fcf6a3`;
+foundation archive `a9ba0b7e268c9f0932768fd23caaef121c9396dc9bcb6606ee081696f91db51b`;
+actual setup log `61d61dbb926c1c266c05f126d602793b680b0bffd6a84ed5a3cf374cf4b196a8`;
+ordinary log `ca822468c8f972789e1e8052dde2611fa9f9d14b5620a698fb768f6622578d29`;
+Windows focused log `66756e706801136dc21034a215af5d50cf19f7031b330193dac03c930c01b583`;
+Core/provider audit `86ecf8692dc09a824ad7eca2ab151535531e5ba56e9b21492f2f0e15d3ba0b7b`;
+Core SQLite snapshot `5688b96e5aef96617eea6768f10a908282c8b8522265dc72eb3471f19bd0c5e8`.
+Linux focused log `8ae50e2533996c9fc7f98610cc01d4a601e5c05f93a14d725e96d937b5fcb763`;
+native log `fbec4292b4a694f5050bcf616fc68964192392dfbb0518124e6b1ca632182f10`;
+full log `4a7b9ce0f340b36165746c4432962e916ced0c7f5fc04b57c94245d4dbbac97f`.
+Local acceptance/cleanup receipts are in
+inspection/qualifications/protected-setup-provider-a8134a9a-03.
+
+### Earlier UI qualification and backend checkpoints
+
 Current UI source `43bc0aa1a5f9003399a052d2ae95236fb8d87107` passed14
 installed-Chrome browser scenarios against the real production SSR build and an
 explicit loopback synthetic API,34 Node contract/recovery tests, full strict

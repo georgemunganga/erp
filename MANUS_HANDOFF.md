@@ -1,3 +1,38 @@
+# Actual protected setup protocol —8 November2026
+
+Draft PR201 runtime `a8134a9a90bc604ff392daf06c49daf697887fec`, provider
+helper `b71b29fe4bfbc81e34610983ef61461e02e14845` and published website
+`b01985ee536978e11944b3d170595c83fc68b3f3` passed actual protected setup
+interoperability in45s and ordinary identity/licensing in12s using separate fresh
+fixtures. Real account-client consent/enrollment, signed relay, Laravel Passport
+confidential S256/RSA, ASP.NET OAuth/private encrypted grant, payer/authority/
+licensing and Core SQLite allocation all execute. Exact website runtime Git
+blobs were checked through the connected GitHub app; local CLI lacked access.
+
+Confirmed creates allocated two separate company tenants within purchased
+capacity; retry returned the same company, excess capacity denied, owner revoke
+and suspension denied fresh/retry requests, cancel invalidated the grant. No
+operational session, credentials or module-role grant was created. Read-only SQL
+audit verified exact owner/company/link tenant pairing, clean FKs, slots1/2 and
+one audit/outbox per company. Ordinary staff retained zero billing memberships.
+
+Windows213 focused, Linux213 focused,63 PostgreSQL and2,184 Linux regressions
+passed, zero failures. All six full-suite skips ran separately (four native,
+two actual provider cases). The real setup test exposed a Windows-only null
+UnixCreateMode setter failure; the fixed source sets that property only on Unix
+and preserves private0600 files. Failed inputs/tests/DBs remain retained. All
+fixture processes stopped; ports8101/8120 closed; native runner/PG stopped0.
+Exact sources, hashes and evidence are in CORE-PROTECTED-SETUP-20261108.md.
+
+This is protocol acceptance, not the complete browser/deployed journey. Next:
+actual browser→real provider/Core acceptance and definitive denial recovery,
+then owner/team invitations and licensed operational sessions/refresh/revocation.
+Runtime ACLs, shared-volume/key operations, branch/module scope, ingress/log
+redaction, controlled migration and deployed recovery remain gates. Production
+image/schema/flags/keys/DNS/payment/Google/Perfex remain unchanged.
+
+The older checkpoints below remain historical evidence.
+
 # Branded company setup UI checkpoint —8 November2026
 
 Draft PR201 UI source `43bc0aa1a5f9003399a052d2ae95236fb8d87107` now provides
