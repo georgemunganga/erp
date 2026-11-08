@@ -1,3 +1,17 @@
+# Sender invitation API/UI checkpoint —8 November2026
+
+New default-off sender issue/list/revoke HTTP and company-team UI passed263
+focused checks/14 native skips,72 frontend contracts, lint/build/typecheck and14
+browser scenarios. Actual isolated website/Laravel/Core/SSR flow passed40.374s,
+including branded login/setup/team and invitation review/issue/list/revoke plus
+existing role/retry/license denial. Read-only SQL audit: one revoked invitation,
+two invitation receipts, unchanged two members, five audits/six events and zero
+credentials/sessions/module roles. All485 SSR output files unchanged; owned
+services stopped. Evidence: inspection/qualifications/invitation-sender-ui-02
+and invitation-sender-browser-01. New HTTP PostgreSQL qualification, recipient
+wire/consent/acceptance UI and real delivery remain pending. Production unchanged;
+main/B1/release holds and PR201 draft remain. Earlier checkpoint follows.
+
 # Internal invitation lifecycle qualified —8 November2026
 
 Published runtime a419439942a77db22a968ef5d94bb2c10f53921e passed97 genuine

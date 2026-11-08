@@ -5,6 +5,7 @@ using System.Text.Json;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.OAuth;
 using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.TestHost;
@@ -55,7 +56,7 @@ public sealed class ProductTeamBrowserInteropTests
         await using(var db=Context("schema-only"))await db.Database.EnsureCreatedAsync();
         var builder=WebApplication.CreateBuilder();builder.WebHost.UseTestServer().UseContentRoot(AppContext.BaseDirectory);builder.Logging.ClearProviders();
         builder.Configuration.AddInMemoryCollection(new Dictionary<string,string?>{
-            ["ERP:CompanyTeam:Enabled"]="true",["ERP:ProductIdentity:Enabled"]="true",["ERP:WorkspaceSetup:Enabled"]="true",["ERP:WorkspaceProvisioning:Enabled"]="true",["ERP:ProductLicensing:Enabled"]="true",
+            ["ERP:CompanyInvitations:Enabled"]="true",["ERP:CompanyTeam:Enabled"]="true",["ERP:ProductIdentity:Enabled"]="true",["ERP:WorkspaceSetup:Enabled"]="true",["ERP:WorkspaceProvisioning:Enabled"]="true",["ERP:ProductLicensing:Enabled"]="true",
             ["ERP:ProductIdentity:ClientId"]=Field("client_id"),["ERP:ProductIdentity:ClientSecret"]=Field("client_secret"),
             ["ERP:ProductIdentity:DataProtectionPath"]=keys,["ERP:WorkspaceSetup:GrantPath"]=grants});
         builder.Services.AddHttpContextAccessor();builder.Services.AddScoped<ITenantAccessor>(_=>new FixedTenantAccessor("untrusted-default"));
@@ -69,6 +70,9 @@ public sealed class ProductTeamBrowserInteropTests
         var machine=new ProductCommercialLicense(Channel(),TimeProvider.System,Field("licensing_client_id"),Field("licensing_secret"));
         builder.Services.AddSingleton(machine);
         builder.Services.AddSingleton(new CoreCompanyTeamApi(Context,machine.ReadAsync,TimeProvider.System));
+        builder.Services.AddSingleton(sp=>new CoreCompanyInvitationsApi(Context,
+            sp.GetRequiredService<CoreCompanyTeamApi>(),TimeProvider.System,
+            sp.GetRequiredService<IDataProtectionProvider>().CreateProtector(CoreCompanyInvitationsApi.DeliveryPurpose)));
         builder.Services.AddSingleton(new CoreWorkspaceProvisioner(Context,TimeProvider.System));
         await using var app=builder.Build();app.UseProductIdentityOriginGuard();app.UseAuthentication();app.UseAuthorization();
         app.MapProductIdentity();app.MapProductSetup();app.MapProductCompanyTeam();app.MapGet("/erp-protected",()=>"records").RequireAuthorization();
@@ -168,8 +172,10 @@ public sealed class ProductTeamBrowserInteropTests
             Assert.Equal(2,await db.ExternalIdentityLinks.IgnoreQueryFilters().CountAsync());
             Assert.Empty(await db.LocalSessions.IgnoreQueryFilters().ToArrayAsync());
             Assert.Empty(await db.TenantRoleAssignments.IgnoreQueryFilters().ToArrayAsync());
-            Assert.Equal(3,await db.AuditEntries.IgnoreQueryFilters().CountAsync());
-            Assert.Equal(3,await db.OutboxMessages.IgnoreQueryFilters().CountAsync());
+            Assert.Equal(5,await db.AuditEntries.IgnoreQueryFilters().CountAsync());
+            Assert.Equal(6,await db.OutboxMessages.IgnoreQueryFilters().CountAsync());
+            Assert.Single(await db.CompanyInvitations.IgnoreQueryFilters().ToArrayAsync());
+            Assert.Equal(2,await db.CompanyInvitationReceipts.IgnoreQueryFilters().CountAsync());
             Assert.Equal(2,await db.CompanyMemberships.IgnoreQueryFilters().CountAsync());
             Assert.Equal(2,await db.CompanyTeamCommandReceipts.IgnoreQueryFilters().CountAsync());
             var member=await db.CompanyMemberships.IgnoreQueryFilters().SingleAsync(x=>x.Role==CoreCompanyRoles.Administrator);

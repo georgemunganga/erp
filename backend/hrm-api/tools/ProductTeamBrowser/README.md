@@ -38,6 +38,7 @@ profile is used. This validates protocol/cookie behavior, not deployed TLS/DNS.
 The case covers login/Google unavailable, explicit enrollment/setup consent,
 create/retry, setup-cookie rejection for team access, fresh team sign-in, licensed
 members, confirmed role change, response loss after commit/exact-key retry,
+confirmed invitation issue/list/revoke through the real Core API,
 revocation, last-owner denial, subscription suspension and replay denial. Core
 default ERP access must remain401. Read-only audit must independently verify
 identity/tenant links, receipts, audit/outbox, revisions and zero credentials,
@@ -50,6 +51,13 @@ API2607cd69/UIaaafdf25 pair does not implement that new entry contract. The upda
 combined gate passed41.395s; evidence is
 inspection/qualifications/team-entry-browser-01/verification.json. No operational
 admission or invitation acceptance is implied.
+
+The sender runner now also requires `ERP:CompanyInvitations:Enabled=true` and
+matching sender API/UI builds. Creation must leave membership unchanged; the
+separate delivery worker and recipient acceptance are outside this gate. The
+sender gate passed40.374s with one revoked invitation/two invitation receipts,
+five audits/six outbox events, and no credentials, sessions or module grants.
+Evidence: inspection/qualifications/invitation-sender-browser-01/verification.json.
 
 Known successful reference: source API2607cd69/UIaaafdf25/websiteb01985ee,
 36.589s; evidence `inspection/qualifications/real-team-browser-acceptance-03`.

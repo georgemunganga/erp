@@ -1,4 +1,5 @@
 using System.Data.Common;
+using Microsoft.AspNetCore.DataProtection;
 using Microsoft.EntityFrameworkCore;
 using Mightyfin.Erp.Hrm.Domain.Entities;
 using Mightyfin.Erp.Hrm.Infrastructure.Data;
@@ -79,8 +80,8 @@ internal sealed class CoreCompanyTeamApi(Func<string, HrmDbContext> contextFacto
         catch (DbException) { return new(CompanyTeamStatus.Unavailable); }
     }
 
-    private sealed record Ready(CompanyTeamReadStatus Status, CoreCompanyAccessDecision? Scope = null, CommercialLicenseLease? License = null);
-    private async Task<Ready> Resolve(CompanyTeamActor actor, Guid companyId, CancellationToken cancellation)
+    internal sealed record Ready(CompanyTeamReadStatus Status, CoreCompanyAccessDecision? Scope = null, CommercialLicenseLease? License = null);
+    internal async Task<Ready> Resolve(CompanyTeamActor actor, Guid companyId, CancellationToken cancellation)
     {
         await using var db = contextFactory("untrusted-team-lookup");
         var reader = new CoreCompanyAccess(db, clock);
@@ -115,6 +116,11 @@ internal static class CoreCompanyTeamApiRegistration
         services.AddSingleton(provider => new CoreCompanyTeamApi(
             tenant => new HrmDbContext(options, new TeamTenant(tenant)),
             provider.GetRequiredService<ProductCommercialLicense>().ReadAsync, TimeProvider.System));
+        if (ProductCompanyInvitationsFlow.Enabled(config))
+            services.AddSingleton(provider => new CoreCompanyInvitationsApi(
+                tenant => new HrmDbContext(options, new TeamTenant(tenant)),
+                provider.GetRequiredService<CoreCompanyTeamApi>(), TimeProvider.System,
+                provider.GetRequiredService<IDataProtectionProvider>().CreateProtector(CoreCompanyInvitationsApi.DeliveryPurpose)));
         return services;
     }
 

@@ -7,9 +7,10 @@ Let an authorized company actor invite a person who explicitly accepts access.
 ## 3. Scope
 Separate confidential-client recipient identity observation and strict Core
 reader, followed by internal invitation issue/revoke/accept commands, persistence,
-immutable receipts/audit and durable delivery intent. All remain unregistered and
-unexposed by public endpoints. Actual delivery worker, HTTP/CSRF integration,
-account authorization/consent relay and acceptance/team UI remain to build.
+immutable receipts/audit and durable delivery intent. Sender issue/list/revoke
+HTTP endpoints and company-team UI are implemented behind a default-off flag.
+Actual delivery worker, recipient authorization/consent relay and acceptance
+HTTP/UI remain to build. No production activation.
 ## 4. Parent
 CORE-COMPANY-TEAM-20261108.md; one ERP release for SaaS and dedicated installations.
 ## 5. Actors
@@ -49,6 +50,12 @@ apply in ORM and PostgreSQL; receipts are append-only. Populated rollback refuse
 to discard invitation history or delivery obligations.
 ## 13. UI
 Preserve Kuubu login. Separate company invitations from GreenWebb billing-team UI.
+Company-team UI shows invitations only when the server advertises availability.
+Review company/email/role, require unchecked confirmation and preserve exact
+request/key after an uncertain response. Lock surrounding actions during review.
+Refresh current state after a receipt; never treat historical receipt as current
+status or claim email was sent. Owners can invite administrators/members;
+administrators can invite members only. Mobile controls wrap inside the viewport.
 ## 14. UX
 Review recipient/company/role before issue; generic invalid/expired acceptance
 states without company disclosure; no fake sent/accepted acknowledgements.
@@ -76,6 +83,12 @@ Return only the current person's email to their scoped confidential product
 client. Reject selectors; no user lookup, email directory, payer or company list.
 Never log raw proof bodies, provider tokens, invitation tokens or OAuth state.
 ## 20. Configuration
+ERP:CompanyInvitations:Enabled=false additionally requires the existing team,
+identity, provisioning and licensing flags. Sender routes reuse team-purpose
+proof, exact actor/link/company authority, live license checks and nonce-bound
+antiforgery. Same-origin JSON writes reject unknown/duplicate fields, unconfirmed
+requests and oversized bodies. Bounded list returns current recipient metadata
+only to authorized owners/admins; protected envelopes and tokens never leave Core.
 PRODUCT_INVITATION_RECIPIENT_ENABLED=false plus existing identity flag. No schema
 or production configuration change for the recipient contract. Later Core
 invitations need their own default-off activation gate; classic local auth stays.
@@ -110,6 +123,35 @@ delivery retry, browser acceptance, cross-tenant and recovery gates afterward.
 Do not enable this contract before account consent/relay, Core invitations,
 delivery, migrations/runtime grants, audit and complete browser flow qualify.
 ## 28. Evidence
+### Sender HTTP and UI checkpoint
+
+Default-off sender API/UI adds licensed scoped issue/list/revoke, bounded paging,
+team-purpose proof/CSRF and explicit reviewed confirmation. Local focused gate
+passed263 tests/14 native skips, including20 sender HTTP cases. Frontend contracts
+passed72 checks; ESLint, production build and TypeScript passed. Browser gate
+passed14 scenarios, including response-loss exact retry, administrator limits,
+capability-off behavior, existing member actions and mobile layout. Attempt01
+retains one selector failure: modal hides the background company selector from
+the accessibility tree; includeHidden preserves the disabled-control assertion.
+Attempt02 passed with identical independently copied production output.
+
+Actual frozen Laravel/website/Core/SSR browser integration passed40.374s:
+own branded login/Google off, setup consent/create/retry, fresh team sign-in,
+invitation review/issue/list/revoke, role/revoke/exact retry and suspension denial.
+Read-only audit verifies one revoked invitation/two invitation receipts, unchanged
+two memberships/two federated identities, five audits/six events, and zero
+credentials/sessions/module grants. Invitation creation did not add a member.
+Preaccepted staff remains a fixture, not an acceptance-flow qualification.
+All485 production output files retained hash/size/nsmtime; owned services stopped.
+
+Evidence: inspection/qualifications/invitation-sender-api-02,
+invitation-sender-ui-02/verification.json and
+invitation-sender-browser-01/verification.json. Source hashes are in the UI
+verification record. New sender HTTP PostgreSQL gate is pending; earlier native
+lifecycle qualification below covers the unchanged domain/schema only. Recipient
+wire/consent/acceptance HTTP/UI and actual delivery remain outstanding. No live
+configuration, production application, payment, DNS or Perfex change.
+
 ### Qualified internal lifecycle; public/delivery integration pending
 
 Published source a419439942a77db22a968ef5d94bb2c10f53921e passed97 genuine

@@ -63,6 +63,7 @@ internal static class ProductCompanyTeamFlow
                 context.User = proof.CsrfPrincipal;
                 var tokens = context.RequestServices.GetRequiredService<IAntiforgery>().GetAndStoreTokens(context);
                 return Results.Ok(new { verified = true, product_code = "kuubu", purpose = PurposeValue,
+                    invitation_management_available = ProductCompanyInvitationsFlow.Enabled(app.Configuration),
                     expires_at = proof.ExpiresAt, csrf_token = tokens.RequestToken, operational_access_granted = false });
             }
             finally { context.User = original; }
@@ -105,14 +106,15 @@ internal static class ProductCompanyTeamFlow
                 actor_role = page.ActorRole, operational_access_granted = false });
         }).AllowAnonymous();
         group.MapPost("/commands", (Func<HttpContext, Task<IResult>>)ExecuteCommand).AllowAnonymous();
+        app.MapProductCompanyInvitations();
     }
 
-    private static IResult ReadFailure(CompanyTeamReadStatus status) => Results.StatusCode(
+    internal static IResult ReadFailure(CompanyTeamReadStatus status) => Results.StatusCode(
         status == CompanyTeamReadStatus.Denied ? StatusCodes.Status403Forbidden : StatusCodes.Status503ServiceUnavailable);
 
-    private static bool ValidQuery(IQueryCollection query, string[] allowed) => query.All(
+    internal static bool ValidQuery(IQueryCollection query, string[] allowed) => query.All(
         item => allowed.Contains(item.Key, StringComparer.Ordinal) && item.Value.Count == 1);
-    private static bool Cursor(IQueryCollection query, out Guid? cursor)
+    internal static bool Cursor(IQueryCollection query, out Guid? cursor)
     {
         cursor = null;
         if (!query.ContainsKey("after")) return true;
@@ -120,7 +122,7 @@ internal static class ProductCompanyTeamFlow
         cursor = value;
         return true;
     }
-    private static bool CanonicalGuid(string? text, out Guid value) => Guid.TryParseExact(text, "D", out value)
+    internal static bool CanonicalGuid(string? text, out Guid value) => Guid.TryParseExact(text, "D", out value)
         && value != Guid.Empty && text == value.ToString("D");
 
     private static async Task<IResult> ExecuteCommand(HttpContext context)

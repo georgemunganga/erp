@@ -8,6 +8,7 @@ using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
+using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.TestHost;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
@@ -332,7 +333,7 @@ public sealed class ProductCompanyTeamHttpTests
         Assert.Equal(0, f.State.Reads);
     }
 
-    private sealed class LicenseState(CoreFixture core)
+    internal sealed class LicenseState(CoreFixture core)
     {
         internal int Reads;
         internal string? LastEnrollment;
@@ -348,7 +349,7 @@ public sealed class ProductCompanyTeamHttpTests
         }
     }
 
-    private sealed class Fixture(WebApplication app, HttpClient client, CoreFixture core, LicenseState state) : IAsyncDisposable
+    internal sealed class Fixture(WebApplication app, HttpClient client, CoreFixture core, LicenseState state) : IAsyncDisposable
     {
         internal CoreFixture Core => core;
         internal LicenseState State => state;
@@ -357,7 +358,7 @@ public sealed class ProductCompanyTeamHttpTests
         private string? token;
         internal string MemberPath => "/members?company_id="+core.Company.ToString("D")+"&link_id="+ActorLink.ToString("D");
 
-        internal static async Task<Fixture> Start()
+        internal static async Task<Fixture> Start(bool invitations = false)
         {
             var core = await CoreFixture.Start();
             var state = new LicenseState(core);
@@ -369,6 +370,7 @@ public sealed class ProductCompanyTeamHttpTests
             if (!OperatingSystem.IsWindows()) File.SetUnixFileMode(keys, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
             builder.Configuration.AddInMemoryCollection(new Dictionary<string, string?> {
                 ["ERP:ProductIdentity:Enabled"] = "true", ["ERP:ProductLicensing:Enabled"] = "true", ["ERP:CompanyTeam:Enabled"] = "true",
+                ["ERP:CompanyInvitations:Enabled"] = invitations.ToString(),
                 ["ERP:ProductIdentity:ClientId"] = "4798a03c-5ed7-4438-9ec9-d46f63a2f4f1",
                 ["ERP:ProductIdentity:ClientSecret"] = "synthetic-team-test-secret", ["ERP:ProductIdentity:DataProtectionPath"] = keys });
             builder.Services.AddScoped<HrmDbContext>(_ => core.Context("untrusted-default"));
@@ -376,6 +378,9 @@ public sealed class ProductCompanyTeamHttpTests
                 .AddScheme<LocalAuthOptions, LocalAuthenticationHandler>(LocalAuthenticationHandler.Scheme, _ => { });
             builder.Services.AddProductIdentity(builder.Configuration);
             builder.Services.AddSingleton(new CoreCompanyTeamApi(tenant => core.Context(tenant), state.Read, core.Clock));
+            if (invitations) builder.Services.AddSingleton(provider => new CoreCompanyInvitationsApi(tenant => core.Context(tenant),
+                provider.GetRequiredService<CoreCompanyTeamApi>(),core.Clock,
+                provider.GetRequiredService<Microsoft.AspNetCore.DataProtection.IDataProtectionProvider>().CreateProtector(CoreCompanyInvitationsApi.DeliveryPurpose)));
             builder.Services.AddAuthorization();
             var app = builder.Build();
             app.UseProductIdentityOriginGuard();
@@ -422,10 +427,10 @@ public sealed class ProductCompanyTeamHttpTests
             request.Headers.Add("Cookie", cookie);
             return client.SendAsync(request);
         }
-        internal Task<HttpResponseMessage> Post(Dictionary<string, object?> body, string mode = "") => PostRaw(JsonSerializer.Serialize(body), mode);
-        internal Task<HttpResponseMessage> PostRaw(string body, string mode = "")
+        internal Task<HttpResponseMessage> Post(Dictionary<string, object?> body, string mode = "", string path = "/commands") => PostRaw(JsonSerializer.Serialize(body), mode, path);
+        internal Task<HttpResponseMessage> PostRaw(string body, string mode = "", string path = "/commands")
         {
-            var request = new HttpRequestMessage(HttpMethod.Post, ProductCompanyTeamFlow.Prefix+"/commands")
+            var request = new HttpRequestMessage(HttpMethod.Post, ProductCompanyTeamFlow.Prefix+path)
             { Content = new StringContent(body, Encoding.UTF8, mode == "non-json" ? "text/plain" : "application/json") };
             if (mode != "missing-cookie") request.Headers.Add("Cookie", cookie);
             request.Headers.Add("Origin", mode == "foreign-origin" ? "https://foreign.invalid" : "https://app.kuubuerp.com");

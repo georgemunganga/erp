@@ -28,6 +28,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { KuubuIdentity } from "@/platform/components/KuubuIdentity";
+import { CompanyInvitations } from "@/modules/core/CompanyInvitations";
 import {
   createProductTeamClient,
   productTeamStart,
@@ -134,6 +135,7 @@ function CompanyTeam() {
   const [attempt, setAttempt] = useState<TeamCommand | null>(null);
   const [reviewError, setReviewError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [invitationLocked, setInvitationLocked] = useState(false);
   const sending = useRef(false);
   const mounted = useRef(true);
   const memberController = useRef<AbortController | null>(null);
@@ -365,12 +367,16 @@ function CompanyTeam() {
             <div className="flex gap-2">
               <Button
                 variant="outline"
-                disabled={busy || loading || !!review}
+                disabled={invitationLocked || busy || loading || !!review}
                 onClick={() => setLoadVersion((value) => value + 1)}
               >
                 Refresh
               </Button>
-              <Button variant="outline" disabled={busy || !!review} onClick={() => void cancel()}>
+              <Button
+                variant="outline"
+                disabled={invitationLocked || busy || !!review}
+                onClick={() => void cancel()}
+              >
                 End team sign-in
               </Button>
             </div>
@@ -417,7 +423,7 @@ function CompanyTeam() {
                   <Select
                     value={selectedId}
                     onValueChange={setSelectedId}
-                    disabled={busy || !!review}
+                    disabled={invitationLocked || busy || !!review}
                   >
                     <SelectTrigger id="team-company" className="min-h-11 max-w-xl">
                       <SelectValue placeholder="Choose a company" />
@@ -438,7 +444,7 @@ function CompanyTeam() {
                 {companyCursor ? (
                   <Button
                     variant="outline"
-                    disabled={busy || companyPaging || !!review}
+                    disabled={invitationLocked || busy || companyPaging || !!review}
                     onClick={() => void moreCompanies()}
                   >
                     {companyPaging ? "Loading…" : "Load more companies"}
@@ -476,7 +482,7 @@ function CompanyTeam() {
                         <MemberActions
                           member={member}
                           actorRole={current.actorRole}
-                          disabled={busy || !!review}
+                          disabled={invitationLocked || busy || !!review}
                           onReview={begin}
                         />
                       </li>
@@ -504,7 +510,7 @@ function CompanyTeam() {
                               <MemberActions
                                 member={member}
                                 actorRole={current.actorRole}
-                                disabled={busy || !!review}
+                                disabled={invitationLocked || busy || !!review}
                                 onReview={begin}
                               />
                             </TableCell>
@@ -522,7 +528,7 @@ function CompanyTeam() {
                     <div className="border-t border-border p-6">
                       <Button
                         variant="outline"
-                        disabled={busy || paging || !!review}
+                        disabled={invitationLocked || busy || paging || !!review}
                         onClick={() => void moreMembers()}
                       >
                         {paging ? "Loading…" : "Load more members"}
@@ -531,6 +537,16 @@ function CompanyTeam() {
                   ) : null}
                 </CardContent>
               </Card>
+            ) : null}
+            {session?.invitationManagementAvailable && selected && current ? (
+              <CompanyInvitations
+                key={`${selected.id}:${selected.linkId}`}
+                company={selected}
+                session={session}
+                disabled={busy || !!review || expired}
+                onLockChange={setInvitationLocked}
+                onExpired={setExpired}
+              />
             ) : null}
           </>
         )}

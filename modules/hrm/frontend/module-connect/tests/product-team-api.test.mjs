@@ -43,7 +43,7 @@ test("team session remains separate from ERP access and bearer credentials", asy
     request = { url, options };
     return reply(proof);
   });
-  assert.deepEqual(await api.session(), { csrf, expiresAt: proof.expires_at });
+  assert.deepEqual(await api.session(), { csrf, expiresAt: proof.expires_at, invitationManagementAvailable: false });
   assert.equal(request.url, "/api/core/product-identity/team/session");
   for (const [key, value] of Object.entries({
     credentials: "same-origin",

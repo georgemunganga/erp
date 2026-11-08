@@ -191,6 +191,23 @@ try {
   const csrfCookie = teamCookies.find(cookie => cookie.name === '__Host-kuubu_company_team_csrf');
   assert.ok(csrfCookie?.httpOnly && csrfCookie.secure && csrfCookie.sameSite === 'Strict');
   assert.equal(csrfCookie.domain, 'app.kuubuerp.com');
+  stage = 'actual_invitation_review_issue_and_revoke';
+  await page.getByRole('button', { name: 'Invite teammate', exact: true }).click();
+  const invitationDialog = page.getByRole('dialog');
+  await invitationDialog.getByLabel('Recipient email').fill('new.person@example.test');
+  await expect(invitationDialog.getByRole('checkbox')).not.toBeChecked();
+  await expect(invitationDialog.getByRole('button', { name: 'Create invitation', exact: true })).toBeDisabled();
+  await invitationDialog.getByRole('checkbox').check();
+  await page.screenshot({ path: join(output, 'real-invitation-review.png'), fullPage: true });
+  await invitationDialog.getByRole('button', { name: 'Create invitation', exact: true }).click();
+  const invitations = page.getByRole('list', { name: 'Company invitations', exact: true });
+  await expect(invitations).toContainText('new.person@example.test');
+  await expect(invitations).toContainText('Awaiting acceptance');
+  await page.getByRole('button', { name: 'Revoke invitation for new.person@example.test', exact: true }).click();
+  await page.getByRole('dialog').getByRole('checkbox').check();
+  await page.getByRole('button', { name: 'Confirm revocation', exact: true }).click();
+  await expect(invitations).toContainText('Member · Revoked');
+  await expect(page.getByRole('button', { name: 'Revoke invitation for new.person@example.test', exact: true })).toHaveCount(0);
   stage = 'actual_role_review';
   await page.getByRole('button', { name: 'Change role for Team member', exact: true }).click();
   await page.getByLabel('New company role').click();
@@ -241,7 +258,7 @@ try {
   await page.screenshot({ path: join(output, 'real-team-license-denied.png'), fullPage: true });
   assert.deepEqual(transportFailures, [], 'Every scoped browser transport request must succeed.');
   await writeFile(join(output, 'result.json'), JSON.stringify({ passed: true, created: 1, retried: 1, companies: 1, operational_sessions: 0,
-    module_roles: 0, team_changes: 2, team_receipts: 2, dropped_committed_response: 1, license_replay_denied: true, invitation_acceptance_tested: false, isolated_cookie_origins: true, transport: 'scoped browser routes to actual loopback services; no deployed TLS claim' }, null, 2), { flag: 'wx' });
+    module_roles: 0, team_changes: 2, team_receipts: 2, invitation_sender_tested: true, invitation_receipts: 2, dropped_committed_response: 1, license_replay_denied: true, invitation_acceptance_tested: false, isolated_cookie_origins: true, transport: 'scoped browser routes to actual loopback services; no deployed TLS claim' }, null, 2), { flag: 'wx' });
   console.log('Actual provider login, setup, team sign-in, role/revoke/retry and license denial passed.');
 } catch (error) {
   if (page) await page.screenshot({ path: join(output, 'failed.png'), fullPage: true }).catch(() => {});

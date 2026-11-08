@@ -4,7 +4,23 @@ const uuid =
   /^(?!00000000-0000-0000-0000-000000000000$)[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 export const productTeamStart = `${prefix}/start`;
 export type TeamRole = "owner" | "administrator" | "member";
-export type TeamSession = { csrf: string; expiresAt: string };
+export type TeamSession = {
+  csrf: string;
+  expiresAt: string;
+  invitationManagementAvailable: boolean;
+};
+export type TeamInvitation = {
+  id: string;
+  recipient: string;
+  role: "administrator" | "member";
+  state: "pending" | "accepted" | "revoked" | "expired";
+  revision: number;
+  expiresAt: string;
+};
+export type InvitationCommand = { companyId: string; linkId: string; key: string } & (
+  | { operation: "issue"; email: string; role: "administrator" | "member" }
+  | { operation: "revoke"; invitationId: string; revision: number }
+);
 export type TeamCompany = {
   id: string;
   linkId: string;
@@ -128,10 +144,16 @@ export function createProductTeamClient(fetcher: typeof fetch = fetch) {
         typeof data.csrf_token !== "string" ||
         !/^[A-Za-z0-9_-]{64,4096}$/.test(data.csrf_token) ||
         typeof data.expires_at !== "string" ||
-        !Number.isFinite(Date.parse(data.expires_at))
+        !Number.isFinite(Date.parse(data.expires_at)) ||
+        (data.invitation_management_available !== undefined &&
+          typeof data.invitation_management_available !== "boolean")
       )
         return invalid();
-      return { csrf: data.csrf_token, expiresAt: data.expires_at };
+      return {
+        csrf: data.csrf_token,
+        expiresAt: data.expires_at,
+        invitationManagementAvailable: data.invitation_management_available === true,
+      };
     },
     async companies(after?: string, signal?: AbortSignal) {
       const query = cursor(after);
@@ -235,6 +257,100 @@ export function createProductTeamClient(fetcher: typeof fetch = fetch) {
         return invalid();
       // Historical Existing receipts are acknowledged, never installed as current
       // member state. The screen must fetch members again after every success.
+    },
+    async invitations(
+      company: Pick<TeamCompany, "id" | "linkId">,
+      after?: string,
+      signal?: AbortSignal,
+    ) {
+      if (!id(company.id) || !id(company.linkId)) throw new ProductTeamError(400);
+      const ending = cursor(after);
+      const query = `company_id=${company.id}&link_id=${company.linkId}${ending ? `&${ending}` : ""}`;
+      const data = await json(await request(`/invitations?${query}`, signal));
+      if (data.actor_role !== "owner" && data.actor_role !== "administrator") return invalid();
+      const result = page(data, "invitations");
+      let previous = after ?? "";
+      const invitations = result.rows.map((value): TeamInvitation => {
+        const row = object(value);
+        if (
+          !id(row.invitation_id) ||
+          row.invitation_id <= previous ||
+          typeof row.recipient !== "string" ||
+          row.recipient.length > 254 ||
+          !row.recipient.includes("@") ||
+          /[\s\p{Cc}]/u.test(row.recipient) ||
+          (row.role !== "administrator" && row.role !== "member") ||
+          !["pending", "accepted", "revoked", "expired"].includes(String(row.state)) ||
+          !revision(row.revision) ||
+          row.revision !== (row.state === "pending" || row.state === "expired" ? 1 : 2) ||
+          typeof row.expires_at !== "string" ||
+          !Number.isFinite(Date.parse(row.expires_at))
+        )
+          return invalid();
+        previous = row.invitation_id;
+        return {
+          id: row.invitation_id,
+          recipient: row.recipient,
+          role: row.role,
+          state: row.state as TeamInvitation["state"],
+          revision: row.revision,
+          expiresAt: row.expires_at,
+        };
+      });
+      if (result.next !== null && (invitations.length !== 20 || result.next !== previous))
+        return invalid();
+      return {
+        invitations,
+        next: result.next,
+        actorRole: data.actor_role as "owner" | "administrator",
+      };
+    },
+    async invitationCommand(command: InvitationCommand, csrf: string) {
+      if (command.operation !== "issue" && command.operation !== "revoke")
+        throw new ProductTeamError(400);
+      if (![command.companyId, command.linkId, command.key].every(id))
+        throw new ProductTeamError(400);
+      const body = {
+        company_id: command.companyId,
+        link_id: command.linkId,
+        command_key: command.key,
+        confirmed: true,
+        ...(command.operation === "issue"
+          ? { email: command.email, role: command.role }
+          : { invitation_id: command.invitationId, expected_revision: command.revision }),
+      };
+      if (
+        command.operation === "issue"
+          ? (command.role !== "member" && command.role !== "administrator") ||
+            command.email.length > 254 ||
+            !command.email.includes("@") ||
+            /[\s\p{Cc}]/u.test(command.email)
+          : !id(command.invitationId) || !revision(command.revision)
+      )
+        throw new ProductTeamError(400);
+      const response = await request(`/invitations/${command.operation}`, undefined, {
+        csrf,
+        body,
+      });
+      const data = await json(response);
+      if (
+        !id(data.invitation_id) ||
+        data.operational_access_granted !== false ||
+        (command.operation === "issue"
+          ? !(
+              (response.status === 201 && data.status === "Issued") ||
+              (response.status === 200 && data.status === "Existing")
+            ) ||
+            data.state !== "pending" ||
+            data.revision !== 1
+          : response.status !== 200 ||
+            !["Revoked", "Existing"].includes(String(data.status)) ||
+            data.state !== "revoked" ||
+            data.revision !== 2 ||
+            data.invitation_id !== command.invitationId)
+      )
+        return invalid();
+      // Receipt is historical; callers must refresh the current invitation list.
     },
     async cancel(csrf: string) {
       await request("/cancel", undefined, { csrf, body: {} });
