@@ -44,6 +44,11 @@ public sealed class CoreWorkspaceProvisionerTests
         Assert.Single(await own.LegalEntities.ToArrayAsync());
         Assert.Single(await own.WorkLocations.ToArrayAsync());
         Assert.Single(await own.ExternalIdentityLinks.ToArrayAsync());
+        var membership = Assert.Single(await own.CompanyMemberships.ToArrayAsync());
+        Assert.Equal(binding.LegalEntityId, membership.LegalEntityId);
+        Assert.Equal(binding.OwnerLocalUserId, membership.LocalUserId);
+        Assert.Equal(CoreCompanyRoles.Owner, membership.Role);
+        Assert.True(membership.IsActive);
         var owner = Assert.Single(await own.LocalUsers.ToArrayAsync());
         Assert.Equal(LocalCredentialModes.Federated, owner.CredentialMode);
         Assert.Equal("", owner.RolesCsv);
@@ -73,6 +78,7 @@ public sealed class CoreWorkspaceProvisionerTests
             Assert.Single(await scoped.LegalEntities.ToArrayAsync());
             Assert.Single(await scoped.LocalUsers.ToArrayAsync());
             Assert.Single(await scoped.ExternalIdentityLinks.ToArrayAsync());
+            Assert.Single(await scoped.CompanyMemberships.ToArrayAsync());
         }
     }
 
@@ -177,6 +183,72 @@ public sealed class CoreWorkspaceProvisionerTests
         Assert.Single(await db.WorkspaceBindings.IgnoreQueryFilters().ToArrayAsync());
     }
 
+    [NativeWorkspaceFact]
+    public async Task Membership_migration_preserves_only_explicit_allocation_owners_and_refuses_populated_rollback()
+    {
+        await using var f = await Fixture.Start();
+        await using var db = f.Context("migration-only");
+        var migrations = (await db.Database.GetAppliedMigrationsAsync()).ToArray();
+        var owning = Assert.Single(migrations, x => x.EndsWith("_CoreCompanyMemberships", StringComparison.Ordinal));
+        var prior = migrations[Array.IndexOf(migrations, owning)-1];
+        await db.GetService<IMigrator>().MigrateAsync(prior); // empty rollback is safe
+        var expected = new List<(Guid Binding, Guid Company, Guid User, string Tenant, bool Active)>();
+        foreach (var active in new[] { true, false })
+        {
+            var tenant = Guid.NewGuid().ToString();
+            await using var seed = f.Context(tenant);
+            var company = new LegalEntity { Code = "MAIN", RegisteredName = "Legacy allocated company" };
+            var user = LocalUser.Federated("Existing allocated owner"); user.TenantId = tenant;
+            var binding = new CoreWorkspaceBinding { Issuer = ProductCommercialLicense.Issuer, Subject = "42",
+                ClientId = Client, CustomerId = Customer, EnrollmentId = Enrollment,
+                Slot = expected.Count+1, PurchasedLimit = 2, LegalEntityId = company.Id, OwnerLocalUserId = user.Id,
+                IdempotencyHash = new string(active ? 'a' : 'b', 64), RequestHash = new string('c', 64),
+                AuthorityUntil = f.Clock.GetUtcNow().AddMinutes(1), LicenseUntil = f.Clock.GetUtcNow().AddMinutes(1) };
+            // Seed the actual predecessor shape: no membership table existed.
+            seed.LegalEntities.Add(company); seed.LocalUsers.Add(user); seed.WorkspaceBindings.Add(binding);
+            seed.ExternalIdentityLinks.Add(new() { Issuer = binding.Issuer, Subject = binding.Subject,
+                LocalUserId = user.Id, IsActive = active });
+            await seed.SaveChangesAsync();
+            expected.Add((binding.Id, company.Id, user.Id, tenant, active));
+        }
+        await using (var classic = f.Context("classic-installation"))
+        {
+            classic.LocalUsers.Add(new() { Email = "admin@example.test", NormalizedEmail = "ADMIN@EXAMPLE.TEST",
+                PasswordHash = "synthetic-not-a-login-hash", DisplayName = "Classic admin", RolesCsv = "erp_admin" });
+            await classic.SaveChangesAsync();
+        }
+        await db.Database.MigrateAsync();
+        Assert.False(db.Database.HasPendingModelChanges());
+        var members = await db.CompanyMemberships.IgnoreQueryFilters().ToArrayAsync();
+        Assert.Equal(2, members.Length);
+        foreach (var row in expected)
+        {
+            var member = Assert.Single(members, m => m.Id == row.Binding);
+            Assert.Equal(row.Company, member.LegalEntityId); Assert.Equal(row.User, member.LocalUserId);
+            Assert.Equal(row.Tenant, member.TenantId); Assert.Equal(CoreCompanyRoles.Owner, member.Role);
+            Assert.Equal(row.Active, member.IsActive);
+        }
+        Assert.DoesNotContain(members, m => m.TenantId == "classic-installation");
+        var denied = await Assert.ThrowsAsync<PostgresException>(() => db.GetService<IMigrator>().MigrateAsync(prior));
+        Assert.Equal(PostgresErrorCodes.CheckViolation, denied.SqlState);
+        Assert.Equal(2, await db.CompanyMemberships.IgnoreQueryFilters().CountAsync());
+    }
+
+    [NativeWorkspaceFact]
+    public async Task Native_company_membership_binding_and_role_constraints_cannot_be_bypassed()
+    {
+        await using var f = await Fixture.Start(); await f.Create(Key(1));
+        await using var db = f.Context("inspect");
+        foreach (var sql in new[] { "UPDATE hrm.core_company_memberships SET role='erp_admin'",
+            "UPDATE hrm.core_company_memberships SET local_user_id='00000000-0000-0000-0000-000000000001'",
+            "DELETE FROM hrm.core_company_memberships" })
+        {
+            var denied = await Assert.ThrowsAsync<PostgresException>(() => db.Database.ExecuteSqlRawAsync(sql));
+            Assert.Equal(PostgresErrorCodes.CheckViolation, denied.SqlState);
+        }
+        Assert.Single(await db.CompanyMemberships.IgnoreQueryFilters().ToArrayAsync());
+    }
+
     [Theory]
     [InlineData(false)][InlineData(true)]
     public async Task Binding_cannot_reference_another_tenants_company_or_owner(bool foreignOwner)
@@ -275,6 +347,7 @@ public sealed class CoreWorkspaceProvisionerTests
             Assert.Empty(await db.LegalEntities.IgnoreQueryFilters().ToArrayAsync());
             Assert.Empty(await db.LocalUsers.IgnoreQueryFilters().ToArrayAsync());
             Assert.Empty(await db.ExternalIdentityLinks.IgnoreQueryFilters().ToArrayAsync());
+            Assert.Empty(await db.CompanyMemberships.IgnoreQueryFilters().ToArrayAsync());
             Assert.Empty(await db.AuditEntries.IgnoreQueryFilters().ToArrayAsync());
             Assert.Empty(await db.OutboxMessages.IgnoreQueryFilters().ToArrayAsync());
         }

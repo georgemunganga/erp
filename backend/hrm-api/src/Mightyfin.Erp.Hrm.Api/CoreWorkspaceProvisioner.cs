@@ -76,10 +76,14 @@ internal sealed class CoreWorkspaceProvisioner(Func<string, HrmDbContext> contex
             db.LegalEntities.Add(company);
             db.WorkLocations.Add(new WorkLocation { Code = "HQ", Name = "Head office", Type = "headquarters", LegalEntityId = company.Id, CreatedBy = actor });
             db.LocalUsers.Add(owner);
+            var membership = new CoreCompanyMembership { LegalEntityId = company.Id, LocalUserId = owner.Id,
+                Role = CoreCompanyRoles.Owner, CreatedBy = actor };
+            db.CompanyMemberships.Add(membership);
             db.ExternalIdentityLinks.Add(new ExternalIdentityLink { Issuer = ProductCommercialLicense.Issuer,
                 Subject = authority.Subject, LocalUserId = owner.Id, CreatedBy = actor });
             db.WorkspaceBindings.Add(binding);
             var evidence = JsonSerializer.Serialize(new { binding.Id, company_id = company.Id, owner_id = owner.Id,
+                company_membership_id = membership.Id,
                 enrollment_id = authority.EnrollmentId, slot, workspace_limit = license.WorkspaceLimit,
                 authority_until = authority.ExpiresAt, license_until = license.ExpiresAt, operational_access_granted = false });
             db.AuditEntries.Add(new AuditEntry { EntityType = "CoreWorkspaceBinding", EntityId = binding.Id.ToString(),

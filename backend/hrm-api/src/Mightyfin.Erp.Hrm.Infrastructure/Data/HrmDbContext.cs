@@ -45,6 +45,9 @@ public sealed class HrmDbContext(DbContextOptions<HrmDbContext> options, ITenant
                 if (!LocalCredentialModes.IsValid(account))
                     throw new DomainException("invalid-credential-state", "The account credential state is invalid.");
             }
+            if (entry.Entity is CoreCompanyMembership membership && entry.State is EntityState.Added or EntityState.Modified
+                && !CoreCompanyRoles.IsValid(membership.Role))
+                throw new DomainException("invalid-company-role", "The company role is invalid.");
             if (entry.State == EntityState.Added)
             {
                 // Never trust a tenant id supplied by a client or service. The
@@ -57,6 +60,10 @@ public sealed class HrmDbContext(DbContextOptions<HrmDbContext> options, ITenant
             {
                 if (entry.Entity is CoreWorkspaceBinding)
                     throw new DomainException("workspace-binding-immutable", "Workspace allocation evidence cannot be changed or deleted.");
+                if (entry.Entity is CoreCompanyMembership && (entry.State == EntityState.Deleted
+                    || entry.Properties.Any(p => p.IsModified && p.Metadata.Name is
+                        (nameof(CoreCompanyMembership.LegalEntityId) or nameof(CoreCompanyMembership.LocalUserId) or nameof(Entity.TenantId)))))
+                    throw new DomainException("company-membership-binding-immutable", "Revoke company membership instead of changing or deleting its binding.");
                 if (!string.Equals(entry.Entity.TenantId, tenantId, StringComparison.Ordinal))
                     throw new DomainException("cross-tenant-write", "A record from another tenant cannot be changed.");
                 if (entry.Entity is ExternalIdentityLink && (entry.State == EntityState.Deleted
@@ -91,6 +98,7 @@ public sealed class HrmDbContext(DbContextOptions<HrmDbContext> options, ITenant
     public DbSet<LocalUser> LocalUsers => Set<LocalUser>();
     public DbSet<ExternalIdentityLink> ExternalIdentityLinks => Set<ExternalIdentityLink>();
     public DbSet<CoreWorkspaceBinding> WorkspaceBindings => Set<CoreWorkspaceBinding>();
+    public DbSet<CoreCompanyMembership> CompanyMemberships => Set<CoreCompanyMembership>();
     public DbSet<LocalCredentialLink> LocalCredentialLinks => Set<LocalCredentialLink>();
     public DbSet<LocalSession> LocalSessions => Set<LocalSession>();
     public DbSet<HrUserBranchAssignment> UserBranchAssignments => Set<HrUserBranchAssignment>();
@@ -234,6 +242,17 @@ public sealed class HrmDbContext(DbContextOptions<HrmDbContext> options, ITenant
                 .HasPrincipalKey(x => new { x.TenantId, x.Id }).OnDelete(DeleteBehavior.Restrict);
             e.ToTable("core_workspace_bindings", "hrm", t => t.HasCheckConstraint("CK_workspace_capacity",
                 "slot >= 1 AND slot <= purchased_limit AND purchased_limit <= 10000"));
+        });
+        ConfigureEntity<CoreCompanyMembership>(modelBuilder, "core_company_memberships", e =>
+        {
+            e.Property(x => x.Role).HasMaxLength(16);
+            e.HasIndex(x => new { x.TenantId, x.LegalEntityId, x.LocalUserId }).IsUnique();
+            e.HasOne<LegalEntity>().WithMany().HasForeignKey(x => new { x.TenantId, x.LegalEntityId })
+                .HasPrincipalKey(x => new { x.TenantId, x.Id }).OnDelete(DeleteBehavior.Restrict);
+            e.HasOne<LocalUser>().WithMany().HasForeignKey(x => new { x.TenantId, x.LocalUserId })
+                .HasPrincipalKey(x => new { x.TenantId, x.Id }).OnDelete(DeleteBehavior.Restrict);
+            e.ToTable("core_company_memberships", "hrm", t => t.HasCheckConstraint("CK_company_membership_role",
+                "role IN ('owner','administrator','member')"));
         });
         ConfigureEntity<CoreCurrencyPrecisionVersion>(modelBuilder, "currency_precision_versions", e =>
         {
