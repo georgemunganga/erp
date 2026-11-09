@@ -21,9 +21,13 @@ current-person checks. The flow caps this deadline to the authenticated identity
 ticket and browser-state expiry; refresh cannot reset it. Material and its fields
 are excluded from default JSON and diagnostic text is redacted. This is not ERP
 authentication, a cookie writer or a session-creation endpoint.
-Next: secure HTTP cookie/
-authentication lifecycle, request/resource adapters, protected route/data isolation
-and connected ERP launch.
+Default-off HTTP self-review/explicit selection/opaque cookie/current-state/
+provider-independent logout is now separately qualified; see
+[session HTTP lifecycle](CORE-PRODUCT-SESSION-HTTP-20261110.md). Ordinary members
+can review/select their own explicit grant without owner-editor privileges.
+These cookies still do not satisfy default protected ERP authentication.
+Next: deliberate product authentication, request/resource adapters, protected
+route/data isolation and connected ERP frontend/browser launch.
 ## 4. Parent
 Core company membership/team/invitations; purchased workspace/licensing contracts.
 Keep one ASP.NET/Docker release for shared SaaS and dedicated/on-premise use.

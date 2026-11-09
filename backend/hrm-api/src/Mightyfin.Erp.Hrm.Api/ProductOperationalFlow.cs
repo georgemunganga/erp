@@ -43,7 +43,8 @@ internal static class ProductOperationalFlow
     internal const string Cookie="__Host-kuubu_operational_identity",Purpose="erp-session-v1";
     internal const string Landing="/workspace-access";
     internal const string HandleClaim="kuubu:operational:handle",BindingClaim="kuubu:operational:binding";
-    private const string ChallengeKey="kuubu:operational:challenge",BindingKey="kuubu:operational:browser",PurposeKey="kuubu:operational:purpose";
+    private const string ChallengeKey="kuubu:operational:challenge",BindingKey="kuubu:operational:browser";
+    internal const string PurposeKey="kuubu:operational:purpose";
     private const string Origin="https://app.kuubuerp.com";
     internal static bool Enabled(IConfiguration config)=>ProductIdentity.Enabled(config) && config.GetValue<bool>("ERP:OperationalIdentity:Enabled");
 
@@ -167,6 +168,7 @@ internal static class ProductOperationalFlow
         var ticket=await context.AuthenticateAsync(Scheme);
         if(ticket.Succeeded && ticket.Principal?.FindFirstValue(HandleClaim) is {} handle && ticket.Principal.FindFirstValue(BindingClaim) is {} binding)
             await context.RequestServices.GetRequiredService<ProductOperationalCredentialStore>().RevokeAsync(handle,binding);
+        await ProductErpSessionFlow.RevokeForParentLogoutAsync(context);
         if(clearCookie)await context.SignOutAsync(Scheme);
     }
     internal static void Map(WebApplication app)
@@ -216,6 +218,7 @@ internal static class ProductOperationalFlow
         }).AllowAnonymous();
         CoreOperationalCompanies.Map(group,app.Configuration);
         ProductModuleAccessFlow.Map(group,app.Configuration);
+        ProductErpSessionFlow.Map(group,app.Configuration);
     }
     internal static IResult Failure(OperationalCredentialStatus status)=>status is OperationalCredentialStatus.Unavailable or OperationalCredentialStatus.Busy
         ?Results.StatusCode(503):Results.Unauthorized();

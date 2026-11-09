@@ -163,12 +163,12 @@ public sealed partial class ProductOperationalFlowTests
         Assert.Equal(HttpStatusCode.Unauthorized,(await f.Get("/erp-protected",identity+"; "+browser)).StatusCode);
     }
     private static string SetCookie(HttpResponseMessage response,string name)=>response.Headers.GetValues("Set-Cookie").Single(x=>x.StartsWith(name+"=",StringComparison.Ordinal)).Split(';')[0];
-    private sealed record Challenge(Dictionary<string,string> Parameters,string Cookie);
-    private sealed class Fixture: IAsyncDisposable
+    internal sealed record Challenge(Dictionary<string,string> Parameters,string Cookie);
+    internal sealed class Fixture: IAsyncDisposable
     {
         internal const string Origin="https://app.kuubuerp.com",ClientId="391bdeaa-87b3-44b3-8e64-2110dcc1a564",Secret="synthetic-operational-secret";
         internal required List<OperationalCredentialResult> TrustedObservations;internal required WebApplication App;internal required HttpClient Client;internal required Channel Channel;internal required string State;internal required HrmDbContext Db;internal AsyncServiceScope Scope;
-        internal static async Task<Fixture> Start(bool enabled=true,string mode="",bool companies=false,CoreModuleAccessApi? moduleApi=null)
+        internal static async Task<Fixture> Start(bool enabled=true,string mode="",bool companies=false,CoreModuleAccessApi? moduleApi=null,CoreProductSessionAdmission? sessions=null)
         {
             var root=Path.Combine(Path.GetTempPath(),"kuubu-operational-flow-"+Guid.NewGuid().ToString("N"));
             var keys=Path.Combine(root,"keys");var state=Path.Combine(root,"credentials");
@@ -178,7 +178,7 @@ public sealed partial class ProductOperationalFlowTests
                 ["ERP:ProductIdentity:Enabled"]="true",["ERP:ProductIdentity:ClientId"]="4798a03c-5ed7-4438-9ec9-d46f63a2f4f1",
                 ["ERP:ProductIdentity:ClientSecret"]="synthetic-setup-secret",["ERP:ProductIdentity:DataProtectionPath"]=keys,
                 ["ERP:OperationalIdentity:Enabled"]=enabled.ToString(),["ERP:OperationalIdentity:ClientId"]=ClientId,["ERP:OperationalIdentity:ClientSecret"]=Secret,["ERP:OperationalIdentity:StatePath"]=state,
-                ["ERP:ProductLicensing:Enabled"]=companies.ToString(),["ERP:OperationalCompanies:Enabled"]=companies.ToString(),["ERP:ModuleAccess:Enabled"]=(moduleApi is not null).ToString()});
+                ["ERP:ProductSessions:Enabled"]=(sessions is not null).ToString(),["ERP:ProductLicensing:Enabled"]=companies.ToString(),["ERP:OperationalCompanies:Enabled"]=companies.ToString(),["ERP:ModuleAccess:Enabled"]=(moduleApi is not null).ToString()});
             builder.Services.AddHttpContextAccessor();builder.Services.AddScoped<ITenantAccessor>(_=>new FixedTenantAccessor("tenant-a"));
             builder.Services.AddDbContext<HrmDbContext>(options=>options.UseInMemoryDatabase(root));
             builder.Services.AddAuthentication(LocalAuthenticationHandler.Scheme).AddScheme<LocalAuthOptions,LocalAuthenticationHandler>(LocalAuthenticationHandler.Scheme,_=>{});
@@ -186,6 +186,7 @@ public sealed partial class ProductOperationalFlowTests
             if(companies)builder.Services.AddScoped(provider=>new CoreOperationalCompanies(provider.GetRequiredService<HrmDbContext>(),
                 (_,_)=>throw new InvalidOperationException("Unbound company must not reach licensing."),TimeProvider.System));
             if(moduleApi is not null)builder.Services.AddSingleton(moduleApi);
+            if(sessions is not null)builder.Services.AddSingleton(sessions);
             if(enabled){builder.Services.Configure<OAuthOptions>(ProductOperationalFlow.OAuthScheme,o=>o.Backchannel=new HttpClient(channel){MaxResponseContentBufferSize=65536});
                 builder.Services.AddSingleton(new ProductOperationalSubject(new HttpClient(channel),TimeProvider.System,ClientId));}
             builder.Services.AddAuthorization();var app=builder.Build();app.UseProductIdentityOriginGuard();app.UseAuthentication();app.UseAuthorization();
@@ -221,7 +222,7 @@ public sealed partial class ProductOperationalFlowTests
         }
         public async ValueTask DisposeAsync(){Client.Dispose();await Scope.DisposeAsync();await App.DisposeAsync();}
     }
-    private sealed class Channel:HttpMessageHandler
+    internal sealed class Channel:HttpMessageHandler
     {
         internal string Hash="",Mode="";internal int Exchanges,Reads;
         protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request,CancellationToken cancellation)

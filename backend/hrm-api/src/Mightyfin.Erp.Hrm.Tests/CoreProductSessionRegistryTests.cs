@@ -15,12 +15,13 @@ public sealed class CoreProductSessionRegistryTests
     private const string Client="391bdeaa-87b3-44b3-8e64-2110dcc1a564";
     private static OperationalSubjectObservation Person(Team.Fixture f,string subject="42",string client=Client)=>new(subject,client,f.Clock.GetUtcNow().AddSeconds(30),f.Clock,f.Clock.GetTimestamp(),TimeSpan.FromSeconds(30));
     private static CommercialLicenseLease License(Team.Fixture f,string[]? modules=null)=>new("01arz3ndektsv4rrffq69g5fav",modules??["hrm"],2,f.Clock.GetUtcNow().AddMinutes(1),f.Clock,f.Clock.GetTimestamp(),TimeSpan.FromMinutes(1));
-    private sealed record Target(string Tenant,Guid Company,Guid Link,Guid User,Guid Member,Guid Location,Guid Version);
-    private sealed class Fixture(Team.Fixture team,string keys):IAsyncDisposable
+    internal sealed record Target(string Tenant,Guid Company,Guid Link,Guid User,Guid Member,Guid Location,Guid Version);
+    internal sealed class Fixture(Team.Fixture team,string keys):IAsyncDisposable
     {
         internal Team.Fixture Core=>team;
         internal Target Target=null!;
         internal string Credential=ProductInvitationIntentStore.Random(),Browser=ProductInvitationIntentStore.Random();
+        internal IDataProtectionProvider Protection=>DataProtectionProvider.Create(new DirectoryInfo(keys),o=>o.SetApplicationName("Kuubu.SessionRegistry.Fixture.v1"));
         internal CoreProductSessionRegistry Registry(int limit=30)=>new(t=>team.Context(t),DataProtectionProvider.Create(new DirectoryInfo(keys),o=>o.SetApplicationName("Kuubu.SessionRegistry.Fixture.v1")),team.Clock,limit);
         internal CoreProductSessionIssue Command(Target? target=null)=>new(Selection(target??Target),Guid.NewGuid(),Credential,Browser,team.Clock.GetUtcNow().AddHours(4));
         internal CoreErpSessionSelection Selection(Target target)=>new(target.Company,target.Link,"hrm",target.Version,1,false,[target.Location],false);
