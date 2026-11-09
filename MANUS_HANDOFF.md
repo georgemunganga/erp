@@ -1,3 +1,54 @@
+# Explicit module permission ledger — 9 November 2026
+
+Published Core source `534e7115d5456c9b629e760e95d72812742863c8` adds owner-confirmed, versioned
+module/action and company-or-selected-location grants for current explicit Core
+members. Company governance and purchased modules alone still grant no operational
+access. Roles/actions come from the existing module catalogs without automatic
+bootstrap or global erp_admin fallback. Current resolution rechecks the latest
+version, membership revision, license and current location ownership; revocation
+and historical command replay cannot restore an older grant.
+
+Commands serialize with company-team changes, compare reviewed revisions and
+commit version/location evidence, actor-key receipt, configuration audit and
+ID-only event atomically. Composite keys prevent tenant/company/target/result
+retargeting. Context writes reject evidence edits/deletion. The additive migration
+allows empty rollback/reapply and locks/refuses populated rollback. Referenced
+locations retain history; archive them rather than deleting referenced records.
+Legacy branch company moves remain supported.
+
+Fresh build/model comparison passes with27/20 existing API/test warnings. The
+corrected independent assembly passes556 Windows checks/39 environment-specific
+skips and82 PostgreSQL checks/zero skips, including all25 grant cases, concurrent
+retry, atomic failure/expiry/cancellation, exact actions, branch boundaries and
+rollback. Ten C# source inputs,49 independent dependency DLLs and585 read-only
+native runtime files match their manifests. Both owned native containers exited,
+with no published host ports. Core02 includes the model comparison; Core03 is
+the corrected test assembly. Native01 retains80 passed/one fixture failure: its
+attempt to add a second company to an allocated tenant was correctly refused.
+Native02 respects that guard and passes all82 checks; no guard was bypassed.
+
+Evidence: `inspection/qualifications/module-grants-core-02`,
+`module-grants-core-03`, `module-grants-native-02` and
+`module-grants-verification-02/verification.json`; feature spec
+`docs/engineering/CORE-MODULE-ACCESS-GRANTS-20261109.md`.
+
+This is an internal application ledger and current resolver, not an enabled
+workflow. There is no grant HTTP registration/editor, ERP cookie/session/claims,
+legacy role assignment or route/data enforcement from these records yet. Tests
+use internal person/license fixtures; combined branded browser/Passport/ERP
+composition remains unqualified. Next: owner grant review/editor, revocable bound
+ERP sessions and module/company/branch route isolation, plus the actual website/
+relay/picker journey. Existing page source6c5a8307 is unchanged; Foundation runtime
+75cc91ff and website consent1ade23e7 are unchanged. The ERP main baseline remains
+`83ee9fd51d1d44142c493b088be4b0bf054dbfac`.
+
+No production schema/config/flags/deployment, external mail/payment, Perfex, DNS
+or main/UI-main/B1 change. Keep PR201 and Foundation PR3 draft. Native production
+DB/ingress, monitoring/capacity/recovery, SMTP/inbox and controlled rollout remain
+gates. Lenco, hosting/domain/email integrations and dedicated/on-premise/offline
+licensing/upgrades/backup restore remain programme work. All deployment modes
+continue to use one maintained ASP.NET/Docker codebase.
+
 # Kuubu workspace entry and company review —9 November2026
 
 Published API/UI `6c5a830771a1ececccd4d9876456f17409f1d955` adds the real
