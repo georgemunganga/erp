@@ -41,6 +41,10 @@ Branch scope must be explicit; absence of grants denies access.
 No email/domain or billing-membership inference. No implicit employee, password,
 module role, branch grant or organization-wide access. Federated principals remain
 credential-free; the legacy local-session handler continues to reject them.
+Bind the exact selected legal entity as well as its tenant. Legacy legal-entity
+creation must not bypass purchased workspace allocation in SaaS mode; company
+creation remains owned by the licensed provisioner. An unknown module route or
+unbound entity must not inherit access from a broad legacy administrator role.
 ## 12. Data
 Foundation owns verified identity and personal enrollment; Core owns exact links,
 companies, memberships, module/action/branch grants and operational sessions.
@@ -105,5 +109,58 @@ No SaaS operational activation until all acceptance checks pass. Lenco/hosting
 integrations and dedicated/offline licensing/installation/upgrades/backup restore
 remain part of the full platform programme, with separate deployment evidence.
 ## 28. Evidence
-Pending fresh provider and Core qualification. Existing company, invitation and
-mail evidence retains its recorded sources and does not prove operational access.
+Published Foundation75cc91ff5025a54f3803fc34c4d297b12dcd5a98 and
+Corece5bc76ff618d0eee98648b723100f248a3802d1 implement the first licensed ERP
+admission contract: current, email-free person observation under the exact
+`product:identity product:erp-session` scopes and `erp-session-v1` purpose.
+`PRODUCT_ERP_SESSION_ENABLED` defaults false. Only a confidential Kuubu identity
+client is eligible; public/foreign clients, ordinary identity/cookie proofs,
+mixed authorities, selectors and request bodies are rejected. Foundation
+rechecks verified personal enrollment/client/token state and caps observation
+to30 seconds and actual token-record expiry. It creates no customer, enrollment,
+company, membership, session or permission grant. A refresh token is not a
+current identity proof: real refresh followed by personal-enrollment revocation
+still denies the resource.
+
+The Core reader validates the exact field set, issuer/client/subject/product/
+purpose, true verification and false operational grant. Duplicate/missing/extra,
+wrongly typed, foreign/stale/oversized/non-JSON responses fail closed. Deadline
+includes transit and wall/monotonic caps; denial never reuses a previous proof;
+caller cancellation propagates. No email or provider token is retained in the
+observation. The reader is not yet registered for operational admission.
+
+Fresh API/test builds pass with27/20 existing warnings.460 focused Core tests
+passed/36 native opt-ins skipped, including35 new observation cases. Foundation
+PHP8.5.9/Linux full regression passed133 tests/1081 assertions, plus Pint18 files;
+PHP8.4.12/Windows focused compatibility passed11 tests/122 assertions, plus Pint.
+137 Foundation source files and35 independently copied Core dependency DLLs
+retain hashes. Linux runs with network none, no host ports and read-only archive/
+overlay/script inputs; its owned container is stopped. No production environment
+or credentials are copied into the fixture.
+
+Initial Windows/Linux attempts are retained with three failures: Laravel's
+getJson helper serializes an empty array into a GET body, so the strict new
+resource correctly returned422. The corrected test helper uses the same
+body-free GET as Core; the explicit malicious-body test still returns422.
+No production guard or assertion was removed to obtain the passing result.
+Evidence: inspection/qualifications/operational-subject-core-01,
+operational-subject-php-linux-02, operational-subject-foundation-02 and
+operational-subject-verification-01/verification.json. Failed01 attempts remain.
+
+This is a person-proof contract, not completed ERP access. Actual provider-to-Core
+wire composition for this resource and native MySQL qualification of this
+increment remain unproven. Protected operational OAuth/refresh state, explicit
+company/module selection, module/action/branch grants, revocable ERP sessions,
+route enforcement and browser acceptance remain to implement/qualify. Inspection
+confirms federated users cannot use legacy local sessions or role CSV, and empty
+legacy branch assignments mean organization-wide access; SaaS admission must
+use explicit grants without inheriting that fallback. Classic local mode remains
+unchanged for dedicated installations.
+
+No frontend change, operational session/role/branch grant, schema change,
+production activation, live setting, payment, Perfex migration, DNS or
+main/UI-main/B1 change. Existing operator/SMTP and browser evidence retains its
+original source scope. Lenco, hosting/domain/email products, SaaS deployment and
+dedicated/on-premise installation/offline licensing/upgrades/backup restore
+remain in the full programme; both PRs remain draft.
+
