@@ -307,7 +307,7 @@ grants or setup attempts remain. The390px actual-PostgreSQL editor and branded
 login screenshots were visually inspected.
 
 `module-browser-composition-verification-01/verification.json` verifies seven
-unchanged production C# inputs,49 independently copied dependencies,373 UI
+unchanged pinned companion C# inputs (four API files and three tests),49 independently copied dependencies,373 UI
 source/491 built files,95 website source/25 output files and137 provider source
 files. Test source matches fresh build06; the published runner matches executed
 runner05. `module-browser-opt-in-verification-02` verifies explicit fixture-absent

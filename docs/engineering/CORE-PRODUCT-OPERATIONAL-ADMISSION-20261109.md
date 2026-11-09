@@ -7,11 +7,14 @@ Let an explicitly enrolled Kuubu person enter an authorized company and licensed
 module with current permissions and branch scope, using the existing ERP.
 ## 3. Scope
 Implemented: separately scoped, email-free person observation/reader and private
-encrypted credential/rotation machinery, plus default-off operational OAuth
-callback/browser handoff, connected workspace entry and read-only member company/
-license review. These create no ERP session or grant. Next: actual branded
-website/relay/browser composition, explicit module/action/branch grants, revocable
-bound sessions, route/module enforcement and scoped context.
+encrypted credential/rotation machinery, default-off operational OAuth/browser
+handoff, connected workspace entry/company licensing review and explicit owner
+module/action/branch grants. The branded website/relay/Core/Passport/PostgreSQL
+permission journey is qualified at sourcea0cef594. Server-side selection binding
+and per-request scope authority are now separately qualified; see
+[ERP session scope](CORE-ERP-SESSION-SCOPE-20261109.md). No ERP session is issued.
+Next: durable session registry/revocation/expiry, cookie/authentication lifecycle,
+request/resource adapters, protected route/data isolation and connected ERP launch.
 ## 4. Parent
 Core company membership/team/invitations; purchased workspace/licensing contracts.
 Keep one ASP.NET/Docker release for shared SaaS and dedicated/on-premise use.
@@ -137,7 +140,8 @@ ordinary product sign-in/logout revokes operational identity in return. Neither
 direction alters the default ERP/local session. Session status freshly observes
 the person and returns `operational_access_granted=false`/company-selection next
 step; no browser company/module selector is accepted here. The interim callback
-returns to that status endpoint; company/module selection UI remains next work.
+returns to `/workspace-access`; the picker and owner permission editor are
+connected. Session issuance and actual ERP launch remain follow-on work.
 
 Credential admission under the shared directory gate permits at most four active
 credentials and six issues per ten minutes for one verified subject/client.
