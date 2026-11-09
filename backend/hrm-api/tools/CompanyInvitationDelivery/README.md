@@ -32,7 +32,9 @@ Before enabling, upgrade/pause every old generic publisher: the current publishe
 excludes delivery events and refuses their completion, but old binaries lack that
 protection. Qualify the actual SMTP/TLS endpoint, sender authentication,
 deliverability, monitoring, recovery and owned operator retry. The sender-facing
-delivery status UI remains separate work; creation must not be labelled "sent".
+UI now reads scoped delivery outcomes separately from joining and offers a
+read-only refresh. Creation is queued; only a bound SMTP acknowledgement is
+submitted, and it never confirms inbox receipt. No resend control is introduced.
 
 Each worker selects one due delivery row using PostgreSQL `FOR UPDATE SKIP LOCKED`.
 The row stays locked through outcome commit. Fresh license, exact company/client

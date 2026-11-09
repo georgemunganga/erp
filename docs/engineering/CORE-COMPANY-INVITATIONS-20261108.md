@@ -17,7 +17,8 @@ handlers in an isolated browser fixture. Guest application controls are qualifie
 edge controls, deployed ingress and live delivery remain. A dedicated default-off
 Core delivery worker/SMTP adapter is implemented. Store/authority, private
 socket/TLS and the joint browser/SMTP acceptance journey are qualified below;
-production sender configuration, external inbox delivery and delivery UI remain.
+sender-visible delivery status is also qualified below. Production sender
+configuration and external inbox delivery remain.
 No production activation.
 ## 4. Parent
 CORE-COMPANY-TEAM-20261108.md; one ERP release for SaaS and dedicated installations.
@@ -167,6 +168,11 @@ Test real PKCE/tokens, scope escalation, public/foreign/licensing clients, revok
 tokens/client/binding/enrollment/verification, cookie-only calls, selectors and
 default-off behavior. Core validates exact issuer/subject/client/product/purpose,
 bounded observation time, email syntax and operational_access_granted=false.
+Sender list delivery contract: delivery={state,attempts,retry_at,accepted_at}.
+AcceptedAt exists only for validated SMTP acceptance; RetryAt only for scheduled
+retry. Queued/unavailable have zero attempts; exhausted has eight. Closed unsent
+invitations need no further email. This adds no membership or billing authority.
+
 ## 22. Operations
 No real mail, customer access, production deployment or DNS changes in this stage.
 ERP:CompanyInvitationDelivery:Enabled defaults false and requires the product,
@@ -269,6 +275,69 @@ delivery retry, browser acceptance, cross-tenant and recovery gates afterward.
 Do not enable this contract before account consent/relay, Core invitations,
 delivery, migrations/runtime grants, audit and complete browser flow qualify.
 ## 28. Evidence
+### Qualified sender delivery status checkpoint —9 November2026
+
+Published API74b29f02bb949797069b8b9a8c40b5f5a64fa869 and UI0e48bc5c (byte-identical in74b29f02)
+add sender-visible, read-only email status separately from invitation acceptance.
+The current licensed owner/administrator must still pass company scope and the
+final authority reread. Status binds one original issue receipt and delivery
+intent by tenant/company/invitation/actor/correlation/version/payload. Missing,
+duplicate, legacy or inconsistent evidence is unavailable, never assumed sent.
+Pages contain at most20 invitations; metadata/receipt lookups take at most21
+records and overflow conservatively. Dedicated ID-only JSONB payloads are parsed
+and length-checked after the bounded read; raw errors/transports/links are not
+returned. Attempts are bounded to eight.
+
+The existing Kuubu card/theme now shows queued, retry scheduled, mail submitted,
+stopped/needs attention, no further mail needed or unavailable. Retry/acceptance
+timestamps and attempts are separate from the person's pending/accepted state.
+The secondary refresh is read-only and disabled during review/work. Mail-server
+acceptance explicitly leaves inbox delivery unconfirmed. An older API without
+delivery metadata safely renders unavailable; malformed observations fail closed.
+No resend, queue mutation, new schema or activation flag is introduced.
+
+API/test builds passed (27/20 existing warnings);384 focused Windows checks
+passed/30 native opt-ins skipped, including original-binding/counter/state and
+licensed HTTP boundaries plus two PostgreSQL-provider query compilation cases.
+Frontend96 contract checks, lint/build/typecheck,17 team and eight recipient
+browser cases passed. The mobile delivery screenshot was visually checked, with
+no horizontal scrolling. All490 new UI output files retained hash/size/mtime
+after browser consumers; the website25 outputs and136 Foundation source files
+remain unchanged.
+
+The fresh actual Laravel/Kuubu/Core/PostgreSQL/SMTP journey passed in00:01:13.0423296.
+The sender sees queued, processes one real private TLS/authenticated SMTP message,
+refreshes to Email submitted while still Awaiting acceptance, and sees the inbox
+qualification. The recipient then uses the URL parsed from received MIME, signs
+in/enrolls/consents explicitly and confirms joining. Response loss/exact retry,
+actual subscription suspension/replay denial and no operational grants remain
+covered. No preaccepted staff membership or direct decryption preview.
+
+Independent read-only PostgreSQL audit proves one company, two exact federated
+users/links/members, one accepted revision2 invitation/two receipts, five audits/
+five events and one SMTP-accepted attempt, with exact48-hour expiry, six validated
+foreign keys and two history guards. Refresh adds no persisted side effects.
+Foundation SQLite separately proves two personal enrollments and zero recipient
+payer memberships.35 copied dependencies and586 test-runtime files retain
+their manifests. All owned provider/SSR/SMTP/PostgreSQL services are stopped.
+Evidence: inspection/qualifications/delivery-status-api-02, delivery-status-ui-01,
+delivery-status-browser-02/verification.json and delivery-status-audit-02/audit.json.
+
+First native attempt01 failed before issuing/sending because the projection used
+a text expression/empty text branch on JSONB. Its build/browser/database evidence
+is retained. The fix selects JSONB directly and retains the reader's payload and
+binding checks; new provider-specific query compilation plus this actual native
+journey qualify it. No failed data, assertion or old publication was changed.
+
+This remains private qualification with an explicit test-only transport proxy,
+Linux.NET10.0.14 and loopback-only published ports; no deployed ingress or external
+inbox claim. Mail, issue-time capture and recipient acceptance source are unchanged
+fromcddedcf6. Owned retry/monitoring, production sender/DNS authentication, actual
+edge controls and licensed ERP admission/company/branch/module isolation remain.
+PR201/Foundation PR3 stay draft; no production config/schema/flag, real mail/
+payment, Perfex, DNS or main/UI-main/B1 change. Dedicated/on-premise installation,
+offline licensing, upgrades and recovery still require separate qualification.
+
 ### Qualified browser/SMTP and real-clock checkpoint —9 November2026
 
 Published runtimecddedcf696e8040fd32891fe215d8ff2d14ea371 passed the actual Laravel/Kuubu/Core

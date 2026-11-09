@@ -17,7 +17,9 @@ uses the owned local Docker loopback ports (or SSH forwards where allowed) to
 reach Linux, where `SmtpCompanyInvitationMail` sends
 the actual message through STARTTLS/authentication to a private SMTP sink.
 
-The sink decodes received MIME and extracts the invitation URL. The browser
+The sink decodes received MIME and extracts the invitation URL. The sender
+refreshes its actual company list and sees email submitted while joining remains
+pending, with inbox delivery explicitly unconfirmed. The browser
 obtains that received URL, opens the invitation, signs in through Kuubu, enrolls
 explicitly and confirms the company/role. This mode disables direct decryption
 preview. It retains the earlier committed-response-loss/exact-retry and actual
