@@ -229,3 +229,32 @@ cases before added catalog guards/explicit Procurement coverage. No retained
 publication was overwritten. Real browser/Core/Passport composition, revocable
 ERP sessions and protected route/data isolation remain next; production schema,
 flags, Perfex, DNS, payment/mail and runtime activation were not changed here.
+
+Integrated-main acceptance: ERP main advanced independently to
+`52bdb5a0c36778a2f082e8e4085d65cbff25df7e` (PR208: custom Procurement role entry).
+Its current-principal/default-company server-authority fix and earlier material
+request shortcut were merged into this SaaS topic branch. The sole conflict was
+the handoff prepend; both histories are preserved. Imported deployment override/
+notification documentation is retained as source; no private environment,
+running worker/container/service, database or DNS action was performed.
+
+Fresh `module-access-ui-04` is built with `VITE_USE_REAL_API=true`:125 contracts,
+targeted lint (zero errors/five existing fast-refresh warnings), production build,
+typecheck and28 browser cases pass. The five imported Procurement entry fixtures
+pass alongside the13 editor/10 picker cases, including custom-role denial and
+current actor/company matching. Browser responses remain synthetic. Final390px
+editor/dialog screenshots were inspected. `module-access-ui-verification-02`
+checks373 source files,491 immutable output files, seven unchanged companion C#
+inputs and stopped owned SSR/listener. Core/API runtime remains e52e8049 with its
+separately scoped579 Windows/68 PostgreSQL evidence; no new schema is introduced.
+
+UI03 retains125 passing contracts and the imported formatting-only lint failure.
+UI04 formats seven imported files and verifies unchanged normalized emitted
+runtime ASTs in `module-editor-main-format-02`. The first format-verifier attempt
+wrongly compared whole SourceFile.text (including formatting); its failure receipt
+is retained separately. No application permission rule or test assertion was
+weakened. This is source integration, not production activation or composed
+browser/Core/Passport acceptance. In particular the existing classic context
+request uses an all-branches header: future SaaS session enforcement must bind
+the selected company/module and explicit allowed branches server-side and must
+not let a classic header, nominal role or UI entry widen those grants.

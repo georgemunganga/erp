@@ -21,7 +21,10 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState } 
 import type { ReactNode } from "react";
 import type { Role } from "@/mock/types";
 import { hrmApi, type LinkedWorker, type LocalAuthUser } from "@/platform/api-client";
-import { parseCoreWorkspaceChoices, type CoreWorkspaceChoices } from "@/modules/core/core-workspace-context";
+import {
+  parseCoreWorkspaceChoices,
+  type CoreWorkspaceChoices,
+} from "@/modules/core/core-workspace-context";
 import {
   clearSession,
   decodeSessionUser,
@@ -33,7 +36,12 @@ import {
   type OidcUser,
 } from "@/platform/oidc";
 
-import { INITIAL_AUTH_SETTINGS, loadAuthSettings, type AuthSettings } from "@/platform/auth-settings";
+import { hasProcurementModuleGrant } from "@/platform/material-request-access";
+import {
+  INITIAL_AUTH_SETTINGS,
+  loadAuthSettings,
+  type AuthSettings,
+} from "@/platform/auth-settings";
 
 const USE_REAL = (import.meta.env.VITE_USE_REAL_API as string | undefined) === "true";
 const EMPTY_CORE_ACTIONS: CoreWorkspaceChoices["coreActions"] = [];
@@ -50,6 +58,8 @@ interface AuthState {
   authorized: boolean;
   /** True when the identity is assigned to any ERP module. */
   erpAuthorized: boolean;
+  /** Verified default-company module grant, including custom Core roles. */
+  procurementAuthorized: boolean;
   /** Map Keycloak realm roles to the shell's demo workspace role. */
   resolveRole: () => Role;
   signInInteractive: () => void;
@@ -91,7 +101,13 @@ export function hasHrmStaffRole(roles: string[]): boolean {
   return HRM_STAFF_ROLES.some((role) => set.has(role));
 }
 
-const PROCUREMENT_ROLES = ["procurement_requester", "procurement_buyer", "procurement_manager", "supplier_admin", "ap_processor"];
+const PROCUREMENT_ROLES = [
+  "procurement_requester",
+  "procurement_buyer",
+  "procurement_manager",
+  "supplier_admin",
+  "ap_processor",
+];
 
 export function canAccessProcurement(roles: string[]): boolean {
   const set = new Set(roles.map((role) => role.toLowerCase()));
@@ -100,12 +116,19 @@ export function canAccessProcurement(roles: string[]): boolean {
 
 export function hasErpModuleRole(roles: string[]): boolean {
   const set = new Set(roles.map((role) => role.toLowerCase()));
-  return set.has("erp_admin") || hasHrmStaffRole(roles) || PROCUREMENT_ROLES.some((role) => set.has(role));
+  return (
+    set.has("erp_admin") ||
+    hasHrmStaffRole(roles) ||
+    PROCUREMENT_ROLES.some((role) => set.has(role))
+  );
 }
 
 export function isTimesheetOnly(roles: string[]): boolean {
   const set = new Set(roles.map((role) => role.toLowerCase()));
-  return set.has("timesheet_operator") && !HRM_STAFF_ROLES.some((role) => role !== "timesheet_operator" && set.has(role));
+  return (
+    set.has("timesheet_operator") &&
+    !HRM_STAFF_ROLES.some((role) => role !== "timesheet_operator" && set.has(role))
+  );
 }
 
 function mapRolesToDemoRole(roles: string[]): Role {
@@ -131,7 +154,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [worker, setWorker] = useState<LinkedWorker | null>(null);
   const [resolvingWorker, setResolvingWorker] = useState(false);
   const [origin, setOrigin] = useState<string>("/hrm");
-  const [coreContext, setCoreContext] = useState<{ actor: string; choices: CoreWorkspaceChoices | null } | null>(null);
+  const [coreContext, setCoreContext] = useState<{
+    actor: string;
+    choices: CoreWorkspaceChoices | null;
+  } | null>(null);
 
   // 1. Restore / refresh the Keycloak session on boot (hybrid mode only).
   useEffect(() => {
@@ -170,7 +196,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   //    who isn't linked yet simply sees their IdP name until HR links them.
   useEffect(() => {
     if (!USE_REAL || (!isSessionValid(session) && !localUser)) return;
-    const roles = session ? decodeSessionUser(session)?.roles ?? [] : localUser?.roles ?? [];
+    const roles = session ? (decodeSessionUser(session)?.roles ?? []) : (localUser?.roles ?? []);
     if (isTimesheetOnly(roles)) return;
     let cancelled = false;
     setResolvingWorker(true);
@@ -216,17 +242,83 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (!USE_REAL || !authenticated || !user?.subject) return;
     let cancelled = false;
     const actor = user.subject;
-    hrmApi.get<unknown>("/core/v1/workspace-context")
-      .then(parseCoreWorkspaceChoices).catch(() => null)
-      .then(choices => { if (!cancelled) setCoreContext({ actor, choices }); });
-    return () => { cancelled = true; };
+    hrmApi
+      .get<unknown>("/core/v1/workspace-context")
+      .then(parseCoreWorkspaceChoices)
+      .catch(() => null)
+      .then((choices) => {
+        if (!cancelled) setCoreContext({ actor, choices });
+      });
+    return () => {
+      cancelled = true;
+    };
   }, [authenticated, user?.subject]);
-  const coreWorkspace = authenticated && coreContext && coreContext.actor === user?.subject ? coreContext.choices : null;
-  const coreAccessLoading = USE_REAL && authenticated && !!user?.subject && coreContext?.actor !== user.subject;
+  const coreWorkspace =
+    authenticated && coreContext && coreContext.actor === user?.subject
+      ? coreContext.choices
+      : null;
+  const coreContextLoading =
+    USE_REAL && authenticated && !!user?.subject && coreContext?.actor !== user.subject;
   const coreActions = coreWorkspace?.coreActions ?? EMPTY_CORE_ACTIONS;
+  const companyId = (
+    coreWorkspace?.companies.find((company) => company.isDefault) ?? coreWorkspace?.companies[0]
+  )?.id;
+  const token = isSessionValid(session) ? session?.accessToken : undefined;
+  const procurementKey = JSON.stringify([
+    authenticated,
+    user?.subject,
+    user?.roles,
+    companyId,
+    session?.expiresAt,
+  ]);
+  const [procurementGrant, setProcurementGrant] = useState({
+    key: "",
+    allowed: false,
+    pending: true,
+  });
+  useEffect(() => {
+    if (!USE_REAL || !authenticated || !user?.subject || !companyId) return;
+    const abort = new AbortController();
+    setProcurementGrant({ key: procurementKey, allowed: false, pending: true });
+    const headers: Record<string, string> = {
+      "X-Shell-Entity": companyId,
+      "X-Shell-Branch-Scope": "all",
+    };
+    if (token) headers.Authorization = `Bearer ${token}`;
+    fetch("/api/procurement/v1/context", {
+      credentials: "include",
+      cache: "no-store",
+      headers,
+      signal: abort.signal,
+    })
+      .then((response) => (response.ok ? response.json() : null))
+      .then((value) => {
+        if (!abort.signal.aborted)
+          setProcurementGrant({
+            key: procurementKey,
+            allowed: hasProcurementModuleGrant(value, user.subject, companyId),
+            pending: false,
+          });
+      })
+      .catch(() => {
+        if (!abort.signal.aborted)
+          setProcurementGrant({ key: procurementKey, allowed: false, pending: false });
+      });
+    return () => abort.abort();
+  }, [authenticated, user?.subject, companyId, procurementKey, token]);
+  const procurementAuthorized =
+    authenticated && procurementGrant.key === procurementKey && procurementGrant.allowed;
+  const knownModule =
+    hasErpModuleRole(user?.roles ?? []) || coreActions.includes("core-currency-precision-read");
+  const coreAccessLoading =
+    coreContextLoading ||
+    (USE_REAL &&
+      authenticated &&
+      !knownModule &&
+      !!companyId &&
+      (procurementGrant.key !== procurementKey || procurementGrant.pending));
   const authorized = !USE_REAL || (authenticated && hasHrmStaffRole(user?.roles ?? []));
-  const erpAuthorized = !USE_REAL || (authenticated && (hasErpModuleRole(user?.roles ?? [])
-    || coreActions.includes("core-currency-precision-read")));
+  const erpAuthorized = !USE_REAL || (authenticated && (knownModule || procurementAuthorized));
 
   const signInInteractive = useCallback(() => {
     const path = PUBLIC_PATHS.has(window.location.pathname) ? "/hrm" : window.location.pathname;
@@ -235,12 +327,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     void import("@/platform/oidc").then((m) => m.startInteractiveLogin(path));
   }, []);
 
-  const signInLocal = useCallback(async (email: string, password: string) => {
-    if (!authSettings.localEnabled) throw new Error("Local sign-in is not enabled.");
-    const result = await hrmApi.auth.login(email, password);
-    setLocalUser(result.user);
-    setSession(null);
-  }, [authSettings.localEnabled]);
+  const signInLocal = useCallback(
+    async (email: string, password: string) => {
+      if (!authSettings.localEnabled) throw new Error("Local sign-in is not enabled.");
+      const result = await hrmApi.auth.login(email, password);
+      setLocalUser(result.user);
+      setSession(null);
+    },
+    [authSettings.localEnabled],
+  );
 
   const signOut = useCallback(() => {
     clearSession();
@@ -269,6 +364,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       authenticated,
       authorized,
       erpAuthorized,
+      procurementAuthorized,
       resolveRole,
       signInInteractive,
       signInLocal,
@@ -287,6 +383,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       authenticated,
       authorized,
       erpAuthorized,
+      procurementAuthorized,
       resolveRole,
       signInInteractive,
       signInLocal,

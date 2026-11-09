@@ -1,3 +1,11 @@
+# Latest published checkpoint — department request entry, 9 November 2026
+
+Fetch ERP main `619c241e1dcf6f9f2b4b376c06f7ae05c1efcbeb` (PR205) and UI main `657d9acb7c03f47c224ae287b901ee8d303d0ab8` (PR113), or reviewed descendants. Both frontend changes are deployed. ERP/HRM Home and Procurement Home/My Requests now lead into the existing scoped request editor through a guided entry. No new backend, migration, role grant or company approval policy was introduced. API remains on the qualified3da35edf image and239 tables; held B1c still prevents wholesale backend main deployment.
+
+Two authority tests, both frontend checks/builds,23 fixture Playwright cases,8 actual read-only signed-in checks and1243 public asset hashes passed. See [entry behaviour, limits and deployed evidence](docs/procurement/gap-closure/DEPARTMENT-REQUEST-ENTRY-20261109.md). Unknown estimates still need a valid amount to save; on-behalf-of, automatic department assignment, file uploads and stock fulfillment are not added. This does not close company UAT or whole-module issues. Unrelated Kuubu PR199–201 remain separate and are not part of this release. The old dirty/divergent original checkout was preserved; use these clean published prerequisites for new work.
+
+---
+
 # Owner module permission editor — 9 November 2026
 
 Published ERP/UI source `68de4d6eb6cf2dbb783e8ebd7aba0cf8b480d28e` connects the owner company review
