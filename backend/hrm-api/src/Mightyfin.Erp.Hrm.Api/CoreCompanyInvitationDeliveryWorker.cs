@@ -8,6 +8,7 @@ internal sealed class CoreCompanyInvitationDeliveryWorker(
     ILogger<CoreCompanyInvitationDeliveryWorker> logger):BackgroundService
 {
     internal static bool Enabled(IConfiguration config)=>ProductCompanyInvitationsFlow.Enabled(config)
+        && ProductInvitationAcceptanceFlow.Enabled(config)
         && config.GetValue<bool>("ERP:CompanyInvitationDelivery:Enabled");
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)

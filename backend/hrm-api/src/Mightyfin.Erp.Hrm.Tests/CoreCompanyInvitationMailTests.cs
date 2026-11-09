@@ -21,6 +21,8 @@ public sealed class CoreCompanyInvitationMailTests
         var data=new Dictionary<string,string?>{["ERP:CompanyInvitationDelivery:Enabled"]="true"};
         Assert.Throws<InvalidOperationException>(()=>new ServiceCollection().AddCoreCompanyTeamApi(new ConfigurationBuilder().AddInMemoryCollection(data).Build()));
         foreach(var key in new[]{"ProductIdentity","ProductLicensing","CompanyTeam","CompanyInvitations"})data["ERP:"+key+":Enabled"]="true";
+        Assert.Throws<InvalidOperationException>(()=>new ServiceCollection().AddCoreCompanyTeamApi(new ConfigurationBuilder().AddInMemoryCollection(data).Build()));
+        data["ERP:CompanyInvitationAcceptance:Enabled"]="true";
         var config=new ConfigurationBuilder().AddInMemoryCollection(data).Build();
         const string database="Host=127.0.0.1;Database=synthetic_not_connected;Username=synthetic";
         var owner=new ServiceCollection();owner.AddCoreCompanyTeamApi(config,database,runInvitationDelivery:false);

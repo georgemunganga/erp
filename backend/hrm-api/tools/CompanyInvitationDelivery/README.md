@@ -13,6 +13,7 @@ generic publisher modes neither register SMTP nor start it. Required flags:
 - `ERP:ProductLicensing:Enabled`
 - `ERP:CompanyTeam:Enabled`
 - `ERP:CompanyInvitations:Enabled`
+- `ERP:CompanyInvitationAcceptance:Enabled`
 - `ERP:CompanyInvitationDelivery:Enabled`
 
 The first four still need their existing reviewed client/database/key-ring

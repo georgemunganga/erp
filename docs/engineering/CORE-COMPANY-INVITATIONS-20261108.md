@@ -166,7 +166,7 @@ bounded observation time, email syntax and operational_access_granted=false.
 ## 22. Operations
 No real mail, customer access, production deployment or DNS changes in this stage.
 ERP:CompanyInvitationDelivery:Enabled defaults false and requires the product,
-licensing, team and invitation flags. Only API mode starts the worker; migration
+licensing, team, invitation and recipient-acceptance flags. Only API mode starts the worker; migration
 and generic publisher modes do not instantiate SMTP or start background delivery.
 Dedicated ERP:CompanyInvitationDelivery:Smtp:{Host,Port,From,Username,Password}
 settings are required when enabled. Default port587 uses mandatory STARTTLS and

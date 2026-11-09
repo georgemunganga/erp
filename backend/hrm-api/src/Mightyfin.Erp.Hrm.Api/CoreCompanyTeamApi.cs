@@ -103,7 +103,8 @@ internal static class CoreCompanyTeamApiRegistration
     internal static IServiceCollection AddCoreCompanyTeamApi(this IServiceCollection services,
         IConfiguration config, string? reviewedConnection = null,bool runInvitationDelivery=true)
     {
-        if(config.GetValue<bool>("ERP:CompanyInvitationDelivery:Enabled") && !ProductCompanyInvitationsFlow.Enabled(config))
+        if(config.GetValue<bool>("ERP:CompanyInvitationDelivery:Enabled")
+            && (!ProductCompanyInvitationsFlow.Enabled(config) || !ProductInvitationAcceptanceFlow.Enabled(config)))
             throw new InvalidOperationException("Invitation delivery requires the reviewed product/team/invitation configuration.");
         if (!ProductCompanyTeamFlow.Enabled(config)) return services;
         var connection = reviewedConnection ?? config.GetConnectionString("Hrm");
