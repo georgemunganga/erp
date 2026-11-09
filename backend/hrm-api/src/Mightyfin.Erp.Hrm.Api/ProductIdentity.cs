@@ -68,6 +68,7 @@ internal static class ProductIdentity
                 return new ProductInvitationIntentStore(intentPath!,clientId!,provider.GetRequiredService<IDataProtectionProvider>(),TimeProvider.System);
             });
             services.AddHostedService<ProductInvitationIntentCleanup>();
+            services.AddSingleton(new ProductInvitationGuestBudget(TimeProvider.System));
             services.AddSingleton(new ProductInvitationRecipient(new HttpClient(new HttpClientHandler { AllowAutoRedirect=false,UseCookies=false })
                 {Timeout=TimeSpan.FromSeconds(10)},TimeProvider.System,clientId!));
         }

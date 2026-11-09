@@ -75,13 +75,23 @@ internal static class ProductInvitationAcceptanceFlow
     {
         var group=app.MapGroup(Prefix);
         group.AddEndpointFilter(async(context,next)=>Enabled(app.Configuration)?await next(context):Results.StatusCode(503));
+        group.AddEndpointFilter(async(context,next)=>{
+            var http=context.HttpContext;
+            var policy=http.GetEndpoint()?.Metadata.GetMetadata<ProductInvitationGuestBudget.Policy>();
+            if(policy is not null && !http.RequestServices.GetRequiredService<ProductInvitationGuestBudget>()
+                .TryAcquire(policy.Value,http.Connection.RemoteIpAddress)) {
+                http.Response.Headers.RetryAfter="60";
+                return Results.StatusCode(429);
+            }
+            return await next(context);
+        });
         group.MapGet("/session",async(HttpContext http)=>{
             if(http.Request.Query.Count!=0)return Results.BadRequest();
             if(await Grant(http) is { } grant)return Results.Ok(new{verified=true,purpose=PurposeValue,csrf_token=grant.Csrf,expires_at=grant.ExpiresAt,operational_access_granted=false});
             var state=State(http,BootstrapCookie)??new(ProductInvitationIntentStore.Random(),ProductInvitationIntentStore.Random(),DateTimeOffset.UtcNow.AddMinutes(5));
             Set(http,BootstrapCookie,state);
             return Results.Ok(new{verified=false,purpose=PurposeValue,csrf_token=state.Binding,expires_at=state.ExpiresAt,operational_access_granted=false});
-        }).AllowAnonymous();
+        }).AllowAnonymous().WithMetadata(new ProductInvitationGuestBudget.Policy(ProductInvitationGuestBudget.Operation.Session));
         group.MapPost("/prepare",(Func<HttpContext,Task<IResult>>)(async http=>{
             var csrf=State(http,BootstrapCookie);
             if(csrf is null || !Csrf(csrf.Binding,http.Request.Headers[CsrfHeader].ToString()))return Results.StatusCode(403);
@@ -97,8 +107,10 @@ internal static class ProductInvitationAcceptanceFlow
                 await http.SignOutAsync(ProductIdentity.PendingScheme);
                 Set(http,IntentCookie,new(handle,binding,DateTimeOffset.UtcNow.AddMinutes(5)));
                 return Results.Json(new{continue_url=Prefix+"/start",operational_access_granted=false},statusCode:201);
-            } catch(Exception error) when(error is IOException or UnauthorizedAccessException) {return Results.StatusCode(503);}
-        })).AllowAnonymous();
+            } catch(Exception error) when(error is IOException or UnauthorizedAccessException) {
+                http.Response.Headers.RetryAfter="5";return Results.StatusCode(503);
+            }
+        })).AllowAnonymous().WithMetadata(new ProductInvitationGuestBudget.Policy(ProductInvitationGuestBudget.Operation.Prepare));
         group.MapGet("/start",(Func<HttpContext,Task<IResult>>)(async http=>{
             if(http.Request.Query.Count!=0 || State(http,IntentCookie) is not { } state)return Results.BadRequest();
             var value=await http.RequestServices.GetRequiredService<ProductInvitationIntentStore>().ReadAsync(state.Handle,state.Binding,http.RequestAborted);
@@ -106,7 +118,7 @@ internal static class ProductInvitationAcceptanceFlow
             var properties=new OAuthChallengeProperties{RedirectUri="/accept-invitation",IssuedUtc=DateTimeOffset.UtcNow,Scope=["product:identity","product:invitation-recipient"]};
             properties.Items[Purpose]=PurposeValue;properties.Items[HandleClaim]=state.Handle;properties.Items[BindingProperty]=ProductInvitationIntentStore.Hash(state.Binding);
             return Results.Challenge(properties,[ProductIdentity.OAuthScheme]);
-        })).AllowAnonymous();
+        })).AllowAnonymous().WithMetadata(new ProductInvitationGuestBudget.Policy(ProductInvitationGuestBudget.Operation.Start));
         group.MapGet("/review",(Func<HttpContext,Task<IResult>>)(http=>Execute(http,accept:false))).AllowAnonymous();
         group.MapPost("/accept",(Func<HttpContext,Task<IResult>>)(http=>Execute(http,accept:true))).AllowAnonymous();
         group.MapPost("/cancel",(Func<HttpContext,Task<IResult>>)(async http=>{

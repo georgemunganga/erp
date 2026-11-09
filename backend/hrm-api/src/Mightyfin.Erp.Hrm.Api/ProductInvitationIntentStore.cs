@@ -15,17 +15,48 @@ internal sealed record ProductInvitationIntent(int Version, string HandleHash, s
 }
 
 /// <summary>Private five-minute handoff only. No membership, email or operational session.</summary>
-internal sealed class ProductInvitationIntentStore(string directory, string clientId, IDataProtectionProvider protection, TimeProvider clock)
+internal sealed class ProductInvitationIntentStore(string directory, string clientId, IDataProtectionProvider protection, TimeProvider clock,
+    int admissionUnits = 512)
 {
     private readonly IDataProtector protector = protection.CreateProtector("Kuubu.CompanyInvitation.Intent.v1", clientId);
     internal static bool Opaque(string? text) => text is not null && Regex.IsMatch(text, "^[A-Za-z0-9_-]{43}\\z", RegexOptions.CultureInvariant);
     internal static string Random() => WebEncoders.Base64UrlEncode(RandomNumberGenerator.GetBytes(32));
     internal static string Hash(string value) => Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(value)));
     private string PathFor(string handle) => Path.Combine(directory, Hash(handle)+".invitation");
+    private static bool Owned(string name) => Regex.IsMatch(name,
+        "^[0-9a-f]{64}\\.invitation(?:\\.(?:claimed|revoked|capacity))?\\z",RegexOptions.CultureInvariant);
+    private FileStream CapacityLock()
+    {
+        var path=Path.Combine(directory,".invitation-capacity.lock");
+        if(new FileInfo(path).LinkTarget is not null)throw new IOException("Invitation state unavailable.");
+        var options=new FileStreamOptions{Mode=FileMode.OpenOrCreate,Access=FileAccess.ReadWrite,Share=FileShare.None};
+        if(!OperatingSystem.IsWindows())options.UnixCreateMode=UnixFileMode.UserRead|UnixFileMode.UserWrite;
+        return new FileStream(path,options);
+    }
+    private void Reserve(string handle)
+    {
+        // Called only while holding the persistent, never-unlinked cross-process
+        // lock. Every retained owned file consumes a conservative admission unit.
+        // A reservation survives callback replacement, cancellation and restart.
+        var units=0;var scanned=0;
+        foreach(var path in Directory.EnumerateFileSystemEntries(directory)) {
+            if(++scanned>4096)throw new IOException("Invitation state unavailable.");
+            var file=new FileInfo(path);
+            if(Owned(file.Name) && (file.LinkTarget is not null || ++units>=admissionUnits))
+                throw new IOException("Invitation state unavailable.");
+        }
+        if(admissionUnits<2 || units+2>admissionUnits)throw new IOException("Invitation state unavailable.");
+        var options=new FileStreamOptions{Mode=FileMode.CreateNew,Access=FileAccess.Write,Share=FileShare.None};
+        if(!OperatingSystem.IsWindows())options.UnixCreateMode=UnixFileMode.UserRead|UnixFileMode.UserWrite;
+        using var reservation=new FileStream(PathFor(handle)+".capacity",options);
+    }
     internal async Task<string> PrepareAsync(string token, string binding, CancellationToken cancellation)
     {
         if (!Opaque(token) || !Opaque(binding)) throw new InvalidOperationException("Invalid invitation intent.");
+        cancellation.ThrowIfCancellationRequested();
         var handle = Random(); var now = clock.GetUtcNow();
+        using var capacity=CapacityLock();
+        Reserve(handle);
         await Write(PathFor(handle), new(1, Hash(handle), Hash(handle), Hash(binding), clientId, token, now, now.AddMinutes(5)), cancellation);
         return handle;
     }
@@ -97,6 +128,10 @@ internal sealed class ProductInvitationIntentStore(string directory, string clie
     internal void Revoke(string handle)
     {
         if(!Opaque(handle))return;
+        // Only real intents/grants can allocate revocation markers. In particular,
+        // arbitrary handles cannot consume disk through this internal helper.
+        if(!File.Exists(PathFor(handle)) && !File.Exists(PathFor(handle)+".capacity")
+            && !File.Exists(PathFor(handle)+".revoked"))return;
         var marker=PathFor(handle)+".revoked";
         var options=new FileStreamOptions{Mode=FileMode.CreateNew,Access=FileAccess.Write,Share=FileShare.None};
         if(!OperatingSystem.IsWindows())options.UnixCreateMode=UnixFileMode.UserRead|UnixFileMode.UserWrite;
@@ -107,10 +142,11 @@ internal sealed class ProductInvitationIntentStore(string directory, string clie
     }
     internal void Purge()
     {
+        using var capacity=CapacityLock();
         var cutoff = clock.GetUtcNow().AddMinutes(-10).UtcDateTime;
         foreach (var path in Directory.EnumerateFiles(directory, "*", SearchOption.TopDirectoryOnly)) {
             var file = new FileInfo(path);
-            if (Regex.IsMatch(file.Name, "^[0-9a-f]{64}\\.invitation(?:\\.(?:claimed|revoked))?\\z")
+            if (Owned(file.Name)
                 && file.LinkTarget is null && file.LastWriteTimeUtc < cutoff) File.Delete(path);
         }
     }

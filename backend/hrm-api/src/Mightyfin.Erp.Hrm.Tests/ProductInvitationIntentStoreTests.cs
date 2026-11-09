@@ -22,7 +22,7 @@ public sealed class ProductInvitationIntentStoreTests
     {
         var f=new Fixture();var token=ProductInvitationIntentStore.Random();var binding=ProductInvitationIntentStore.Random();
         var handle=await f.Store.PrepareAsync(token,binding,default);
-        var path=Assert.Single(System.IO.Directory.GetFiles(f.Directory));var raw=await File.ReadAllTextAsync(path);
+        var path=Assert.Single(System.IO.Directory.GetFiles(f.Directory,"*.invitation"));var raw=await File.ReadAllTextAsync(path);
         foreach(var secret in new[]{token,binding,handle})Assert.DoesNotContain(secret,raw);
         Assert.DoesNotContain(handle,Path.GetFileName(path));
         var pending=await f.Store.ReadAsync(handle,binding,default);Assert.NotNull(pending);Assert.Null(pending.Subject);
@@ -76,7 +76,7 @@ public sealed class ProductInvitationIntentStoreTests
             var old=Path.Combine(f.Directory,ProductInvitationIntentStore.Hash(handle)+".invitation");handle=ProductInvitationIntentStore.Random();
             File.Move(old,Path.Combine(f.Directory,ProductInvitationIntentStore.Hash(handle)+".invitation"));
         }
-        if(fault=="tamper")await File.WriteAllTextAsync(Assert.Single(System.IO.Directory.GetFiles(f.Directory)),"tampered");
+        if(fault=="tamper")await File.WriteAllTextAsync(Assert.Single(System.IO.Directory.GetFiles(f.Directory,"*.invitation")),"tampered");
         if(fault=="expired")f.Clock.Now+=TimeSpan.FromMinutes(5);
         Assert.Null(await store.ReadAsync(handle,binding,default));
         Assert.Null(await store.CompleteAsync(handle,binding,"43","synthetic.invitation.token",f.Clock.Now.AddMinutes(1),default));
@@ -107,5 +107,52 @@ public sealed class ProductInvitationIntentStoreTests
         Assert.NotNull(next);Assert.NotNull(await f.Store.ReadAsync(next,binding,default));
         f.Store.Revoke(handle);Assert.Null(await f.Store.ReadAsync(next,binding,default));
         Assert.Null(await f.Store.CompleteAsync(handle,binding,"43","synthetic.invitation.token",f.Clock.Now.AddMinutes(2),default));
+    }
+    [Fact]
+    public async Task Capacity_survives_completion_revocation_and_a_new_store_until_owned_expiry_cleanup()
+    {
+        var f=new Fixture();
+        ProductInvitationIntentStore Small()=>new(f.Directory,Client,f.Protection,f.Clock,2);
+        var binding=ProductInvitationIntentStore.Random();var store=Small();
+        var handle=await store.PrepareAsync(ProductInvitationIntentStore.Random(),binding,default);
+        var grant=await store.CompleteAsync(handle,binding,"43","synthetic.invitation.token",f.Clock.Now.AddMinutes(2),default);
+        Assert.NotNull(grant);store.Revoke(grant!);
+        await Assert.ThrowsAsync<IOException>(()=>Small().PrepareAsync(ProductInvitationIntentStore.Random(),binding,default));
+        Assert.Single(System.IO.Directory.GetFiles(f.Directory,"*.capacity"));
+        var note=Path.Combine(f.Directory,"retain.txt");await File.WriteAllTextAsync(note,"retain");
+        foreach(var p in System.IO.Directory.GetFiles(f.Directory,"*.invitation*").Where(p=>!Path.GetFileName(p).StartsWith('.')))
+            File.SetLastWriteTimeUtc(p,f.Clock.Now.AddMinutes(-11).UtcDateTime);
+        store.Purge();
+        Assert.True(File.Exists(note));Assert.True(File.Exists(Path.Combine(f.Directory,".invitation-capacity.lock")));
+        Assert.NotNull(await Small().PrepareAsync(ProductInvitationIntentStore.Random(),binding,default));
+    }
+    [Fact]
+    public async Task A_busy_shared_directory_fails_without_queuing_or_allocating_an_intent()
+    {
+        var f=new Fixture();
+        using var held=new FileStream(Path.Combine(f.Directory,".invitation-capacity.lock"),FileMode.OpenOrCreate,FileAccess.ReadWrite,FileShare.None);
+        await Assert.ThrowsAsync<IOException>(()=>f.Store.PrepareAsync(ProductInvitationIntentStore.Random(),ProductInvitationIntentStore.Random(),default));
+        Assert.Empty(System.IO.Directory.GetFiles(f.Directory,"*.invitation"));
+        Assert.Empty(System.IO.Directory.GetFiles(f.Directory,"*.capacity"));
+    }
+    [Fact]
+    public async Task Independent_store_writers_share_one_capacity_budget()
+    {
+        var f=new Fixture();
+        var stores=Enumerable.Range(0,16).Select(_=>new ProductInvitationIntentStore(f.Directory,Client,f.Protection,f.Clock,4)).ToArray();
+        var tasks=stores.Select(async store=>{
+            try{return await store.PrepareAsync(ProductInvitationIntentStore.Random(),ProductInvitationIntentStore.Random(),default);}
+            catch(IOException){return null;}
+        });
+        var result=await Task.WhenAll(tasks);
+        Assert.InRange(result.Count(x=>x is not null),1,2);
+        Assert.Equal(result.Count(x=>x is not null),System.IO.Directory.GetFiles(f.Directory,"*.capacity").Length);
+        Assert.Equal(result.Count(x=>x is not null),System.IO.Directory.GetFiles(f.Directory,"*.invitation").Length);
+    }
+    [Fact]
+    public void Unknown_handles_cannot_allocate_revocation_markers()
+    {
+        var f=new Fixture();for(var i=0;i<20;i++)f.Store.Revoke(ProductInvitationIntentStore.Random());
+        Assert.Empty(System.IO.Directory.GetFiles(f.Directory));
     }
 }

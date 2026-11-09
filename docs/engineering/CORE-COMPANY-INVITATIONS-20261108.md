@@ -153,12 +153,39 @@ default-off behavior. Core validates exact issuer/subject/client/product/purpose
 bounded observation time, email syntax and operational_access_granted=false.
 ## 22. Operations
 No real mail, customer access, production deployment or DNS changes in this stage.
+The invitation session/prepare/start routes now have bounded in-process admission:
+60/10/20 requests per minute per connection-address bucket, and600/100/200 per
+process respectively.256 salted fixed buckets bound memory regardless of address
+cardinality; collisions conservatively share limits. IPv4-mapped addresses share
+their IPv4 bucket; native IPv6 addresses share a /64. Monotonic fixed windows,
+atomic counters and no queue apply before cookies, files or OAuth challenges.
+429 returns Retry-After60. Caller-supplied X-Real-IP/Forwarded/X-Forwarded-For
+are ignored. Behind a proxy, the connection address may be shared by all clients;
+these are safety caps, not a substitute for reviewed edge per-client limits.
+
+Private storage admission uses a persistent `.invitation-capacity.lock` with an
+exclusive file handle across writers/cleanup, plus a per-intent `.capacity`
+reservation retained through callback, cancellation and restart. Each existing
+owned intent/claim/revocation/reservation file consumes a conservative unit;
+preparation requires two free units out of512. More than4096 directory entries
+or an owned symlink refuses admission. No waiting queue. Busy/full/unavailable
+storage returns503/Retry-After5 before replacing an existing browser intent.
+Reservation precedes the encrypted write; partial/cancelled writes retain their
+unit until cleanup. One reservation can produce at most an initial payload,
+callback claim, callback payload and two revocation markers; encrypted payloads
+are bounded32KiB. Unknown handles cannot create revocation files. Shared storage
+requires working exclusive-file semantics; cross-process Linux qualification is
+required before activation. This is an application-state bound, not a filesystem
+quota or protection against arbitrary trusted-operator writes.
+
 Unusable intents, retained exclusive callback reservations and revocation markers
-are purged after ten minutes; grants expire within five minutes from preparation.
+and capacity reservations are purged after ten minutes under the same lock;
+the persistent lock and unrelated files are retained. Grants expire within five
+minutes from preparation.
 Claim reservation uses persistent exclusive CreateNew. Files held by readers may
 remain until cleanup; markers already make them unusable. New claims cannot undo
 cancellation. Qualify shared filesystem/permissions, guest prepare rate/volume
-controls and path-only ingress logging before public activation.
+edge controls and path-only ingress logging before public activation.
 ## 23. Postconditions
 Recipient observation creates no customer, enrollment, subscription or company
 membership. Later accepted invitation creates only consented Core governance.
@@ -183,6 +210,27 @@ delivery retry, browser acceptance, cross-tenant and recovery gates afterward.
 Do not enable this contract before account consent/relay, Core invitations,
 delivery, migrations/runtime grants, audit and complete browser flow qualify.
 ## 28. Evidence
+### Guest admission implementation checkpoint —9 November2026
+
+Bounded endpoint budgets and private-directory reservations are implemented;
+315 focused Windows checks passed/14 native-only skips. API/test builds had
+zero errors (27 existing API/20 test warnings). Evidence:
+inspection/qualifications/invitation-guest-03. Attempt01 retained its lock-file
+assertion failure (312 passed/one failed);02 corrected the assertion (313 passed).
+Review then bound policies to endpoint metadata so equivalent route spellings
+cannot bypass throttling;03 adds the two HTTP spelling cases. No privacy,
+identity, consent, role or transaction guard was weakened. Initial build01's
+NuGet advisory lookup was unavailable;03 restored/built without that warning.
+
+Linux qualification remains required. The opt-in cross-process fixture uses
+KUUBU_INVITATION_CAPACITY_PROBE_DIRECTORY and roles holder/writer. It requires
+an existing private0700 directory and exact scope.txt marker. One test process
+holds the actual lock while the other proves preparation is denied without
+allocating; explicit ready/done/released barriers prevent a scheduling-only pass.
+Both then compete for the same small retained budget. No production directory
+or service is used. The final barrier strengthening is test-only and follows
+the Windows315-case run; it must compile/run in the native gate.
+
 ### Actual-provider recipient browser checkpoint
 
 The opt-in `ProductInvitationBrowserInteropTests` and

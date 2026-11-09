@@ -19,6 +19,42 @@ namespace Mightyfin.Erp.Hrm.Tests;
 
 public sealed class ProductInvitationAcceptanceHttpTests
 {
+    [Theory]
+    [InlineData("/API/CORE/PRODUCT-IDENTITY/INVITATION/SESSION")]
+    [InlineData("/api/core/product-identity/invitation/session/")]
+    public async Task Equivalent_route_spellings_share_the_same_endpoint_budget(string path)
+    {
+        await using var f=await Fixture.Start();
+        for(var i=0;i<60;i++)Assert.Equal(HttpStatusCode.OK,(await f.Get("/session")).StatusCode);
+        Assert.Equal(HttpStatusCode.TooManyRequests,(await f.Send("GET",path)).StatusCode);
+    }
+    [Fact]
+    public async Task Anonymous_prepare_exhaustion_is_429_with_retry_and_cannot_be_reset_by_forwarding_headers()
+    {
+        await using var f=await Fixture.Start();
+        for(var i=0;i<10;i++) {
+            await f.ReadSession();
+            Assert.Equal(HttpStatusCode.Created,(await f.Post("/prepare",new(){["token"]=ProductInvitationIntentStore.Random()})).StatusCode);
+        }
+        await f.ReadSession();
+        var denied=await f.PostRaw("/prepare",JsonSerializer.Serialize(new{token=ProductInvitationIntentStore.Random()}),"spoof-ip");
+        Assert.Equal(HttpStatusCode.TooManyRequests,denied.StatusCode);
+        Assert.Equal(TimeSpan.FromSeconds(60),denied.Headers.RetryAfter?.Delta);
+        await using var db=f.Core.Context();Assert.Single(await db.CompanyMemberships.ToArrayAsync());
+        Assert.Empty(await db.CompanyInvitationReceipts.ToArrayAsync());
+    }
+    [Fact]
+    public async Task Full_directory_returns_retryable_503_and_keeps_the_existing_intent_usable()
+    {
+        await using var f=await Fixture.Start(admissionUnits:2);
+        await f.ReadSession();
+        Assert.Equal(HttpStatusCode.Created,(await f.Post("/prepare",new(){["token"]=ProductInvitationIntentStore.Random()})).StatusCode);
+        await f.ReadSession();
+        var denied=await f.Post("/prepare",new(){["token"]=ProductInvitationIntentStore.Random()});
+        Assert.Equal(HttpStatusCode.ServiceUnavailable,denied.StatusCode);
+        Assert.Equal(TimeSpan.FromSeconds(5),denied.Headers.RetryAfter?.Delta);
+        Assert.Equal(HttpStatusCode.Redirect,(await f.Get("/start")).StatusCode);
+    }
     [Fact]
     public void Invitation_and_setup_private_directories_cannot_alias_via_a_trailing_separator()
     {
@@ -175,7 +211,7 @@ public sealed class ProductInvitationAcceptanceHttpTests
     {
         internal CoreFixture Core=>core;internal ProductCompanyTeamHttpTests.LicenseState State=>state;internal Provider Channel=>channel;
         internal readonly Dictionary<string,string> Cookies=new();internal string? Csrf;internal string Token="";
-        internal static async Task<Fixture> Start(bool enabled=true)
+        internal static async Task<Fixture> Start(bool enabled=true,int? admissionUnits=null)
         {
             var core=await CoreFixture.Start();var state=new ProductCompanyTeamHttpTests.LicenseState(core);var provider=new Provider();
             var keys=Path.Combine(Path.GetTempPath(),"kuubu-invitation-http-keys-"+Guid.NewGuid().ToString("N"));
@@ -189,6 +225,8 @@ public sealed class ProductInvitationAcceptanceHttpTests
             builder.Services.AddScoped(_=>core.Context("untrusted-default"));
             builder.Services.AddAuthentication(LocalAuthenticationHandler.Scheme).AddScheme<LocalAuthOptions,LocalAuthenticationHandler>(LocalAuthenticationHandler.Scheme,_=>{});
             builder.Services.AddProductIdentity(builder.Configuration);builder.Services.AddAuthorization();
+            if(admissionUnits is { } units)builder.Services.AddSingleton(sp=>new ProductInvitationIntentStore(intents,Client,
+                sp.GetRequiredService<IDataProtectionProvider>(),TimeProvider.System,units));
             builder.Services.Configure<OAuthOptions>(ProductIdentity.OAuthScheme,o=>o.Backchannel=new HttpClient(provider,false));
             builder.Services.AddSingleton(new ProductInvitationRecipient(new HttpClient(provider,false),TimeProvider.System,Client));
             builder.Services.AddSingleton(new CoreCompanyTeamApi(tenant=>core.Context(tenant),state.Read,core.Clock));
@@ -223,6 +261,10 @@ public sealed class ProductInvitationAcceptanceHttpTests
         internal async Task<HttpResponseMessage> Send(string method,string path,string? value=null,string fault="")
         {
             var request=new HttpRequestMessage(new HttpMethod(method),path);
+            if(fault=="spoof-ip"){
+                request.Headers.Add("X-Real-IP","203.0.113.19");request.Headers.Add("X-Forwarded-For","203.0.113.20");
+                request.Headers.Add("Forwarded","for=203.0.113.21");
+            }
             if(fault!="missing-cookie" && Cookies.Count>0)request.Headers.Add("Cookie",string.Join("; ",Cookies.Select(x=>x.Key+"="+x.Value)));
             if(method=="POST"){
                 request.Content=new StringContent(value??"{}",Encoding.UTF8,"application/json");request.Headers.Add("Origin",fault=="foreign-origin"?"https://foreign.invalid":"https://app.kuubuerp.com");
