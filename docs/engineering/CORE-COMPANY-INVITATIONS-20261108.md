@@ -290,6 +290,57 @@ delivery retry, browser acceptance, cross-tenant and recovery gates afterward.
 Do not enable this contract before account consent/relay, Core invitations,
 delivery, migrations/runtime grants, audit and complete browser flow qualify.
 ## 28. Evidence
+
+### Local delivery operations qualification
+
+Published API/Infrastructure925f6a1f5a75a4fe63c54de8366942bba518fad3 adds a
+separate default-off local invitation operations mode. Aggregate health reports
+use a PostgreSQL repeatable-read/read-only transaction and dedicated connection;
+they expose no recipient, link, raw error or SMTP settings. Retry needs separately
+enabled authority, a trusted configured operator, exact tenant/event, expected
+attempt count, allowlisted reason and scoped idempotency key. It selects only a
+due failed delivery, shares the normal attempt/authority path and row lock, and
+atomically records both the outcome and a separate operator audit receipt.
+It preserves original row/link/Message-ID, backoff and the eight-attempt cap.
+Accepted/suppressed/invalid/exhausted/revoked/expired targets cannot be revived.
+No public route, HTTP listener, migration, identity bootstrap or background worker
+runs in this mode, including Development/startup-migration configuration.
+
+Fresh Infrastructure/API/tests builds passed;425 focused Windows checks passed
+with36 native opt-ins skipped. The separate PostgreSQL/private SMTP run passed
+87 checks, no failures/skips, including six native operator cases and nine TLS
+wire cases. It covers due-only/idempotent replay/conflict, competing manual and
+automatic workers, cancellation rollback, current license denial, attempt
+exhaustion, foreign/revoked/expired targets and existing SMTP behavior.
+
+Independent read-only SQL audit of29 isolated databases verifies29 normal attempt
+audits, two matching operator receipts, six validated invitation foreign keys
+and two history guards per database, exact48-hour expiry, and no credentials,
+sessions or module grants. Actual CLI probes with network disabled passed its
+default-off, missing-connection and retry-disabled paths. Actual report mode ran
+under a SELECT-only role (no INSERT/UPDATE/schema CREATE), returned the expected
+accepted aggregate and left all104 HRM tables unchanged.32 copied dependencies,
+586 test-runtime files and151 API runtime files remain unchanged. All owned
+qualification containers are stopped; no host ports were published.
+
+Evidence: inspection/qualifications/invitation-ops-api-01/verification.json,
+invitation-ops-native-01/linux-evidence/results/operations.trx,
+invitation-ops-cli-01/verification.json and invitation-ops-audit-02/audit.json.
+Audit01 is retained as a harness failure: docker exec omitted stdin forwarding,
+so its SQL was not executed. Audit02 corrects that and qualifies the same test
+databases; it does not replace the failed evidence.
+
+The operator store/domain path uses actual Core authorization with a capture
+transport in its native cases; the existing worker separately passes actual
+private SMTP/TLS. The complete operator CLI-to-provider/key-ring/SMTP composition
+still needs qualification. Do not describe that composition or production
+monitoring/recovery as ready. No new frontend build was required; UI0e48bc5c and
+the prior74b29f02 browser journey remain historical evidence. PR201 stays draft.
+Production SMTP/sender/inbox qualification, deployed ingress/rate controls,
+licensed ERP company/branch/module admission, dedicated/on-premise installation,
+offline licensing/upgrade/backup recovery and Lenco remain release gates.
+No production activation, Perfex, DNS, payment or main/UI-main/B1 change.
+
 ### Qualified sender delivery status checkpoint —9 November2026
 
 Published API74b29f02bb949797069b8b9a8c40b5f5a64fa869 and UI0e48bc5c (byte-identical in74b29f02)
