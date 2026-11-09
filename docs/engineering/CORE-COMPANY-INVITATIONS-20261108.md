@@ -13,7 +13,8 @@ Kuubu account recipient consent/relay is implemented and tested separately.
 Core protected recipient handoff, review and acceptance HTTP are implemented
 behind a separate default-off flag. ERP recipient UI is implemented and tested
 with synthetic API responses and now qualified against actual Laravel/Core
-handlers in an isolated browser fixture. Guest controls and delivery remain.
+handlers in an isolated browser fixture. Guest application controls are qualified;
+edge controls, deployed ingress and delivery remain.
 No production activation.
 ## 4. Parent
 CORE-COMPANY-TEAM-20261108.md; one ERP release for SaaS and dedicated installations.
@@ -78,6 +79,12 @@ Key-ring backup/rotation, retention/erasure and actual mail transport remain rel
 gates. Scoped company/principal/link/member FKs and guarded terminal transitions
 apply in ORM and PostgreSQL; receipts are append-only. Populated rollback refuses
 to discard invitation history or delivery obligations.
+The existing HRM publisher's SMTP path acknowledges unsupported templates as
+`smtp-skipped`; its fallback supports HRM/account-link events, not company
+invitations. Do not equate an outbox publication/skip with invitation delivery.
+A qualified delivery consumer must retain its own durable attempt/outcome and
+deduplication state and recheck the authoritative invitation before sending;
+never add raw links or recipients to the shared ID-only event payload.
 ## 13. UI
 Preserve Kuubu login. Separate company invitations from GreenWebb billing-team UI.
 The `/accept-invitation` page uses the shared Kuubu semantic theme and controls,
@@ -174,8 +181,9 @@ Reservation precedes the encrypted write; partial/cancelled writes retain their
 unit until cleanup. One reservation can produce at most an initial payload,
 callback claim, callback payload and two revocation markers; encrypted payloads
 are bounded32KiB. Unknown handles cannot create revocation files. Shared storage
-requires working exclusive-file semantics; cross-process Linux qualification is
-required before activation. This is an application-state bound, not a filesystem
+requires working exclusive-file semantics; cross-process Linux local-filesystem
+qualification passed below. Qualify the actual deployment volume before activation.
+This is an application-state bound, not a filesystem
 quota or protection against arbitrary trusted-operator writes.
 
 Unusable intents, retained exclusive callback reservations and revocation markers
@@ -210,6 +218,38 @@ delivery retry, browser acceptance, cross-tenant and recovery gates afterward.
 Do not enable this contract before account consent/relay, Core invitations,
 delivery, migrations/runtime grants, audit and complete browser flow qualify.
 ## 28. Evidence
+### Qualified guest admission checkpoint —9 November2026
+
+Published runtime9abd460999131f1a922faadfaca2e8e863c92f34 passed52 native
+recipient/store/budget/HTTP,20 sender and97 invitation/team cases (169 total,
+zero skips/failures), plus two separate-process capacity tests. The explicit
+holder/writer barrier proves an actual competing process cannot prepare while
+the lock is held; the12-unit fixture permits exactly six preparations. Focused
+Linux315 passed/16 opt-in skips. These results compile and run the final native
+probe barriers, which followed the Windows315-case run. Independent read-only
+SQL audit145 new databases (144 current/one exact legacy rollback), excluding356
+prior databases:69 invitations/76 receipts/69 delivery intents/81 matching audits/
+150 events/five accepted memberships. No credentials/sessions/module grants.
+All87 independent dependency files retained hash/size/nsmtime; SDK exited0,
+test PostgreSQL stopped. Evidence:
+inspection/qualifications/invitation-guest-native-9abd4609-01/verification.json
+and capacity-process-verification.json. A transient SSH observation timeout did
+not restart the running job; its original terminal result/receipt were collected.
+
+The final endpoint-bound runtime also passed the actual Laravel/Kuubu/Core/SSR
+recipient browser journey73.895s: explicit enrollment/recipient consent/company
+confirmation, account switch, committed-response loss/exact retry and actual
+subscription suspension/replay denial. Independent SQLite audit: one company,
+two exact credential-free federated members, one accepted revision2 invitation,
+two receipts/four audits/five events; no recipient payer membership or operational
+grants.490 ERP/25 website outputs unchanged,136 Foundation source files and35
+copied dependency DLLs unchanged; owned local services stopped/ports closed.
+Evidence: inspection/qualifications/guest-recipient-browser-02/verification.json.
+Earlier literal-path browser run119s remains historical; the final bound policies
+are qualified by this73.895s run. No mail, deployed ingress/TLS, production flag,
+payment, Perfex, DNS, main/UI-main/B1 or draft-PR change. Actual edge per-client
+limits/path-only logs, delivery and operational admission remain release gates.
+
 ### Guest admission implementation checkpoint —9 November2026
 
 Bounded endpoint budgets and private-directory reservations are implemented;

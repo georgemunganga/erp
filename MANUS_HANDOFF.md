@@ -1,4 +1,28 @@
-# Actual-provider invitation acceptance checkpoint —8 November2026
+# Invitation guest-control checkpoint —9 November2026
+
+Published runtime9abd460999131f1a922faadfaca2e8e863c92f34 adds bounded
+endpoint policies and retained directory admission. Address headers are ignored;
+case/trailing-slash variants cannot bypass the matched endpoint's limit. Busy/full
+state returns retryable503 without replacing the prior intent. Reservations
+survive callback/cancel/restart; shared lock/cleanup enforce conservative bounds.
+315 Windows passed/14 native skips; Linux315/16 opt-in skips. Native52 recipient,
+20 sender,97 invitation/team (169) and two cross-process barrier tests passed
+without skips/failures. Read-only SQL145 new databases:69 invitations/76 receipts/
+69 delivery intents/81 audits/150 events/five accepted; no credentials/sessions/
+module grants.87 dependencies unchanged; SDK exited0/test database stopped.
+Evidence: inspection/qualifications/invitation-guest-native-9abd4609-01.
+
+Final actual-provider browser73.895s passed with independent SQLite audit, no
+recipient payer membership/operational grants;490 ERP/25 website outputs,136
+Foundation sources and35 dependencies unchanged. Local services stopped. Evidence:
+inspection/qualifications/guest-recipient-browser-02/verification.json.
+UI067362a0/Foundation15707bd9/website02f42d39 remain unchanged. App controls are
+qualified; deployed edge per-client limits/path-only logging, delivery and licensed
+ERP admission remain next. Existing HRM SMTP skips unsupported templates and must
+not acknowledge invitation mail as delivered. No live flag/schema/payment/mail/
+Perfex/DNS/main/UI-main/B1 change; PR201 remains draft.
+
+# Earlier actual-provider invitation acceptance checkpoint —8 November2026
 
 The real Laravel/Core/Kuubu browser gate passed133.189s, zero skips. Qualified
 runtime remains Coreacc3ae39, UI067362a0, Foundation15707bd9, website02f42d39.
