@@ -1,3 +1,62 @@
+# Actual branded permission journey qualified — 9 November 2026
+
+Published ERP test/tool source `a0cef594a144bb0ed01ad0d3c3fef68063ab28a7` adds the
+opt-in real browser qualification and reviewable runner. Production ERP/UI remains
+`9edf05635f109427e95c8a514baff1942f51faee`, integrated main remains
+`52bdb5a0c36778a2f082e8e4085d65cbff25df7e`, API remains e52e8049,
+Foundation runtime remains75cc91ff and website consent remains1ade23e7. No
+production application change, migration, flag activation or deployment occurred.
+
+The complete branded login/explicit enrollment/two-company setup/separate
+operational consent/picker/editor journey now passes against actual Laravel/
+Passport, production Core handlers and a fresh native PostgreSQL database. One
+fact executed/one passed/zero skipped, with62 real provider requests. The first
+committed grant response is deliberately lost; exact-key/body retry leaves one
+version/receipt/audit. Revocation and historical replay cannot restore current
+access. A fresh reviewed regrant reaches revision3. Foreign-company/link queries
+and current access/replay after actual subscription suspension are denied.
+Sign-out clears the editor and yields an unauthorized operational session. The
+test host's default-auth protected endpoint remains401 after a valid grant; this
+is not qualification of actual protected ERP module routes.
+
+Final DB evidence: two companies, three grant versions/receipts/permission audits/
+ID-only outbox events, zero ERP sessions, legacy role assignments and local
+credential links. Local users carry no password/email/legacy-role payload. Only
+the deliberately seeded payer/subscription and explicit enrollment remain in
+Laravel; zero contacts/payment attempts/payment webhook receipts were created.
+The actual390px editor and branded login screenshots were inspected.
+
+Fixed-origin TLS trusts only the fixture CA and rejects a wrong hostname; TCP is
+pinned to loopback. Private Chrome/CDP passes real responses, cookies, redirects
+and CSRF at reviewed origins with failed-closed DNS. This is not deployed browser
+TLS or ingress evidence. Only the disposable PHP server enables OPcache; the real
+relay deadline remains15seconds. Google, payments and outgoing mail stay disabled.
+Local storage is empty; session storage contains only structurally checked inert
+router scroll history. Credentials, grants and setup attempts do not remain there.
+
+Evidence: inspection/qualifications/module-browser-composition-12,
+module-browser-composition-verification-01/verification.json,
+module-browser-network-cleanup-01/verification.json and
+module-browser-opt-in-verification-02/verification.json. Seven production C#
+inputs,49 dependencies,373 UI source/491 outputs,95 website source/25 outputs and
+137 provider source files retain verified hashes. Test build06 matches current
+C# source; published runner matches executed runner05. All12 attempt databases
+are stopped, DB bindings were only127.0.0.1:8135, and all five owned ports are
+closed. Every failed/partial attempt and independent volume remains retained.
+The feature spec records the test-host duplicate mapping, Windows TLS loading,
+uncached PHP deadline, encoding and overbroad storage-oracle corrections. The
+corrected storage check rejects all authority data and validates the router's
+known cache; no authentication, CSRF, licensing or permission rule was weakened.
+
+Next owner: Core/identity. Build revocable ERP sessions bound to the selected
+person/company/module and explicit branches; then verify actual protected routes
+and data isolation. The classic all-branches header must not widen SaaS grants.
+Preserve local/on-premise authentication and one maintained ERP codebase.
+Production DB/ingress/proxy/rate/logging, capacity/monitoring/recovery, delivery,
+controlled rollout, Lenco, hosting/domain/email integrations and dedicated/
+on-premise offline licensing/upgrades/restore remain programme work. Keep both
+PRs draft. Perfex, production services, DNS and payment rails were not changed.
+
 # Integrated main and owner editor — 9 November 2026
 
 Published merged ERP/UI source `9edf05635f109427e95c8a514baff1942f51faee` includes main
