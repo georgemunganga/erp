@@ -17,6 +17,8 @@ using Microsoft.Extensions.Logging;
 using Mightyfin.Erp.Hrm.Api;
 using Mightyfin.Erp.Hrm.Infrastructure.Data;
 using Mightyfin.Erp.Hrm.Domain.Entities;
+using Mightyfin.Erp.Hrm.Infrastructure;
+using Npgsql;
 
 namespace Mightyfin.Erp.Hrm.Tests;
 
@@ -50,17 +52,39 @@ public sealed class ProductInvitationBrowserInteropTests
         var root=Path.Combine(Path.GetDirectoryName(manifestPath)!,"browser-core-"+Guid.NewGuid().ToString("N"));
         var keys=Path.Combine(root,"keys");var grants=Path.Combine(root,"grants");var intents=Path.Combine(root,"intents");
         foreach(var p in new[]{root,keys,grants,intents}) {Directory.CreateDirectory(p);if(!OperatingSystem.IsWindows())File.SetUnixFileMode(p,UnixFileMode.UserRead|UnixFileMode.UserWrite|UnixFileMode.UserExecute);}
-        await using var connection=new SqliteConnection("Data Source="+Path.Combine(root,"core.sqlite"));await connection.OpenAsync();
-        var options=new DbContextOptionsBuilder<HrmDbContext>().UseSqlite(connection).Options;
+        var smtpBridge=Environment.GetEnvironmentVariable("KUUBU_REAL_BROWSER_INVITATION_SMTP");
+        var native=Environment.GetEnvironmentVariable("KUUBU_REAL_BROWSER_INVITATION_POSTGRES");
+        Assert.Equal(string.IsNullOrEmpty(smtpBridge),string.IsNullOrEmpty(native));
+        await using var connection=string.IsNullOrEmpty(native)?new SqliteConnection("Data Source="+Path.Combine(root,"core.sqlite")):null;
+        if(connection is not null)await connection.OpenAsync();
+        var database=new DbContextOptionsBuilder<HrmDbContext>();
+        string? nativeConnection=null;
+        if(connection is not null)database.UseSqlite(connection);
+        else {
+            Assert.True(Uri.TryCreate(smtpBridge,UriKind.Absolute,out var endpoint) && endpoint.Scheme=="http"
+                && endpoint.Host=="127.0.0.1" && endpoint.Port==8134 && endpoint.AbsolutePath=="/");
+            var settings=new NpgsqlConnectionStringBuilder(native!);
+            Assert.Equal("127.0.0.1",settings.Host);Assert.Equal(8135,settings.Port);Assert.Equal("kuubu_session_test_control",settings.Database);
+            await using var control=new NpgsqlConnection(settings.ConnectionString);await control.OpenAsync();
+            settings.Database="company_team_"+Guid.NewGuid().ToString("N");
+            await using var create=new NpgsqlCommand("CREATE DATABASE \""+settings.Database+"\"",control);await create.ExecuteNonQueryAsync();
+            nativeConnection=settings.ConnectionString;
+            database.UseNpgsql(nativeConnection,pg=>pg.MigrationsHistoryTable("__hrm_migrations","hrm"));
+            await File.WriteAllTextAsync(Path.Combine(root,"native-database.json"),JsonSerializer.Serialize(new{database=settings.Database,production_changes=false}));
+        }
+        var options=database.Options;
         HrmDbContext Context(string tenant)=>new(options,new FixedTenantAccessor(tenant));
-        await using(var db=Context("schema-only"))await db.Database.EnsureCreatedAsync();
+        await using(var db=Context("schema-only")) {
+            if(connection is not null)await db.Database.EnsureCreatedAsync();
+            else {await CoreSchemaStartup.EnsureAsync(db,"Isolated browser delivery fixture",mayApply:true);Assert.False(db.Database.HasPendingModelChanges());}
+        }
         var builder=WebApplication.CreateBuilder();builder.WebHost.UseTestServer().UseContentRoot(AppContext.BaseDirectory);builder.Logging.ClearProviders();
         builder.Configuration.AddInMemoryCollection(new Dictionary<string,string?>{
             ["ERP:CompanyInvitationAcceptance:Enabled"]="true",["ERP:CompanyInvitationAcceptance:IntentPath"]=intents,["ERP:CompanyInvitations:Enabled"]="true",["ERP:CompanyTeam:Enabled"]="true",["ERP:ProductIdentity:Enabled"]="true",["ERP:WorkspaceSetup:Enabled"]="true",["ERP:WorkspaceProvisioning:Enabled"]="true",["ERP:ProductLicensing:Enabled"]="true",
             ["ERP:ProductIdentity:ClientId"]=Field("client_id"),["ERP:ProductIdentity:ClientSecret"]=Field("client_secret"),
             ["ERP:ProductIdentity:DataProtectionPath"]=keys,["ERP:WorkspaceSetup:GrantPath"]=grants});
         builder.Services.AddHttpContextAccessor();builder.Services.AddScoped<ITenantAccessor>(_=>new FixedTenantAccessor("untrusted-default"));
-        builder.Services.AddDbContext<HrmDbContext>(o=>o.UseSqlite(connection));
+        builder.Services.AddDbContext<HrmDbContext>(o=>{if(connection is not null)o.UseSqlite(connection);else o.UseNpgsql(nativeConnection!,pg=>pg.MigrationsHistoryTable("__hrm_migrations","hrm"));});
         builder.Services.AddAuthentication(LocalAuthenticationHandler.Scheme).AddScheme<LocalAuthOptions,LocalAuthenticationHandler>(LocalAuthenticationHandler.Scheme,_=>{});
         builder.Services.AddAuthorization();builder.Services.AddProductIdentity(builder.Configuration);
         HttpClient Channel()=>new(new ProductSetupProviderInteropTests.RealProviderChannel()){Timeout=TimeSpan.FromSeconds(20)};
@@ -79,6 +103,13 @@ public sealed class ProductInvitationBrowserInteropTests
         await using var app=builder.Build();app.UseProductIdentityOriginGuard();app.UseAuthentication();app.UseAuthorization();
         app.MapProductIdentity();app.MapProductSetup();app.MapProductCompanyTeam();app.MapGet("/erp-protected",()=>"records").RequireAuthorization();
         await app.StartAsync();using var core=app.GetTestClient();core.BaseAddress=new Uri("https://app.kuubuerp.com");
+
+        using var smtpChannel=new HttpClient{Timeout=TimeSpan.FromSeconds(25)};
+        InvitationSmtpBridgeClient? receivedMail=null;
+        if(!string.IsNullOrEmpty(smtpBridge)) {
+            smtpChannel.BaseAddress=new Uri(smtpBridge);
+            receivedMail=new(smtpChannel,Field("fixture_marker"));
+        }
 
         // Test-only transport adapter. Browser uses the actual reviewed HTTPS
         // origins/cookie rules; production origin/TLS checks are never changed.
@@ -109,9 +140,27 @@ public sealed class ProductInvitationBrowserInteropTests
         }
         bridge.MapPost("/request",(Delegate)(Func<HttpContext,Task<IResult>>)Dispatch);
         bridge.MapGet("/audit",(Delegate)(Func<HttpContext,Task<IResult>>)Audit);
+        // Actual durable worker and remote Linux production SMTP adapter. This
+        // endpoint returns a link parsed from received MIME, never the envelope.
+        async Task<IResult> DeliveredMessage(HttpContext http) {
+            if(!Authorized(http))return Results.StatusCode(403);
+            if(receivedMail is null)return Results.NotFound();
+            var protector=app.Services.GetRequiredService<IDataProtectionProvider>().CreateProtector(CoreCompanyInvitationsApi.DeliveryPurpose);
+            var mail=new CoreCompanyInvitationMail(Context,app.Services.GetRequiredService<CoreCompanyTeamApi>(),protector,
+                receivedMail,TimeProvider.System,Field("client_id"));
+            var tenant=new OutboxPublisherTenantAccessor();
+            await using(var publisher=new HrmDbContext(options,tenant))
+                Assert.True(await new CompanyInvitationDeliveryStore(publisher,tenant,TimeProvider.System).ProcessNextAsync(mail.DeliverAsync,http.RequestAborted));
+            await using var db=Context("fixture-delivery-audit");
+            var row=await db.OutboxMessages.IgnoreQueryFilters().SingleAsync(x=>x.EventType==CompanyInvitationDeliveryStore.EventType);
+            Assert.Equal("delivery-accepted",row.Status);Assert.Equal(1,row.PublishAttempts);Assert.NotNull(row.PublishedAt);
+            Assert.NotNull(receivedMail.ReceivedReviewUrl);
+            return Results.Json(new {review_url=receivedMail.ReceivedReviewUrl});
+        }
         // Test-only delivery inspection. Never mapped by the deployed application.
         async Task<IResult> Preview(HttpContext http) {
             if(!Authorized(http))return Results.StatusCode(403);
+            if(receivedMail is not null)return Results.NotFound();
             await using var db=Context("fixture-delivery-inspection");
             var row=await db.CompanyInvitations.IgnoreQueryFilters().SingleAsync();
             Assert.Equal("pending",row.State);Assert.Equal("member",row.Role);
@@ -146,6 +195,7 @@ public sealed class ProductInvitationBrowserInteropTests
             return Results.Ok(new {suspended=true});
         }
         bridge.MapGet("/delivery-preview",(Func<HttpContext,Task<IResult>>)Preview);
+        bridge.MapGet("/delivered-message",(Func<HttpContext,Task<IResult>>)DeliveredMessage);
         bridge.MapGet("/invitation-audit",(Func<HttpContext,Task<IResult>>)InvitationAudit);
         bridge.MapPost("/suspend-fixture",(Func<HttpContext,Task<IResult>>)SuspendFixture);
         await bridge.StartAsync();
@@ -163,7 +213,7 @@ public sealed class ProductInvitationBrowserInteropTests
             Assert.Equal(2,await db.CompanyMemberships.IgnoreQueryFilters().CountAsync());
             Assert.Equal(2,await db.CompanyInvitationReceipts.IgnoreQueryFilters().CountAsync());
             Assert.Empty(await db.CompanyTeamCommandReceipts.IgnoreQueryFilters().ToArrayAsync());
-            Assert.Equal(4,await db.AuditEntries.IgnoreQueryFilters().CountAsync());
+            Assert.Equal(receivedMail is null?4:5,await db.AuditEntries.IgnoreQueryFilters().CountAsync());
             Assert.Equal(5,await db.OutboxMessages.IgnoreQueryFilters().CountAsync());
             var invitation=await db.CompanyInvitations.IgnoreQueryFilters().SingleAsync();
             Assert.Equal("accepted",invitation.State);Assert.Equal(2,invitation.Revision);Assert.Equal(Field("staff_subject"),invitation.AcceptedSubject);

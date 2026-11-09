@@ -43,7 +43,7 @@ public sealed class SmtpCompanyInvitationWireTests
     private const string User="synthetic-smtp-user";
     private const string Password="SyntheticOnlySmtpPassword123!";
     private const string Client="391bdeaa-87b3-44b3-8e64-2110dcc1a564";
-    private enum Mode { Accept, NoStartTls, RejectRecipient, LoseAcknowledgement, HoldAcknowledgement }
+    internal enum Mode { Accept, NoStartTls, RejectRecipient, LoseAcknowledgement, HoldAcknowledgement }
     private static string Fixture()
     {
         var path=Environment.GetEnvironmentVariable("KUUBU_INVITATION_SMTP_WIRE_FIXTURE")!;
@@ -54,7 +54,7 @@ public sealed class SmtpCompanyInvitationWireTests
         Assert.Equal(UnixFileMode.UserRead|UnixFileMode.UserWrite|UnixFileMode.UserExecute,File.GetUnixFileMode(path));
         return path;
     }
-    private sealed class Session
+    internal sealed class Session
     {
         internal bool Tls,Authenticated,DataAccepted;
         internal SslProtocols Protocol;
@@ -63,7 +63,7 @@ public sealed class SmtpCompanyInvitationWireTests
         internal string? Message;
         public override string ToString()=>nameof(Session);
     }
-    private sealed class Sink:IAsyncDisposable
+    internal sealed class Sink:IAsyncDisposable
     {
         private readonly TcpListener listener=new(IPAddress.Loopback,0);
         private readonly CancellationTokenSource stopping=new(TimeSpan.FromSeconds(30));
@@ -158,7 +158,7 @@ public sealed class SmtpCompanyInvitationWireTests
             certificate.Dispose();stopping.Dispose();
         }
     }
-    private static SmtpCompanyInvitationMail Sender(Sink sink,TimeProvider? clock=null)=>new(new ConfigurationBuilder()
+    internal static SmtpCompanyInvitationMail Sender(Sink sink,TimeProvider? clock=null)=>new(new ConfigurationBuilder()
         .AddInMemoryCollection(new Dictionary<string,string?>{
             ["ERP:CompanyInvitationDelivery:Smtp:Host"]="smtp.fixture.test",
             ["ERP:CompanyInvitationDelivery:Smtp:Port"]=sink.Port.ToString(),
@@ -169,7 +169,7 @@ public sealed class SmtpCompanyInvitationWireTests
     private static InvitationMailEnvelope Envelope()=>new("invited@example.test","Synthetic company","member",
         "https://app.kuubuerp.com/accept-invitation#token="+ProductInvitationIntentStore.Random(),
         "<kuubu-invitation-"+Guid.NewGuid().ToString("D")+"@kuubuerp.com>",DateTimeOffset.UtcNow.AddMinutes(1),()=>true);
-    private static (string Headers,string Body) Decode(string message)
+    internal static (string Headers,string Body) Decode(string message)
     {
         var parts=message.Split("\r\n\r\n",2);Assert.Equal(2,parts.Length);
         Assert.True(parts[0].Contains("Content-Transfer-Encoding: base64",StringComparison.OrdinalIgnoreCase));
