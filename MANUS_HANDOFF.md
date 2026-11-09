@@ -1,3 +1,76 @@
+# Kuubu workspace entry and company review —9 November2026
+
+Published API/UI `6c5a830771a1ececccd4d9876456f17409f1d955` adds the real
+`/workspace-access` page, explicit member company discovery and current commercial
+review. Foundation runtime `75cc91ff5025a54f3803fc34c4d297b12dcd5a98` and branded
+website consent `1ade23e7629d8a3004ac2caf8d3157691fa8681e` are unchanged.
+This is read-only company review, not licensed operational ERP admission.
+
+Protected start now returns200/no-store JSON with the generated authorization
+URL after setting correlation cookies; it no longer redirects a browser fetch
+across origins. The page validates the fixed Kuubu authorization origin/path,
+exact seven fields/scope pair, callback, S256 and bounded state before top-level
+navigation. CSRF, browser binding/challenge and five-minute protected state remain
+required. Callback returns only to the fixed workspace page. This is a paired
+API/UI contract update; old pending sign-in states require a fresh start.
+
+`ERP:OperationalCompanies:Enabled` defaults false and requires operational
+identity plus separate machine licensing. The company directory includes ordinary
+members via active explicit issuer/subject/link/user/membership/entity/binding
+joins; governance-only team discovery still excludes them. It is bounded/paged,
+accepts only a canonical membership cursor, and returns company/link/name/role,
+never tenant/payer/enrollment selectors. Selected review accepts only the exact
+company/link pair, obtains current licensing from the immutable Core binding and
+rechecks membership/person/license after the provider call. Foreign links,
+revocation, expiry, wrong enrollment/slot and outages fail closed. Purchased
+module codes are informational and grant no actions, branch scope or session.
+
+The page reuses Kuubu identity/shared controls outside the classic tenant/auth
+shell. It handles loading, signed out, unavailable, empty list, paging, current
+subscription review, expired identity, stale selection and sign-out. Identity and
+selection stay in memory; requests have bounded timeouts, no auth fallback and no
+automatic POST retry. Old review responses cannot overwrite another selection.
+Browser clock skew is not authoritative for server proof validity. Company
+owners/admins can enter the separate existing team workflow; no fake ERP-launch
+button is shown. Shared Kuubu mark uses the website's maintained green token,
+independent of the employer accent; mobile actions no longer squeeze company names.
+
+Fresh API/test builds pass with27/20 existing warnings, none added.533 Windows
+checks passed/37 native opt-ins skipped. Linux query/flow/storage suite132 passed
+without skips; holder/observer each passed. Real Passport/private-TLS acceptance
+passed with the new JSON start/callback target: three token requests, two distinct
+refreshes and three person observations; suspension persists revocation and old
+cookie reuse makes no further provider call. Its Core host remains TestServer/
+InMemory and provider is SQLite; it does not qualify deployed ingress or native
+ERP/PostgreSQL/MySQL. SELECT-only provider audit leaves its DB unchanged and
+finds zero customers, billing memberships, payer enrollments, subscriptions or
+payments. Eight C# inputs/35 dependency DLLs are unchanged;281 Linux entries have
+private modes. All five owned containers stopped, no host ports/read-only inputs.
+
+Frontend101 contracts, targeted lint, production build and typecheck pass.
+Ten browser cases cover explicit Continue, member/owner review boundaries, empty
+setup, paging, denial, expiry, outage, late selection and390px sign-out/layout.
+These browser API responses are synthetic; actual website/relay/browser/Core/
+provider composition remains unqualified.364 source files and492 built outputs
+retain manifests; owned SSR listener stopped. Generated router was copied back
+as an independent working file only after source/hash checks.
+
+Evidence: `inspection/qualifications/operational-companies-core-02`,
+`operational-companies-linux-02`, `operational-companies-wire-02`,
+`operational-companies-verification-02/core-verification.json` and
+`operational-companies-ui-04/verification.json`. Core01 retained two fixture
+write failures: seeding now uses the owning tenant, while feature reads remain
+untrusted/read-only. UI03 passed before visual fixes; UI04 reruns all checks.
+No retained build publication was overwritten.
+
+Next: connect the actual branded website/relay journey to this picker; implement
+explicit module/action/branch grants, revocable bound ERP sessions and protected
+route isolation. Native database/ingress, path-only logging, monitoring/capacity/
+recovery, SMTP/inbox activation and controlled rollout remain release gates.
+Lenco, hosting/domain/email adapters and dedicated/on-premise/offline licensing/
+upgrades/backup restore remain programme work. No production schema/config/flags,
+deployment, external mail/payment, Perfex, DNS or main/UI-main/B1 change.
+
 # Actual Passport/TLS operational handoff —9 November2026
 
 Published test `2bfc158e2f869172c3211edfb6baf280929b68dd` qualifies actual

@@ -74,8 +74,10 @@ owned five-minute expiry cleanup. Configure a canonical, separate
 `StatePath` outside application assets; retain the reviewed product key ring.
 Do not enable it before connected branded browser/relay qualification,
 company/module/branch authorization, capacity monitoring/alerts, recovery UX for ambiguous refresh and absolute/idle
-session policy. The interim callback returns identity status, pending the real
-company/module selection screen. Company/module grant persistence, revocable
+session policy. The callback returns to `/workspace-access`. Protected start returns200 JSON
+with its fixed authorization URL for deliberate browser navigation. Company
+discovery/review is separately gated by `ERP:OperationalCompanies:Enabled=false`;
+its exact member links/current license never grant ERP actions or branch scope. Company/module grant persistence, revocable
 ERP sessions, route/branch isolation and browser acceptance remain separate work.
 Classic local authentication and dedicated/on-premise behavior are unchanged.
 
