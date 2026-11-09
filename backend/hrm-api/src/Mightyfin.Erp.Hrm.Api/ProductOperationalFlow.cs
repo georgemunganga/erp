@@ -178,7 +178,7 @@ internal static class ProductOperationalFlow
             if(context.Request.Headers["Sec-Fetch-Site"]=="cross-site")return Results.StatusCode(403);
             var queries=context.GetEndpoint()?.Metadata.GetMetadata<OperationalQueryPolicy>()?.Allowed??[];
             if(context.Request.Query.Any(x=>!queries.Contains(x.Key,StringComparer.Ordinal) || x.Value.Count!=1)
-                || HttpMethods.IsPost(context.Request.Method) && !await EmptyBody(context))return Results.StatusCode(400);
+                || HttpMethods.IsPost(context.Request.Method) && context.GetEndpoint()?.Metadata.GetMetadata<OperationalJsonCommand>() is null && !await EmptyBody(context))return Results.StatusCode(400);
             var operation=HttpMethods.IsGet(context.Request.Method)?ProductInvitationGuestBudget.Operation.Session:ProductInvitationGuestBudget.Operation.Start;
             if(!context.RequestServices.GetRequiredService<OperationalRequestBudget>().Budget.TryAcquire(operation,context.Connection.RemoteIpAddress))return Results.StatusCode(429);
             return await next(invocation);
@@ -215,6 +215,7 @@ internal static class ProductOperationalFlow
             return Results.NoContent();
         }).AllowAnonymous();
         CoreOperationalCompanies.Map(group,app.Configuration);
+        ProductModuleAccessFlow.Map(group,app.Configuration);
     }
     internal static IResult Failure(OperationalCredentialStatus status)=>status is OperationalCredentialStatus.Unavailable or OperationalCredentialStatus.Busy
         ?Results.StatusCode(503):Results.Unauthorized();

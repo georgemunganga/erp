@@ -240,6 +240,7 @@ else
 builder.Services.AddProductIdentity(builder.Configuration);
 builder.Services.AddProductCommercialLicense(builder.Configuration);
 CoreOperationalCompanies.Register(builder.Services,builder.Configuration);
+ProductModuleAccessFlow.Register(builder.Services,builder.Configuration,connStr);
 builder.Services.AddProductWorkspaceSetup(builder.Configuration);
 builder.Services.AddCoreWorkspaceProvisioning(builder.Configuration, connStr);
 builder.Services.AddCoreCompanyTeamApi(builder.Configuration, connStr,startupMode==CoreHostMode.Api);

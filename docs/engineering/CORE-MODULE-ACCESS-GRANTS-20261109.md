@@ -1,14 +1,15 @@
 # Explicit company module grants
 
 ## 1. Identification
-Core Tier3 feature,9 November2026; internal ledger qualified, end-user workflow not live.
+Core Tier3 feature,9 November2026; internal ledger and owner API qualified; editor and ERP admission not live.
 ## 2. Purpose
 Let an explicit company owner deliberately grant/revoke a current member's
 module roles/actions and company or work-location scope without creating a login,
 employee, payer membership or ERP session.
 ## 3. Scope
 Versioned grant ledger, current grant resolution and transactional owner commands.
-HTTP/UI grant management, ERP session creation and route/data enforcement follow.
+Owner HTTP review/commands are implemented and tested; UI grant management, ERP session
+creation and route/data enforcement follow.
 No existing local credential/session/role/branch behavior is changed here.
 ## 4. Parent
 Licensed product admission, explicit company membership and Core workspace binding.
@@ -74,7 +75,9 @@ Append-only audit records versioned before/after role/action/scope configuration
 actor and correlation. Events carry IDs/revision/state only. No credentials,
 email directory or provider proof bodies are persisted in this ledger.
 ## 20. Configuration
-No HTTP registration or production activation in the initial ledger increment.
+The initial ledger had no HTTP registration. Owner management now has a separate
+default-false `ERP:ModuleAccess:Enabled` gate requiring operational identity,
+company discovery and licensing. No production activation occurs here.
 Migration is additive; owning deployment applies it explicitly. New records are
 not created from historical owners, roles, employees or email matches.
 ## 21. Security
@@ -100,7 +103,7 @@ unproven until browser/editor/session/module/branch isolation is verified.
 Focused relational/model tests plus native PostgreSQL cases; retain failed builds
 and fixtures, use exclusive new publication roots and read-only consumers.
 ## 27. Release gates
-Grant HTTP/UI, revocable sessions, default authentication integration, module route
+Grant UI, revocable sessions, default authentication integration, module route
 and data-scope enforcement, real browser composition and production ops remain.
 Lenco/hosting products and dedicated/offline/upgrades/restore remain programme work.
 ## 28. Evidence
@@ -133,3 +136,53 @@ no production guard was bypassed or weakened. API/test builds retain27/20 existi
 warnings. HTTP/editor/session/route qualification remains required; these tests
 use internal current-person/license fixtures and do not establish the combined
 branded browser/Passport/ERP journey or production readiness.
+
+Qualified owner API increment: `/api/core/product-identity/operational/
+module-access/{members,locations,review,commands}` uses the distinct operational
+cookie/browser binding and fresh provider observation. GET selectors are exact
+canonical company/link IDs, optional canonical cursor, and target membership/module
+for review. Unknown/duplicate selectors fail before observation. Owner membership
+and immutable enrollment binding select commercial licensing; callers supply no
+tenant/enrollment/payer. Member and active-location directories page20 records.
+Review includes the current member revision, registered role/action catalogs,
+latest configuration/revision, selected branch availability and an explicit
+reconfirmation warning for stale membership/location evidence. Unavailable branch
+names are not disclosed. Reviews create no sessions or operational claims.
+
+Commands require same-origin JSON, bound operational CSRF, a maximum32768-byte
+body/depth4, all14 exact fields with duplicate rejection and bounded arrays,
+explicit operation/confirmation, target membership revision and expected grant
+revision. Only this registered command can carry a nonempty body under the
+operational group; start/logout retain empty-body validation. Unknown roles/actions
+and implicit company scope fail before provider/DB writes. API orchestration
+checks current person, owner and purchased module again before invoking the
+transactional ledger. HTTP200 reports Changed/Unchanged/Existing with historical
+version;400 invalid,401 identity,403 authority,409 stale revision/key,413 size,
+429 admission budget,503 unavailable/default off. No automatic POST retry or
+authentication fallback is allowed. The existing session DTO is unchanged until
+the paired editor integration is qualified.
+
+Owner API evidence:579 Windows checks pass/39 environment-specific skips, and68
+PostgreSQL checks pass without skips or failures. These include ten API query/
+license-boundary cases, thirteen new HTTP/security/configuration cases, existing
+operational callback/session defenses and the grant ledger. The HTTP journey uses
+real operational handlers, cookie binding, protected store, strict parsing and
+Core relational commands with a synthetic identity backchannel. It proves no
+default ERP admission/session/legacy roles arise from saving permissions; it does
+not prove the actual branded website/relay/provider/network/ingress journey.
+
+Evidence roots: `inspection/qualifications/module-access-api-01` (fresh API/test
+build and retained578-pass/one-fixture-failure regression), `module-access-api-02`
+(independent corrected test build;579 pass), `module-access-native-01` (retained
+67-pass/one identical fixture expectation failure), `module-access-native-02`
+(68 pass) and `module-access-verification-01/verification.json`. The paging
+fixture already contained one branch. Its correction compares the complete
+authoritative company branch-ID set across both pages, preserving that branch
+and checking no duplicates rather than assuming a fixed second-page count.
+No API/production rule was weakened. Fresh builds retain27/20 existing warnings.
+Source and independent dependency/runtime hash checks pass; owned containers
+exited, no host ports or production changes. The existing session/picker DTOs and
+frontend, Foundation runtime and branded website source are unchanged. No new
+migration is needed beyond the qualified ledger migration; the owning deployment
+must apply that migration before enabling this API. Grant editor, bound revocable
+sessions, route/data isolation and production qualification remain release gates.

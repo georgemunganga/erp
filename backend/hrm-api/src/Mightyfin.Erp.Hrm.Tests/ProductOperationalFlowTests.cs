@@ -22,7 +22,7 @@ using Mightyfin.Erp.Hrm.Infrastructure.Data;
 
 namespace Mightyfin.Erp.Hrm.Tests;
 
-public sealed class ProductOperationalFlowTests
+public sealed partial class ProductOperationalFlowTests
 {
     [Fact]
     public async Task Company_discovery_requires_the_distinct_bound_identity_and_rejects_unreviewed_selectors()
@@ -143,7 +143,7 @@ public sealed class ProductOperationalFlowTests
     {
         internal const string Origin="https://app.kuubuerp.com",ClientId="391bdeaa-87b3-44b3-8e64-2110dcc1a564",Secret="synthetic-operational-secret";
         internal required WebApplication App;internal required HttpClient Client;internal required Channel Channel;internal required string State;internal required HrmDbContext Db;internal AsyncServiceScope Scope;
-        internal static async Task<Fixture> Start(bool enabled=true,string mode="",bool companies=false)
+        internal static async Task<Fixture> Start(bool enabled=true,string mode="",bool companies=false,CoreModuleAccessApi? moduleApi=null)
         {
             var root=Path.Combine(Path.GetTempPath(),"kuubu-operational-flow-"+Guid.NewGuid().ToString("N"));
             var keys=Path.Combine(root,"keys");var state=Path.Combine(root,"credentials");
@@ -153,13 +153,14 @@ public sealed class ProductOperationalFlowTests
                 ["ERP:ProductIdentity:Enabled"]="true",["ERP:ProductIdentity:ClientId"]="4798a03c-5ed7-4438-9ec9-d46f63a2f4f1",
                 ["ERP:ProductIdentity:ClientSecret"]="synthetic-setup-secret",["ERP:ProductIdentity:DataProtectionPath"]=keys,
                 ["ERP:OperationalIdentity:Enabled"]=enabled.ToString(),["ERP:OperationalIdentity:ClientId"]=ClientId,["ERP:OperationalIdentity:ClientSecret"]=Secret,["ERP:OperationalIdentity:StatePath"]=state,
-                ["ERP:ProductLicensing:Enabled"]=companies.ToString(),["ERP:OperationalCompanies:Enabled"]=companies.ToString()});
+                ["ERP:ProductLicensing:Enabled"]=companies.ToString(),["ERP:OperationalCompanies:Enabled"]=companies.ToString(),["ERP:ModuleAccess:Enabled"]=(moduleApi is not null).ToString()});
             builder.Services.AddHttpContextAccessor();builder.Services.AddScoped<ITenantAccessor>(_=>new FixedTenantAccessor("tenant-a"));
             builder.Services.AddDbContext<HrmDbContext>(options=>options.UseInMemoryDatabase(root));
             builder.Services.AddAuthentication(LocalAuthenticationHandler.Scheme).AddScheme<LocalAuthOptions,LocalAuthenticationHandler>(LocalAuthenticationHandler.Scheme,_=>{});
             builder.Services.AddProductIdentity(builder.Configuration);var channel=new Channel{Mode=mode};
             if(companies)builder.Services.AddScoped(provider=>new CoreOperationalCompanies(provider.GetRequiredService<HrmDbContext>(),
                 (_,_)=>throw new InvalidOperationException("Unbound company must not reach licensing."),TimeProvider.System));
+            if(moduleApi is not null)builder.Services.AddSingleton(moduleApi);
             if(enabled){builder.Services.Configure<OAuthOptions>(ProductOperationalFlow.OAuthScheme,o=>o.Backchannel=new HttpClient(channel){MaxResponseContentBufferSize=65536});
                 builder.Services.AddSingleton(new ProductOperationalSubject(new HttpClient(channel),TimeProvider.System,ClientId));}
             builder.Services.AddAuthorization();var app=builder.Build();app.UseProductIdentityOriginGuard();app.UseAuthentication();app.UseAuthorization();
