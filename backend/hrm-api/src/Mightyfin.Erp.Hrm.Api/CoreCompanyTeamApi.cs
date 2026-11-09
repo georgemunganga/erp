@@ -101,8 +101,10 @@ internal sealed class CoreCompanyTeamApi(Func<string, HrmDbContext> contextFacto
 internal static class CoreCompanyTeamApiRegistration
 {
     internal static IServiceCollection AddCoreCompanyTeamApi(this IServiceCollection services,
-        IConfiguration config, string? reviewedConnection = null)
+        IConfiguration config, string? reviewedConnection = null,bool runInvitationDelivery=true)
     {
+        if(config.GetValue<bool>("ERP:CompanyInvitationDelivery:Enabled") && !ProductCompanyInvitationsFlow.Enabled(config))
+            throw new InvalidOperationException("Invitation delivery requires the reviewed product/team/invitation configuration.");
         if (!ProductCompanyTeamFlow.Enabled(config)) return services;
         var connection = reviewedConnection ?? config.GetConnectionString("Hrm");
         try
@@ -125,6 +127,19 @@ internal static class CoreCompanyTeamApiRegistration
             services.AddSingleton(provider => new CoreCompanyInvitationAcceptanceApi(
                 tenant => new HrmDbContext(options,new TeamTenant(tenant)),provider.GetRequiredService<CoreCompanyTeamApi>(),TimeProvider.System,
                 provider.GetRequiredService<IDataProtectionProvider>().CreateProtector(CoreCompanyInvitationsApi.DeliveryPurpose)));
+        if(runInvitationDelivery && CoreCompanyInvitationDeliveryWorker.Enabled(config)) {
+            // Validate settings eagerly. Merely setting an enabled flag must not
+            // start a worker with an accidental HRM sender or plaintext SMTP.
+            var mail=new SmtpCompanyInvitationMail(config,TimeProvider.System);
+            services.AddSingleton<ICompanyInvitationMail>(mail);
+            services.AddSingleton(provider=>new CoreCompanyInvitationMail(
+                tenant=>new HrmDbContext(options,new TeamTenant(tenant)),provider.GetRequiredService<CoreCompanyTeamApi>(),
+                provider.GetRequiredService<IDataProtectionProvider>().CreateProtector(CoreCompanyInvitationsApi.DeliveryPurpose),
+                provider.GetRequiredService<ICompanyInvitationMail>(),TimeProvider.System,config["ERP:ProductIdentity:ClientId"]!));
+            services.AddSingleton(provider=>new CoreCompanyInvitationDeliveryWorker(
+                tenant=>new HrmDbContext(options,tenant),provider.GetRequiredService<CoreCompanyInvitationMail>(),
+                provider.GetRequiredService<ILogger<CoreCompanyInvitationDeliveryWorker>>()));
+        }
         return services;
     }
 

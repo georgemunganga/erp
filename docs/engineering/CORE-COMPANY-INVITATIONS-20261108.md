@@ -14,7 +14,8 @@ Core protected recipient handoff, review and acceptance HTTP are implemented
 behind a separate default-off flag. ERP recipient UI is implemented and tested
 with synthetic API responses and now qualified against actual Laravel/Core
 handlers in an isolated browser fixture. Guest application controls are qualified;
-edge controls, deployed ingress and delivery remain.
+edge controls, deployed ingress and live delivery remain. A dedicated default-off
+Core delivery worker/SMTP adapter is implemented; qualification is in progress.
 No production activation.
 ## 4. Parent
 CORE-COMPANY-TEAM-20261108.md; one ERP release for SaaS and dedicated installations.
@@ -60,6 +61,10 @@ Recipient HTTP/browser contract (Core HTTP, account consent and ERP UI implement
 ## 9. States
 Pending at revision1; accepted/revoked at revision2. Expiry is computed from
 ExpiresAt without rewriting history. Terminal outcomes cannot be repurposed.
+Delivery is separate: its existing ID-only outbox row starts pending, retryable
+failure is failed with a future available_at, and outcomes are delivery-accepted,
+delivery-suppressed, delivery-invalid or delivery-exhausted. delivery-accepted
+means the SMTP call returned acceptance, not inbox receipt or company acceptance.
 ## 10. Permissions
 Owner may invite administrators/members; administrator may invite ordinary members only.
 Owner promotion remains an explicit owner-authorized action. Server enforces all.
@@ -160,6 +165,38 @@ default-off behavior. Core validates exact issuer/subject/client/product/purpose
 bounded observation time, email syntax and operational_access_granted=false.
 ## 22. Operations
 No real mail, customer access, production deployment or DNS changes in this stage.
+ERP:CompanyInvitationDelivery:Enabled defaults false and requires the product,
+licensing, team and invitation flags. Only API mode starts the worker; migration
+and generic publisher modes do not instantiate SMTP or start background delivery.
+Dedicated ERP:CompanyInvitationDelivery:Smtp:{Host,Port,From,Username,Password}
+settings are required when enabled. Default port587 uses mandatory STARTTLS and
+normal certificate validation; there is no configuration switch to plaintext or
+untrusted certificates. The sender display name is Kuubu, independent of HRM.
+Credentials are supplied securely by operations, never returned to the browser.
+
+The worker reuses Core's outbox and attempts/audit fields; no new schema or queue.
+The generic publisher permanently excludes invitation delivery events and refuses
+their completion. HRM notification retry/listing does not own these events.
+The dedicated store selects one due pending/failed event under PostgreSQL FOR
+UPDATE SKIP LOCKED, holding that row through outcome commit. A row-bound publisher
+tenant accessor scopes each save and attempt audit. IDs, issuer, original issue
+receipt/correlation, exact client/workspace binding, envelope hashes and fixed
+recipient URL are checked before mail preparation. Fresh license and current
+inviter/company/role are required. The final reread and bounded send hold the
+same company advisory lock used by governance mutations. Central licensing is a
+short current lease, not a distributed lock with the commercial database.
+
+Each cycle is bounded45 seconds; the transport deadline is at most20 seconds and
+no later than invitation/lease expiry. SMTP failures/uncertain acceptance retry
+with10-second exponential backoff capped900 seconds and eight attempts. Only
+fixed error codes are persisted; no transport exception, address or link enters
+the attempt audit/outbox. Audit carries event ID/state/attempt only. Suppressed,
+invalid, accepted and exhausted outcomes are terminal. Owned operator retry and
+sender-visible delivery status remain follow-up work; HRM admins cannot reset it.
+Before activation, upgrade/pause old generic publishers so an older binary cannot
+consume these delivery intents. Qualify real SMTP/TLS, deliverability and key-ring
+recovery, monitoring and operational retry on the actual deployment.
+
 The invitation session/prepare/start routes now have bounded in-process admission:
 60/10/20 requests per minute per connection-address bucket, and600/100/200 per
 process respectively.256 salted fixed buckets bound memory regardless of address
@@ -200,6 +237,13 @@ membership. Later accepted invitation creates only consented Core governance.
 ## 24. Recovery
 Lost responses retry the same operation key. No replay may resurrect revoked
 membership. Migrations must preserve populated invitations and immutable receipts.
+SMTP is at least once: a crash after relay acceptance but before the outcome
+transaction commits can cause another email. Every retry keeps the same outbox
+row, protected invitation/link and Message-ID. SMTP does not guarantee deduplication;
+do not claim exactly-once email. Acceptance remains its separately idempotent
+company command. Cancellation rolls back an unconfirmed delivery transaction;
+the original durable intent remains available for recovery. Live relay acceptance,
+inbox delivery and recipient company acceptance are distinct evidence.
 Issue retries return the historical receipt after current role/license checks;
 new keys conflict while the same recipient has an unexpired pending invitation.
 Acceptance retries require a still-usable explicit member/link/principal and
@@ -218,6 +262,21 @@ delivery retry, browser acceptance, cross-tenant and recovery gates afterward.
 Do not enable this contract before account consent/relay, Core invitations,
 delivery, migrations/runtime grants, audit and complete browser flow qualify.
 ## 28. Evidence
+### Dedicated delivery implementation checkpoint
+
+348 focused Windows checks passed/18 native-only skips. Infrastructure/API/test
+builds succeeded; final API/test warnings27/20 are existing. Evidence:
+inspection/qualifications/invitation-delivery-04. The final test-only build reuses
+independent unchanged API/Infrastructure outputs from03/01; all source inputs are
+recorded. It covers committed target/receipt/client binding, current/expired/
+revoked/late-revoked inviter authority, unavailable license, stable message identity,
+transport failure, redacted errors, Kuubu message rendering, invalid SMTP settings,
+default-off dependencies and non-API SMTP exclusion. Native SKIP LOCKED contention,
+authority-lock serialization, committed outcomes, cancellation rollback and attempt
+cap are implemented as explicit native facts and still require their own run.
+No SMTP network/inbox delivery, live settings or activation is claimed. See
+backend/hrm-api/tools/CompanyInvitationDelivery/README.md for operation boundaries.
+
 ### Qualified guest admission checkpoint —9 November2026
 
 Published runtime9abd460999131f1a922faadfaca2e8e863c92f34 passed52 native
