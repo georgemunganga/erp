@@ -53,7 +53,8 @@ public sealed class ProductInvitationSmtpBridgeTests
     public async Task Private_TLS_adapter_receives_browser_invitation_until_explicit_stop()
     {
         var marker=Environment.GetEnvironmentVariable("KUUBU_INVITATION_SMTP_BRIDGE_MARKER")!;
-        Assert.InRange(marker.Length,43,128);
+        // The existing provider fixture generates a random UUID v4 marker.
+        Assert.True(Guid.TryParseExact(marker,"D",out var markerId) && markerId!=Guid.Empty);
         var ready=Environment.GetEnvironmentVariable("KUUBU_INVITATION_SMTP_BRIDGE_READY")!;
         Assert.True(Path.IsPathFullyQualified(ready));Assert.False(File.Exists(ready));
         using var lifetime=new CancellationTokenSource(TimeSpan.FromMinutes(20));
