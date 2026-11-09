@@ -1,3 +1,53 @@
+# Owner module permission editor — 9 November 2026
+
+Published ERP/UI source `68de4d6eb6cf2dbb783e8ebd7aba0cf8b480d28e` connects the owner company review
+at `/workspace-access` to the qualified permission API. Companion API e52e8049
+remains unchanged (seven C# source hashes verified); Foundation runtime75cc91ff
+and branded website consent1ade23e7 are unchanged. ERP main remains
+83ee9fd51d1d44142c493b088be4b0bf054dbfac. Classic ERP authentication/tenant shell,
+login/picker response contracts and the API's default-off activation are unchanged.
+
+Owners choose an explicit member and licensed HRM/Procurement module, review the
+current membership/grant revisions, and select roles/actions and company or
+nonempty branch scope. Company-wide access requires separate unchecked consent
+for all current/future branches after every review. Shared confirmation dialog
+names the person/company/module, roles/actions and selected branches. Revocation
+has its own confirmation/empty operational snapshot. New/stale grants do not
+inherit old choices; inactive identities cannot receive new grants. Procurement
+switching clears HR choices. Branch/member paging and late response cancellation
+preserve company/person boundaries. No credentials or grants enter browser storage.
+
+Strict client DTOs reject wrong member/module, extra selectors, duplicate IDs,
+unexpected admission, invalid catalogs or contradictory grant state. Transport is
+same-origin/no-store with bounded timeouts and no automatic POST retry. Uncertain
+writes lock the draft and retain the exact reviewed payload/key for explicit
+retry or allow an explicit current-state reload. Conflicts require fresh review.
+Company change, sign-out and expired sign-in clear/unmount permission state and
+cancel work. Server commands still recheck proof, ownership, license, revisions
+and branch validity; UI state is never authoritative. Saving records a permission
+decision, not an ERP session/employee or operational launch.
+
+Acceptance:122 client contracts, targeted lint, production build/typecheck and23
+browser cases pass (13 editor plus10 existing company-picker regressions).
+390px editor/dialog screenshots were inspected; layout fits and final review
+names branches.368 source files and493 immutable build outputs match manifests;
+owned SSR child/listener stopped, no router source sync needed. UI01 retains121
+contracts/22 passing browser cases before added catalog guards and explicit
+Procurement coverage. Source/build evidence: inspection/qualifications/
+module-access-ui-02 and module-access-ui-verification-01/verification.json.
+Companion API retains579 Windows/68 PostgreSQL scope, verified separately.
+
+Browser API responses are synthetic. This does not qualify the actual branded
+website/relay/Passport/Core/database browser composition, production ingress or
+end-to-end permission persistence. Next: run that composed editor/picker journey,
+add bound revocable ERP sessions, then enforce module/company/branch routes and
+business data access. Production DB/ingress/proxy/rate/path-only logging,
+monitoring/capacity/recovery, SMTP/inbox activation and controlled rollout remain
+gates. Lenco, hosting/domain/email products and dedicated/on-premise/offline
+licensing/upgrades/backup restore remain programme work. All modes keep one
+maintained ASP.NET/Docker codebase. No production schema/config/flags, Perfex, DNS,
+external payment/mail or main/UI-main/B1 change. Keep ERP PR201/Foundation PR3 draft.
+
 # Owner module permission API — 9 November 2026
 
 Published Core source `e52e804912958a742e83d9e2c0cb1b327a025052` connects the qualified ledger to
