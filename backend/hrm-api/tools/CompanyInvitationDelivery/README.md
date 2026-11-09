@@ -60,3 +60,8 @@ The separate [private SMTP/TLS wire gate](SMTP-WIRE-QUALIFICATION.md) runs the
 production adapter against an isolated TLS sink, including cancellation and
 PostgreSQL lock release. It does not qualify production sender configuration or
 inbox delivery.
+
+The [private browser/SMTP composition](SMTP-BROWSER-QUALIFICATION.md) obtains the
+recipient link from received MIME and combines the real PostgreSQL delivery store,
+Laravel identity/consent and Kuubu browser acceptance. Its test-only transport
+proxy and local loopback bindings are explicit; it is not production activation.

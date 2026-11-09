@@ -1,3 +1,61 @@
+# Browser/SMTP invitation checkpoint —9 November2026
+
+Published runtimecddedcf696e8040fd32891fe215d8ff2d14ea371 passed the actual Laravel/Kuubu/Core
+browser journey in00:01:23.5172896, with a real PostgreSQL delivery store/resolver
+and Linux SMTP adapter. The browser creates the company/invitation; a protected
+test endpoint processes the durable intent, and the recipient link is parsed
+from the received TLS/authenticated MIME message. Direct decryption preview is
+disabled in this mode. Own Kuubu login, explicit personal enrollment, separate
+recipient consent, company/role confirmation, committed-response loss/exact retry
+and actual subscription suspension/replay denial all passed. No preaccepted
+staff membership was seeded.
+
+The test-only mail proxy crosses owned local loopback ports to the production
+SMTP adapter in a private Linux container. This is an explicit transport
+composition, not a new deployed production process or background-worker-loop
+qualification. The same portable managed test assembly runs on Windows/Linux;
+the Windows managed VSTest runner requires DOTNET_ReadyToRun=0 on Linux and the
+matching.NET/ASP.NET10.0.14 image. Certificates/keys live on a private Linux
+volume; no host trust-store changes or application validation callbacks. Actual
+loopback port mappings are recorded, including the additional owned host-facing
+bridge needed on this Docker29.6.1 installation.
+
+Independent read-only PostgreSQL audit proves one company, two exact federated
+users/links/members, one accepted revision2 invitation, two immutable command
+receipts, five audits/five events and one SMTP-accepted delivery attempt. Exact
+request hashes, actor/tenant/company bindings, six validated foreign keys and two
+history guards match. No credentials, operational ERP sessions or module grants.
+Independent Foundation SQLite audit proves two personal enrollments, one payer
+membership and zero recipient payer memberships; subscription suspension remains
+persisted. Frozen490 ERP/25 website outputs,136 Foundation sources,
+35 copied dependency files and586 test-runtime files retain
+their recorded hashes/size/mtime. All owned provider/SSR/mail/PostgreSQL services
+are stopped; synthetic databases and failed attempts remain retained.
+
+The first real-clock journey passed browser/SMTP but its strict SQL audit found
+one microsecond of expiry drift: issue read the clock twice. A new advancing-
+clock regression failed against the unchanged old API (48 hours plus1ms).
+The fix uses one recorded issue instant for CreatedAt/ExpiresAt;352 Windows
+checks passed/30 opt-in skips, and this new native browser/audit retains the
+exact48-hour check. No historical test row or assertion was changed to pass.
+The mail adapter is byte-identical to previously qualified2ff5726c (nine private
+wire cases); this increment changes issue-time capture and test infrastructure.
+
+Evidence: inspection/qualifications/browser-mail-browser-06/verification.json,
+browser-mail-audit-06/audit.json, browser-mail-local-native-06/linux-evidence,
+browser-mail-green-04 and clock-regression-red-proof-03.json. Earlier failed
+launch, marker/SSH, runtime/bootstrap and clock-audit attempts remain retained.
+Runtime metadata correction: the pinned SDK10.0.403 image contains.NET10.0.14;
+EF package10.0.11 is separate. Its earlier pinned digest/results are unchanged.
+
+Secure production sender/DNS authentication, external inbox delivery,
+sender-visible delivery status, owned retry/monitoring, deployed ingress and
+licensed ERP admission/company/branch/module isolation remain release gates.
+PR201 and Foundation PR3 stay draft. No live flag, production schema/config,
+real mail/payment, Perfex, DNS or main/UI-main/B1 change. Dedicated/on-premise
+installation, offline licensing, upgrades and backup/recovery remain separate
+qualification milestones. UI067362a0/Foundation15707bd9/website02f42d39 unchanged.
+
 # SMTP/TLS wire checkpoint —9 November2026
 
 Published runtime2ff5726c3636598f25e5991c1c8e2a071c3e5081 passed all nine

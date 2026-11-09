@@ -42,7 +42,7 @@ Capture/verdict errors must not echo credentials, message bodies or links.
 
 The fixture does not install an application certificate-validation callback.
 Kuubu's adapter accepts DNS hostnames only. The initial IP fixture exposed the
-[runtime's IP Common Name fallback](https://raw.githubusercontent.com/dotnet/runtime/v10.0.11/src/native/libs/System.Security.Cryptography.Native/openssl.c);
+[runtime's IP Common Name fallback](https://raw.githubusercontent.com/dotnet/runtime/v10.0.14/src/native/libs/System.Security.Cryptography.Native/openssl.c);
 its failed result remains retained. The conflicting-DNS-SAN case must still fail
 authentication with no credentials or email transferred. Cancellation checks
 require the send task to terminate; a test timeout cannot count as a rejection.
@@ -53,3 +53,10 @@ Linux process trust uses the documented [OpenSSL certificate-store environment](
 The adapter uses [SmtpClient STARTTLS](https://learn.microsoft.com/en-us/dotnet/api/system.net.mail.smtpclient.enablessl?view=net-10.0).
 These tests do not qualify a production SMTP account, DNS sender authentication,
 inbox delivery, browser-to-email journey or live activation.
+
+Runtime metadata correction: pinned SDK10.0.403 image
+`sha256:212fe4cb74627d5adf9817a4088906ae3edff1bd853bb27565d4b46731efe61e`
+contains .NET/ASP.NET10.0.14. Earlier10.0.11 runtime wording was incorrect;
+EF package10.0.11 is separate. The retained image digest and native results are
+unchanged. Private runtime-only qualifications must match the runner's declared
+minimum framework version; do not force it onto an older patch.

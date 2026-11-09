@@ -15,9 +15,9 @@ behind a separate default-off flag. ERP recipient UI is implemented and tested
 with synthetic API responses and now qualified against actual Laravel/Core
 handlers in an isolated browser fixture. Guest application controls are qualified;
 edge controls, deployed ingress and live delivery remain. A dedicated default-off
-Core delivery worker/SMTP adapter is implemented. Store, authority and capture-
-transport and private socket/TLS behavior are qualified below; production sender
-configuration, inbox delivery, joint browser/mail verification and delivery UI remain.
+Core delivery worker/SMTP adapter is implemented. Store/authority, private
+socket/TLS and the joint browser/SMTP acceptance journey are qualified below;
+production sender configuration, external inbox delivery and delivery UI remain.
 No production activation.
 ## 4. Parent
 CORE-COMPANY-TEAM-20261108.md; one ERP release for SaaS and dedicated installations.
@@ -74,6 +74,8 @@ Owner promotion remains an explicit owner-authorized action. Server enforces all
 Email match alone grants nothing. Require an exact targeted invitation, token,
 verified identity, enrollment, explicit acceptance and current Core guards.
 Do not canonicalize provider aliases/dots or infer access from email domains.
+Capture one UTC issue instant for both CreatedAt and ExpiresAt; expiry is exactly
+48 hours from that recorded instant, including when the clock advances.
 ## 12. Data
 Invitation: immutable company/target hash/role/issuer/inviter binding, SHA256 secret
 hash,48-hour expiry, revision, actor and accepted exact subject/member references.
@@ -267,6 +269,64 @@ delivery retry, browser acceptance, cross-tenant and recovery gates afterward.
 Do not enable this contract before account consent/relay, Core invitations,
 delivery, migrations/runtime grants, audit and complete browser flow qualify.
 ## 28. Evidence
+### Qualified browser/SMTP and real-clock checkpoint —9 November2026
+
+Published runtimecddedcf696e8040fd32891fe215d8ff2d14ea371 passed the actual Laravel/Kuubu/Core
+browser journey in00:01:23.5172896, with a real PostgreSQL delivery store/resolver
+and Linux SMTP adapter. The browser creates the company/invitation; a protected
+test endpoint processes the durable intent, and the recipient link is parsed
+from the received TLS/authenticated MIME message. Direct decryption preview is
+disabled in this mode. Own Kuubu login, explicit personal enrollment, separate
+recipient consent, company/role confirmation, committed-response loss/exact retry
+and actual subscription suspension/replay denial all passed. No preaccepted
+staff membership was seeded.
+
+The test-only mail proxy crosses owned local loopback ports to the production
+SMTP adapter in a private Linux container. This is an explicit transport
+composition, not a new deployed production process or background-worker-loop
+qualification. The same portable managed test assembly runs on Windows/Linux;
+the Windows managed VSTest runner requires DOTNET_ReadyToRun=0 on Linux and the
+matching.NET/ASP.NET10.0.14 image. Certificates/keys live on a private Linux
+volume; no host trust-store changes or application validation callbacks. Actual
+loopback port mappings are recorded, including the additional owned host-facing
+bridge needed on this Docker29.6.1 installation.
+
+Independent read-only PostgreSQL audit proves one company, two exact federated
+users/links/members, one accepted revision2 invitation, two immutable command
+receipts, five audits/five events and one SMTP-accepted delivery attempt. Exact
+request hashes, actor/tenant/company bindings, six validated foreign keys and two
+history guards match. No credentials, operational ERP sessions or module grants.
+Independent Foundation SQLite audit proves two personal enrollments, one payer
+membership and zero recipient payer memberships; subscription suspension remains
+persisted. Frozen490 ERP/25 website outputs,136 Foundation sources,
+35 copied dependency files and586 test-runtime files retain
+their recorded hashes/size/mtime. All owned provider/SSR/mail/PostgreSQL services
+are stopped; synthetic databases and failed attempts remain retained.
+
+The first real-clock journey passed browser/SMTP but its strict SQL audit found
+one microsecond of expiry drift: issue read the clock twice. A new advancing-
+clock regression failed against the unchanged old API (48 hours plus1ms).
+The fix uses one recorded issue instant for CreatedAt/ExpiresAt;352 Windows
+checks passed/30 opt-in skips, and this new native browser/audit retains the
+exact48-hour check. No historical test row or assertion was changed to pass.
+The mail adapter is byte-identical to previously qualified2ff5726c (nine private
+wire cases); this increment changes issue-time capture and test infrastructure.
+
+Evidence: inspection/qualifications/browser-mail-browser-06/verification.json,
+browser-mail-audit-06/audit.json, browser-mail-local-native-06/linux-evidence,
+browser-mail-green-04 and clock-regression-red-proof-03.json. Earlier failed
+launch, marker/SSH, runtime/bootstrap and clock-audit attempts remain retained.
+Runtime metadata correction: the pinned SDK10.0.403 image contains.NET10.0.14;
+EF package10.0.11 is separate. Its earlier pinned digest/results are unchanged.
+
+Secure production sender/DNS authentication, external inbox delivery,
+sender-visible delivery status, owned retry/monitoring, deployed ingress and
+licensed ERP admission/company/branch/module isolation remain release gates.
+PR201 and Foundation PR3 stay draft. No live flag, production schema/config,
+real mail/payment, Perfex, DNS or main/UI-main/B1 change. Dedicated/on-premise
+installation, offline licensing, upgrades and backup/recovery remain separate
+qualification milestones. UI067362a0/Foundation15707bd9/website02f42d39 unchanged.
+
 ### Qualified SMTP/TLS wire checkpoint —9 November2026
 
 Published runtime2ff5726c3636598f25e5991c1c8e2a071c3e5081 passed all nine
@@ -310,7 +370,7 @@ UI067362a0/Foundation15707bd9/website02f42d39 remain unchanged.
 ### DNS certificate-identity hardening checkpoint
 
 Initial wire source93374bd3 passed seven of eight native cases; the conflicting
-IP SAN case failed because the pinned .NET10.0.11 native IP-name matcher falls
+IP SAN case failed because the pinned .NET10.0.14 native IP-name matcher falls
 back to a matching Common Name. Independent OpenSSL verify_ip rejected the same
 certificate. The failed publication/receipt/TRX remain in
 inspection/qualifications/smtp-wire-native-93374bd3-01/failure-evidence-01;
