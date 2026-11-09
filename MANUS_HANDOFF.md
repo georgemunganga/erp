@@ -1,3 +1,37 @@
+# Trusted ERP session-creation material qualified — 9 November 2026
+
+Published ERP source `80c4cfd6d4ef2f389afd8cd0bd02644da2a1ad76` supplies trusted session-creation material only
+after final protected credential-store/current-person verification. Handle and
+browser binding are server-only; the absolute deadline is the earliest stored
+credential, authenticated ticket or protected browser expiry. Refresh cannot
+reset it. Material is excluded from default JSON and diagnostic text is redacted.
+This does not issue an ERP cookie or activate default authentication/routes.
+
+Qualification: 651 Windows passes/44 explicit environment skips;
+163 native PostgreSQL passes/0 skips. All three new cases
+pass in each, including deterministic browser-versus-ticket deadline limits,
+refresh/reopen without extending expiry, secret serialization and outage/revoke
+without reusable material. HTTP provider responses are synthetic; OAuth/cookie
+middleware, encrypted storage and relational regression checks are actual.
+API/test builds retain27/21 existing warnings. The initial missing test namespace
+build is retained; no permission or test assertion was weakened.
+
+Evidence: inspection/qualifications/operational-session-material-core-01 (API),
+operational-session-material-core-03 (final tests),
+operational-session-material-native-02 and
+operational-session-material-verification-01/verification.json. Earlier successful
+core02/native01 and the deterministic-test refinement retain their own inputs.
+No production services, schema, DNS, Perfex or payment rails changed.
+
+Next: connect the durable ERP registry to a secure HttpOnly cookie and deliberate
+product authentication, then protected module/company/branch reads and writes and
+actual browser ERP launch. Existing local/OIDC dedicated/on-premise operation,
+separate branded sign-in and explicit enrollment remain required. SaaS rollout,
+Lenco, hosting/domain/email and on-premise offline licensing/upgrades/restore
+remain programme work. Keep both PRs draft; full platform readiness is unproven.
+
+## Previous registry checkpoint
+
 # Durable ERP session registry qualified — 9 November 2026
 
 Published ERP registry source `de699313adcafdce6fc1169e6bedbeb0f5a36965`
