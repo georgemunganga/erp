@@ -2,11 +2,11 @@ x-smtp-environment: &smtp-environment
       HRM__PublicUrl: https://erp.amizopower.co.zm
       HRM__NotificationTransport: smtp
       HRM__NotificationFallback: smtp
-      HRM__Smtp__Host: smtp.hostinger.com
+      HRM__Smtp__Host: smtp.amizopower.co.zm
       HRM__Smtp__Port: "587"
       HRM__Smtp__UseTls: "true"
       HRM__Smtp__Username: notify@amizopower.co.zm
-      HRM__Smtp__Password: ${HRM_SMTP_PASSWORD}
+      HRM__Smtp__Password: ${ERP_SMTP_PASSWORD:?Set ERP_SMTP_PASSWORD in the private environment}
       HRM__Smtp__From: notify@amizopower.co.zm
       HRM__Smtp__ReplyTo: notify@amizopower.co.zm
       HRM__Smtp__FromName: Amizopower Engineers
