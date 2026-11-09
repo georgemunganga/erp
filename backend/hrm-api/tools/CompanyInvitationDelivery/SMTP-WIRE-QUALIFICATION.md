@@ -28,14 +28,15 @@ For the wire test process only, set these absolute paths:
 
 Run VSTest with filter `FullyQualifiedName~SmtpCompanyInvitationWireTests` in a
 fresh result directory. The six transport cases require Linux/process trust;
-the two store-to-wire cases also require the private PostgreSQL fixture. With
-no opt-in environment, all eight skip. The normal compatibility run must omit
+the three store-to-wire cases also require the private PostgreSQL fixture. With
+no opt-in environment, all nine skip. The normal compatibility run must omit
 the fixture/trust/database environment again.
 
 Tests cover trusted TLS/authentication and actual MIME/link/Message-ID transfer,
 missing STARTTLS, untrusted certificates, host mismatch, rejected recipient,
 cancellation awaiting acknowledgement, actual PostgreSQL worker acceptance and
-lost acknowledgement followed by stable-message retry. Row outcomes/audits and
+lost acknowledgement followed by stable-message retry, and cancellation rollback
+with independently acquired row/company locks. Row outcomes/audits and
 absence of membership/session/module effects require independent SQL inspection.
 Capture/verdict errors must not echo credentials, message bodies or links.
 

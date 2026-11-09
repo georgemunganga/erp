@@ -55,3 +55,8 @@ require the existing explicitly prepared private PostgreSQL fixture via
 Tests create isolated `company_team_*` databases. Use new build/result/fixture
 directories and retain failed attempts. The current capture transport tests do
 not prove production SMTP/TLS, inbox delivery or live activation.
+
+The separate [private SMTP/TLS wire gate](SMTP-WIRE-QUALIFICATION.md) runs the
+production adapter against an isolated TLS sink, including cancellation and
+PostgreSQL lock release. It does not qualify production sender configuration or
+inbox delivery.

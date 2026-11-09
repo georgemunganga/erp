@@ -1,3 +1,43 @@
+# SMTP/TLS wire checkpoint —9 November2026
+
+Published runtime2ff5726c3636598f25e5991c1c8e2a071c3e5081 passed all nine
+actual SMTP/TLS wire cases, zero skips/failures, using the production adapter
+without a send override or certificate-validation callback. A private Linux
+loopback sink and process-only CA verify trusted STARTTLS/auth/MIME/link/Message-ID,
+missing STARTTLS, untrusted/conflicting-DNS-SAN certificates, rejected recipient,
+prompt cancellation, PostgreSQL worker acceptance, lost acknowledgement/retry and
+cancellation rollback with independent row/company-lock acquisition. DNS SMTP
+hostnames are required, including internal DNS for dedicated/on-premise relays.
+
+The pinned client's final acknowledgement read was not promptly interrupted by
+token cancellation alone. The adapter now aborts its active connection on cancel;
+the send task must terminate within five seconds, with no timeout counted as a
+rejection. A cancelled worker leaves its intent pending with zero attempts and no
+delivery-attempt audit, and both locks are independently acquirable.
+
+Focused Linux regression351 passed/29 opt-in skips. Independent read-only SQL
+three new databases proves three invitations/receipts/intents, three governance
+audits/six events and three delivery-attempt audits: two SMTP-accepted rows (one
+after lost acknowledgement/retry), one cancelled pending row. Exact scope/history
+bindings match; no recipient memberships, credentials, ERP sessions or module
+grants. All87 copied dependency files retain hash/size/nsmtime; SDK exited0 and
+test database is stopped. Source archive SHA256:65a3625acc95a74527d7aa1c4453bb06142d7aef9af13601b15bd5f8e0b59a70.
+Evidence: inspection/qualifications/smtp-wire-native-2ff5726c-05/verification.json
+and audit.json. Windows local03 passed351/28 skips on the abort fix before the
+ninth Linux-only fact was added; final native05 compiles and exercises that fact.
+
+Failed native01 (IP Common Name fallback) and02 (blocked cancellation) remain
+retained. Preflight03 and partial transfer04 never launched a remote test job;
+05 uses an independently uploaded source archive. No assertion was weakened.
+
+This proves private socket/TLS and worker behavior, not external inbox delivery,
+production sender configuration or a browser-to-email journey. Secure sender
+setup, joint browser/mail verification, sender-visible delivery status, owned
+operator retry/monitoring, deployed ingress and licensed ERP admission/isolation
+remain gates. Mail stays default off; PR201 remains draft. No production schema,
+live flag, real mail/payment, Perfex, DNS or main/UI-main/B1 change.
+UI067362a0/Foundation15707bd9/website02f42d39 remain unchanged.
+
 # Invitation delivery checkpoint —9 November2026
 
 Published runtime17d43750192c8f14d05489ff4cf73e416d3a1165 requires sender and
