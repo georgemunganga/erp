@@ -20,6 +20,7 @@ internal sealed class CommercialLicenseLease
     internal string EnrollmentId { get; }
     internal int WorkspaceLimit { get; }
     internal DateTimeOffset ExpiresAt { get; }
+    internal string[] ModuleCodes => modules.Order(StringComparer.Ordinal).ToArray();
     internal CommercialLicenseLease(string enrollment, IEnumerable<string> modules, int workspaceLimit, DateTimeOffset expiry,
         TimeProvider clock, long started, TimeSpan lifetime)
     {

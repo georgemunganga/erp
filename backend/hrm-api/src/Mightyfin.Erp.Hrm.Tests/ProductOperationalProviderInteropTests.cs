@@ -100,9 +100,10 @@ public sealed class ProductOperationalProviderInteropTests
         using var bootstrap=await Send(HttpMethod.Get,ProductOperationalFlow.Prefix+"/bootstrap");
         var csrf=(await bootstrap.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("csrf_token").GetString()!;
         Assert.Empty(Directory.GetFiles(state));
-        using var start=await Send(HttpMethod.Post,ProductOperationalFlow.Prefix+"/start",csrf);Assert.Equal(HttpStatusCode.Redirect,start.StatusCode);
-        var intent=QueryHelpers.ParseQuery(start.Headers.Location!.Query);
-        Assert.Equal("https://www.kuubuerp.com",start.Headers.Location.GetLeftPart(UriPartial.Authority));
+        using var start=await Send(HttpMethod.Post,ProductOperationalFlow.Prefix+"/start",csrf);Assert.Equal(HttpStatusCode.OK,start.StatusCode);Assert.Null(start.Headers.Location);
+        var authorizationUrl=new Uri((await start.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("authorization_url").GetString()!);
+        var intent=QueryHelpers.ParseQuery(authorizationUrl.Query);
+        Assert.Equal("https://www.kuubuerp.com",authorizationUrl.GetLeftPart(UriPartial.Authority));
         Assert.Equal("product:identity product:erp-session",intent["scope"]);
 
         // This HTTP actor explicitly logs in and opts in. It is not a browser UI qualification.
@@ -110,9 +111,9 @@ public sealed class ProductOperationalProviderInteropTests
         async Task<string> Csrf(){using var response=await person.GetAsync("/api/v1/identity/csrf");Assert.Equal(HttpStatusCode.OK,response.StatusCode);return (await response.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("csrf_token").GetString()!;}
         async Task<HttpResponseMessage> Post(string path,object body,string token){var request=new HttpRequestMessage(HttpMethod.Post,path){Content=JsonContent.Create(body)};request.Headers.Add("X-CSRF-TOKEN",token);return await person.SendAsync(request);}
         using(var login=await Post("/api/v1/identity/login",new{email="owner@example.test",password="AcceptancePassword123!"},await Csrf()))Assert.Equal(HttpStatusCode.OK,login.StatusCode);
-        using(var denied=await person.GetAsync("/api/v1/product-identity/authorize"+start.Headers.Location.Query))Assert.Equal(HttpStatusCode.Forbidden,denied.StatusCode);
+        using(var denied=await person.GetAsync("/api/v1/product-identity/authorize"+authorizationUrl.Query))Assert.Equal(HttpStatusCode.Forbidden,denied.StatusCode);
         using(var enrolled=await Post("/api/v1/identity/products/kuubu/enroll",new{consent=true},await Csrf()))Assert.Equal(HttpStatusCode.Created,enrolled.StatusCode);
-        using var authorization=await person.GetAsync("/api/v1/product-identity/authorize"+start.Headers.Location.Query);Assert.Equal(HttpStatusCode.Redirect,authorization.StatusCode);
+        using var authorization=await person.GetAsync("/api/v1/product-identity/authorize"+authorizationUrl.Query);Assert.Equal(HttpStatusCode.Redirect,authorization.StatusCode);
         var callback=authorization.Headers.Location!;Assert.Equal("https://app.kuubuerp.com"+ProductOperationalFlow.Callback,callback.GetLeftPart(UriPartial.Path));
         Assert.Equal(intent["state"],QueryHelpers.ParseQuery(callback.Query)["state"]);
         using var accepted=await Send(HttpMethod.Get,callback.PathAndQuery);Assert.Equal(HttpStatusCode.Redirect,accepted.StatusCode);

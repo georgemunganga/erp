@@ -152,7 +152,12 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
 
 function RootShell({ children }: { children: ReactNode }) {
   const path = useRouterState({ select: (state) => state.location.pathname.replace(/\/$/, "") });
-  const productIdentityPage = ["/setup", "/team", "/accept-invitation"].includes(path);
+  const productIdentityPage = [
+    "/setup",
+    "/team",
+    "/accept-invitation",
+    "/workspace-access",
+  ].includes(path);
   return (
     <html lang="en">
       <head>
@@ -184,7 +189,7 @@ function RootComponent() {
   const { queryClient } = Route.useRouteContext();
   const productIdentityPage = useRouterState({
     select: (state) =>
-      ["/setup", "/team", "/accept-invitation"].includes(
+      ["/setup", "/team", "/accept-invitation", "/workspace-access"].includes(
         state.location.pathname.replace(/\/$/, ""),
       ),
   });

@@ -38,10 +38,17 @@ internal sealed class CoreCompanyAccess(HrmDbContext db, TimeProvider clock)
 
     internal async Task<(CoreCompanyCandidate[] Rows, string? Next)> DirectoryAsync(string issuer, string subject,
         Guid? after, CancellationToken cancellation = default)
+        => await DirectoryCoreAsync(issuer,subject,after,true,cancellation);
+
+    internal Task<(CoreCompanyCandidate[] Rows,string? Next)> MemberDirectoryAsync(string issuer,string subject,
+        Guid? after,CancellationToken cancellation=default)=>DirectoryCoreAsync(issuer,subject,after,false,cancellation);
+
+    private async Task<(CoreCompanyCandidate[] Rows,string? Next)> DirectoryCoreAsync(string issuer,string subject,
+        Guid? after,bool governanceOnly,CancellationToken cancellation)
     {
         if (!ValidIdentity(issuer, subject)) return ([], null);
-        var query = Candidates(issuer, subject).Where(x => x.Role == CoreCompanyRoles.Owner
-            || x.Role == CoreCompanyRoles.Administrator);
+        var query = Candidates(issuer, subject);
+        if(governanceOnly)query=query.Where(x=>x.Role==CoreCompanyRoles.Owner || x.Role==CoreCompanyRoles.Administrator);
         if (after is { } cursor)
         {
             var text = cursor.ToString("D");

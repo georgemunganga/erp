@@ -25,6 +25,27 @@ namespace Mightyfin.Erp.Hrm.Tests;
 public sealed class ProductOperationalFlowTests
 {
     [Fact]
+    public async Task Company_discovery_requires_the_distinct_bound_identity_and_rejects_unreviewed_selectors()
+    {
+        await using var f=await Fixture.Start(companies:true);
+        Assert.Equal(HttpStatusCode.Unauthorized,(await f.Get(ProductOperationalFlow.Prefix+"/companies")).StatusCode);
+        var signed=await f.Callback(await f.Challenge());var cookie=SetCookie(signed,ProductOperationalFlow.Cookie)+"; "+SetCookie(signed,ProductOperationalBrowser.Cookie);
+        var reads=f.Channel.Reads;
+        foreach(var query in new[]{"?tenant_id=foreign","?after=bad","?after=11111111-1111-1111-1111-111111111111&after=22222222-2222-2222-2222-222222222222"})
+            Assert.Equal(HttpStatusCode.BadRequest,(await f.Get(ProductOperationalFlow.Prefix+"/companies"+query,cookie)).StatusCode);
+        Assert.Equal(reads,f.Channel.Reads);
+        var page=await f.Get(ProductOperationalFlow.Prefix+"/companies",cookie);Assert.Equal(HttpStatusCode.OK,page.StatusCode);
+        var data=await page.Content.ReadFromJsonAsync<JsonElement>();Assert.Empty(data.GetProperty("companies").EnumerateArray());Assert.False(data.GetProperty("operational_access_granted").GetBoolean());
+        Assert.Equal(HttpStatusCode.Forbidden,(await f.Get(ProductOperationalFlow.Prefix+"/companies/11111111-1111-1111-1111-111111111111?link_id=22222222-2222-2222-2222-222222222222",cookie)).StatusCode);
+        Assert.Empty(await f.Db.LocalSessions.IgnoreQueryFilters().ToArrayAsync());
+    }
+    [Fact]
+    public async Task Company_discovery_defaults_off_independently_of_person_sign_in()
+    {
+        await using var f=await Fixture.Start();Assert.Equal(HttpStatusCode.ServiceUnavailable,(await f.Get(ProductOperationalFlow.Prefix+"/companies")).StatusCode);
+        Assert.Equal(0,f.Channel.Reads);
+    }
+    [Fact]
     public async Task Correlated_PKCE_callback_holds_credentials_server_side_and_rechecks_person_without_ERP_admission()
     {
         await using var f=await Fixture.Start();var challenge=await f.Challenge();
@@ -32,7 +53,7 @@ public sealed class ProductOperationalFlowTests
         Assert.Equal(Fixture.Origin+ProductOperationalFlow.Callback,challenge.Parameters["redirect_uri"]);
         Assert.Equal("S256",challenge.Parameters["code_challenge_method"]);Assert.False(challenge.Parameters.ContainsKey("client_secret"));
         var response=await f.Callback(challenge);Assert.Equal(HttpStatusCode.Redirect,response.StatusCode);
-        Assert.Equal(ProductOperationalFlow.Prefix+"/session",response.Headers.Location!.ToString());
+        Assert.Equal(ProductOperationalFlow.Landing,response.Headers.Location!.ToString());
         var identity=SetCookie(response,ProductOperationalFlow.Cookie);var browser=SetCookie(response,ProductOperationalBrowser.Cookie);
         foreach(var header in response.Headers.GetValues("Set-Cookie").Where(x=>x.StartsWith(ProductOperationalFlow.Cookie+"=") || x.StartsWith(ProductOperationalBrowser.Cookie+"="))) {
             Assert.Contains("secure",header.ToLowerInvariant());Assert.Contains("httponly",header.ToLowerInvariant());Assert.Contains("samesite=lax",header.ToLowerInvariant());Assert.DoesNotContain("domain=",header.ToLowerInvariant());
@@ -122,7 +143,7 @@ public sealed class ProductOperationalFlowTests
     {
         internal const string Origin="https://app.kuubuerp.com",ClientId="391bdeaa-87b3-44b3-8e64-2110dcc1a564",Secret="synthetic-operational-secret";
         internal required WebApplication App;internal required HttpClient Client;internal required Channel Channel;internal required string State;internal required HrmDbContext Db;internal AsyncServiceScope Scope;
-        internal static async Task<Fixture> Start(bool enabled=true,string mode="")
+        internal static async Task<Fixture> Start(bool enabled=true,string mode="",bool companies=false)
         {
             var root=Path.Combine(Path.GetTempPath(),"kuubu-operational-flow-"+Guid.NewGuid().ToString("N"));
             var keys=Path.Combine(root,"keys");var state=Path.Combine(root,"credentials");
@@ -131,11 +152,14 @@ public sealed class ProductOperationalFlowTests
             builder.Configuration.AddInMemoryCollection(new Dictionary<string,string?>{
                 ["ERP:ProductIdentity:Enabled"]="true",["ERP:ProductIdentity:ClientId"]="4798a03c-5ed7-4438-9ec9-d46f63a2f4f1",
                 ["ERP:ProductIdentity:ClientSecret"]="synthetic-setup-secret",["ERP:ProductIdentity:DataProtectionPath"]=keys,
-                ["ERP:OperationalIdentity:Enabled"]=enabled.ToString(),["ERP:OperationalIdentity:ClientId"]=ClientId,["ERP:OperationalIdentity:ClientSecret"]=Secret,["ERP:OperationalIdentity:StatePath"]=state});
+                ["ERP:OperationalIdentity:Enabled"]=enabled.ToString(),["ERP:OperationalIdentity:ClientId"]=ClientId,["ERP:OperationalIdentity:ClientSecret"]=Secret,["ERP:OperationalIdentity:StatePath"]=state,
+                ["ERP:ProductLicensing:Enabled"]=companies.ToString(),["ERP:OperationalCompanies:Enabled"]=companies.ToString()});
             builder.Services.AddHttpContextAccessor();builder.Services.AddScoped<ITenantAccessor>(_=>new FixedTenantAccessor("tenant-a"));
             builder.Services.AddDbContext<HrmDbContext>(options=>options.UseInMemoryDatabase(root));
             builder.Services.AddAuthentication(LocalAuthenticationHandler.Scheme).AddScheme<LocalAuthOptions,LocalAuthenticationHandler>(LocalAuthenticationHandler.Scheme,_=>{});
             builder.Services.AddProductIdentity(builder.Configuration);var channel=new Channel{Mode=mode};
+            if(companies)builder.Services.AddScoped(provider=>new CoreOperationalCompanies(provider.GetRequiredService<HrmDbContext>(),
+                (_,_)=>throw new InvalidOperationException("Unbound company must not reach licensing."),TimeProvider.System));
             if(enabled){builder.Services.Configure<OAuthOptions>(ProductOperationalFlow.OAuthScheme,o=>o.Backchannel=new HttpClient(channel){MaxResponseContentBufferSize=65536});
                 builder.Services.AddSingleton(new ProductOperationalSubject(new HttpClient(channel),TimeProvider.System,ClientId));}
             builder.Services.AddAuthorization();var app=builder.Build();app.UseProductIdentityOriginGuard();app.UseAuthentication();app.UseAuthorization();
@@ -147,8 +171,10 @@ public sealed class ProductOperationalFlowTests
         {
             var bootstrap=await Get(ProductOperationalFlow.Prefix+"/bootstrap");var browser=SetCookie(bootstrap,ProductOperationalBrowser.Cookie);
             var csrf=(await bootstrap.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("csrf_token").GetString()!;
-            var response=await Post("/start",browser,csrf);Assert.Equal(HttpStatusCode.Redirect,response.StatusCode);
-            var parameters=QueryHelpers.ParseQuery(response.Headers.Location!.Query).ToDictionary(x=>x.Key,x=>x.Value.ToString());Channel.Hash=parameters["code_challenge"];
+            var response=await Post("/start",browser,csrf);Assert.Equal(HttpStatusCode.OK,response.StatusCode);Assert.Null(response.Headers.Location);
+            var authorization=new Uri((await response.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("authorization_url").GetString()!);
+            Assert.True(response.Headers.CacheControl!.NoStore);Assert.Equal("www.kuubuerp.com",authorization.Host);
+            var parameters=QueryHelpers.ParseQuery(authorization.Query).ToDictionary(x=>x.Key,x=>x.Value.ToString());Channel.Hash=parameters["code_challenge"];
             var correlation=response.Headers.GetValues("Set-Cookie").Single(x=>x.StartsWith("__Host-kuubu_operational_correlation.")).Split(';')[0];
             return new(parameters,SetCookie(response,ProductOperationalBrowser.Cookie)+"; "+correlation);
         }

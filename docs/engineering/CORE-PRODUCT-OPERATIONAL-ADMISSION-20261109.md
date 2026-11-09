@@ -56,6 +56,35 @@ membership/client keys and preserve revocation before activation.
 Reuse existing Kuubu login, company selector, shell and controls. Explicitly
 select a company/module; show unavailable/denied/no-company/no-module states.
 GreenWebb commercial portal remains separately branded and owns billing access.
+
+### Connected workspace entry and company review contract
+
+`/workspace-access` is a public Kuubu identity entry outside the classic ERP
+authentication/tenant shell. It loads protected browser bootstrap and identity
+status; a deliberate Continue request posts empty JSON with CSRF and receives
+the server's fixed authorization URL in no-store JSON. The browser validates the
+exact issuer page/callback, seven protocol fields, S256 and scope pair before
+top-level navigation. OAuth correlation stays in HttpOnly cookies. Successful
+callback returns to this fixed page; no browser return URL is accepted.
+
+The separately default-off `ERP:OperationalCompanies:Enabled` capability requires
+operational identity and machine licensing. A read-only, paged company directory
+uses the freshly verified subject and active explicit Core memberships, including
+ordinary members; governance-only team discovery remains unchanged. Response
+contains company/link IDs, company name and governance role, not tenant/payer IDs.
+The selected-company read rechecks exact link/company membership and its immutable
+purchase binding, obtains current licensing and rechecks membership afterward.
+Directory pagination and selected-link parameters are canonical UUIDs; unknown,
+duplicate or malformed selectors fail before discovery. Browser-supplied tenant,
+subject, payer, enrollment and module selectors are never accepted.
+
+Company review distinguishes current commercial allowance, denied subscription
+and provider unavailability. Licensed modules are informational; a company role
+does not grant business actions. No ERP session/grant/branch context is created
+by listing or selecting. Page covers loading, signed out, unavailable, empty,
+expired, paging, changed access, review and sign-out, cancels stale selection
+requests and stores identity/selection only in memory. Company/module assignment
+and actual ERP launch remain follow-on work, not a successful dummy button.
 ## 14. UX
 Return to the same workflow after reauthentication; never silently switch a
 company or widen a branch. Handle provider failure separately from revocation.

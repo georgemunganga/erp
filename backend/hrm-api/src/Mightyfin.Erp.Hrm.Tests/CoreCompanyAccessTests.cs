@@ -13,6 +13,40 @@ public sealed class CoreCompanyAccessTests
     private const string Client = "391bdeaa-87b3-44b3-8e64-2110dcc1a564";
 
     [Theory]
+    [InlineData("member")][InlineData("owner")][InlineData("administrator")]
+    public async Task Operational_company_review_reads_only_explicit_membership_and_the_bound_purchase(string role)
+    {
+        await using var f=await Fixture.Start();await using var db=f.Context("untrusted-company-review");
+        await using(var change=f.Context(f.Binding.TenantId)){(await change.CompanyMemberships.SingleAsync()).Role=role;await change.SaveChangesAsync();}
+        var person=new OperationalSubjectObservation("42",Client,f.Clock.GetUtcNow().AddSeconds(30),f.Clock,f.Clock.GetTimestamp(),TimeSpan.FromSeconds(30));
+        var calls=0;
+        var api=new CoreOperationalCompanies(db,(enrollment,_)=>{calls++;Assert.Equal(Enrollment,enrollment);
+            return Task.FromResult(new CommercialLicenseResult(CommercialLicenseStatus.Authorized,new(Enrollment,["hrm","procurement"],2,
+                f.Clock.GetUtcNow().AddSeconds(60),f.Clock,f.Clock.GetTimestamp(),TimeSpan.FromSeconds(60))));},f.Clock);
+        var page=await api.DirectoryAsync(person,null);Assert.Equal(CompanyTeamReadStatus.Ok,page.Status);Assert.Equal(role,Assert.Single(page.Items!).Role);Assert.Equal(0,calls);
+        Assert.Equal(CompanyTeamReadStatus.Denied,(await api.ReviewAsync(person,Guid.NewGuid(),f.Binding.LegalEntityId)).Status);Assert.Equal(0,calls);
+        var review=await api.ReviewAsync(person,f.Link.Id,f.Binding.LegalEntityId);Assert.Equal(CompanyTeamReadStatus.Ok,review.Status);
+        Assert.Equal(["hrm","procurement"],Assert.IsType<string[]>(review.LicensedModules));Assert.Equal(role,review.Company!.Role);Assert.Equal(1,calls);
+        Assert.Empty(await db.LocalSessions.IgnoreQueryFilters().ToArrayAsync());Assert.Empty(await db.TenantRoleAssignments.IgnoreQueryFilters().ToArrayAsync());
+    }
+    [Theory]
+    [InlineData("revoked-member")][InlineData("person-expired")][InlineData("license-denied")][InlineData("license-unavailable")][InlineData("foreign-license")]
+    public async Task Operational_company_review_rechecks_person_membership_and_license_after_the_provider_call(string fault)
+    {
+        await using var f=await Fixture.Start();await using var db=f.Context("untrusted-company-review");
+        var person=new OperationalSubjectObservation("42",Client,f.Clock.GetUtcNow().AddSeconds(30),f.Clock,f.Clock.GetTimestamp(),TimeSpan.FromSeconds(30));
+        var api=new CoreOperationalCompanies(db,async (_,_)=> {
+            if(fault=="revoked-member") {await using var change=f.Context(f.Binding.TenantId);(await change.CompanyMemberships.SingleAsync()).IsActive=false;await change.SaveChangesAsync();}
+            if(fault=="person-expired")f.Clock.Advance();
+            return fault=="license-denied"?new(CommercialLicenseStatus.Denied):fault=="license-unavailable"?new(CommercialLicenseStatus.Unavailable)
+                :new CommercialLicenseResult(CommercialLicenseStatus.Authorized,f.License(enrollment:fault=="foreign-license"?"foreign":Enrollment));
+        },f.Clock);
+        var review=await api.ReviewAsync(person,f.Link.Id,f.Binding.LegalEntityId);
+        Assert.Equal(fault=="license-unavailable"?CompanyTeamReadStatus.Unavailable:CompanyTeamReadStatus.Denied,review.Status);
+        Assert.Null(review.Company);Assert.Null(review.LicensedModules);
+    }
+
+    [Theory]
     [InlineData(CoreCompanyRoles.Owner, true, true)]
     [InlineData(CoreCompanyRoles.Administrator, true, false)]
     [InlineData(CoreCompanyRoles.Member, false, false)]
@@ -27,6 +61,10 @@ public sealed class CoreCompanyAccessTests
         Assert.NotNull(decision); Assert.Equal(role, decision.Role);
         Assert.Equal(team, decision.MayManageTeam); Assert.Equal(owners, decision.MayManageOwners);
         Assert.Equal(f.Binding.TenantId, decision.TenantId);
+        var directory=await new CoreCompanyAccess(db,f.Clock).MemberDirectoryAsync(ProductCommercialLicense.Issuer,"42",null);
+        Assert.Equal(f.Binding.LegalEntityId,Assert.Single(directory.Rows).CompanyId);
+        var governance=await new CoreCompanyAccess(db,f.Clock).DirectoryAsync(ProductCommercialLicense.Issuer,"42",null);
+        Assert.Equal(team?1:0,governance.Rows.Length);
         Assert.Equal("", (await db.LocalUsers.SingleAsync()).RolesCsv);
         Assert.Empty(await db.LocalSessions.ToArrayAsync()); Assert.Empty(await db.TenantRoleAssignments.ToArrayAsync());
     }

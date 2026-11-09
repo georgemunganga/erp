@@ -112,6 +112,9 @@
 }
 
 :root {
+  /* Public Kuubu product identity, matching the maintained website mark.
+     Separate from the configurable employer/tenant accent surface. */
+  --product-kuubu-mark: #69c829;
   --radius: 0.5rem;
 
   /* brand — Newworldcargo */

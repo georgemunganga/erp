@@ -41,6 +41,7 @@ internal static class ProductOperationalFlow
     internal const string Prefix=ProductIdentity.Prefix+"/operational",Callback=Prefix+"/callback";
     internal const string Scheme="kuubu-operational-identity",OAuthScheme="kuubu-operational-oauth";
     internal const string Cookie="__Host-kuubu_operational_identity",Purpose="erp-session-v1";
+    internal const string Landing="/workspace-access";
     internal const string HandleClaim="kuubu:operational:handle",BindingClaim="kuubu:operational:binding";
     private const string ChallengeKey="kuubu:operational:challenge",BindingKey="kuubu:operational:browser",PurposeKey="kuubu:operational:purpose";
     private const string Origin="https://app.kuubuerp.com";
@@ -79,6 +80,14 @@ internal static class ProductOperationalFlow
             options.CorrelationCookie.Name="__Host-kuubu_operational_correlation.";options.CorrelationCookie.Path="/";
             options.CorrelationCookie.SecurePolicy=CookieSecurePolicy.Always;options.CorrelationCookie.HttpOnly=true;options.CorrelationCookie.SameSite=SameSiteMode.Lax;
             options.Backchannel=Backchannel();
+            options.Events.OnRedirectToAuthorizationEndpoint=async context=> {
+                // A browser fetch cannot inspect/follow a cross-origin OAuth302
+                // while setting our CSRF header. Return the generated URL after
+                // the handler has set its correlation cookie; the page navigates.
+                if(!HttpMethods.IsPost(context.Request.Method) || context.Request.Path!=Prefix+"/start")
+                {context.Response.StatusCode=403;return;}
+                await context.Response.WriteAsJsonAsync(new{authorization_url=context.RedirectUri});
+            };
             options.Events.OnCreatingTicket=async context=> {
                 var http=context.HttpContext;var browser=http.RequestServices.GetRequiredService<ProductOperationalBrowser>();
                 var binding=browser.Read(http);
@@ -113,7 +122,7 @@ internal static class ProductOperationalFlow
                     context.Identity!.AddClaims([new(ProductIdentity.SubjectClaim,proof.Subject),new(ProductIdentity.IssuerClaim,ProductCommercialLicense.Issuer),
                         new(HandleClaim,handle),new(BindingClaim,binding.Binding)]);
                     context.Properties.Items.Clear();context.Properties.Items[PurposeKey]=Purpose;
-                    context.Properties.RedirectUri=Prefix+"/session";context.Properties.IssuedUtc=now;
+                    context.Properties.RedirectUri=Landing;context.Properties.IssuedUtc=now;
                     context.Properties.ExpiresUtc=now.AddHours(8);context.Properties.AllowRefresh=false;context.Properties.IsPersistent=false;
                 }catch {await store.RevokeAsync(handle,binding.Binding);throw;}
             };
@@ -127,7 +136,7 @@ internal static class ProductOperationalFlow
     private static bool ValidChallenge(AuthenticationProperties properties,OperationalBrowser browser)=>
         Item(properties,PurposeKey)==Purpose && Item(properties,BindingKey)==ProductInvitationIntentStore.Hash(browser.Binding)
         && browser.Challenge!="" && Item(properties,ChallengeKey)==ProductInvitationIntentStore.Hash(browser.Challenge)
-        && properties.RedirectUri==Prefix+"/session" && properties.IssuedUtc is {} issued
+        && properties.RedirectUri==Landing && properties.IssuedUtc is {} issued
         && issued<=DateTimeOffset.UtcNow && issued>DateTimeOffset.UtcNow.AddMinutes(-5)
         && !properties.Items.ContainsKey(ProductIdentity.SetupPurpose) && !properties.Items.ContainsKey(ProductCompanyTeamFlow.Purpose)
         && !properties.Items.ContainsKey(ProductInvitationAcceptanceFlow.Purpose);
@@ -167,7 +176,9 @@ internal static class ProductOperationalFlow
             if(!Enabled(app.Configuration))return Results.StatusCode(503);
             var context=invocation.HttpContext;
             if(context.Request.Headers["Sec-Fetch-Site"]=="cross-site")return Results.StatusCode(403);
-            if(context.Request.Query.Count!=0 || HttpMethods.IsPost(context.Request.Method) && !await EmptyBody(context))return Results.StatusCode(400);
+            var queries=context.GetEndpoint()?.Metadata.GetMetadata<OperationalQueryPolicy>()?.Allowed??[];
+            if(context.Request.Query.Any(x=>!queries.Contains(x.Key,StringComparer.Ordinal) || x.Value.Count!=1)
+                || HttpMethods.IsPost(context.Request.Method) && !await EmptyBody(context))return Results.StatusCode(400);
             var operation=HttpMethods.IsGet(context.Request.Method)?ProductInvitationGuestBudget.Operation.Session:ProductInvitationGuestBudget.Operation.Start;
             if(!context.RequestServices.GetRequiredService<OperationalRequestBudget>().Budget.TryAcquire(operation,context.Connection.RemoteIpAddress))return Results.StatusCode(429);
             return await next(invocation);
@@ -184,23 +195,18 @@ internal static class ProductOperationalFlow
             var now=DateTimeOffset.UtcNow;
             var value=new OperationalBrowser(ProductInvitationIntentStore.Random(),ProductInvitationIntentStore.Random(),ProductInvitationIntentStore.Random(),now,now.AddHours(8));
             service.Write(context,value);
-            var properties=new AuthenticationProperties{IssuedUtc=now,RedirectUri=Prefix+"/session"};
+            var properties=new AuthenticationProperties{IssuedUtc=now,RedirectUri=Landing};
             properties.Items[PurposeKey]=Purpose;properties.Items[BindingKey]=ProductInvitationIntentStore.Hash(value.Binding);
             properties.Items[ChallengeKey]=ProductInvitationIntentStore.Hash(value.Challenge);
             return Results.Challenge(properties,[OAuthScheme]);
         }).AllowAnonymous();
         group.MapGet("/session",async (HttpContext context)=> {
-            var ticket=await context.AuthenticateAsync(Scheme);var browser=context.RequestServices.GetRequiredService<ProductOperationalBrowser>().Read(context);
-            if(!ticket.Succeeded || browser is null || ticket.Properties is null || Item(ticket.Properties,PurposeKey)!=Purpose
-                || ticket.Principal?.FindFirstValue(BindingClaim)!=browser.Binding || ticket.Principal.FindFirstValue(HandleClaim) is not {} handle
-                || ticket.Principal.FindFirstValue(ProductIdentity.IssuerClaim)!=ProductCommercialLicense.Issuer)return Results.Unauthorized();
-            var person=context.RequestServices.GetRequiredService<ProductOperationalSubject>();var refresh=context.RequestServices.GetRequiredService<ProductOperationalRefresh>();
-            var proof=await context.RequestServices.GetRequiredService<ProductOperationalCredentialStore>().ObserveAsync(handle,browser.Binding,person.ReadAsync,refresh.RefreshAsync,context.RequestAborted);
-            if(proof.Status is OperationalCredentialStatus.Unavailable or OperationalCredentialStatus.Busy)return Results.StatusCode(503);
-            if(proof.Status!=OperationalCredentialStatus.Verified || proof.Observation is not {} observation
-                || observation.Subject!=ticket.Principal.FindFirstValue(ProductIdentity.SubjectClaim))return Results.Unauthorized();
+            var proof=await ObserveAsync(context);
+            if(proof.Status!=OperationalCredentialStatus.Verified || proof.Observation is not {} observation)return Failure(proof.Status);
+            var browser=context.RequestServices.GetRequiredService<ProductOperationalBrowser>().Read(context)!;
             return Results.Ok(new{verified=true,purpose=Purpose,product_code="kuubu",csrf_token=browser.Csrf,
-                operational_access_granted=false,next_step="company_selection",proof_until=observation.ExpiresAt});
+                operational_access_granted=false,next_step="company_selection",proof_until=observation.ExpiresAt,
+                company_discovery_available=CoreOperationalCompanies.Enabled(app.Configuration)});
         }).AllowAnonymous();
         group.MapPost("/logout",async(HttpContext context)=> {
             var service=context.RequestServices.GetRequiredService<ProductOperationalBrowser>();var browser=service.Read(context);
@@ -208,6 +214,20 @@ internal static class ProductOperationalFlow
             await RevokeAsync(context);context.Response.Cookies.Delete(ProductOperationalBrowser.Cookie,new CookieOptions{Path="/",Secure=true,HttpOnly=true,SameSite=SameSiteMode.Lax});
             return Results.NoContent();
         }).AllowAnonymous();
+        CoreOperationalCompanies.Map(group,app.Configuration);
+    }
+    internal static IResult Failure(OperationalCredentialStatus status)=>status is OperationalCredentialStatus.Unavailable or OperationalCredentialStatus.Busy
+        ?Results.StatusCode(503):Results.Unauthorized();
+    internal static async Task<OperationalCredentialResult> ObserveAsync(HttpContext context)
+    {
+        var ticket=await context.AuthenticateAsync(Scheme);var browser=context.RequestServices.GetRequiredService<ProductOperationalBrowser>().Read(context);
+        if(!ticket.Succeeded || browser is null || ticket.Properties is null || Item(ticket.Properties,PurposeKey)!=Purpose
+            || ticket.Principal?.FindFirstValue(BindingClaim)!=browser.Binding || ticket.Principal.FindFirstValue(HandleClaim) is not {} handle
+            || ticket.Principal.FindFirstValue(ProductIdentity.IssuerClaim)!=ProductCommercialLicense.Issuer)return new(OperationalCredentialStatus.Denied);
+        var person=context.RequestServices.GetRequiredService<ProductOperationalSubject>();var refresh=context.RequestServices.GetRequiredService<ProductOperationalRefresh>();
+        var proof=await context.RequestServices.GetRequiredService<ProductOperationalCredentialStore>().ObserveAsync(handle,browser.Binding,person.ReadAsync,refresh.RefreshAsync,context.RequestAborted);
+        return proof.Status==OperationalCredentialStatus.Verified && (proof.Observation is null || proof.Observation.Subject!=ticket.Principal.FindFirstValue(ProductIdentity.SubjectClaim))
+            ?new(OperationalCredentialStatus.Denied):proof;
     }
 }
 internal sealed class OperationalRequestBudget
