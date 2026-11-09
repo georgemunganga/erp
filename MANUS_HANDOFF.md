@@ -1,3 +1,54 @@
+# Product request authentication and selected Core context qualified —10 November2026
+
+Published ERP source `99371068b63841d846c5879f66d2b8d1bc38d28e` adds explicit ERP:AuthMode=product with fresh
+person/licensing/registry authority per protected request and private request proof.
+Only reviewed endpoint metadata plus existing OAuth callbacks/health probes pass
+the product boundary. Unknown/anonymous legacy routes are denied before handlers;
+no local/bearer fallback or client tenant/shell/all-branches selectors. Product
+tenant resolution never uses the standalone default; startup skips legacy role
+bootstrap. Local/OIDC/hybrid behavior remains unchanged outside product mode.
+
+The actual protected Core workspace-context route now reads only the selected
+company and finite branches, or explicitly confirmed company-wide branches of
+that company. It rechecks authority after data reads and never infers all branches
+from missing assignments. No legacy Core currency/admin grants are inherited.
+Session replacement, logout, revoked grants, archived branches and current person/
+license outage/denial are exercised through authenticated HTTP. HRM/Procurement
+business routes remain blocked until their resource adapters are reviewed.
+
+Qualification: 700 Windows passes/44 environment skips and
+212 native PostgreSQL-run passes/0 skips; all22 new request-auth cases
+and four existing classic context cases pass in each. Focused Windows26/zero skips
+passes. Classic cases use SQLite; new protected Core queries use SQLite/native PG.
+Person HTTP responses/licenses are synthetic; OAuth cookies, encrypted store,
+registry and actual protected Core route execute. No real-provider ERP browser
+launch or HRM/Procurement business operation is qualified by this increment.
+
+Evidence: inspection/qualifications/product-request-auth-core-01,
+product-request-auth-focused-01, product-request-auth-native-01 and
+product-request-auth-verification-01/verification.json.13 compiled C# inputs,
+32 independent dependency DLLs and586 read-only native runtime files retain
+verified hashes. Model drift is zero; two owned containers are stopped/no host
+ports. Infrastructure/API/tests retain3/27/21 existing warnings. See the28-section
+ERP docs/engineering/CORE-PRODUCT-REQUEST-AUTH-20261110.md contract.
+
+Read-only product-business-scope-inspection-01/inspection.json records five source
+hashes for the next worker integration. Existing WorkerService role checks can be
+reused, but WorkerRepository currently has tenant filters without branch authority;
+client list filters are not authorization. Worker company ownership, unassigned/
+inconsistent OrgUnit/WorkLocation associations and all mutation/relation paths need
+explicit policy before admission. These routes remain blocked in product mode.
+
+No production mode/flag/schema, DNS, Perfex, mail or payment change. Keep both PRs
+draft. Next: actual HRM/Procurement action/resource and branch/company data filters,
+product-aware shell/Procurement principal adapters, then frontend and real-provider
+browser ERP operations. Preserve separate brands, one SaaS/dedicated/on-premise
+codebase and explicit enrollment. Ingress/capacity/monitoring/recovery, Lenco,
+hosting/domain/email and offline licensing/installation/upgrades/restore remain
+programme work. Full platform/SaaS readiness is unproven.
+
+## Previous HTTP lifecycle checkpoint
+
 # Explicit ERP session HTTP lifecycle qualified —10 November2026
 
 Published ERP source `75c1c468747def8d85b37b22014136de0790c3ec` connects current personal identity/licensing to
