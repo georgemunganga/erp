@@ -5,8 +5,6 @@ using System.Text.Json;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.EntityFrameworkCore;
 using Mightyfin.Erp.Hrm.Infrastructure.Data;
-using Mightyfin.Erp.Hrm.Domain.Entities;
-using Mightyfin.Erp.Hrm.Infrastructure;
 
 namespace Mightyfin.Erp.Hrm.Api;
 
@@ -32,12 +30,7 @@ internal sealed class CoreCompanyInvitationsApi(Func<string, HrmDbContext> conte
             }
             var scanned = await query.OrderBy(x => x.Id.ToString().ToLower()).Take(21).ToArrayAsync(cancellation);
             var ids=scanned.Take(20).Select(x=>x.Id).ToArray();var subjects=ids.Select(x=>x.ToString("D")).ToArray();
-            var intents=await db.OutboxMessages.AsNoTracking().Where(x=>x.EventType==CompanyInvitationDeliveryStore.EventType && subjects.Contains(x.SubjectId))
-                .Select(x=>new OutboxMessage {Id=x.Id,TenantId=x.TenantId,IsArchived=x.IsArchived,PublicId=x.PublicId,
-                    EventType=x.EventType,EventVersion=x.EventVersion,SubjectId=x.SubjectId,CreatedBy=x.CreatedBy,CorrelationId=x.CorrelationId,
-                    PayloadJson=x.PayloadJson.Length<=1024?x.PayloadJson:"",Status=x.Status,PublishAttempts=x.PublishAttempts,
-                    PublishedAt=x.PublishedAt,AvailableAt=x.AvailableAt,LastTransport=x.LastTransport,
-                    LastError=x.LastError==null || x.LastError.Length<=128?x.LastError:"invalid"}).Take(21).ToArrayAsync(cancellation);
+            var intents=await CoreCompanyInvitationDeliveryRead.Query(db,subjects).ToArrayAsync(cancellation);
             var issued=await db.CompanyInvitationReceipts.AsNoTracking().Where(x=>ids.Contains(x.InvitationId) && x.Operation=="issue")
                 .Take(21).ToArrayAsync(cancellation);
             var overflow=intents.Length>ids.Length || issued.Length>ids.Length;

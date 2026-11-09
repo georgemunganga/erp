@@ -1,6 +1,8 @@
 using System.Text.Json;
+using Microsoft.EntityFrameworkCore;
 using Mightyfin.Erp.Hrm.Domain.Entities;
 using Mightyfin.Erp.Hrm.Infrastructure;
+using Mightyfin.Erp.Hrm.Infrastructure.Data;
 
 namespace Mightyfin.Erp.Hrm.Api;
 
@@ -12,6 +14,16 @@ internal sealed record CompanyInvitationDeliveryView(string State,int Attempts,D
 /// <summary>Read-only mail outcome. It is never membership or inbox confirmation.</summary>
 internal static class CoreCompanyInvitationDeliveryRead
 {
+    internal static IQueryable<OutboxMessage> Query(HrmDbContext db,string[] subjects)=>db.OutboxMessages.AsNoTracking()
+        .Where(x=>x.EventType==CompanyInvitationDeliveryStore.EventType && subjects.Contains(x.SubjectId))
+        .Select(x=>new OutboxMessage {Id=x.Id,TenantId=x.TenantId,IsArchived=x.IsArchived,PublicId=x.PublicId,
+            EventType=x.EventType,EventVersion=x.EventVersion,SubjectId=x.SubjectId,CreatedBy=x.CreatedBy,CorrelationId=x.CorrelationId,
+            // JSONB must remain JSONB in SQL. Parse/length-check these dedicated
+            // ID-only payloads after the bounded page; no text CASE on JSONB.
+            PayloadJson=x.PayloadJson,Status=x.Status,PublishAttempts=x.PublishAttempts,
+            PublishedAt=x.PublishedAt,AvailableAt=x.AvailableAt,LastTransport=x.LastTransport,
+            LastError=x.LastError==null || x.LastError.Length<=128?x.LastError:"invalid"}).Take(21);
+
     internal static CompanyInvitationDeliveryView Read(CoreCompanyInvitation invitation,OutboxMessage[] intents,
         CoreCompanyInvitationReceipt[] receipts,DateTimeOffset now)
     {

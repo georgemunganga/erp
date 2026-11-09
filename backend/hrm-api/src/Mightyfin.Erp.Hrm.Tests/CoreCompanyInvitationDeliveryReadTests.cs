@@ -1,13 +1,24 @@
 using System.Text.Json;
+using Microsoft.EntityFrameworkCore;
 using Mightyfin.Erp.Hrm.Api;
 using Mightyfin.Erp.Hrm.Domain.Entities;
 using Mightyfin.Erp.Hrm.Infrastructure;
+using Mightyfin.Erp.Hrm.Infrastructure.Data;
 
 namespace Mightyfin.Erp.Hrm.Tests;
 
 public sealed class CoreCompanyInvitationDeliveryReadTests
 {
     private static readonly DateTimeOffset Now=new(2026,11,9,12,0,0,TimeSpan.Zero);
+    [Theory]
+    [InlineData(false)][InlineData(true)]
+    public void PostgreSQL_metadata_query_translates_for_empty_and_populated_subject_pages(bool populated)
+    {
+        using var db=new HrmDbContext(new DbContextOptionsBuilder<HrmDbContext>()
+            .UseNpgsql("Host=127.0.0.1;Database=kuubu_session_test_control;Username=synthetic").Options,new FixedTenantAccessor("delivery-read"));
+        var sql=CoreCompanyInvitationDeliveryRead.Query(db,populated?[Guid.NewGuid().ToString("D")]:[]).ToQueryString();
+        Assert.Contains("payload_json",sql);Assert.Contains("LIMIT",sql);
+    }
     private sealed class Fixture
     {
         internal readonly CoreCompanyInvitation Invitation=new(){TenantId="delivery-read",LegalEntityId=Guid.NewGuid(),
