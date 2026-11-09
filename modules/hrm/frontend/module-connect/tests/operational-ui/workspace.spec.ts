@@ -73,6 +73,7 @@ async function fixture(page: Page, mode = "ready") {
       expect(route.request().postData()).toBe("{}");
       return send({}, 503); // No external sign-in or callback is navigated by this UI fixture.
     }
+    if (url.pathname.startsWith(prefix + "/module-access/")) return send({}, 503);
     throw new Error("Unexpected ERP/bootstrap request from identity-only entry");
   });
   return { calls, release: () => release?.() };

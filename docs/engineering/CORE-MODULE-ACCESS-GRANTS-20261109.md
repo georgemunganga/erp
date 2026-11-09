@@ -1,15 +1,15 @@
 # Explicit company module grants
 
 ## 1. Identification
-Core Tier3 feature,9 November2026; internal ledger and owner API qualified; editor and ERP admission not live.
+Core Tier3 feature,9 November2026; ledger, owner API and isolated editor qualified; ERP admission not live.
 ## 2. Purpose
 Let an explicit company owner deliberately grant/revoke a current member's
 module roles/actions and company or work-location scope without creating a login,
 employee, payer membership or ERP session.
 ## 3. Scope
 Versioned grant ledger, current grant resolution and transactional owner commands.
-Owner HTTP review/commands are implemented and tested; UI grant management, ERP session
-creation and route/data enforcement follow.
+Owner HTTP review/commands and UI are implemented and tested separately. Composed
+browser/provider/Core qualification, ERP sessions and route/data enforcement follow.
 No existing local credential/session/role/branch behavior is changed here.
 ## 4. Parent
 Licensed product admission, explicit company membership and Core workspace binding.
@@ -52,7 +52,7 @@ cross-company target/predecessor/receipt binding and cross-tenant branch binding
 Work-location company ownership is rechecked on every decision; moving/archiving
 a branch invalidates its old scoped grant without breaking legacy branch moves.
 ## 13. UI
-Future owner editor reuses company/team controls, exact member ID/revisions and
+Owner editor reuses company/team controls, exact member ID/revisions and
 shared dialogs. All-company scope has its own unchecked confirmation. No module
 launch until the separate operational session and route gates are implemented.
 ## 14. UX
@@ -103,7 +103,7 @@ unproven until browser/editor/session/module/branch isolation is verified.
 Focused relational/model tests plus native PostgreSQL cases; retain failed builds
 and fixtures, use exclusive new publication roots and read-only consumers.
 ## 27. Release gates
-Grant UI, revocable sessions, default authentication integration, module route
+Composed browser/editor admission, revocable sessions, default authentication integration, module route
 and data-scope enforcement, real browser composition and production ops remain.
 Lenco/hosting products and dedicated/offline/upgrades/restore remain programme work.
 ## 28. Evidence
@@ -186,3 +186,46 @@ frontend, Foundation runtime and branded website source are unchanged. No new
 migration is needed beyond the qualified ledger migration; the owning deployment
 must apply that migration before enabling this API. Grant editor, bound revocable
 sessions, route/data isolation and production qualification remain release gates.
+
+Owner editor acceptance: the `/workspace-access` owner review now mounts the
+module permission editor outside the classic ERP authentication/tenant shell.
+It consumes the qualified owner API with exact company/link, member and module
+selectors, strict DTO/identity matching, bounded no-store/same-origin transport,
+timeouts, cancellation and no automatic POST retries. Members/administrators do
+not receive this owner workflow. A disabled/unavailable API gives an explicit
+recovery state rather than a working form. No session DTO or backend change was
+needed; companion API sourcee52e8049 remains byte-for-byte unchanged.
+
+Member/module choices reset drafts and cancel superseded reads. New/stale grants
+start without inferred roles/actions; HRM entry/admin rules must be selected
+explicitly, and Procurement switching cannot carry HR permissions. Selected
+branches use independent paging; an empty list cannot become company-wide.
+Company-wide scope has an unchecked current/future-branch confirmation after
+every fresh review. The final shared dialog names the person/company/module,
+roles/actions and selected branches. Revocation has its own confirmation and
+empty role/action/branch snapshot. Inactive identities cannot receive new grants.
+
+An uncertain write locks the draft and retains the exact reviewed payload/key
+for explicit retry, or lets the owner discard it and reload current permissions.
+Conflicts require fresh review; historical replay does not imply current access.
+Company changes, sign-out and unmount cancel reads/writes and clear in-memory
+permission state. No credentials or grants are persisted in browser storage.
+Saving records a permission decision only; no ERP entry/session or employee is
+created. Server point-of-use checks remain authoritative for branch availability,
+membership, module licensing and all command revisions.
+
+Evidence: `inspection/qualifications/module-access-ui-02` passes122 client contract
+checks, targeted lint, production build and typecheck, plus23 browser scenarios
+(13 editor and10 company-picker regressions). Scenarios cover named-branch grant,
+all-company confirmation, Procurement switching, uncertain completed-save replay,
+revoke, conflict, stale/inactive membership, paging, late response, expiry,
+disabled API and390px sign-out/layout. Final screenshots were visually inspected.
+Browser API responses are synthetic: no actual Core permission record/provider
+wire is qualified by these browser checks. Companion real API/relational evidence
+retains its579 Windows/68 PostgreSQL scope. `module-access-ui-verification-01`
+verifies368 source files,493 unchanged build outputs, seven unchanged C# inputs
+and stopped owned SSR/listener. UI01 retains121 contracts and22 passing browser
+cases before added catalog guards/explicit Procurement coverage. No retained
+publication was overwritten. Real browser/Core/Passport composition, revocable
+ERP sessions and protected route/data isolation remain next; production schema,
+flags, Perfex, DNS, payment/mail and runtime activation were not changed here.

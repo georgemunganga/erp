@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { KuubuIdentity } from "@/platform/components/KuubuIdentity";
+import { CompanyModuleAccess } from "@/modules/core/CompanyModuleAccess";
 import {
   createOperationalClient,
   OperationalError,
@@ -406,6 +407,15 @@ function WorkspaceAccess() {
               </Card>
             </section>
           </div>
+        )}
+        {entry.status === "ready" && currentReview?.company.role === "owner" && (
+          <CompanyModuleAccess
+            key={currentReview.company.id + ":" + currentReview.company.linkId}
+            company={currentReview.company}
+            modules={currentReview.modules}
+            csrf={entry.session.csrf}
+            onExpired={() => setEntry({ status: "signed-out", csrf: entry.session.csrf })}
+          />
         )}
         <footer className="mt-10 border-t border-border pt-5">
           <a
