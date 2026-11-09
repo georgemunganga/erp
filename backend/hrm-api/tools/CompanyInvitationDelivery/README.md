@@ -16,8 +16,9 @@ generic publisher modes neither register SMTP nor start it. Required flags:
 - `ERP:CompanyInvitationAcceptance:Enabled`
 - `ERP:CompanyInvitationDelivery:Enabled`
 
-The first four still need their existing reviewed client/database/key-ring
-configuration. Delivery uses its own `ERP:CompanyInvitationDelivery:Smtp:` settings:
+The existing identity/licensing/team/invitation/acceptance flags retain their
+reviewed client/database/key-ring/private-state prerequisites. Delivery uses its
+own `ERP:CompanyInvitationDelivery:Smtp:` settings:
 `Host`, `Port` (default587), `From`, and paired `Username`/`Password` if required.
 Use a verified Kuubu sender and securely supplied credentials. The adapter uses
 STARTTLS and ordinary certificate validation; it does not support an environment

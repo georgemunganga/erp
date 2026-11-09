@@ -1,4 +1,32 @@
-# Invitation guest-control checkpoint —9 November2026
+# Invitation delivery checkpoint —9 November2026
+
+Published runtime17d43750192c8f14d05489ff4cf73e416d3a1165 requires sender and
+recipient acceptance before activating its default-off dedicated mail worker.
+Core owns ID-only delivery intents and durable attempts/outcomes in the existing
+outbox. Generic publication/HRM retry cannot consume/acknowledge them. Exact
+receipt/actor/company/client/envelope binding, fresh license/inviter authority,
+bounded SMTP and company-lock serialization apply; no membership/session grant.
+Only API mode starts delivery; migration/publisher modes do not register SMTP.
+348 Windows passed/18 native skips; seven source inputs/35 dependency DLLs verified.
+
+Basecea03e8b passed37 native delivery/notification cases and focused Linux348/20
+opt-in skips. Four PostgreSQL worker facts prove contention, actual revocation
+lock waiting, cancellation rollback, durable outcomes/retry cap and publisher
+exclusion. Read-only SQL20 new databases:20 invitations/23 receipts/20 intents,
+23 governance audits/43 events,11 delivery-attempt audits, three capture-transport
+acceptances/one exhausted record.79 dependencies unchanged; SDK exited0/database
+stopped. Store/mail/publisher source is byte-identical in17d43750; its activation-
+only follow-up has the separate Windows proof. Evidence:
+inspection/qualifications/invitation-delivery-native-cea03e8b-01 and invitation-delivery-05.
+
+Actual SMTP/TLS/inbox delivery, secure sender configuration, joint browser/mail
+journey, delivery-status UI, owned operator retry/monitoring and deployed ingress
+remain gates. SMTP is at least once; a lost outcome commit can repeat the same
+email/link/Message-ID, without duplicating company access. No new queue/schema,
+production flag, real mail/payment, Perfex, DNS or main/UI-main/B1 change; PR201
+remains draft. UI067362a0/Foundation15707bd9/website02f42d39 unchanged.
+
+# Earlier invitation guest-control checkpoint —9 November2026
 
 Published runtime9abd460999131f1a922faadfaca2e8e863c92f34 adds bounded
 endpoint policies and retained directory admission. Address headers are ignored;

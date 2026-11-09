@@ -15,7 +15,8 @@ behind a separate default-off flag. ERP recipient UI is implemented and tested
 with synthetic API responses and now qualified against actual Laravel/Core
 handlers in an isolated browser fixture. Guest application controls are qualified;
 edge controls, deployed ingress and live delivery remain. A dedicated default-off
-Core delivery worker/SMTP adapter is implemented; qualification is in progress.
+Core delivery worker/SMTP adapter is implemented. Store, authority and capture-
+transport behavior are qualified below; live SMTP/TLS and delivery UI remain.
 No production activation.
 ## 4. Parent
 CORE-COMPANY-TEAM-20261108.md; one ERP release for SaaS and dedicated installations.
@@ -262,6 +263,41 @@ delivery retry, browser acceptance, cross-tenant and recovery gates afterward.
 Do not enable this contract before account consent/relay, Core invitations,
 delivery, migrations/runtime grants, audit and complete browser flow qualify.
 ## 28. Evidence
+### Qualified delivery store and authority checkpoint
+
+Current published runtime17d43750192c8f14d05489ff4cf73e416d3a1165 passed348
+focused Windows checks/18 native-only skips. This includes the stricter activation
+rule requiring recipient acceptance to be enabled. Seven source inputs match the
+published commit;35 copied dependency DLLs unchanged. Evidence:
+inspection/qualifications/invitation-delivery-05/verification.json.
+
+Base implementationcea03e8b42921ec0270a56097ae2669ba99264fe passed37 delivery/
+notification cases in the Linux native gate without skips/failures. The four
+PostgreSQL worker facts cover generic-publisher exclusion/one acknowledgement,
+SKIP LOCKED contention, observed authority-lock waiting by concurrent revocation,
+cancellation rollback, retry persistence and attempt exhaustion. Other cases use
+PostgreSQL-backed company fixtures or existing SQLite notification fixtures as
+appropriate. Focused Linux348 passed/20 opt-in skips. Source archive SHA256:
+dadb72c7507182a584eddf67f7545bf6f1925bb59822d62ffd5bc771add981b1.
+
+Independent read-only SQL audit of20 new databases verifies20 invitations/23
+immutable receipts/20 delivery intents,23 matching governance audits/43 events,
+plus11 separate delivery-attempt audits. Three captured-transport acceptances
+and one eight-attempt exhausted record match their complete attempt histories,
+original tenant/event/correlation and fixed error codes. No new invited-member
+acceptances, credentials, ERP sessions or module grants. All79 independent
+dependency files retained hash/size/nsmtime; SDK exited0/test database stopped.
+Evidence: inspection/qualifications/invitation-delivery-native-cea03e8b-01.
+The mail resolver, delivery store and generic-publisher source are byte-identical
+betweencea03e8b and17d43750; the follow-up changes activation dependencies and its
+startup check only. It does not claim a second full native run on17d43750.
+
+Tests use a capture transport and SMTP message-construction seam. They do not
+prove SMTP network/TLS, real sender configuration, inbox delivery or a new joint
+browser-to-email journey. Those, sender-visible delivery status, owned operator
+retry/monitoring and deployed ingress remain release gates. No schema, live flag,
+real mail/payment, Perfex, DNS, main/UI-main/B1 or draft-PR-state change.
+
 ### Dedicated delivery implementation checkpoint
 
 348 focused Windows checks passed/18 native-only skips. Infrastructure/API/test
