@@ -160,7 +160,7 @@ public sealed class SmtpCompanyInvitationWireTests
     }
     private static SmtpCompanyInvitationMail Sender(Sink sink,TimeProvider? clock=null)=>new(new ConfigurationBuilder()
         .AddInMemoryCollection(new Dictionary<string,string?>{
-            ["ERP:CompanyInvitationDelivery:Smtp:Host"]="127.0.0.1",
+            ["ERP:CompanyInvitationDelivery:Smtp:Host"]="smtp.fixture.test",
             ["ERP:CompanyInvitationDelivery:Smtp:Port"]=sink.Port.ToString(),
             ["ERP:CompanyInvitationDelivery:Smtp:From"]="hello@kuubuerp.com",
             ["ERP:CompanyInvitationDelivery:Smtp:Username"]=User,
@@ -193,6 +193,7 @@ public sealed class SmtpCompanyInvitationWireTests
         await using var sink=new Sink("server",Mode.NoStartTls);
         await Assert.ThrowsAnyAsync<Exception>(()=>Sender(sink).SendAsync(Envelope(),default));await sink.Complete();
         var session=Assert.Single(sink.Sessions);Assert.Equal(0,session.CleartextSensitive);Assert.False(session.Authenticated);
+        Assert.Contains("EHLO",session.Verbs);
         Assert.Null(session.Message);Assert.DoesNotContain("MAIL",session.Verbs);Assert.DoesNotContain("AUTH",session.Verbs);
     }
     private static async Task RejectCertificate(string name)
@@ -201,6 +202,7 @@ public sealed class SmtpCompanyInvitationWireTests
         await Assert.ThrowsAnyAsync<Exception>(()=>Sender(sink).SendAsync(Envelope(),default));await sink.Complete();
         var session=Assert.Single(sink.Sessions);Assert.Contains("STARTTLS",session.Verbs);
         Assert.False(session.Authenticated);Assert.Equal(0,session.CleartextSensitive);Assert.Null(session.Message);
+        Assert.DoesNotContain("AUTH",session.Verbs);Assert.DoesNotContain("MAIL",session.Verbs);
     }
     [InvitationSmtpWireFact] public Task Untrusted_certificate_is_rejected_without_an_application_validation_override()=>RejectCertificate("untrusted");
     [InvitationSmtpWireFact] public Task Wrong_host_certificate_is_rejected_even_when_its_CA_is_trusted()=>RejectCertificate("wrong-host");
@@ -210,6 +212,7 @@ public sealed class SmtpCompanyInvitationWireTests
         await using var sink=new Sink("server",Mode.RejectRecipient);
         await Assert.ThrowsAnyAsync<Exception>(()=>Sender(sink).SendAsync(Envelope(),default));await sink.Complete();
         var session=Assert.Single(sink.Sessions);Assert.True(session.Tls && session.Authenticated);
+        Assert.Contains("RCPT",session.Verbs);
         Assert.Null(session.Message);Assert.False(session.DataAccepted);Assert.DoesNotContain("DATA",session.Verbs);
     }
     [InvitationSmtpWireFact]
@@ -218,7 +221,9 @@ public sealed class SmtpCompanyInvitationWireTests
         await using var sink=new Sink("server",Mode.HoldAcknowledgement);using var stopping=new CancellationTokenSource();
         var sending=Sender(sink).SendAsync(Envelope(),stopping.Token);
         await sink.DataReceived.Task.WaitAsync(TimeSpan.FromSeconds(15));await stopping.CancelAsync();
-        await Assert.ThrowsAnyAsync<Exception>(()=>sending.WaitAsync(TimeSpan.FromSeconds(5)));
+        var error=await Record.ExceptionAsync(()=>sending.WaitAsync(TimeSpan.FromSeconds(5)));
+        Assert.NotNull(error);Assert.IsNotType<TimeoutException>(error);
+        Assert.True(sending.IsCompleted && !sending.IsCompletedSuccessfully);
         var session=Assert.Single(sink.Sessions);Assert.True(session.Tls && session.Authenticated);Assert.False(session.DataAccepted);
     }
     private static HrmDbContext Publisher(CoreFixture core,OutboxPublisherTenantAccessor tenant)

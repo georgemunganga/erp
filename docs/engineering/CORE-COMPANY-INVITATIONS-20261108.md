@@ -173,6 +173,9 @@ Dedicated ERP:CompanyInvitationDelivery:Smtp:{Host,Port,From,Username,Password}
 settings are required when enabled. Default port587 uses mandatory STARTTLS and
 normal certificate validation; there is no configuration switch to plaintext or
 untrusted certificates. The sender display name is Kuubu, independent of HRM.
+SMTP Host must be a DNS hostname (including internal DNS for an on-premise relay).
+IP literals and legacy numeric IP forms are rejected before connection, avoiding
+the pinned runtime's IP Common Name fallback when its IP SAN does not match.
 Credentials are supplied securely by operations, never returned to the browser.
 
 The worker reuses Core's outbox and attempts/audit fields; no new schema or queue.
@@ -263,6 +266,27 @@ delivery retry, browser acceptance, cross-tenant and recovery gates afterward.
 Do not enable this contract before account consent/relay, Core invitations,
 delivery, migrations/runtime grants, audit and complete browser flow qualify.
 ## 28. Evidence
+### DNS certificate-identity hardening checkpoint
+
+Initial wire source93374bd3 passed seven of eight native cases; the conflicting
+IP SAN case failed because the pinned .NET10.0.11 native IP-name matcher falls
+back to a matching Common Name. Independent OpenSSL verify_ip rejected the same
+certificate. The failed publication/receipt/TRX remain in
+inspection/qualifications/smtp-wire-native-93374bd3-01/failure-evidence-01;
+SDK exited1, database stopped and87 dependency files unchanged. No live settings
+or production certificate validation were changed.
+
+Kuubu SMTP configuration now requires DNS hostnames and rejects IP/numeric forms.
+The next fixture retains a matching Common Name but supplies a conflicting DNS
+SAN; independent OpenSSL chain/hostname checks validate that geometry first.
+Certificate callbacks stay absent. Cancellation must terminate the send task;
+a test timeout cannot pass.351 Windows checks passed/28 opt-in skips, with API/
+test builds successful and27/20 existing warnings. Evidence:
+inspection/qualifications/smtp-wire-local-02. Portable PDB inspection confirms the
+wire harness compiled before its final two negative AUTH/MAIL assertions; those
+Linux-only skipped assertions require the final native run. Active Windows cases
+and runtime are unchanged by that addition. Native DNS/TLS qualification pending.
+
 ### SMTP/TLS wire harness checkpoint
 
 The opt-in SmtpCompanyInvitationWireTests and private one-day CA generator are

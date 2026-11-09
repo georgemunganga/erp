@@ -145,6 +145,7 @@ public sealed class CoreCompanyInvitationMailTests
     }
     [Theory]
     [InlineData("Host","")][InlineData("Host","https://smtp.example.test")]
+    [InlineData("Host","127.0.0.1")][InlineData("Host","::1")][InlineData("Host","2130706433")]
     [InlineData("From","hello@kuubuerp.com\r\nBcc:other@example.test")]
     [InlineData("Port","0")][InlineData("Port","bad")][InlineData("Username","unpaired")]
     public void Invalid_SMTP_settings_fail_without_echoing_configuration(string name,string value)

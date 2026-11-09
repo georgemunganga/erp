@@ -108,7 +108,7 @@ internal sealed class SmtpCompanyInvitationMail:ICompanyInvitationMail
         host=Value("Host");from=Value("From");user=Value("Username");password=Value("Password");
         port=Value("Port").Length==0?587:int.TryParse(Value("Port"),out var configured)?configured:0;
         try {
-            if(Uri.CheckHostName(host)==UriHostNameType.Unknown || host.Any(char.IsWhiteSpace) || port is <1 or >65535
+            if(Uri.CheckHostName(host)!=UriHostNameType.Dns || IPAddress.TryParse(host,out _) || host.Any(char.IsWhiteSpace) || port is <1 or >65535
                 || string.IsNullOrWhiteSpace(from) || from.Contains('\r') || from.Contains('\n')
                 || new MailAddress(from).Address!=from || string.IsNullOrEmpty(user)!=string.IsNullOrEmpty(password))throw new FormatException();
         }catch(FormatException){throw new InvalidOperationException("Reviewed Kuubu SMTP settings are required.");}

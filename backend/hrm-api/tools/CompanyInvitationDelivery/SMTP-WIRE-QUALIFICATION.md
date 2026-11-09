@@ -11,6 +11,9 @@ Use a new isolated Linux test container and private evidence directory. Run
 `prepare-smtp-wire-fixture.sh` with a new absolute directory to generate a one-day
 test CA, trusted server, wrong-host server and untrusted server certificates.
 It refuses an existing directory; keys/PFX are0600 and the fixture is0700.
+Map `smtp.fixture.test` to127.0.0.1 inside that test container only. The wrong-host
+certificate deliberately retains the correct Common Name but has a different DNS
+SAN. Independent OpenSSL checks verify chain/name geometry before the tests.
 Keep all outputs private and retain failed attempts. Empty PFX passwords apply
 only to these short-lived private test certificates.
 
@@ -37,6 +40,11 @@ absence of membership/session/module effects require independent SQL inspection.
 Capture/verdict errors must not echo credentials, message bodies or links.
 
 The fixture does not install an application certificate-validation callback.
+Kuubu's adapter accepts DNS hostnames only. The initial IP fixture exposed the
+[runtime's IP Common Name fallback](https://raw.githubusercontent.com/dotnet/runtime/v10.0.11/src/native/libs/System.Security.Cryptography.Native/openssl.c);
+its failed result remains retained. The conflicting-DNS-SAN case must still fail
+authentication with no credentials or email transferred. Cancellation checks
+require the send task to terminate; a test timeout cannot count as a rejection.
 Linux process trust uses the documented [OpenSSL certificate-store environment](https://github.com/dotnet/docs/blob/main/docs/standard/security/cross-platform-cryptography.md).
 The adapter uses [SmtpClient STARTTLS](https://learn.microsoft.com/en-us/dotnet/api/system.net.mail.smtpclient.enablessl?view=net-10.0).
 These tests do not qualify a production SMTP account, DNS sender authentication,

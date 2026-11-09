@@ -20,6 +20,9 @@ The existing identity/licensing/team/invitation/acceptance flags retain their
 reviewed client/database/key-ring/private-state prerequisites. Delivery uses its
 own `ERP:CompanyInvitationDelivery:Smtp:` settings:
 `Host`, `Port` (default587), `From`, and paired `Username`/`Password` if required.
+`Host` must be a DNS hostname, including an internal DNS name for an on-premise
+relay. IP literals/legacy numeric IP forms are rejected before connecting; this
+avoids the runtime's IP Common Name fallback when an IP SAN does not match.
 Use a verified Kuubu sender and securely supplied credentials. The adapter uses
 STARTTLS and ordinary certificate validation; it does not support an environment
 switch to plaintext or disabled certificate checks. Implicit-TLS-only SMTP is
