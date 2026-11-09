@@ -263,6 +263,21 @@ delivery retry, browser acceptance, cross-tenant and recovery gates afterward.
 Do not enable this contract before account consent/relay, Core invitations,
 delivery, migrations/runtime grants, audit and complete browser flow qualify.
 ## 28. Evidence
+### SMTP/TLS wire harness checkpoint
+
+The opt-in SmtpCompanyInvitationWireTests and private one-day CA generator are
+implemented without a production send override or certificate-validation callback.
+Six socket/TLS cases cover trusted authentication/MIME, missing STARTTLS,
+untrusted/wrong-host certificates, recipient rejection and cancelled acknowledgement.
+Two PostgreSQL store-to-wire cases cover actual acceptance and ambiguous lost
+acknowledgement followed by stable-message retry without provisioning access.
+Linux CA trust is restricted to the test process environment; no host trust store
+or external SMTP account is changed. Native qualification is still pending.
+Local compile passed/20 existing warnings;24 existing mail checks passed and12
+opt-ins skipped, as expected without Linux wire/PostgreSQL fixtures. Evidence:
+inspection/qualifications/smtp-wire-local-01. Reproduction/boundaries:
+backend/hrm-api/tools/CompanyInvitationDelivery/SMTP-WIRE-QUALIFICATION.md.
+
 ### Qualified delivery store and authority checkpoint
 
 Current published runtime17d43750192c8f14d05489ff4cf73e416d3a1165 passed348
