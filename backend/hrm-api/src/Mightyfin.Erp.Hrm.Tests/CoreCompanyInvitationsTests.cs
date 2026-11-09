@@ -14,6 +14,26 @@ public sealed class CoreCompanyInvitationsTests
     private const string Client = "391bdeaa-87b3-44b3-8e64-2110dcc1a564";
 
     [Fact]
+    public async Task Issue_uses_one_recorded_instant_for_its_exact_48_hour_lifetime_with_an_advancing_clock()
+    {
+        await using var f=await Fixture.Start();var clock=new AdvancingIssueClock(f.Core.Clock.GetUtcNow());
+        var protection=new EphemeralDataProtectionProvider().CreateProtector(CoreCompanyInvitationsApi.DeliveryPurpose);
+        var service=new CoreCompanyInvitations(t=>f.Core.Context(t),clock,protection);
+        var result=await service.IssueAsync(f.Core.Owner.Proof,f.Issue(),f.Core.License());
+        Assert.Equal(CompanyInvitationStatus.Issued,result.Status);
+        await using var db=f.Core.Context();var row=await db.CompanyInvitations.SingleAsync();
+        Assert.True(clock.ReadCount>1);
+        Assert.Equal(TimeSpan.FromHours(48),row.ExpiresAt-row.CreatedAt);
+        await f.NoOperationalGrants();
+    }
+    private sealed class AdvancingIssueClock(DateTimeOffset start):TimeProvider
+    {
+        private int reads;
+        internal int ReadCount=>Volatile.Read(ref reads);
+        public override DateTimeOffset GetUtcNow()=>start.AddMilliseconds(Interlocked.Increment(ref reads));
+    }
+
+    [Fact]
     public async Task Issue_protects_secret_and_recipient_and_commits_one_durable_intent_before_acceptance()
     {
         await using var f = await Fixture.Start(); var command = f.Issue();

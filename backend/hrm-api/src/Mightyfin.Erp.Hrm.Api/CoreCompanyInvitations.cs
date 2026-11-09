@@ -55,10 +55,11 @@ internal sealed class CoreCompanyInvitations(Func<string, HrmDbContext> contextF
             if (pending.Any(x => x > clock.GetUtcNow())) return new(CompanyInvitationStatus.Conflict);
             var token = WebEncoders.Base64UrlEncode(RandomNumberGenerator.GetBytes(32));
             var evidenceActor = actor.Issuer+"#"+actor.Subject;
+            var issuedAt = clock.GetUtcNow();
             var invitation = new CoreCompanyInvitation { TenantId = initial.TenantId, LegalEntityId = command.CompanyId, Issuer = actor.Issuer,
                 InviterSubject = actor.Subject, InviterLinkId = actor.LinkId, InviterLocalUserId = current!.PrincipalId,
                 RecipientHash = recipient, TokenHash = Hash(token), Role = command.Role,
-                CreatedAt = clock.GetUtcNow(), ExpiresAt = clock.GetUtcNow().AddHours(48), CreatedBy = evidenceActor,
+                CreatedAt = issuedAt, ExpiresAt = issuedAt.AddHours(48), CreatedBy = evidenceActor,
                 ProtectedDelivery = deliveryProtection.Protect(JsonSerializer.Serialize(new { schema_version = 1,
                     recipient = email, review_url = "https://app.kuubuerp.com/accept-invitation#token="+token })) };
             db.CompanyInvitations.Add(invitation);
