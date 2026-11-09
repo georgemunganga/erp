@@ -163,4 +163,3 @@ main/UI-main/B1 change. Existing operator/SMTP and browser evidence retains its
 original source scope. Lenco, hosting/domain/email products, SaaS deployment and
 dedicated/on-premise installation/offline licensing/upgrades/backup restore
 remain in the full programme; both PRs remain draft.
-
