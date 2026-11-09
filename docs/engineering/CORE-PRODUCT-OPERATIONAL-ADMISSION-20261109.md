@@ -9,7 +9,7 @@ module with current permissions and branch scope, using the existing ERP.
 Implemented: separately scoped, email-free person observation/reader and private
 encrypted credential/rotation machinery, plus default-off operational OAuth
 callback/browser handoff. These create no ERP session or grant. Next: actual
-provider/browser wire, explicit company/module grants and selection, revocable
+branded browser/relay composition, explicit company/module grants and selection, revocable
 session, route/module enforcement and scoped context.
 ## 4. Parent
 Core company membership/team/invitations; purchased workspace/licensing contracts.
@@ -146,6 +146,69 @@ No SaaS operational activation until all acceptance checks pass. Lenco/hosting
 integrations and dedicated/offline licensing/installation/upgrades/backup restore
 remain part of the full platform programme, with separate deployment evidence.
 ## 28. Evidence
+
+### Actual Passport/TLS operational handoff —9 November2026
+
+Published test `2bfc158e2f869172c3211edfb6baf280929b68dd` qualifies actual
+Laravel/Passport HTTP/TLS callback, protected-store refresh rotation and enrollment
+revocation against unchanged Core runtime `86abac3b0e577ff070304828ed9aa95bc00a0040`
+and Foundation runtime `75cc91ff5025a54f3803fc34c4d297b12dcd5a98`. The branded
+website consent remains source `1ade23e7629d8a3004ac2caf8d3157691fa8681e`;
+this acceptance actor uses HTTP explicitly, not a real browser/website relay.
+
+The production fixed-origin clients and ASP.NET OAuth handler use a real private
+TLS endpoint and Laravel/Passport; no provider response, refresh client or store
+is replaced. The provider uses its genuine SQLite database and RSA keys. A
+fixture-only20-second access lifetime forces refresh without waiting five minutes.
+TLS validation uses a process-private CA, without disabling certificate checks
+or changing host trust. Services run inside an internal Docker network, no host
+ports. The Core host uses TestServer/InMemory; this is not deployed ingress or
+native ERP/PostgreSQL/session qualification.
+
+The HTTP actor signs in, is denied before personal enrollment, explicitly enrolls
+and obtains the exact-scoped authorization code. Core callback observes the
+person and stores credentials privately; the cookie contains no saved provider
+tokens, email, role or tenant. Identity status triggers real refresh followed by
+fresh person observation, but denies a protected ERP route. After the fixture
+suspends enrollment, refresh still cannot substitute for current-person proof:
+the resource denies access, Core writes a tombstone, and the restored cookie
+causes no further provider traffic. No ERP user/session/company grant is created.
+
+Final native acceptance passed one opt-in test with no skip in14 seconds:
+three token requests, two distinct refresh requests, three person observations,
+zero refresh reuse. Independent SELECT-only audit leaves the provider DB hash
+unchanged and verifies two seeded identities, one suspended personal enrollment,
+two confidential identity-client bindings, one used code, three access/refresh
+records with two refresh tokens consumed, one enrollment audit/outbox event,
+and zero customers/contacts/billing memberships/payer enrollments/subscriptions/
+payments. Core has one encrypted credential packet and one revocation marker.
+Ten Core entries have0700 directory/0600 file modes.
+
+New acceptance test builds with20 existing warnings, none added. Its source and
+137 provider source files retain hashes.238 copied runtime files match the
+previously qualified runtime bytes; all586 test runtime files remain unchanged
+during execution. Both owned services stopped; scripts/binaries/source inputs
+are read-only. Evidence: `inspection/qualifications/operational-wire-build-03`,
+`operational-wire-native-06` and `operational-wire-verification-06/verification.json`.
+
+Retained attempts:01/05 expose the test gateway dropping chunked JSON login
+bodies; forwarding every POST body fixes the transport. Fresh enrollment must
+assert201 Created.02 completed pristine provider preparation but stopped before
+Docker while awaiting its build; subsequent runs independently copy that closed,
+never-exercised baseline.03 default Docker pool and04 overlapping explicit subnet
+were rejected before services started.06 verifies an unused subnet before
+allocation. No old network/environment or retained publication was removed or
+overwritten, and no application authority/validation assertion was relaxed.
+
+Next: actual branded website/relay/browser composition, selection/recovery UI,
+explicit company/module/action/branch grants, revocable bound ERP sessions and
+route isolation. Native MySQL/provider requalification, production ingress/path-
+only logging, monitoring/capacity/recovery, SMTP/inbox activation and controlled
+deployment remain required. Lenco, hosting/domain/email adapters and dedicated/
+on-premise/offline licensing/upgrades/backup restore remain programme work.
+Default operational flags/settings remain off/unconfigured; no production
+schema/config/deployment, payment, mail, Perfex, DNS or main/UI-main/B1 change.
+
 
 ### Protected operational OAuth handoff —9 November2026
 

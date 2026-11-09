@@ -72,8 +72,8 @@ independent operational client/callback/cookie, anonymous request budgets and
 owned five-minute expiry cleanup. Configure a canonical, separate
 `ERP:OperationalIdentity:ClientId`, private `ClientSecret` and existing private
 `StatePath` outside application assets; retain the reviewed product key ring.
-Do not enable it before actual Laravel-to-Core callback/refresh qualification,
-capacity monitoring/alerts, recovery UX for ambiguous refresh and absolute/idle
+Do not enable it before connected branded browser/relay qualification,
+company/module/branch authorization, capacity monitoring/alerts, recovery UX for ambiguous refresh and absolute/idle
 session policy. The interim callback returns identity status, pending the real
 company/module selection screen. Company/module grant persistence, revocable
 ERP sessions, route/branch isolation and browser acceptance remain separate work.
@@ -86,3 +86,15 @@ an explicitly owned private directory with scope marker
 `OperationalCredentialProcessTests` as holder/observer. The observer must skip
 the locked rotation and revoke it; the holder must deny without resurrecting
 credentials. This is test infrastructure and never a production command mode.
+
+Actual provider acceptance: `ProductOperationalProviderInteropTests` requires
+Linux and an explicitly prepared private fixture at
+`KUUBU_OPERATIONAL_PROVIDER_FIXTURE=/evidence/provider/operational-interop.json`.
+It uses the production fixed HTTPS clients, a private CA and real Passport/SQLite,
+with fixture-only20-second access tokens to force refresh. It checks explicit
+personal enrollment, callback, rotating refresh, fresh-person denial after
+suspension, tombstones and zero ERP admission. It is not branded-browser,
+production-ingress or native ERP database qualification. Never point the harness
+at production or bypass TLS validation. Latest evidence is
+`inspection/qualifications/operational-wire-native-06`; earlier failures remain
+retained. Preserve the existing key ring; do not edit state to recover tokens.
