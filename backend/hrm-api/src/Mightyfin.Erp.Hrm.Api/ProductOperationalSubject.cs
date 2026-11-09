@@ -16,6 +16,11 @@ internal sealed class OperationalSubjectObservation(string subject,string client
     internal string Subject {get;}=subject;
     internal string ClientId {get;}=client;
     internal DateTimeOffset ExpiresAt {get;}=expires;
+    internal OperationalSubjectObservation Constrain(DateTimeOffset deadline)
+    {
+        var cap=deadline<ExpiresAt?deadline:ExpiresAt;
+        return new(Subject,ClientId,cap,clock,started,cap-(ExpiresAt-lifetime));
+    }
     internal bool IsCurrent=>clock.GetUtcNow()<ExpiresAt && clock.GetElapsedTime(started) is var elapsed
         && elapsed>=TimeSpan.Zero && elapsed<lifetime;
 }
