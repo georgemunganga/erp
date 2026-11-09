@@ -3103,6 +3103,288 @@ namespace Mightyfin.Erp.Hrm.Infrastructure.Migrations
                         });
                 });
 
+            modelBuilder.Entity("Mightyfin.Erp.Hrm.Domain.Entities.CoreModuleAccessLocation", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("CreatedBy")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("created_by");
+
+                    b.Property<Guid>("GrantVersionId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("grant_version_id");
+
+                    b.Property<bool>("IsArchived")
+                        .HasColumnType("boolean")
+                        .HasColumnName("is_archived");
+
+                    b.Property<Guid>("LegalEntityId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("legal_entity_id");
+
+                    b.Property<Guid>("LocationId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("location_id");
+
+                    b.Property<string>("TenantId")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("text")
+                        .HasColumnName("tenant_id");
+
+                    b.Property<DateTimeOffset?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasColumnType("text")
+                        .HasColumnName("updated_by");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TenantId", "LocationId");
+
+                    b.HasIndex("TenantId", "GrantVersionId", "LocationId")
+                        .IsUnique();
+
+                    b.HasIndex("TenantId", "LegalEntityId", "GrantVersionId");
+
+                    b.ToTable("core_module_access_locations", "hrm", t =>
+                        {
+                            t.HasCheckConstraint("CK_module_access_location_not_archived", "NOT is_archived");
+                        });
+                });
+
+            modelBuilder.Entity("Mightyfin.Erp.Hrm.Domain.Entities.CoreModuleAccessReceipt", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<Guid>("ActingMembershipId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("acting_membership_id");
+
+                    b.Property<string>("ActorIssuer")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("actor_issuer");
+
+                    b.Property<string>("ActorSubject")
+                        .IsRequired()
+                        .HasMaxLength(19)
+                        .HasColumnType("character varying(19)")
+                        .HasColumnName("actor_subject");
+
+                    b.Property<Guid>("CommandKey")
+                        .HasColumnType("uuid")
+                        .HasColumnName("command_key");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("CreatedBy")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("created_by");
+
+                    b.Property<bool>("IsArchived")
+                        .HasColumnType("boolean")
+                        .HasColumnName("is_archived");
+
+                    b.Property<Guid>("LegalEntityId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("legal_entity_id");
+
+                    b.Property<Guid>("MembershipId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("membership_id");
+
+                    b.Property<string>("ModuleCode")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)")
+                        .HasColumnName("module_code");
+
+                    b.Property<string>("RequestHash")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("request_hash");
+
+                    b.Property<int>("ResultRevision")
+                        .HasColumnType("integer")
+                        .HasColumnName("result_revision");
+
+                    b.Property<Guid>("ResultVersionId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("result_version_id");
+
+                    b.Property<string>("TenantId")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("text")
+                        .HasColumnName("tenant_id");
+
+                    b.Property<DateTimeOffset?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasColumnType("text")
+                        .HasColumnName("updated_by");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ActorIssuer", "ActorSubject", "CommandKey")
+                        .IsUnique();
+
+                    b.HasIndex("TenantId", "LegalEntityId", "ActingMembershipId");
+
+                    b.HasIndex("TenantId", "LegalEntityId", "MembershipId", "ModuleCode", "ResultVersionId", "ResultRevision");
+
+                    b.ToTable("core_module_access_receipts", "hrm", t =>
+                        {
+                            t.HasCheckConstraint("CK_module_access_receipt", "result_revision >= 1 AND length(request_hash) = 64 AND NOT is_archived");
+                        });
+                });
+
+            modelBuilder.Entity("Mightyfin.Erp.Hrm.Domain.Entities.CoreModuleAccessVersion", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<Guid>("ActingMembershipId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("acting_membership_id");
+
+                    b.Property<int>("ActingMembershipRevision")
+                        .HasColumnType("integer")
+                        .HasColumnName("acting_membership_revision");
+
+                    b.Property<string>("ActionCodesCsv")
+                        .IsRequired()
+                        .HasMaxLength(32768)
+                        .HasColumnType("character varying(32768)")
+                        .HasColumnName("action_codes_csv");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("CreatedBy")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("created_by");
+
+                    b.Property<bool>("IsArchived")
+                        .HasColumnType("boolean")
+                        .HasColumnName("is_archived");
+
+                    b.Property<Guid>("LegalEntityId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("legal_entity_id");
+
+                    b.Property<Guid>("MembershipId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("membership_id");
+
+                    b.Property<int>("MembershipRevision")
+                        .HasColumnType("integer")
+                        .HasColumnName("membership_revision");
+
+                    b.Property<string>("ModuleCode")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)")
+                        .HasColumnName("module_code");
+
+                    b.Property<int>("PolicyVersion")
+                        .HasColumnType("integer")
+                        .HasColumnName("policy_version");
+
+                    b.Property<int>("PreviousRevision")
+                        .HasColumnType("integer")
+                        .HasColumnName("previous_revision");
+
+                    b.Property<Guid?>("PreviousVersionId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("previous_version_id");
+
+                    b.Property<int>("Revision")
+                        .HasColumnType("integer")
+                        .HasColumnName("revision");
+
+                    b.Property<string>("RoleKeysCsv")
+                        .IsRequired()
+                        .HasMaxLength(2048)
+                        .HasColumnType("character varying(2048)")
+                        .HasColumnName("role_keys_csv");
+
+                    b.Property<string>("ScopeKind")
+                        .IsRequired()
+                        .HasMaxLength(12)
+                        .HasColumnType("character varying(12)")
+                        .HasColumnName("scope_kind");
+
+                    b.Property<string>("State")
+                        .IsRequired()
+                        .HasMaxLength(8)
+                        .HasColumnType("character varying(8)")
+                        .HasColumnName("state");
+
+                    b.Property<string>("TenantId")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("text")
+                        .HasColumnName("tenant_id");
+
+                    b.Property<DateTimeOffset?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasColumnType("text")
+                        .HasColumnName("updated_by");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TenantId", "LegalEntityId", "ActingMembershipId");
+
+                    b.HasIndex("TenantId", "LegalEntityId", "MembershipId", "ModuleCode", "Revision")
+                        .IsUnique();
+
+                    b.HasIndex("TenantId", "LegalEntityId", "MembershipId", "ModuleCode", "PreviousVersionId", "PreviousRevision")
+                        .HasDatabaseName("IX_core_module_access_versions_tenant_id_legal_entity_id_memb~1");
+
+                    b.ToTable("core_module_access_versions", "hrm", t =>
+                        {
+                            t.HasCheckConstraint("CK_module_access_module", "module_code IN ('hrm','procurement')");
+
+                            t.HasCheckConstraint("CK_module_access_not_archived", "NOT is_archived");
+
+                            t.HasCheckConstraint("CK_module_access_predecessor", "(revision = 1 AND previous_version_id IS NULL) OR (revision > 1 AND previous_version_id IS NOT NULL)");
+
+                            t.HasCheckConstraint("CK_module_access_state", "(state = 'granted' AND scope_kind IN ('company','locations') AND length(action_codes_csv) > 0) OR (state = 'revoked' AND scope_kind = 'none' AND role_keys_csv = '' AND action_codes_csv = '')");
+
+                            t.HasCheckConstraint("CK_module_access_version", "policy_version = 1 AND membership_revision >= 1 AND acting_membership_revision >= 1 AND revision >= 1 AND previous_revision >= 0 AND CAST(revision AS bigint) = CAST(previous_revision AS bigint) + 1");
+                        });
+                });
+
             modelBuilder.Entity("Mightyfin.Erp.Hrm.Domain.Entities.CoreWorkspaceBinding", b =>
                 {
                     b.Property<Guid>("Id")
@@ -7835,6 +8117,7 @@ namespace Mightyfin.Erp.Hrm.Infrastructure.Migrations
 
                     b.Property<string>("TenantId")
                         .IsRequired()
+                        .ValueGeneratedOnAdd()
                         .HasColumnType("text")
                         .HasColumnName("tenant_id");
 
@@ -9007,6 +9290,64 @@ namespace Mightyfin.Erp.Hrm.Infrastructure.Migrations
                         .HasPrincipalKey("TenantId", "Id")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
+                });
+
+            modelBuilder.Entity("Mightyfin.Erp.Hrm.Domain.Entities.CoreModuleAccessLocation", b =>
+                {
+                    b.HasOne("Mightyfin.Erp.Hrm.Domain.Entities.WorkLocation", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId", "LocationId")
+                        .HasPrincipalKey("TenantId", "Id")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Mightyfin.Erp.Hrm.Domain.Entities.CoreModuleAccessVersion", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId", "LegalEntityId", "GrantVersionId")
+                        .HasPrincipalKey("TenantId", "LegalEntityId", "Id")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Mightyfin.Erp.Hrm.Domain.Entities.CoreModuleAccessReceipt", b =>
+                {
+                    b.HasOne("Mightyfin.Erp.Hrm.Domain.Entities.CoreCompanyMembership", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId", "LegalEntityId", "ActingMembershipId")
+                        .HasPrincipalKey("TenantId", "LegalEntityId", "Id")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Mightyfin.Erp.Hrm.Domain.Entities.CoreModuleAccessVersion", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId", "LegalEntityId", "MembershipId", "ModuleCode", "ResultVersionId", "ResultRevision")
+                        .HasPrincipalKey("TenantId", "LegalEntityId", "MembershipId", "ModuleCode", "Id", "Revision")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Mightyfin.Erp.Hrm.Domain.Entities.CoreModuleAccessVersion", b =>
+                {
+                    b.HasOne("Mightyfin.Erp.Hrm.Domain.Entities.CoreCompanyMembership", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId", "LegalEntityId", "ActingMembershipId")
+                        .HasPrincipalKey("TenantId", "LegalEntityId", "Id")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Mightyfin.Erp.Hrm.Domain.Entities.CoreCompanyMembership", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId", "LegalEntityId", "MembershipId")
+                        .HasPrincipalKey("TenantId", "LegalEntityId", "Id")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("FK_core_module_access_versions_core_company_memberships_tenan~1");
+
+                    b.HasOne("Mightyfin.Erp.Hrm.Domain.Entities.CoreModuleAccessVersion", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId", "LegalEntityId", "MembershipId", "ModuleCode", "PreviousVersionId", "PreviousRevision")
+                        .HasPrincipalKey("TenantId", "LegalEntityId", "MembershipId", "ModuleCode", "Id", "Revision")
+                        .OnDelete(DeleteBehavior.Restrict);
                 });
 
             modelBuilder.Entity("Mightyfin.Erp.Hrm.Domain.Entities.CoreWorkspaceBinding", b =>

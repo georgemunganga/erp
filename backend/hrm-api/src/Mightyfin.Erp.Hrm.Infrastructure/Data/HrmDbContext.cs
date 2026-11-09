@@ -16,7 +16,7 @@ namespace Mightyfin.Erp.Hrm.Infrastructure.Data;
 /// as the rest of the ERP). A global query filter scopes every query to the
 /// current tenant from the OIDC token; audit entries record before/after JSON
 /// via the interceptor.</summary>
-public sealed class HrmDbContext(DbContextOptions<HrmDbContext> options, ITenantAccessor tenant) : DbContext(options)
+public sealed partial class HrmDbContext(DbContextOptions<HrmDbContext> options, ITenantAccessor tenant) : DbContext(options)
 {
     /// <summary>Auto-populates <see cref="Entity.TenantId"/> on all newly added
     /// entities so every row is tenant-scoped from day one (both sync and async
@@ -51,6 +51,9 @@ public sealed class HrmDbContext(DbContextOptions<HrmDbContext> options, ITenant
             if (entry.Entity is CoreCompanyMembership versioned && entry.State is EntityState.Added or EntityState.Modified
                 && versioned.Revision < 1)
                 throw new DomainException("invalid-company-revision", "The company membership revision is invalid.");
+            if(entry.Entity is CoreModuleAccessVersion or CoreModuleAccessLocation or CoreModuleAccessReceipt
+                && entry.State is EntityState.Modified or EntityState.Deleted)
+                throw new DomainException("module-access-evidence-immutable","Append a new module access decision instead of editing evidence.");
             if (entry.State == EntityState.Added)
             {
                 // Never trust a tenant id supplied by a client or service. The
@@ -341,6 +344,7 @@ public sealed class HrmDbContext(DbContextOptions<HrmDbContext> options, ITenant
                 "result_revision >= 1 AND length(request_hash) = 64 AND operation IN ('role-change','revoke') " +
                 "AND result_role IN ('owner','administrator','member')"));
         });
+        ConfigureModuleAccess(modelBuilder);
         ConfigureEntity<CoreCurrencyPrecisionVersion>(modelBuilder, "currency_precision_versions", e =>
         {
             e.Property(x => x.CurrencyCode).HasMaxLength(3);
