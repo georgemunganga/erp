@@ -33,6 +33,7 @@ import {
   type OidcUser,
 } from "@/platform/oidc";
 
+import { hasProcurementModuleGrant } from "@/platform/material-request-access";
 import { INITIAL_AUTH_SETTINGS, loadAuthSettings, type AuthSettings } from "@/platform/auth-settings";
 
 const USE_REAL = (import.meta.env.VITE_USE_REAL_API as string | undefined) === "true";
@@ -50,6 +51,8 @@ interface AuthState {
   authorized: boolean;
   /** True when the identity is assigned to any ERP module. */
   erpAuthorized: boolean;
+  /** Verified default-company module grant, including custom Core roles. */
+  procurementAuthorized: boolean;
   /** Map Keycloak realm roles to the shell's demo workspace role. */
   resolveRole: () => Role;
   signInInteractive: () => void;
@@ -222,11 +225,31 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => { cancelled = true; };
   }, [authenticated, user?.subject]);
   const coreWorkspace = authenticated && coreContext && coreContext.actor === user?.subject ? coreContext.choices : null;
-  const coreAccessLoading = USE_REAL && authenticated && !!user?.subject && coreContext?.actor !== user.subject;
+  const coreContextLoading = USE_REAL && authenticated && !!user?.subject && coreContext?.actor !== user.subject;
   const coreActions = coreWorkspace?.coreActions ?? EMPTY_CORE_ACTIONS;
+  const companyId = (coreWorkspace?.companies.find(company => company.isDefault) ?? coreWorkspace?.companies[0])?.id;
+  const token = isSessionValid(session) ? session?.accessToken : undefined;
+  const procurementKey = JSON.stringify([authenticated, user?.subject, user?.roles, companyId, session?.expiresAt]);
+  const [procurementGrant, setProcurementGrant] = useState({ key: "", allowed: false, pending: true });
+  useEffect(() => {
+    if (!USE_REAL || !authenticated || !user?.subject || !companyId) return;
+    const abort = new AbortController();
+    setProcurementGrant({ key: procurementKey, allowed: false, pending: true });
+    const headers: Record<string, string> = { "X-Shell-Entity": companyId, "X-Shell-Branch-Scope": "all" };
+    if (token) headers.Authorization = `Bearer ${token}`;
+    fetch("/api/procurement/v1/context", { credentials: "include", cache: "no-store", headers, signal: abort.signal })
+      .then(response => response.ok ? response.json() : null)
+      .then(value => { if (!abort.signal.aborted) setProcurementGrant({ key: procurementKey,
+        allowed: hasProcurementModuleGrant(value, user.subject, companyId), pending: false }); })
+      .catch(() => { if (!abort.signal.aborted) setProcurementGrant({ key: procurementKey, allowed: false, pending: false }); });
+    return () => abort.abort();
+  }, [authenticated, user?.subject, companyId, procurementKey, token]);
+  const procurementAuthorized = authenticated && procurementGrant.key === procurementKey && procurementGrant.allowed;
+  const knownModule = hasErpModuleRole(user?.roles ?? []) || coreActions.includes("core-currency-precision-read");
+  const coreAccessLoading = coreContextLoading || (USE_REAL && authenticated && !knownModule && !!companyId
+    && (procurementGrant.key !== procurementKey || procurementGrant.pending));
   const authorized = !USE_REAL || (authenticated && hasHrmStaffRole(user?.roles ?? []));
-  const erpAuthorized = !USE_REAL || (authenticated && (hasErpModuleRole(user?.roles ?? [])
-    || coreActions.includes("core-currency-precision-read")));
+  const erpAuthorized = !USE_REAL || (authenticated && (knownModule || procurementAuthorized));
 
   const signInInteractive = useCallback(() => {
     const path = PUBLIC_PATHS.has(window.location.pathname) ? "/hrm" : window.location.pathname;
@@ -269,6 +292,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       authenticated,
       authorized,
       erpAuthorized,
+      procurementAuthorized,
       resolveRole,
       signInInteractive,
       signInLocal,
@@ -287,6 +311,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       authenticated,
       authorized,
       erpAuthorized,
+      procurementAuthorized,
       resolveRole,
       signInInteractive,
       signInLocal,

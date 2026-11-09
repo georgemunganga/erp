@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { mayCreateMaterialRequest } from "./material-request-access.ts";
+import { mayCreateMaterialRequest, hasProcurementModuleGrant } from "./material-request-access.ts";
 const grant = { principalId: "user-a", legalEntityId: "company-a", permissions: ["procurement-access", "procurement-request-read", "procurement-request-create"] };
 test("request shortcut requires the current actor, company and all request permissions", () => {
  assert.equal(mayCreateMaterialRequest(grant, "user-a", "company-a"), true);
@@ -10,4 +10,12 @@ test("request shortcut requires the current actor, company and all request permi
 });
 test("malformed/unavailable authority never creates a dashboard shortcut", () => {
  for (const value of [null, {}, { ...grant, permissions: "procurement-request-create" }, { ...grant, permissions: [...grant.permissions, 42] }]) assert.equal(mayCreateMaterialRequest(value, "user-a", "company-a"), false);
+});
+
+test("module access does not imply request creation", () => {
+ const moduleOnly = { ...grant, permissions: ["procurement-access"] };
+ assert.equal(hasProcurementModuleGrant(moduleOnly,"user-a","company-a"),true);
+ assert.equal(mayCreateMaterialRequest(moduleOnly,"user-a","company-a"),false);
+ assert.equal(hasProcurementModuleGrant(moduleOnly,"other","company-a"),false);
+ assert.equal(hasProcurementModuleGrant(moduleOnly,"user-a","other"),false);
 });
