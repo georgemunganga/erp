@@ -193,8 +193,16 @@ try {
   }
   assert.deepEqual(await invitationAudit(), { members: 1, receipts: 1, accepted: 0, sessions: 0, roles: 0 });
   stage = 'read_received_smtp_message';
+  await expect(page.getByRole('list', { name: 'Company invitations', exact: true })).toContainText('Email queued');
   const delivery = await fetch('http://127.0.0.1:8121/delivered-message', { headers: auth });
   assert.equal(delivery.status, 200);
+  stage = 'sender_refresh_observes_actual_mail_acceptance';
+  await page.getByRole('button', { name: 'Refresh invitations', exact: true }).click();
+  const senderInvitations = page.getByRole('list', { name: 'Company invitations', exact: true });
+  await expect(senderInvitations).toContainText('Email submitted');
+  await expect(senderInvitations).toContainText('Awaiting acceptance');
+  await expect(senderInvitations).toContainText('inbox delivery is unconfirmed');
+  await page.screenshot({ path: join(output, 'real-sender-email-submitted.png'), fullPage: true });
   const link = new URL((await delivery.json()).review_url);
   assert.equal(link.origin, appOrigin); assert.equal(link.pathname, '/accept-invitation');
   assert.equal(link.search, ''); assert.match(link.hash, /^#token=[A-Za-z0-9_-]{43}$/);
@@ -260,7 +268,7 @@ try {
   await writeFile(join(output, 'result.json'), JSON.stringify({ passed: true, actual_recipient_acceptance_tested: true,
     preaccepted_member_fixture: false, members: 2, invitation_receipts: 2, accepted: 1,
     dropped_committed_response: 1, license_replay_denied: true, operational_sessions: 0, module_roles: 0,
-    actual_smtp_delivery_tested: true, private_smtp_bridge: true, production_mail_delivery_tested: false,
+    actual_smtp_delivery_tested: true, sender_delivery_status_tested: true, private_smtp_bridge: true, production_mail_delivery_tested: false,
     transport: 'CDP scoped origins to actual services; PostgreSQL worker and SSH-forwarded Linux SMTP/TLS adapter; no deployed HTTP TLS or inbox claim' }, null, 2), { flag: 'wx' });
   console.log('Actual provider login, explicit enrollment/recipient consent, company acceptance/exact retry and license denial passed.');
 } catch (error) {

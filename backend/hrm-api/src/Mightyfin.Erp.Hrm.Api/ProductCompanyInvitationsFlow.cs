@@ -22,7 +22,8 @@ internal static class ProductCompanyInvitationsFlow
                 .ListAsync(new(proof.Issuer, proof.Subject, link), company, after, context.RequestAborted);
             if (page.Status != CompanyTeamReadStatus.Ok) return ProductCompanyTeamFlow.ReadFailure(page.Status);
             return Results.Ok(new { invitations = page.Items!.Select(x => new { invitation_id = x.Id,
-                recipient = x.Recipient, role = x.Role, state = x.State, revision = x.Revision, expires_at = x.ExpiresAt }),
+                recipient = x.Recipient, role = x.Role, state = x.State, revision = x.Revision, expires_at = x.ExpiresAt,
+                delivery=new {state=x.Delivery.State,attempts=x.Delivery.Attempts,retry_at=x.Delivery.RetryAt,accepted_at=x.Delivery.AcceptedAt} }),
                 next_cursor = page.Next, actor_role = page.ActorRole, operational_access_granted = false });
         }).AllowAnonymous();
         group.MapPost("/issue", (Func<HttpContext, Task<IResult>>)(context => Execute(context, issue: true))).AllowAnonymous();

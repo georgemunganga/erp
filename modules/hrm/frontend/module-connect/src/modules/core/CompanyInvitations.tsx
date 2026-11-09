@@ -37,6 +37,16 @@ const states = {
   revoked: "Revoked",
   expired: "Expired",
 };
+const deliveryStates: Record<TeamInvitation["delivery"]["state"], string> = {
+  queued: "Email queued",
+  retrying: "Email retry scheduled",
+  accepted: "Email submitted",
+  suppressed: "Email delivery stopped",
+  invalid: "Email delivery needs attention",
+  exhausted: "Email delivery needs attention",
+  "not-required": "No further email needed",
+  unavailable: "Email status unavailable",
+};
 function errorMessage(error: unknown) {
   if (error instanceof ProductTeamError) {
     if (error.status === 401) return "Your team sign-in has expired. Continue with Kuubu again.";
@@ -217,12 +227,21 @@ export function CompanyInvitations({
             </p>
           </div>
           {page ? (
-            <Button
-              disabled={disabled || !!review || busy || loading}
-              onClick={() => begin("issue")}
-            >
-              Invite teammate
-            </Button>
+            <div className="flex flex-wrap gap-3">
+              <Button
+                variant="outline"
+                disabled={disabled || !!review || busy || loading || paging}
+                onClick={() => setVersion((value) => value + 1)}
+              >
+                Refresh invitations
+              </Button>
+              <Button
+                disabled={disabled || !!review || busy || loading}
+                onClick={() => begin("issue")}
+              >
+                Invite teammate
+              </Button>
+            </div>
           ) : null}
         </div>
         {notice ? (
@@ -254,6 +273,22 @@ export function CompanyInvitations({
                       <p className="mt-1 text-sm text-muted-foreground">
                         {roles[invitation.role]} · {states[invitation.state]}
                       </p>
+                      <p className="mt-1 text-sm text-muted-foreground">
+                        {deliveryStates[invitation.delivery.state]}
+                        {invitation.delivery.attempts > 0
+                          ? ` · ${invitation.delivery.attempts} ${invitation.delivery.attempts === 1 ? "attempt" : "attempts"}`
+                          : ""}
+                      </p>
+                      {invitation.delivery.acceptedAt ? (
+                        <p className="mt-1 text-xs text-muted-foreground">
+                          Submitted {new Date(invitation.delivery.acceptedAt).toLocaleString()};
+                          inbox delivery is unconfirmed.
+                        </p>
+                      ) : invitation.delivery.retryAt ? (
+                        <p className="mt-1 text-xs text-muted-foreground">
+                          Next attempt {new Date(invitation.delivery.retryAt).toLocaleString()}.
+                        </p>
+                      ) : null}
                       <p className="mt-1 text-xs text-muted-foreground">
                         Expires {new Date(invitation.expiresAt).toLocaleString()}
                       </p>

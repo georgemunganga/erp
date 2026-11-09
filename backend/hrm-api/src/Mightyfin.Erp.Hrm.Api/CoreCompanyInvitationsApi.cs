@@ -5,10 +5,13 @@ using System.Text.Json;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.EntityFrameworkCore;
 using Mightyfin.Erp.Hrm.Infrastructure.Data;
+using Mightyfin.Erp.Hrm.Domain.Entities;
+using Mightyfin.Erp.Hrm.Infrastructure;
 
 namespace Mightyfin.Erp.Hrm.Api;
 
-internal sealed record CompanyInvitationView(Guid Id, string Recipient, string Role, string State, int Revision, DateTimeOffset ExpiresAt);
+internal sealed record CompanyInvitationView(Guid Id, string Recipient, string Role, string State, int Revision, DateTimeOffset ExpiresAt,
+    CompanyInvitationDeliveryView Delivery);
 
 /// <summary>Licensed sender-side orchestration. Never sends email or exposes invitation secrets.</summary>
 internal sealed class CoreCompanyInvitationsApi(Func<string, HrmDbContext> contextFactory, CoreCompanyTeamApi team,
@@ -28,6 +31,16 @@ internal sealed class CoreCompanyInvitationsApi(Func<string, HrmDbContext> conte
                 query = query.Where(x => string.Compare(x.Id.ToString().ToLower(), text) > 0);
             }
             var scanned = await query.OrderBy(x => x.Id.ToString().ToLower()).Take(21).ToArrayAsync(cancellation);
+            var ids=scanned.Take(20).Select(x=>x.Id).ToArray();var subjects=ids.Select(x=>x.ToString("D")).ToArray();
+            var intents=await db.OutboxMessages.AsNoTracking().Where(x=>x.EventType==CompanyInvitationDeliveryStore.EventType && subjects.Contains(x.SubjectId))
+                .Select(x=>new OutboxMessage {Id=x.Id,TenantId=x.TenantId,IsArchived=x.IsArchived,PublicId=x.PublicId,
+                    EventType=x.EventType,EventVersion=x.EventVersion,SubjectId=x.SubjectId,CreatedBy=x.CreatedBy,CorrelationId=x.CorrelationId,
+                    PayloadJson=x.PayloadJson.Length<=1024?x.PayloadJson:"",Status=x.Status,PublishAttempts=x.PublishAttempts,
+                    PublishedAt=x.PublishedAt,AvailableAt=x.AvailableAt,LastTransport=x.LastTransport,
+                    LastError=x.LastError==null || x.LastError.Length<=128?x.LastError:"invalid"}).Take(21).ToArrayAsync(cancellation);
+            var issued=await db.CompanyInvitationReceipts.AsNoTracking().Where(x=>ids.Contains(x.InvitationId) && x.Operation=="issue")
+                .Take(21).ToArrayAsync(cancellation);
+            var overflow=intents.Length>ids.Length || issued.Length>ids.Length;
             var rows = scanned.Take(20).Select(row => {
                 using var packet = JsonDocument.Parse(protection.Unprotect(row.ProtectedDelivery));
                 ProductWorkspaceSetupAuthority.RejectDuplicates(packet.RootElement);
@@ -36,7 +49,9 @@ internal sealed class CoreCompanyInvitationsApi(Func<string, HrmDbContext> conte
                     || Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(email!))) != row.RecipientHash)
                     throw new JsonException();
                 return new CompanyInvitationView(row.Id, email!, row.Role,
-                    row.State == "pending" && row.ExpiresAt <= clock.GetUtcNow() ? "expired" : row.State, row.Revision, row.ExpiresAt);
+                    row.State == "pending" && row.ExpiresAt <= clock.GetUtcNow() ? "expired" : row.State, row.Revision, row.ExpiresAt,
+                    overflow?CompanyInvitationDeliveryView.Unavailable:CoreCompanyInvitationDeliveryRead.Read(row,
+                        intents.Where(x=>x.SubjectId==row.Id.ToString("D")).ToArray(),issued.Where(x=>x.InvitationId==row.Id).ToArray(),clock.GetUtcNow()));
             }).ToArray();
             var current = await new CoreCompanyAccess(db, clock).ReadAsync(actor.Issuer, actor.Subject, actor.LinkId, company, ready.License!, cancellation);
             return current is not null && current.MayManageTeam

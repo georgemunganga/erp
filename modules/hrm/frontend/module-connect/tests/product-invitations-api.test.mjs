@@ -29,6 +29,53 @@ const list = {
 };
 const reply = (body, status = 200) =>
   new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json" } });
+
+test("an older API with no delivery observation never implies email acceptance", async () => {
+  const api = createProductTeamClient(async () => reply(list));
+  assert.deepEqual((await api.invitations(company)).invitations[0].delivery, {
+    state: "unavailable",
+    attempts: 0,
+    retryAt: null,
+    acceptedAt: null,
+  });
+});
+for (const delivery of [
+  { state: "queued", attempts: 0, retry_at: null, accepted_at: null },
+  { state: "retrying", attempts: 2, retry_at: "2026-11-12T12:00:00Z", accepted_at: null },
+  { state: "accepted", attempts: 1, retry_at: null, accepted_at: "2026-11-12T12:00:00Z" },
+  { state: "exhausted", attempts: 8, retry_at: null, accepted_at: null },
+  { state: "not-required", attempts: 1, retry_at: null, accepted_at: null },
+]) {
+  test(`delivery ${delivery.state} is distinct from company acceptance`, async () => {
+    const api = createProductTeamClient(async () =>
+      reply({ ...list, invitations: [{ ...row, delivery }] }),
+    );
+    const result = (await api.invitations(company)).invitations[0];
+    assert.equal(result.state, "pending");
+    assert.equal(result.delivery.state, delivery.state);
+    assert.equal(result.delivery.attempts, delivery.attempts);
+  });
+}
+for (const delivery of [
+  null,
+  { state: "accepted", attempts: 1, retry_at: null, accepted_at: null },
+  { state: "accepted", attempts: 0, retry_at: null, accepted_at: "2026-11-12T12:00:00Z" },
+  { state: "accepted", attempts: 9, retry_at: null, accepted_at: "2026-11-12T12:00:00Z" },
+  { state: "retrying", attempts: 8, retry_at: "2026-11-12T12:00:00Z", accepted_at: null },
+  { state: "retrying", attempts: 1, retry_at: "invalid", accepted_at: null },
+  { state: "queued", attempts: 0, retry_at: null, accepted_at: "2026-11-12T12:00:00Z" },
+  { state: "published", attempts: 1, retry_at: null, accepted_at: "2026-11-12T12:00:00Z" },
+]) {
+  test(`invalid mail observations are rejected: ${JSON.stringify(delivery)}`, async () => {
+    const api = createProductTeamClient(async () =>
+      reply({ ...list, invitations: [{ ...row, delivery }] }),
+    );
+    await assert.rejects(
+      api.invitations(company),
+      (error) => error instanceof ProductTeamError && error.status === 502,
+    );
+  });
+}
 test("invitation requests use fixed same-origin scoped paths and expose no bearer or secret", async () => {
   const calls = [];
   const api = createProductTeamClient(async (url, options) => {

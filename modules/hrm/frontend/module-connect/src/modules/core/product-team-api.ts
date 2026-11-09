@@ -16,6 +16,20 @@ export type TeamInvitation = {
   state: "pending" | "accepted" | "revoked" | "expired";
   revision: number;
   expiresAt: string;
+  delivery: {
+    state:
+      | "queued"
+      | "retrying"
+      | "accepted"
+      | "suppressed"
+      | "invalid"
+      | "exhausted"
+      | "not-required"
+      | "unavailable";
+    attempts: number;
+    retryAt: string | null;
+    acceptedAt: string | null;
+  };
 };
 export type InvitationCommand = { companyId: string; linkId: string; key: string } & (
   | { operation: "issue"; email: string; role: "administrator" | "member" }
@@ -80,6 +94,53 @@ function page(data: Record<string, unknown>, field: string) {
   )
     return invalid();
   return { rows: data[field] as unknown[], next: data.next_cursor as string | null };
+}
+
+function invitationDelivery(value: unknown): TeamInvitation["delivery"] {
+  // Older APIs can roll out independently; absence must never imply email sent.
+  if (value === undefined)
+    return { state: "unavailable", attempts: 0, retryAt: null, acceptedAt: null };
+  const data = object(value);
+  const state = data.state;
+  const attempts = data.attempts;
+  const date = (v: unknown): v is string => typeof v === "string" && Number.isFinite(Date.parse(v));
+  if (
+    typeof state !== "string" ||
+    ![
+      "queued",
+      "retrying",
+      "accepted",
+      "suppressed",
+      "invalid",
+      "exhausted",
+      "not-required",
+      "unavailable",
+    ].includes(state) ||
+    typeof attempts !== "number" ||
+    !Number.isInteger(attempts) ||
+    attempts < 0 ||
+    attempts > 8 ||
+    !(data.retry_at === null || date(data.retry_at)) ||
+    !(data.accepted_at === null || date(data.accepted_at))
+  )
+    return invalid();
+  if (
+    (state === "accepted" ? attempts < 1 || !date(data.accepted_at) : data.accepted_at !== null) ||
+    (state === "retrying"
+      ? attempts < 1 || attempts > 7 || !date(data.retry_at)
+      : data.retry_at !== null) ||
+    ((state === "queued" || state === "unavailable") && attempts !== 0) ||
+    (state === "not-required" && attempts > 7) ||
+    ((state === "suppressed" || state === "invalid") && attempts < 1) ||
+    (state === "exhausted" && attempts !== 8)
+  )
+    return invalid();
+  return {
+    state: state as TeamInvitation["delivery"]["state"],
+    attempts,
+    retryAt: data.retry_at as string | null,
+    acceptedAt: data.accepted_at as string | null,
+  };
 }
 
 export function createProductTeamClient(fetcher: typeof fetch = fetch) {
@@ -295,6 +356,7 @@ export function createProductTeamClient(fetcher: typeof fetch = fetch) {
           state: row.state as TeamInvitation["state"],
           revision: row.revision,
           expiresAt: row.expires_at,
+          delivery: invitationDelivery(row.delivery),
         };
       });
       if (result.next !== null && (invitations.length !== 20 || result.next !== previous))

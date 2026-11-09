@@ -119,14 +119,15 @@ async function fixture(page: Page, mode = "owner", invitations = false) {
   const writes: Record<string, unknown>[] = [];
   const otherRequests: string[] = [];
   let memberReads = 0;
+  let invitationReads = 0;
   const invitationWrites: Record<string, unknown>[] = [];
   const invitationRows: Record<string, unknown>[] =
-    mode === "admin"
+    mode === "admin" || mode.startsWith("delivery-")
       ? [
           {
             invitation_id: "66666666-6666-6666-6666-666666666666",
             recipient: "privileged@example.test",
-            role: "administrator",
+            role: mode === "admin" ? "administrator" : "member",
             state: "pending",
             revision: 1,
             expires_at: new Date(Date.now() + 86400000).toISOString(),
@@ -226,6 +227,24 @@ async function fixture(page: Page, mode = "owner", invitations = false) {
       return;
     }
     if (path === "/invitations") {
+      invitationReads++;
+      if (mode === "delivery-refresh")
+        invitationRows[0].delivery =
+          invitationReads === 1
+            ? { state: "queued", attempts: 0, retry_at: null, accepted_at: null }
+            : {
+                state: "accepted",
+                attempts: 1,
+                retry_at: null,
+                accepted_at: new Date().toISOString(),
+              };
+      if (mode === "delivery-retrying")
+        invitationRows[0].delivery = {
+          state: "retrying",
+          attempts: 2,
+          retry_at: new Date(Date.now() + 30000).toISOString(),
+          accepted_at: null,
+        };
       await send({
         invitations: invitationRows,
         next_cursor: null,
@@ -321,6 +340,46 @@ async function fixture(page: Page, mode = "owner", invitations = false) {
   });
   return { writes, invitationWrites, otherRequests, reads: () => memberReads };
 }
+
+test("refresh shows mail acceptance separately from joining and makes no invitation command", async ({
+  page,
+}, testInfo) => {
+  const f = await fixture(page, "delivery-refresh", true);
+  await page.goto("/team");
+  const list = page.getByRole("list", { name: "Company invitations", exact: true });
+  await expect(list).toContainText("Email queued");
+  await expect(list).toContainText("Awaiting acceptance");
+  await expect(list).not.toContainText("Email submitted");
+  await page.getByRole("button", { name: "Refresh invitations", exact: true }).click();
+  await expect(list).toContainText("Email submitted");
+  await expect(list).toContainText("Awaiting acceptance");
+  await expect(list).toContainText("inbox delivery is unconfirmed");
+  expect(f.invitationWrites).toHaveLength(0);
+  await page.setViewportSize({ width: 390, height: 844 });
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(
+    true,
+  );
+  await page.screenshot({
+    path: testInfo.outputPath("invitation-delivery-mobile.png"),
+    fullPage: true,
+  });
+});
+test("retry timing and unavailable legacy delivery are explicit", async ({ page }) => {
+  await fixture(page, "delivery-retrying", true);
+  await page.goto("/team");
+  const list = page.getByRole("list", { name: "Company invitations", exact: true });
+  await expect(list).toContainText("Email retry scheduled");
+  await expect(list).toContainText("2 attempts");
+  await expect(list).toContainText("Next attempt");
+  await expect(list).not.toContainText("Email submitted");
+});
+test("legacy delivery never appears submitted", async ({ page }) => {
+  await fixture(page, "delivery-legacy", true);
+  await page.goto("/team");
+  const list = page.getByRole("list", { name: "Company invitations", exact: true });
+  await expect(list).toContainText("Email status unavailable");
+  await expect(list).not.toContainText("Email submitted");
+});
 async function roleReview(page: Page) {
   await page.getByRole("button", { name: "Change role for Ben Member", exact: true }).click();
   await page.getByLabel("New company role").click();

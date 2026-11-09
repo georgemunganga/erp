@@ -31,6 +31,8 @@ public sealed class ProductCompanyInvitationsHttpTests
         var page = await Body(list); var row = Assert.Single(page.GetProperty("invitations").EnumerateArray());
         Assert.Equal("invited@example.test",row.GetProperty("recipient").GetString());
         Assert.Equal("pending",row.GetProperty("state").GetString()); Assert.False(page.GetProperty("operational_access_granted").GetBoolean());
+        var delivery=row.GetProperty("delivery");Assert.Equal("queued",delivery.GetProperty("state").GetString());
+        Assert.Equal(0,delivery.GetProperty("attempts").GetInt32());Assert.Equal(JsonValueKind.Null,delivery.GetProperty("accepted_at").ValueKind);
         Assert.DoesNotContain("protected_delivery",page.GetRawText()); Assert.DoesNotContain("token",page.GetRawText());
         var revoke = new Dictionary<string,object?> { ["company_id"]=command["company_id"],["link_id"]=command["link_id"],
             ["command_key"]=Guid.NewGuid().ToString("D"),["invitation_id"]=row.GetProperty("invitation_id").GetString(),
@@ -45,6 +47,31 @@ public sealed class ProductCompanyInvitationsHttpTests
         Assert.Equal(2,await db.CompanyInvitationReceipts.CountAsync()); Assert.Single(await db.CompanyMemberships.ToArrayAsync());
         Assert.Empty(await db.LocalSessions.ToArrayAsync()); Assert.Empty(await db.LocalCredentialLinks.ToArrayAsync());
         Assert.Empty(await db.TenantRoleAssignments.ToArrayAsync());
+    }
+
+    [Fact]
+    public async Task Licensed_list_reports_the_bound_mail_outcome_without_leaking_transport_errors_or_granting_access()
+    {
+        await using var f=await Fixture.Start(invitations:true);await f.SignIn();
+        Assert.Equal(HttpStatusCode.Created,(await f.Post(Issue(f),path:"/invitations/issue")).StatusCode);
+        await using(var db=f.Core.Context()) {
+            var intent=await db.OutboxMessages.SingleAsync(x=>x.EventType==Mightyfin.Erp.Hrm.Infrastructure.CompanyInvitationDeliveryStore.EventType);
+            intent.Status="delivery-accepted";intent.PublishAttempts=1;intent.LastTransport="kuubu-smtp";intent.PublishedAt=f.Core.Clock.GetUtcNow();
+            await db.SaveChangesAsync();
+        }
+        var page=await Body(await f.Get(Path(f)));var row=page.GetProperty("invitations")[0];
+        Assert.Equal("pending",row.GetProperty("state").GetString());Assert.Equal("accepted",row.GetProperty("delivery").GetProperty("state").GetString());
+        Assert.Equal(1,row.GetProperty("delivery").GetProperty("attempts").GetInt32());
+        Assert.DoesNotContain("last_error",page.GetRawText());Assert.DoesNotContain("last_transport",page.GetRawText());
+        await using(var db=f.Core.Context()) {
+            var intent=await db.OutboxMessages.SingleAsync(x=>x.EventType==Mightyfin.Erp.Hrm.Infrastructure.CompanyInvitationDeliveryStore.EventType);
+            intent.LastError="unreviewed private diagnostic";await db.SaveChangesAsync();
+        }
+        Assert.Equal("unavailable",(await Body(await f.Get(Path(f)))).GetProperty("invitations")[0].GetProperty("delivery").GetProperty("state").GetString());
+        f.State.Status=CommercialLicenseStatus.Denied;
+        Assert.Equal(HttpStatusCode.Forbidden,(await f.Get(Path(f))).StatusCode);
+        await using var check=f.Core.Context();Assert.Single(await check.CompanyMemberships.ToArrayAsync());
+        Assert.Empty(await check.LocalSessions.ToArrayAsync());Assert.Empty(await check.LocalCredentialLinks.ToArrayAsync());
     }
 
     [Theory]
