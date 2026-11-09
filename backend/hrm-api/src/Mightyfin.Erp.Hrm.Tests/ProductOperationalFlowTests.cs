@@ -9,6 +9,7 @@ using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Authentication.OAuth;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.TestHost;
 using Microsoft.AspNetCore.WebUtilities;
 using Microsoft.EntityFrameworkCore;
@@ -137,12 +138,36 @@ public sealed partial class ProductOperationalFlowTests
         Assert.Equal(HttpStatusCode.ServiceUnavailable,(await f.Post("/start","","x")).StatusCode);
         Assert.Equal(0,f.Channel.Exchanges);
     }
+    [Theory]
+    [InlineData(false)][InlineData(true)]
+    public async Task Trusted_material_uses_earliest_authenticated_browser_ticket_and_store_deadline(bool shorterTicket)
+    {
+        await using var f=await Fixture.Start();var response=await f.Callback(await f.Challenge());
+        var identity=SetCookie(response,ProductOperationalFlow.Cookie);var browser=SetCookie(response,ProductOperationalBrowser.Cookie);
+        var format=f.App.Services.GetRequiredService<IOptionsMonitor<CookieAuthenticationOptions>>().Get(ProductOperationalFlow.Scheme).TicketDataFormat;
+        var ticket=format.Unprotect(identity[(identity.IndexOf('=')+1)..])!;
+        var context=new DefaultHttpContext();context.Request.Headers.Cookie=browser;
+        var browserState=f.App.Services.GetRequiredService<ProductOperationalBrowser>().Read(context)!;
+        // Make the browser limit deterministically earlier than both stored
+        // credentials and the ticket; callback timing must not choose the case.
+        var earlier=DateTimeOffset.UtcNow.AddMinutes(-2);
+        browserState=browserState with{Issued=earlier,Expires=earlier.AddHours(8)};
+        browser=ProductOperationalBrowser.Cookie+"="+f.App.Services.GetRequiredService<ProductOperationalBrowser>().Protect(browserState);
+        var expected=browserState.Expires;
+        if(shorterTicket){expected=DateTimeOffset.UtcNow.AddMinutes(1);ticket.Properties.ExpiresUtc=expected;expected=ticket.Properties.ExpiresUtc.Value;identity=ProductOperationalFlow.Cookie+"="+format.Protect(ticket);}
+        var observed=await f.Get("/trusted-material-check",identity+"; "+browser);Assert.Equal(HttpStatusCode.OK,observed.StatusCode);
+        var result=Assert.Single(f.TrustedObservations);Assert.Equal(OperationalCredentialStatus.Verified,result.Status);
+        Assert.Equal(expected,result.Material!.ExpiresAt);Assert.True(result.Observation!.ExpiresAt<=expected);
+        var text=await observed.Content.ReadAsStringAsync();Assert.DoesNotContain(result.Material.Handle,text);Assert.DoesNotContain(result.Material.BrowserBinding,text);
+        Assert.DoesNotContain("Material",text,StringComparison.OrdinalIgnoreCase);
+        Assert.Equal(HttpStatusCode.Unauthorized,(await f.Get("/erp-protected",identity+"; "+browser)).StatusCode);
+    }
     private static string SetCookie(HttpResponseMessage response,string name)=>response.Headers.GetValues("Set-Cookie").Single(x=>x.StartsWith(name+"=",StringComparison.Ordinal)).Split(';')[0];
     private sealed record Challenge(Dictionary<string,string> Parameters,string Cookie);
     private sealed class Fixture: IAsyncDisposable
     {
         internal const string Origin="https://app.kuubuerp.com",ClientId="391bdeaa-87b3-44b3-8e64-2110dcc1a564",Secret="synthetic-operational-secret";
-        internal required WebApplication App;internal required HttpClient Client;internal required Channel Channel;internal required string State;internal required HrmDbContext Db;internal AsyncServiceScope Scope;
+        internal required List<OperationalCredentialResult> TrustedObservations;internal required WebApplication App;internal required HttpClient Client;internal required Channel Channel;internal required string State;internal required HrmDbContext Db;internal AsyncServiceScope Scope;
         internal static async Task<Fixture> Start(bool enabled=true,string mode="",bool companies=false,CoreModuleAccessApi? moduleApi=null)
         {
             var root=Path.Combine(Path.GetTempPath(),"kuubu-operational-flow-"+Guid.NewGuid().ToString("N"));
@@ -164,9 +189,11 @@ public sealed partial class ProductOperationalFlowTests
             if(enabled){builder.Services.Configure<OAuthOptions>(ProductOperationalFlow.OAuthScheme,o=>o.Backchannel=new HttpClient(channel){MaxResponseContentBufferSize=65536});
                 builder.Services.AddSingleton(new ProductOperationalSubject(new HttpClient(channel),TimeProvider.System,ClientId));}
             builder.Services.AddAuthorization();var app=builder.Build();app.UseProductIdentityOriginGuard();app.UseAuthentication();app.UseAuthorization();
+            var observations=new List<OperationalCredentialResult>();
+            app.MapGet("/trusted-material-check",async(HttpContext context)=>{var result=await ProductOperationalFlow.ObserveAsync(context);observations.Add(result);return Results.Ok(result);});
             ProductOperationalFlow.Map(app);app.MapGet("/erp-protected",()=>"ERP").RequireAuthorization();await app.StartAsync();
             var scope=app.Services.CreateAsyncScope();var client=app.GetTestClient();client.BaseAddress=new Uri(Origin);
-            return new(){App=app,Client=client,Channel=channel,State=state,Scope=scope,Db=scope.ServiceProvider.GetRequiredService<HrmDbContext>()};
+            return new(){TrustedObservations=observations,App=app,Client=client,Channel=channel,State=state,Scope=scope,Db=scope.ServiceProvider.GetRequiredService<HrmDbContext>()};
         }
         internal async Task<Challenge> Challenge()
         {

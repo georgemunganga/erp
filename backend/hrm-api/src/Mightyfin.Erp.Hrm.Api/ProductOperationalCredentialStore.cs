@@ -9,7 +9,13 @@ using Microsoft.AspNetCore.DataProtection;
 namespace Mightyfin.Erp.Hrm.Api;
 
 internal enum OperationalCredentialStatus { Verified,Denied,Unavailable,Busy,ReauthenticationRequired }
-internal sealed record OperationalCredentialResult(OperationalCredentialStatus Status,OperationalSubjectObservation? Observation=null);
+internal sealed record OperationalCredentialMaterial(
+    [property:System.Text.Json.Serialization.JsonIgnore] string Handle,
+    [property:System.Text.Json.Serialization.JsonIgnore] string BrowserBinding,
+    [property:System.Text.Json.Serialization.JsonIgnore] DateTimeOffset ExpiresAt)
+{ public override string ToString()=>nameof(OperationalCredentialMaterial); }
+internal sealed record OperationalCredentialResult(OperationalCredentialStatus Status,OperationalSubjectObservation? Observation=null,
+    [property:System.Text.Json.Serialization.JsonIgnore] OperationalCredentialMaterial? Material=null);
 internal sealed record OperationalCredentialPacket(int Version,string HandleHash,string BindingHash,string Client,string Subject,
     string Access,string Refresh,DateTimeOffset AccessExpires,DateTimeOffset IssuedAt,DateTimeOffset ExpiresAt,long Revision)
 {public override string ToString()=>nameof(OperationalCredentialPacket);}
@@ -192,7 +198,7 @@ internal sealed class ProductOperationalCredentialStore
                 if(current.Status!=OperationalSubjectStatus.Verified || current.Observation is not { } proof
                     || !proof.IsCurrent || proof.Subject!=value.Subject || proof.ClientId!=client)return new(OperationalCredentialStatus.Unavailable);
                 var observation=proof.Constrain(value.AccessExpires<value.ExpiresAt?value.AccessExpires:value.ExpiresAt);
-                return observation.IsCurrent?new(OperationalCredentialStatus.Verified,observation):new(OperationalCredentialStatus.ReauthenticationRequired);
+                return observation.IsCurrent?new(OperationalCredentialStatus.Verified,observation,new(handle,binding,latest.ExpiresAt)):new(OperationalCredentialStatus.ReauthenticationRequired);
             }catch(OperationCanceledException)when(!cancellation.IsCancellationRequested){return new(OperationalCredentialStatus.Unavailable);}
             catch(Exception error)when(error is IOException or UnauthorizedAccessException or CryptographicException or JsonException or InvalidOperationException
                 or FormatException or ArgumentOutOfRangeException){return new(OperationalCredentialStatus.Unavailable);}

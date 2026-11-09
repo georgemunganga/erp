@@ -227,8 +227,16 @@ internal static class ProductOperationalFlow
             || ticket.Principal.FindFirstValue(ProductIdentity.IssuerClaim)!=ProductCommercialLicense.Issuer)return new(OperationalCredentialStatus.Denied);
         var person=context.RequestServices.GetRequiredService<ProductOperationalSubject>();var refresh=context.RequestServices.GetRequiredService<ProductOperationalRefresh>();
         var proof=await context.RequestServices.GetRequiredService<ProductOperationalCredentialStore>().ObserveAsync(handle,browser.Binding,person.ReadAsync,refresh.RefreshAsync,context.RequestAborted);
-        return proof.Status==OperationalCredentialStatus.Verified && (proof.Observation is null || proof.Observation.Subject!=ticket.Principal.FindFirstValue(ProductIdentity.SubjectClaim))
-            ?new(OperationalCredentialStatus.Denied):proof;
+        if(proof.Status!=OperationalCredentialStatus.Verified)return proof;
+        if(proof.Observation is null || proof.Observation.Subject!=ticket.Principal.FindFirstValue(ProductIdentity.SubjectClaim)
+            || proof.Material is not {} material || ticket.Properties.ExpiresUtc is not {} ticketExpiry)
+            return new(OperationalCredentialStatus.Denied);
+        // Only authenticated server state supplies launch material. Neither a
+        // browser selector nor a fresh short-lived proof may reset its deadline.
+        var deadline=material.ExpiresAt<browser.Expires?material.ExpiresAt:browser.Expires;
+        if(ticketExpiry<deadline)deadline=ticketExpiry;
+        return deadline<=DateTimeOffset.UtcNow?new(OperationalCredentialStatus.Denied)
+            :proof with{Observation=proof.Observation.Constrain(deadline),Material=material with{ExpiresAt=deadline}};
     }
 }
 internal sealed class OperationalRequestBudget

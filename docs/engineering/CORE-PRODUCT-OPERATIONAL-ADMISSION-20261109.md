@@ -15,7 +15,13 @@ and per-request scope authority are now separately qualified; see
 [ERP session scope](CORE-ERP-SESSION-SCOPE-20261109.md). Existing identity/grant flows still issue no ERP session.
 The durable registry/revocation/expiry component is separately qualified; see
 [session registry](CORE-PRODUCT-SESSION-REGISTRY-20261109.md). Public session issuance
-is not activated. Next: verified operational-flow material, secure HTTP cookie/
+is not activated. Operational observation now carries server-only credential
+handle/browser/absolute-expiry material after the final protected-store and
+current-person checks. The flow caps this deadline to the authenticated identity
+ticket and browser-state expiry; refresh cannot reset it. Material and its fields
+are excluded from default JSON and diagnostic text is redacted. This is not ERP
+authentication, a cookie writer or a session-creation endpoint.
+Next: secure HTTP cookie/
 authentication lifecycle, request/resource adapters, protected route/data isolation
 and connected ERP launch.
 ## 4. Parent
@@ -183,6 +189,37 @@ No SaaS operational activation until all acceptance checks pass. Lenco/hosting
 integrations and dedicated/offline licensing/installation/upgrades/backup restore
 remain part of the full platform programme, with separate deployment evidence.
 ## 28. Evidence
+
+### Trusted session-creation material —9 November2026
+
+OperationalCredentialResult now carries server-only credential handle, browser
+binding and original absolute deadline after final protected-store/current-person
+verification. ProductOperationalFlow caps that deadline to authenticated ticket
+and browser expiry. Refresh/reopening cannot reset it. Default JSON excludes both
+the carrier and every material field; diagnostic text is redacted. Existing
+public response shapes, non-default identity scheme, dedicated/local/OIDC modes
+and default-off controls are preserved. No ERP cookie, public issuer or default
+product authentication/route activation is introduced.
+
+Qualified:651 Windows passes/44 explicit environment skips and163 native
+PostgreSQL passes/zero skips. Three new cases pass in each: refresh/reopen retains
+original expiry and hides secrets; a deliberately earlier protected browser
+expiry caps material; an earlier authenticated ticket expiry caps it instead.
+Outage and revocation return no material. Provider HTTP responses are synthetic;
+actual OAuth/cookie middleware, encrypted credential storage and relational
+regressions execute. These tests do not qualify a real-provider browser ERP launch.
+
+Evidence: inspection/qualifications/operational-session-material-core-01 (API),
+operational-session-material-core-03 (final tests),
+operational-session-material-native-02 and
+operational-session-material-verification-01/verification.json. Four compiled C#
+inputs,49 independently copied dependencies and585 read-only native runtime
+files retain verified hashes. Final native containers are stopped with no host
+ports. API/tests retain27/21 existing warnings. Core01 retains the initial test
+compile error from a missing HTTP namespace; core02/native01 are successful prior
+runs. Core03 makes the browser-versus-ticket case deterministic rather than
+relying on callback timestamp ordering. No access guard/assertion was weakened.
+No production services/schema, Perfex, DNS or payment rails changed.
 
 ### Kuubu workspace entry and company review â€”9 November2026
 

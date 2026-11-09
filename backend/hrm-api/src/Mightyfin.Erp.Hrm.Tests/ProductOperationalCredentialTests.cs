@@ -19,6 +19,24 @@ public sealed class ProductOperationalCredentialTests
         f.Clock.Advance(TimeSpan.FromMinutes(10));
         Assert.NotNull(await f.Reopen().IssueAsync(f.Proof(),new("access","refresh",f.Clock.Now.AddMinutes(5)),f.Binding));
     }
+    [Fact]
+    public async Task Trusted_launch_material_retains_absolute_expiry_across_refresh_and_is_never_serialized()
+    {
+        var f=new Fixture();var issued=f.Clock.Now;var handle=await f.Issue(10);
+        var first=await f.Read(handle);Assert.Equal(OperationalCredentialStatus.Verified,first.Status);
+        var material=Assert.IsType<OperationalCredentialMaterial>(first.Material);
+        Assert.Equal(handle,material.Handle);Assert.Equal(f.Binding,material.BrowserBinding);
+        Assert.Equal(issued.AddHours(8),material.ExpiresAt);Assert.Equal(1,f.Refreshes);
+        f.Clock.Advance(TimeSpan.FromMinutes(1));
+        var next=await f.Reopen().ObserveAsync(handle,f.Binding,f.Observe,f.Refresh);
+        Assert.Equal(material,next.Material);Assert.True(next.Observation!.ExpiresAt<material.ExpiresAt);
+        Assert.Equal("{}",System.Text.Json.JsonSerializer.Serialize(material));
+        foreach(var text in new[]{System.Text.Json.JsonSerializer.Serialize(first),first.ToString(),material.ToString()}){
+            Assert.DoesNotContain(handle,text);Assert.DoesNotContain(f.Binding,text);Assert.DoesNotContain("private.access",text);
+        }
+        f.Person=OperationalSubjectStatus.Unavailable;Assert.Null((await f.Read(handle)).Material);
+        await f.Store.RevokeAsync(handle,f.Binding);Assert.Null((await f.Read(handle)).Material);
+    }
     internal const string Client="391bdeaa-87b3-44b3-8e64-2110dcc1a564";
     internal sealed class Clock:TimeProvider
     {
