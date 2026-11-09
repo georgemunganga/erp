@@ -1,3 +1,60 @@
+# Owner module permission API — 9 November 2026
+
+Published Core source `e52e804912958a742e83d9e2c0cb1b327a025052` connects the qualified ledger to
+owner-only HTTP member/location directories, exact member/module review and
+protected grant/revoke commands. It uses the distinct operational cookie/browser
+binding and fresh person observation, never the governance/setup pending proof or
+default ERP principal. The immutable company binding selects current licensing;
+no browser tenant/enrollment/payer selector is accepted. Owner and purchased module
+authority are rechecked after the commercial call and again by ledger commands.
+
+Member and active-location directories page20 records. Review returns the current
+member revision, registered role/action catalogs and latest configuration/grant
+revision, preserving revocation and warning about stale membership or unavailable
+locations. Foreign/archived branch names are not disclosed. Saving requires
+reviewed revisions, explicit confirmation, actor-key idempotency, bound CSRF and
+same-origin JSON. Bodies are capped at32768 bytes/depth4 with all14 exact fields,
+duplicate/unknown rejection and bounded arrays before provider observation.
+Only this registered command accepts a nonempty operational POST body; existing
+start/logout validation and login/picker DTOs remain unchanged.
+
+`ERP:ModuleAccess:Enabled` defaults false and requires operational identity,
+company discovery and licensing. Owning deployment must apply the previously
+qualified grant migration before enabling. This increment changes no schema and
+creates no ERP session/claims, employee record or legacy role assignment. The
+editor, revocable sessions and protected module/company/branch route enforcement
+remain unfinished; the API's outcomes always report no operational admission.
+
+Acceptance:579 Windows regression checks passed/39 environment-specific skips;
+68 PostgreSQL checks passed/zero skips, covering ten API query/license cases,
+thirteen new HTTP/security/configuration cases, existing operational defenses and
+the grant ledger. HTTP tests exercise actual operational handlers/protected store,
+Core relational commands and a synthetic identity backchannel. They are not the
+actual branded website/relay/Passport/network/browser/ingress composition.
+Fresh builds retain27/20 existing warnings. Seven C# inputs,49 independently
+copied dependency DLLs and585 native runtime files match their manifests. Owned
+test/database containers exited; test inputs/root are read-only, no host ports.
+
+Evidence: `inspection/qualifications/module-access-api-01` (fresh build; retained
+578-pass/one fixture expectation failure), `module-access-api-02` (independent
+corrected test build;579 pass), `module-access-native-01` (retained67-pass/one
+identical fixture failure), `module-access-native-02` (68 pass) and
+`module-access-verification-01/verification.json`. The fixture already contained
+one branch; the correction compares the complete authoritative branch-ID set
+across both pages, retaining it and checking no duplicates. No API/security or
+production rule changed to make the test pass.
+
+Next: connect the owner grant editor to this API, then bound revocable ERP sessions,
+protected route/data isolation and the actual branded website/relay/picker journey.
+Existing frontend6c5a8307, Foundation runtime75cc91ff and website consent1ade23e7
+remain unchanged. ERP main remains83ee9fd51d1d44142c493b088be4b0bf054dbfac.
+Production DB/ingress, trusted proxies/rates/path-only logging, monitoring/capacity/
+recovery, SMTP/inbox and controlled rollout remain gates. Lenco, hosting/domain/
+email products and dedicated/on-premise/offline licensing/upgrades/backup restore
+remain programme work. All modes use the maintained ASP.NET/Docker codebase.
+No production schema/config/flags/deployment, external mail/payment, Perfex, DNS or
+main/UI-main/B1 change. Keep ERP PR201 and Foundation PR3 draft.
+
 # Explicit module permission ledger — 9 November 2026
 
 Published Core source `534e7115d5456c9b629e760e95d72812742863c8` adds owner-confirmed, versioned
