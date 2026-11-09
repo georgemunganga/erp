@@ -8,7 +8,8 @@ Authorize an ERP session's explicitly selected company/module/branch scope witho
 letting headers, old grants, company roles or subscription entitlement widen it.
 ## 3. Scope
 This increment implements server-side selection binding and point-of-use scope
-resolution. Durable session registry, opaque cookie, browser binding/lifecycle,
+resolution. The [durable registry](CORE-PRODUCT-SESSION-REGISTRY-20261109.md) is now separately
+implemented/qualified. HTTP cookie handling, verified operational-flow material,
 authentication handler, route classification and connected launch UI remain next.
 The existing operational identity cookie still cannot authenticate ERP requests.
 ## 4. Parent architecture

@@ -1,4 +1,5 @@
 using System.Data.Common;
+using Mightyfin.Erp.Hrm.Domain.Entities;
 using Microsoft.EntityFrameworkCore;
 using Mightyfin.Erp.Hrm.Infrastructure.Data;
 
@@ -28,6 +29,16 @@ internal sealed record CoreErpSessionBinding
         LinkId = link; CompanyId = grant.CompanyId; Module = grant.Module;
         GrantVersionId = grant.VersionId; GrantRevision = grant.Revision;
         AllCompanyLocations = allCompany; LocationIds = Array.AsReadOnly(locations.ToArray());
+    }
+    // Trusted registry restoration preserves the stored version/scope exactly.
+    // Authorization still requires fresh person/license/Core resolution.
+    internal CoreErpSessionBinding(CoreProductSession stored, Guid[] locations)
+    {
+        PolicyVersion = stored.PolicyVersion; Subject = stored.Subject; ClientId = stored.ClientId;
+        TenantId = stored.TenantId; PrincipalId = stored.PrincipalId; LinkId = stored.LinkId;
+        CompanyId = stored.LegalEntityId; Module = stored.ModuleCode; GrantVersionId = stored.GrantVersionId;
+        GrantRevision = stored.GrantRevision; AllCompanyLocations = stored.ScopeKind == "company";
+        LocationIds = Array.AsReadOnly(locations.ToArray());
     }
     public override string ToString() => nameof(CoreErpSessionBinding);
 }

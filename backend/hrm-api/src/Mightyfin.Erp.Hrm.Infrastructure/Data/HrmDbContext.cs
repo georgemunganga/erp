@@ -51,6 +51,13 @@ public sealed partial class HrmDbContext(DbContextOptions<HrmDbContext> options,
             if (entry.Entity is CoreCompanyMembership versioned && entry.State is EntityState.Added or EntityState.Modified
                 && versioned.Revision < 1)
                 throw new DomainException("invalid-company-revision", "The company membership revision is invalid.");
+            if (entry.Entity is CoreProductSessionLocation selected && entry.State == EntityState.Added
+                && !ChangeTracker.Entries<CoreProductSession>().Any(parent => parent.State == EntityState.Added && parent.Entity.Id == selected.SessionId
+                    && parent.Entity.LegalEntityId == selected.LegalEntityId))
+                throw new DomainException("product-session-scope-sealed", "Session locations must be recorded in the original issue transaction.");
+            if(entry.Entity is CoreProductSession or CoreProductSessionLocation or CoreProductSessionRevocation
+                && entry.State is EntityState.Modified or EntityState.Deleted)
+                throw new DomainException("product-session-evidence-immutable", "Revoke the session instead of editing or deleting its evidence.");
             if(entry.Entity is CoreModuleAccessVersion or CoreModuleAccessLocation or CoreModuleAccessReceipt
                 && entry.State is EntityState.Modified or EntityState.Deleted)
                 throw new DomainException("module-access-evidence-immutable","Append a new module access decision instead of editing evidence.");
@@ -345,6 +352,7 @@ public sealed partial class HrmDbContext(DbContextOptions<HrmDbContext> options,
                 "AND result_role IN ('owner','administrator','member')"));
         });
         ConfigureModuleAccess(modelBuilder);
+        ConfigureProductSessions(modelBuilder);
         ConfigureEntity<CoreCurrencyPrecisionVersion>(modelBuilder, "currency_precision_versions", e =>
         {
             e.Property(x => x.CurrencyCode).HasMaxLength(3);

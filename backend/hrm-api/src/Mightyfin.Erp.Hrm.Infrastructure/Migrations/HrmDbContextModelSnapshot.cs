@@ -3385,6 +3385,299 @@ namespace Mightyfin.Erp.Hrm.Infrastructure.Migrations
                         });
                 });
 
+            modelBuilder.Entity("Mightyfin.Erp.Hrm.Domain.Entities.CoreProductSession", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<string>("BrowserHash")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("browser_hash");
+
+                    b.Property<string>("ClientId")
+                        .IsRequired()
+                        .HasMaxLength(36)
+                        .HasColumnType("character varying(36)")
+                        .HasColumnName("client_id");
+
+                    b.Property<Guid>("CommandKey")
+                        .HasColumnType("uuid")
+                        .HasColumnName("command_key");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("CreatedBy")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("created_by");
+
+                    b.Property<string>("CredentialHash")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("credential_hash");
+
+                    b.Property<long>("ExpiresAt")
+                        .HasColumnType("bigint")
+                        .HasColumnName("expires_at");
+
+                    b.Property<int>("GrantRevision")
+                        .HasColumnType("integer")
+                        .HasColumnName("grant_revision");
+
+                    b.Property<Guid>("GrantVersionId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("grant_version_id");
+
+                    b.Property<bool>("IsArchived")
+                        .HasColumnType("boolean")
+                        .HasColumnName("is_archived");
+
+                    b.Property<long>("IssuedAt")
+                        .HasColumnType("bigint")
+                        .HasColumnName("issued_at");
+
+                    b.Property<string>("Issuer")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("issuer");
+
+                    b.Property<Guid>("LegalEntityId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("legal_entity_id");
+
+                    b.Property<Guid>("LinkId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("link_id");
+
+                    b.Property<Guid>("MembershipId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("membership_id");
+
+                    b.Property<string>("ModuleCode")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)")
+                        .HasColumnName("module_code");
+
+                    b.Property<int>("PolicyVersion")
+                        .HasColumnType("integer")
+                        .HasColumnName("policy_version");
+
+                    b.Property<Guid>("PrincipalId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("principal_id");
+
+                    b.Property<string>("ProtectedToken")
+                        .IsRequired()
+                        .HasMaxLength(32768)
+                        .HasColumnType("character varying(32768)")
+                        .HasColumnName("protected_token");
+
+                    b.Property<string>("RequestHash")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("request_hash");
+
+                    b.Property<string>("ScopeHash")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("scope_hash");
+
+                    b.Property<string>("ScopeKind")
+                        .IsRequired()
+                        .HasMaxLength(12)
+                        .HasColumnType("character varying(12)")
+                        .HasColumnName("scope_kind");
+
+                    b.Property<string>("Subject")
+                        .IsRequired()
+                        .HasMaxLength(19)
+                        .HasColumnType("character varying(19)")
+                        .HasColumnName("subject");
+
+                    b.Property<string>("TenantId")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("text")
+                        .HasColumnName("tenant_id");
+
+                    b.Property<string>("TokenHash")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("token_hash");
+
+                    b.Property<DateTimeOffset?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasColumnType("text")
+                        .HasColumnName("updated_by");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TokenHash")
+                        .IsUnique();
+
+                    b.HasIndex("TenantId", "PrincipalId", "LinkId");
+
+                    b.HasIndex("Issuer", "Subject", "ClientId", "CommandKey")
+                        .IsUnique();
+
+                    b.HasIndex("Issuer", "Subject", "ClientId", "IssuedAt");
+
+                    b.HasIndex("TenantId", "LegalEntityId", "MembershipId", "ModuleCode", "GrantVersionId", "GrantRevision")
+                        .HasDatabaseName("IX_product_sessions_grant_binding");
+
+                    b.ToTable("core_product_sessions", "hrm", t =>
+                        {
+                            t.HasCheckConstraint("CK_product_session_deadline", "expires_at > issued_at AND expires_at - issued_at <= 288000000000 AND issued_at >= 0 AND expires_at <= 3155378975999999999");
+
+                            t.HasCheckConstraint("CK_product_session_policy", "policy_version = 1 AND grant_revision >= 1 AND issuer = 'https://commercial-api.greenwebb.tech' AND NOT is_archived");
+
+                            t.HasCheckConstraint("CK_product_session_scope", "module_code IN ('hrm','procurement') AND scope_kind IN ('company','locations')");
+
+                            t.HasCheckConstraint("CK_product_session_secrets", "length(scope_hash) = 64 AND length(token_hash) = 64 AND length(credential_hash) = 64 AND length(browser_hash) = 64 AND length(request_hash) = 64 AND length(protected_token) BETWEEN 44 AND 32768");
+                        });
+                });
+
+            modelBuilder.Entity("Mightyfin.Erp.Hrm.Domain.Entities.CoreProductSessionLocation", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("CreatedBy")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("created_by");
+
+                    b.Property<bool>("IsArchived")
+                        .HasColumnType("boolean")
+                        .HasColumnName("is_archived");
+
+                    b.Property<Guid>("LegalEntityId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("legal_entity_id");
+
+                    b.Property<Guid>("LocationId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("location_id");
+
+                    b.Property<Guid>("SessionId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("session_id");
+
+                    b.Property<string>("TenantId")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("text")
+                        .HasColumnName("tenant_id");
+
+                    b.Property<DateTimeOffset?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasColumnType("text")
+                        .HasColumnName("updated_by");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("SessionId", "LocationId")
+                        .IsUnique();
+
+                    b.HasIndex("TenantId", "LocationId");
+
+                    b.HasIndex("TenantId", "LegalEntityId", "SessionId");
+
+                    b.ToTable("core_product_session_locations", "hrm", t =>
+                        {
+                            t.HasCheckConstraint("CK_product_session_location", "NOT is_archived");
+                        });
+                });
+
+            modelBuilder.Entity("Mightyfin.Erp.Hrm.Domain.Entities.CoreProductSessionRevocation", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("CreatedBy")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("created_by");
+
+                    b.Property<bool>("IsArchived")
+                        .HasColumnType("boolean")
+                        .HasColumnName("is_archived");
+
+                    b.Property<Guid>("LegalEntityId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("legal_entity_id");
+
+                    b.Property<string>("Reason")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)")
+                        .HasColumnName("reason");
+
+                    b.Property<DateTimeOffset>("RevokedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("revoked_at");
+
+                    b.Property<Guid>("SessionId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("session_id");
+
+                    b.Property<string>("TenantId")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("text")
+                        .HasColumnName("tenant_id");
+
+                    b.Property<DateTimeOffset?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasColumnType("text")
+                        .HasColumnName("updated_by");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("SessionId")
+                        .IsUnique();
+
+                    b.HasIndex("TenantId", "LegalEntityId", "SessionId");
+
+                    b.ToTable("core_product_session_revocations", "hrm", t =>
+                        {
+                            t.HasCheckConstraint("CK_product_session_revocation", "reason IN ('logout','replaced') AND NOT is_archived");
+                        });
+                });
+
             modelBuilder.Entity("Mightyfin.Erp.Hrm.Domain.Entities.CoreWorkspaceBinding", b =>
                 {
                     b.Property<Guid>("Id")
@@ -9348,6 +9641,50 @@ namespace Mightyfin.Erp.Hrm.Infrastructure.Migrations
                         .HasForeignKey("TenantId", "LegalEntityId", "MembershipId", "ModuleCode", "PreviousVersionId", "PreviousRevision")
                         .HasPrincipalKey("TenantId", "LegalEntityId", "MembershipId", "ModuleCode", "Id", "Revision")
                         .OnDelete(DeleteBehavior.Restrict);
+                });
+
+            modelBuilder.Entity("Mightyfin.Erp.Hrm.Domain.Entities.CoreProductSession", b =>
+                {
+                    b.HasOne("Mightyfin.Erp.Hrm.Domain.Entities.ExternalIdentityLink", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId", "PrincipalId", "LinkId")
+                        .HasPrincipalKey("TenantId", "LocalUserId", "Id")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Mightyfin.Erp.Hrm.Domain.Entities.CoreModuleAccessVersion", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId", "LegalEntityId", "MembershipId", "ModuleCode", "GrantVersionId", "GrantRevision")
+                        .HasPrincipalKey("TenantId", "LegalEntityId", "MembershipId", "ModuleCode", "Id", "Revision")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Mightyfin.Erp.Hrm.Domain.Entities.CoreProductSessionLocation", b =>
+                {
+                    b.HasOne("Mightyfin.Erp.Hrm.Domain.Entities.WorkLocation", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId", "LocationId")
+                        .HasPrincipalKey("TenantId", "Id")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Mightyfin.Erp.Hrm.Domain.Entities.CoreProductSession", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId", "LegalEntityId", "SessionId")
+                        .HasPrincipalKey("TenantId", "LegalEntityId", "Id")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Mightyfin.Erp.Hrm.Domain.Entities.CoreProductSessionRevocation", b =>
+                {
+                    b.HasOne("Mightyfin.Erp.Hrm.Domain.Entities.CoreProductSession", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId", "LegalEntityId", "SessionId")
+                        .HasPrincipalKey("TenantId", "LegalEntityId", "Id")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
                 });
 
             modelBuilder.Entity("Mightyfin.Erp.Hrm.Domain.Entities.CoreWorkspaceBinding", b =>

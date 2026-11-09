@@ -12,9 +12,12 @@ handoff, connected workspace entry/company licensing review and explicit owner
 module/action/branch grants. The branded website/relay/Core/Passport/PostgreSQL
 permission journey is qualified at sourcea0cef594. Server-side selection binding
 and per-request scope authority are now separately qualified; see
-[ERP session scope](CORE-ERP-SESSION-SCOPE-20261109.md). No ERP session is issued.
-Next: durable session registry/revocation/expiry, cookie/authentication lifecycle,
-request/resource adapters, protected route/data isolation and connected ERP launch.
+[ERP session scope](CORE-ERP-SESSION-SCOPE-20261109.md). Existing identity/grant flows still issue no ERP session.
+The durable registry/revocation/expiry component is separately qualified; see
+[session registry](CORE-PRODUCT-SESSION-REGISTRY-20261109.md). Public session issuance
+is not activated. Next: verified operational-flow material, secure HTTP cookie/
+authentication lifecycle, request/resource adapters, protected route/data isolation
+and connected ERP launch.
 ## 4. Parent
 Core company membership/team/invitations; purchased workspace/licensing contracts.
 Keep one ASP.NET/Docker release for shared SaaS and dedicated/on-premise use.
