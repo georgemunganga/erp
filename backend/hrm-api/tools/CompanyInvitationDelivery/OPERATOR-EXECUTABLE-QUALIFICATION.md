@@ -6,6 +6,12 @@ production registration, licensing client, protected invitation reader and SMTP
 adapter. No application HTTP/SMTP client is replaced. It does not run in normal
 tests or register a production endpoint.
 
+The Linux runtime must include the existing ERP Dockerfile's
+`libgssapi-krb5-2` dependency. The bare ASP.NET base can write a missing-library
+diagnostic during Npgsql's ordinary GSS negotiation before password fallback.
+The executable gate requires empty stderr; supply the runtime prerequisite
+rather than suppressing diagnostics or changing connection negotiation.
+
 Prepare a fresh internal Docker network, synthetic PostgreSQL control database
 `kuubu_session_test_control`, private Laravel product fixture and named Linux
 evidence volume. Do not publish host ports. The test assembly and previously
@@ -19,6 +25,12 @@ short-lived owner observation and actual license through the Core provisioner;
 this test does not replace or requalify the separate OAuth/browser setup flow.
 Provider data, Passport keys, sessions and caches stay in its private fixture.
 Payments use no credentials and mail is array-only on Laravel.
+
+Stage application/vendor files on a fresh Linux volume from a retained archive.
+Thousands of Windows bind-mounted PHP includes can exceed the unchanged
+licensing deadline. Source/application mounts remain read-only, and the archive
+must be fully closed before another fixture reads it. Record the provider PHP
+version, runtime image/package versions and archive hash with the evidence.
 
 An in-process test TLS gateway binds only container loopback443 for the fixed
 `commercial-api.greenwebb.tech` origin. It forwards only token/licensing paths

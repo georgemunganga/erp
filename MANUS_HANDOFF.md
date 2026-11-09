@@ -1,3 +1,71 @@
+# Full operator executable qualification —9 November2026
+
+Published executable fixture77ee21ba95cad69b464dfb5170413fe3c06bf0b6 now
+qualifies the unchanged application runtime925f6a1f through the actual operator
+CLI, actual Laravel Passport/machine licensing, deployment Data Protection keys
+and private STARTTLS/authenticated SMTP. Fresh test build passed with20 existing
+warnings;15 focused Windows checks passed/seven native opt-ins skipped. The
+separate Linux executable case passed in00:02:03.5185585 with zero skips.
+
+Two real SMTP recipient rejections produce retryable failures through the normal
+store/resolver. After ordinary backoff, the actual command sends once, replays
+its historical receipt without another send, and rejects changed retry arguments.
+Suspending the actual Laravel subscription then makes the second command record
+suppression without SMTP. All command exit/status/stderr checks pass. Three
+actual machine-token requests and seven licensing reads are observed; the
+original encryption key ring is unchanged. No HTTP/SMTP client is replaced.
+
+Independent read-only PostgreSQL verifies one company/binding/federated user/
+link/owner membership, two pending revision1 invitations/two receipts, nine
+audits/five events, four delivery attempts and two matching operator receipts.
+Six validated invitation foreign keys, two history guards and exact48-hour
+expiry hold. There are zero passwords/credential links, ERP sessions or module
+grants. Laravel SQLite independently confirms suspension, three machine tokens,
+one seeded owner payer membership, zero staff payer memberships and zero personal
+enrollments. Initial setup authority is explicitly synthetic; this case does not
+claim to requalify the separate user OAuth/browser setup journey.
+
+Actual reporting under a SELECT-only role returns accepted1/suppressed1 and
+leaves all104 HRM tables unchanged.49 independently copied dependency DLLs,
+585 test-runtime files,151 API runtime files and48 Foundation application
+sources retain their manifests. API/test/SDK/provider input mounts are read-only.
+Every owned qualification service is stopped; no host ports were published.
+
+Transport is explicit test infrastructure: a container-loopback TLS gateway for
+the fixed commercial origin forwards token/license requests to private Laravel
+HTTP on an internal network. Provider PHP8.5.9 and .NET10.0.14 are recorded. CA
+trust belongs only to the test process; no application certificate override or
+host trust change. A synthetic marker-protected fixture control owns subscription
+suspension. The runtime image adds the existing ERP Dockerfile's libgssapi-krb5-2
+prerequisite, not an application change or connection-negotiation bypass.
+
+Failure history is retained. Native01 reached the provider but failed licensing
+before any company, invitation, audit/event or token was created (independently
+audited). Native02 was stopped during slow Windows bind-mounted staging.
+Native03/04 reached a successful first operator command but failed strict stderr
+checks because the minimal fixture image omitted the existing GSS library.
+A separate no-op diagnostic reproduced that exact missing-library message.
+Native05 supplies the normal prerequisite and passes without relaxing the checks.
+The corrected fixture uses distinct recipients to preserve duplicate-pending
+invitation protection. The closed runtime archive is retained for fresh Linux
+staging; no old publication was overwritten.
+
+Evidence: inspection/qualifications/invitation-ops-executable-api-02,
+invitation-ops-executable-native-05/linux-evidence/results/executable.trx,
+invitation-ops-executable-audit-05/audit.json and
+invitation-ops-executable-verification-05/{verification,environment}.json.
+The runtime/package image record is in invitation-ops-executable-runtime-01.
+
+This closes private operator CLI/provider/key-ring/SMTP composition qualification.
+Production sender/inbox, monitoring/support ownership, deployed ingress/rate
+controls/path-only logging and recovery remain deployment gates. Next product
+work is licensed ERP sessions/revocation and company/branch/module isolation.
+Dedicated/on-premise installation/offline licensing/upgrades/backup restore,
+Lenco and hosting/domain/email integrations remain in scope and unqualified.
+No frontend or Laravel runtime change, production activation/schema/config,
+external mail/payment, Perfex migration, DNS or main/UI-main/B1 change. PRs stay
+draft; one maintained ERP codebase remains required for every deployment mode.
+
 # Invitation delivery operations —9 November2026
 
 Published API/Infrastructure925f6a1f5a75a4fe63c54de8366942bba518fad3 adds a
