@@ -1,3 +1,53 @@
+# Explicit ERP session HTTP lifecycle qualified —10 November2026
+
+Published ERP source `75c1c468747def8d85b37b22014136de0790c3ec` connects current personal identity/licensing to
+the durable session registry through default-off HTTP self-review, explicit
+selection, current-state and logout endpoints. Self-review is available to an
+ordinary explicitly permitted member while the enabled owner editor still denies
+them. It exposes only their own current grant; foreign selectors are denied.
+Review never creates or confirms a session. Selection requires the exact reviewed
+grant, explicit scope/confirmation and stable retry key, then sets only an opaque
+Secure/HttpOnly/SameSite=Lax/host-only ERP cookie. No credential/tenant/principal/
+deadline may be supplied by browser JSON. Current reads recheck person, licensing,
+exact stored grant and owned branches. Provider outage never returns cached scope.
+
+ERP logout is CSRF/bound-continuity protected and provider-independent, with
+durable idempotent revocation. Parent logout/start revokes parent credentials
+first, attempts registry revocation and clears the ERP cookie. Existing local/
+OIDC/dedicated behavior is preserved. Product authentication/resource adapters
+remain required: these cookies do not satisfy default protected ERP routes and
+responses keep operational_access_granted=false. Production flags remain off.
+
+Qualification: 674 Windows passes/44 explicit environment skips;
+186 native PostgreSQL passes/0 skips. All23 new HTTP cases pass
+in each; focused Windows23/zero skips also passes. Actual OAuth/cookie middleware,
+encrypted credential state, Core commands and relational DBs execute; provider
+HTTP person responses/current-license delegates are synthetic. This is not a new
+actual-provider browser ERP launch. Seven compiled C# inputs and
+35 independent dependency DLLs retain verified hashes; the native receipt
+records 586 unchanged read-only runtime files and two stopped containers/no host ports.
+API/tests retain27/21 existing warnings. Initial focused01 rejected fixture-issued
+sessions as expired because Core's fixed8-November clock differed from real HTTP.
+Focused02 uses a matching runtime clock and passes19 cases; core03/focused03 add
+self-review/member-versus-owner-editor/foreign-selector acceptance,23 cases.
+No production check or authority assertion was weakened. All attempts are retained.
+
+Evidence: inspection/qualifications/product-session-http-core-03,
+product-session-http-windows-focused-03, product-session-http-native-02 and
+product-session-http-verification-01/verification.json. See
+ERP docs/engineering/CORE-PRODUCT-SESSION-HTTP-20261110.md for the28-section contract.
+No production services/schema, DNS, Perfex, mail or payment rails changed.
+
+Next: deliberate product authentication with no legacy fallback, verified tenant
+and Core self-service context, module/action/resource mapping, distinct WorkLocation/
+OrgUnit scope, product-aware Procurement principal refresh, actual protected HRM/
+Procurement company/branch reads/writes and connected frontend/browser ERP entry.
+Keep one codebase for SaaS/dedicated/on-premise. Production ingress/capacity/logging/
+monitoring/recovery, Lenco, hosting/domain/email and on-premise offline licensing/
+installation/upgrades/backup restore remain programme work. Keep both PRs draft.
+
+## Previous trusted-material checkpoint
+
 # Trusted ERP session-creation material qualified — 9 November 2026
 
 Published ERP source `80c4cfd6d4ef2f389afd8cd0bd02644da2a1ad76` supplies trusted session-creation material only
