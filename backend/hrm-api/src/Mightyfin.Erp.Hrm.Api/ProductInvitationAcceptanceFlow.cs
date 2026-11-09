@@ -73,7 +73,7 @@ internal static class ProductInvitationAcceptanceFlow
         && CryptographicOperations.FixedTimeEquals(System.Text.Encoding.ASCII.GetBytes(expected),System.Text.Encoding.ASCII.GetBytes(supplied));
     internal static void MapProductInvitationAcceptance(this WebApplication app)
     {
-        var group=app.MapGroup(Prefix);
+        var group=app.MapGroup(Prefix).WithMetadata(new ProductIdentityRequestBoundary());
         group.AddEndpointFilter(async(context,next)=>Enabled(app.Configuration)?await next(context):Results.StatusCode(503));
         group.AddEndpointFilter(async(context,next)=>{
             var http=context.HttpContext;

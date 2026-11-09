@@ -220,7 +220,7 @@ internal static class ProductIdentity
 
     internal static void MapProductIdentity(this WebApplication app)
     {
-        var group = app.MapGroup(Prefix);
+        var group = app.MapGroup(Prefix).WithMetadata(new ProductIdentityRequestBoundary());
         group.MapGet("/start", () => Results.Challenge(new AuthenticationProperties
         { RedirectUri = Prefix+"/session", IssuedUtc = DateTimeOffset.UtcNow }, [OAuthScheme])).AllowAnonymous();
         group.MapGet("/session", async (HttpContext context, HrmDbContext db) =>

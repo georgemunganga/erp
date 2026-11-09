@@ -194,7 +194,11 @@ builder.Services.AddSingleton<ISmtpNotificationFallback, SmtpNotificationFallbac
 
 // ---------- AuthN: local PostgreSQL sessions by default; OIDC is optional ----------
 var authMode = builder.Configuration["ERP:AuthMode"] ?? builder.Configuration["HRM:AuthMode"] ?? "local";
-if (authMode.Equals("local", StringComparison.OrdinalIgnoreCase))
+if (authMode.Equals("product", StringComparison.OrdinalIgnoreCase))
+{
+    ProductRequestAuthentication.Add(builder.Services,builder.Configuration);
+}
+else if (authMode.Equals("local", StringComparison.OrdinalIgnoreCase))
 {
     builder.Services.AddAuthentication(LocalAuthenticationHandler.Scheme)
         .AddScheme<LocalAuthOptions, LocalAuthenticationHandler>(LocalAuthenticationHandler.Scheme, _ => { });
@@ -396,6 +400,7 @@ app.Use(async (ctx, next) =>
 app.UseRouting();
 app.UseRateLimiter();
 app.UseProductIdentityOriginGuard();
+app.UseProductRequestBoundary();
 app.UseAuthentication();
 // Current Procurement Core grants must precede named route authorization.
 if (!string.IsNullOrWhiteSpace(procurementConnStr))
@@ -482,7 +487,8 @@ Mightyfin.Erp.Hrm.Api.CoreCurrencyPrecisionRoutes.MapRoutes(app);
 if (!string.IsNullOrWhiteSpace(procurementConnStr))
     Mightyfin.Erp.Hrm.Api.ProcurementHostIntegration.MapRoutes(app);
 
-// M28: seed tenant role assignments for the known HRM roles if this tenant has none yet.
+// M28: standalone/legacy role bootstrap is never product authority.
+if (!ProductRequestAuthentication.Enabled(builder.Configuration))
 {
     try
     {

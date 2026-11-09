@@ -40,7 +40,7 @@ internal static class ProductCompanyTeamFlow
 
     internal static void MapProductCompanyTeam(this WebApplication app)
     {
-        var group = app.MapGroup(Prefix);
+        var group = app.MapGroup(Prefix).WithMetadata(new ProductIdentityRequestBoundary());
         group.AddEndpointFilter(async (context, next) => Enabled(app.Configuration)
             ? await next(context) : Results.StatusCode(StatusCodes.Status503ServiceUnavailable));
         group.MapGet("/start", () =>

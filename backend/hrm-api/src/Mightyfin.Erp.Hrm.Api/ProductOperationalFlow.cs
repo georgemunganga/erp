@@ -173,7 +173,7 @@ internal static class ProductOperationalFlow
     }
     internal static void Map(WebApplication app)
     {
-        var group=app.MapGroup(Prefix);
+        var group=app.MapGroup(Prefix).WithMetadata(new ProductIdentityRequestBoundary());
         group.AddEndpointFilter(async (invocation,next)=> {
             if(!Enabled(app.Configuration))return Results.StatusCode(503);
             var context=invocation.HttpContext;

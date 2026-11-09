@@ -2,6 +2,8 @@ using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
+using Mightyfin.Erp.Hrm.Infrastructure.Data;
 using Mightyfin.Erp.Hrm.Api;
 using Sessions=Mightyfin.Erp.Hrm.Tests.CoreProductSessionRegistryTests;
 using Operational=Mightyfin.Erp.Hrm.Tests.ProductOperationalFlowTests;
@@ -10,7 +12,7 @@ namespace Mightyfin.Erp.Hrm.Tests;
 
 public sealed class ProductErpSessionFlowTests
 {
-    private sealed class Fixture:IAsyncDisposable
+    internal sealed class Fixture:IAsyncDisposable
     {
         internal required Sessions.Fixture Core;internal required Operational.Fixture Http;
         internal string Cookies="",Csrf="";internal CommercialLicenseStatus LicenseStatus=CommercialLicenseStatus.Authorized;internal int LicenseReads;
@@ -24,7 +26,7 @@ public sealed class ProductErpSessionFlowTests
             =>Http.Post(ProductErpSessionFlow.Path+"/select",cookie??Cookies,csrf??Csrf,origin,body:JsonSerializer.Serialize(command??Command()));
         internal Task<HttpResponseMessage> Read(string cookie)=>Http.Get(ProductOperationalFlow.Prefix+ProductErpSessionFlow.Path+"/session",cookie);
         internal string With(HttpResponseMessage result)=>Cookies+"; "+Cookie(result,ProductErpSessionFlow.Cookie);
-        internal static async Task<Fixture> Start()
+        internal static async Task<Fixture> Start(bool product=false)
         {
             var core=await Sessions.Fixture.Start();Fixture? f=null;
             Task<CommercialLicenseResult> License(string enrollment,CancellationToken ct){
@@ -34,7 +36,7 @@ public sealed class ProductErpSessionFlowTests
             }
             var admission=new CoreProductSessionAdmission(t=>core.Core.Context(t),core.Protection,License,TimeProvider.System);
             var editor=new CoreModuleAccessApi(t=>core.Core.Context(t),License,TimeProvider.System);
-            var http=await Operational.Fixture.Start(companies:true,moduleApi:editor,sessions:admission);f=new(){Core=core,Http=http};
+            var http=await Operational.Fixture.Start(companies:true,moduleApi:editor,sessions:admission,product:product,contexts:product?provider=>core.Core.Context(provider.GetRequiredService<ITenantAccessor>().GetTenantId()):null);f=new(){Core=core,Http=http};
             var callback=await http.Callback(await http.Challenge());Assert.Equal(HttpStatusCode.Redirect,callback.StatusCode);
             f.Cookies=Cookie(callback,ProductOperationalFlow.Cookie)+"; "+Cookie(callback,ProductOperationalBrowser.Cookie);
             var session=await http.Get(ProductOperationalFlow.Prefix+"/session",f.Cookies);Assert.Equal(HttpStatusCode.OK,session.StatusCode);

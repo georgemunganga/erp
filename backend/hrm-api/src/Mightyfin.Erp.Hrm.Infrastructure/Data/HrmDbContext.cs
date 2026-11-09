@@ -780,6 +780,12 @@ public sealed class PrincipalTenantAccessor(Microsoft.AspNetCore.Http.IHttpConte
 
     public string GetTenantId()
     {
+        if((config["ERP:AuthMode"]??config["HRM:AuthMode"]??"local").Equals("product",StringComparison.OrdinalIgnoreCase)) {
+            var principal=http.HttpContext?.User;
+            var productTenant=principal?.FindFirst("tenant")?.Value;
+            return principal?.Identity is {IsAuthenticated:true,AuthenticationType:"kuubu-erp"} && !string.IsNullOrWhiteSpace(productTenant)
+                ?productTenant:"untrusted-product-request";
+        }
         if (http.HttpContext?.Items.TryGetValue(SessionTenantKey, out var resolved) == true
             && resolved is string sessionTenant)
             return sessionTenant;

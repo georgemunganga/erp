@@ -8,7 +8,7 @@ internal static class ProductCompanyInvitationsFlow
         && config.GetValue<bool>("ERP:CompanyInvitations:Enabled");
     internal static void MapProductCompanyInvitations(this WebApplication app)
     {
-        var group = app.MapGroup(ProductCompanyTeamFlow.Prefix+"/invitations");
+        var group = app.MapGroup(ProductCompanyTeamFlow.Prefix+"/invitations").WithMetadata(new ProductIdentityRequestBoundary());
         group.AddEndpointFilter(async (context, next) => Enabled(app.Configuration) ? await next(context) : Results.StatusCode(503));
         group.MapGet("", async (HttpContext context) => {
             var proof = await ProductCompanyTeamFlow.ReadProof(context);

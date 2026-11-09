@@ -25,9 +25,12 @@ Default-off HTTP self-review/explicit selection/opaque cookie/current-state/
 provider-independent logout is now separately qualified; see
 [session HTTP lifecycle](CORE-PRODUCT-SESSION-HTTP-20261110.md). Ordinary members
 can review/select their own explicit grant without owner-editor privileges.
-These cookies still do not satisfy default protected ERP authentication.
-Next: deliberate product authentication, request/resource adapters, protected
-route/data isolation and connected ERP frontend/browser launch.
+Explicit product request authentication and the actual protected selected Core
+workspace context are now separately qualified; see
+[product request authentication](CORE-PRODUCT-REQUEST-AUTH-20261110.md). Production
+mode remains unchanged. HRM/Procurement business routes remain denied in product
+mode until their action/resource data adapters are reviewed. Next: actual business
+company/branch isolation and connected ERP frontend/browser operations.
 ## 4. Parent
 Core company membership/team/invitations; purchased workspace/licensing contracts.
 Keep one ASP.NET/Docker release for shared SaaS and dedicated/on-premise use.

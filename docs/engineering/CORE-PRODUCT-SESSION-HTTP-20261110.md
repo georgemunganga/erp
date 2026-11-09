@@ -8,8 +8,10 @@ Connect a verified Kuubu person and explicit company/module/scope selection to a
 durable opaque browser session without reusing legacy role/bootstrap authority.
 ## 3. Scope
 Default-off select/current-state/logout API and parent logout/start revocation.
-Default ERP authentication and protected resource adapters are the next required
-integration; this feature alone does not admit protected module operations.
+Product request authentication and the protected selected Core context are now
+separately qualified; see [request authentication](CORE-PRODUCT-REQUEST-AUTH-20261110.md).
+Business resource adapters remain required; this HTTP lifecycle alone does not
+admit protected HRM/Procurement operations.
 ## 4. Ownership
 Core owns session lifecycle, identity binding, current scope and audit. Laravel
 owns enrollment, payer/subscription and licensing. Modules own business actions

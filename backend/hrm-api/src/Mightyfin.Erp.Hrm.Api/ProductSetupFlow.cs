@@ -15,7 +15,7 @@ internal static class ProductSetupFlow
 
     internal static void MapProductSetup(this WebApplication app)
     {
-        var group = app.MapGroup(Prefix);
+        var group = app.MapGroup(Prefix).WithMetadata(new ProductIdentityRequestBoundary());
         group.AddEndpointFilter(async (invocation, next) =>
         {
             var http = invocation.HttpContext;
