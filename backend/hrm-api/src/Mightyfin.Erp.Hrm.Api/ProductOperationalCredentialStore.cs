@@ -97,12 +97,26 @@ internal sealed class ProductOperationalCredentialStore
     internal Task<string?> IssueAsync(OperationalSubjectObservation observation,OperationalTokenPair tokens,string binding,CancellationToken cancellation=default)
     {
         cancellation.ThrowIfCancellationRequested();
-        if(!observation.IsCurrent || observation.ClientId!=client || !ProductInvitationIntentStore.Opaque(binding)
+        if(!observation.IsCurrent || observation.ClientId!=client || !Regex.IsMatch(observation.Subject,@"\A[1-9][0-9]{0,18}\z",RegexOptions.CultureInvariant) || !ProductInvitationIntentStore.Opaque(binding)
             || !OperationalTokenPair.ValidAccess(tokens.Access) || !OperationalTokenPair.ValidRefresh(tokens.Refresh)
             || tokens.ExpiresAt<=clock.GetUtcNow() || tokens.ExpiresAt>clock.GetUtcNow().AddMinutes(5))return Task.FromResult<string?>(null);
         using var gate=Gate();var entries=Directory.EnumerateFileSystemEntries(directory).Take(16385).ToArray();
         if(entries.Length>16384 || entries.Count(x=>Regex.IsMatch(Path.GetFileName(x),@"\A[0-9a-f]{64}\.credentials\.capacity\z"))>=capacity)
             return Task.FromResult<string?>(null);
+        // Authenticated, durable admission limits share the directory gate across
+        // workers. Revocation frees a concurrent slot, never the recent-issue budget.
+        var active=0;var recent=0;var admissionNow=clock.GetUtcNow();
+        foreach(var marker in entries.Where(x=>Regex.IsMatch(Path.GetFileName(x),@"\A[0-9a-f]{64}\.credentials\.capacity\z"))) {
+            var candidate=marker[..^".capacity".Length];
+            if(!Private(candidate,98304))return Task.FromResult<string?>(null);
+            var packet=JsonSerializer.Deserialize<OperationalCredentialPacket>(protector.Unprotect(File.ReadAllText(candidate)));
+            if(packet is null || packet.Version!=1 || packet.Client!=client || packet.ExpiresAt-packet.IssuedAt!=Lifetime
+                || packet.IssuedAt>admissionNow || CapacityExpiry(marker)!=packet.ExpiresAt)return Task.FromResult<string?>(null);
+            if(packet.Subject!=observation.Subject)continue;
+            if(packet.ExpiresAt>admissionNow && !Revoked(candidate))active++;
+            if(packet.IssuedAt>admissionNow.AddMinutes(-10))recent++;
+        }
+        if(active>=4 || recent>=6)return Task.FromResult<string?>(null);
         var handle=ProductInvitationIntentStore.Random();var path=PathFor(handle);var now=clock.GetUtcNow();var expires=now+Lifetime;
         using(var marker=Open(path+".capacity",FileMode.CreateNew))Durable(marker,Encoding.ASCII.GetBytes(expires.UtcTicks.ToString(CultureInfo.InvariantCulture)));
         WriteFence(path+".fence",0,FileMode.CreateNew);
@@ -189,7 +203,7 @@ internal sealed class ProductOperationalCredentialStore
         using var gate=Gate();var all=Directory.EnumerateFileSystemEntries(directory).Take(16385).ToArray();
         if(all.Length>16384)throw new IOException("Operational state unavailable.");var removed=0;
         foreach(var marker in all.Where(x=>Regex.IsMatch(Path.GetFileName(x),@"\A[0-9a-f]{64}\.credentials\.capacity\z"))) {
-            var expires=CapacityExpiry(marker);if(expires is null || expires+Grace>=clock.GetUtcNow())continue;
+            var expires=CapacityExpiry(marker);if(expires is null || expires>=clock.GetUtcNow()-Grace)continue;
             var path=marker[..^".capacity".Length];FileStream held;
             try {held=Open(path+".lock",FileMode.OpenOrCreate);}catch(IOException){continue;}
             using(held) {

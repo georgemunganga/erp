@@ -5,6 +5,20 @@ namespace Mightyfin.Erp.Hrm.Tests;
 
 public sealed class ProductOperationalCredentialTests
 {
+    [Fact]
+    public async Task Authenticated_person_limits_survive_reopening_and_revocation_does_not_reset_issue_rate()
+    {
+        var f=new Fixture();var handles=new List<string>();
+        for(var i=0;i<4;i++)handles.Add(await f.Issue());
+        Assert.Null(await f.Reopen().IssueAsync(f.Proof(),new("access","refresh",f.Clock.Now.AddMinutes(5)),f.Binding));
+        await f.Store.RevokeAsync(handles[0],f.Binding);handles.Add(await f.Issue());
+        await f.Store.RevokeAsync(handles[1],f.Binding);handles.Add(await f.Issue());
+        await f.Store.RevokeAsync(handles[2],f.Binding);
+        Assert.Null(await f.Reopen().IssueAsync(f.Proof(),new("access","refresh",f.Clock.Now.AddMinutes(5)),f.Binding));
+        Assert.NotNull(await f.Reopen().IssueAsync(f.Proof("43"),new("access","refresh",f.Clock.Now.AddMinutes(5)),f.Binding));
+        f.Clock.Advance(TimeSpan.FromMinutes(10));
+        Assert.NotNull(await f.Reopen().IssueAsync(f.Proof(),new("access","refresh",f.Clock.Now.AddMinutes(5)),f.Binding));
+    }
     internal const string Client="391bdeaa-87b3-44b3-8e64-2110dcc1a564";
     internal sealed class Clock:TimeProvider
     {

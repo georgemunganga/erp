@@ -1,8 +1,8 @@
 # Protected operational identity credentials
 
-This internal credential layer supports the future Kuubu operational sign-in
-flow. It is not registered by the API, exposes no route/cookie and authenticates
-no ERP request. A verified person observation still needs separate Core company,
+This credential layer supports Kuubu's separately flagged operational identity
+handoff. `ERP:OperationalIdentity:Enabled` defaults false. Its separate OAuth and
+cookie schemes never authenticate an ERP request. A verified person observation still needs separate Core company,
 license, module/action and branch decisions before operational admission.
 
 `ProductOperationalCredentialStore` requires separate existing private state and
@@ -49,7 +49,12 @@ their original monotonic origin and are further bounded by access/absolute expir
 Refreshing never extends the eight-hour absolute deadline. Once token validity
 is already capped by that deadline, the store avoids unnecessary final rotations.
 
-Admission capacity defaults to512 states (supported1–2048). Directory scans take
+Admission capacity defaults to512 states (supported1–2048). Under the directory
+gate, one verified person/client can hold at most four active credentials and
+receive at most six credentials per ten minutes. Revocation frees an active
+slot but does not reset recent issuance. The encrypted packets provide durable
+admission history shared across workers; malformed history fails closed.
+Directory scans take
 at most16,385 entries and fail closed on overflow. Expired states become eligible
 for cleanup after15 minutes; cleanup skips held locks. It removes expired state,
 journal/tombstone/temporary publications and the lock inode under the directory
@@ -62,10 +67,15 @@ hosts or a distributed credential backend. Do not remove serialization to scale;
 qualify the chosen shared storage or introduce an owned transactional adapter.
 Durability relies on the underlying filesystem honoring write-through/flush.
 
-Before web registration, add authenticated per-person admission/rate limits,
-capacity monitoring and owned cleanup, protected callback/browser binding and
-CSRF, recovery UX for ambiguous refresh, absolute/idle session policy and actual
-Laravel-to-Core refresh qualification. Company/module grant persistence, revocable
+The default-off web handoff adds private browser binding/challenge and CSRF,
+independent operational client/callback/cookie, anonymous request budgets and
+owned five-minute expiry cleanup. Configure a canonical, separate
+`ERP:OperationalIdentity:ClientId`, private `ClientSecret` and existing private
+`StatePath` outside application assets; retain the reviewed product key ring.
+Do not enable it before actual Laravel-to-Core callback/refresh qualification,
+capacity monitoring/alerts, recovery UX for ambiguous refresh and absolute/idle
+session policy. The interim callback returns identity status, pending the real
+company/module selection screen. Company/module grant persistence, revocable
 ERP sessions, route/branch isolation and browser acceptance remain separate work.
 Classic local authentication and dedicated/on-premise behavior are unchanged.
 

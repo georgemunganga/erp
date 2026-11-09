@@ -54,6 +54,7 @@ internal static class ProductIdentity
         // The framework's OAuth debug/correlation diagnostics can contain state
         // or cookie identifiers. Emit our generic failure event instead.
         services.AddLogging(logging => logging.AddFilter("Microsoft.AspNetCore.Authentication.OAuth", LogLevel.None));
+        ProductOperationalFlow.Add(services,config,keyPath);
         services.AddProductCompanyTeam(config);
         if (ProductInvitationAcceptanceFlow.Enabled(config))
         {
@@ -143,6 +144,7 @@ internal static class ProductIdentity
                         || subject is null || !Regex.IsMatch(subject, "^[1-9][0-9]{0,18}$", RegexOptions.CultureInvariant))
                         throw new AuthenticationFailureException("Invalid product identity proof.");
                     context.Identity!.AddClaim(new Claim(SubjectClaim, subject));
+                    await ProductOperationalFlow.RevokeAsync(context.HttpContext);
                     context.Identity.AddClaim(new Claim(IssuerClaim, issuer));
                     context.Properties.ExpiresUtc = expires;
                     context.Properties.IsPersistent = false;
@@ -207,6 +209,11 @@ internal static class ProductIdentity
             if (HttpMethods.IsPost(context.Request.Method)
                 && (context.Request.Headers.Origin.ToString() != origin || !context.Request.HasJsonContentType()))
             { context.Response.StatusCode = 403; return; }
+            if(context.Request.Path.StartsWithSegments(ProductOperationalFlow.Prefix)) {
+                if(!ProductOperationalFlow.Enabled(app.Configuration)){context.Response.StatusCode=503;return;}
+                if(context.Request.Path==ProductOperationalFlow.Callback && !ProductOperationalFlow.CallbackAllowed(context))
+                {context.Response.StatusCode=403;return;}
+            }
             await next();
         });
     }
@@ -243,10 +250,12 @@ internal static class ProductIdentity
             if (proof.Succeeded && proof.Principal?.FindFirstValue(SetupHandleClaim) is { } handle)
                 context.RequestServices.GetService<ProductSetupGrantStore>()?.Revoke(handle);
             ProductInvitationAcceptanceFlow.Revoke(context);
+            await ProductOperationalFlow.RevokeAsync(context);
             await context.SignOutAsync(PendingScheme);
             return Results.NoContent();
         }).AllowAnonymous();
         app.MapProductInvitationAcceptance();
+        ProductOperationalFlow.Map(app);
     }
 
     private static string ExactHttpsOrigin(string origin)

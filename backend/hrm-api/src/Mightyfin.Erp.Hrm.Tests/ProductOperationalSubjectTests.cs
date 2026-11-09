@@ -7,6 +7,17 @@ namespace Mightyfin.Erp.Hrm.Tests;
 
 public sealed class ProductOperationalSubjectTests
 {
+    [Fact]
+    public async Task Callback_discovers_only_a_canonical_subject_from_the_current_scoped_resource()
+    {
+        using var f=new Fixture();
+        var person=await f.Client.DiscoverAsync("person.token");
+        Assert.Equal(OperationalSubjectStatus.Verified,person.Status);Assert.Equal("42",person.Observation!.Subject);
+        f.Fault="subject";
+        Assert.Equal(OperationalSubjectStatus.Unavailable,(await f.Client.DiscoverAsync("person.token")).Status);
+        Assert.Equal(OperationalSubjectStatus.Unavailable,(await f.Client.ReadAsync(null!,"person.token")).Status);
+        Assert.Equal(2,f.Calls);
+    }
     private const string Client = "391bdeaa-87b3-44b3-8e64-2110dcc1a564";
 
     [Fact]

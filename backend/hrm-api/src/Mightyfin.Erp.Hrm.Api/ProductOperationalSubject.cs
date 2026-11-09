@@ -30,10 +30,16 @@ internal sealed class ProductOperationalSubject(HttpClient http,TimeProvider clo
 {
     internal const string Endpoint=ProductCommercialLicense.Issuer+"/api/v1/product-identity/operational-subject";
     private static readonly HashSet<string> Fields=["schema_version","issuer","subject","client_id","product_code","purpose","verified","observed_at","proof_until","operational_access_granted"];
-    internal async Task<OperationalSubjectResult> ReadAsync(string subject,string token,CancellationToken cancellation=default)
+    internal Task<OperationalSubjectResult> ReadAsync(string subject,string token,CancellationToken cancellation=default)
+        => subject is null?Task.FromResult(new OperationalSubjectResult(OperationalSubjectStatus.Unavailable)):ReadCoreAsync(subject,token,cancellation);
+    // The callback has no trusted subject yet. Discover it only from the same
+    // strict current-person resource, never from unverified JWT/email claims.
+    internal Task<OperationalSubjectResult> DiscoverAsync(string token,CancellationToken cancellation=default)
+        => ReadCoreAsync(null,token,cancellation);
+    private async Task<OperationalSubjectResult> ReadCoreAsync(string? subject,string token,CancellationToken cancellation)
     {
         if(!Guid.TryParseExact(client,"D",out var id) || id==Guid.Empty || id.ToString("D")!=client
-            || subject is null || !Regex.IsMatch(subject,@"\A[1-9][0-9]{0,18}\z",RegexOptions.CultureInvariant)
+            || subject is not null && !Regex.IsMatch(subject,@"\A[1-9][0-9]{0,18}\z",RegexOptions.CultureInvariant)
             || token is null || token.Length is <1 or >16384 || !Regex.IsMatch(token,@"\A[A-Za-z0-9._~-]+\z",RegexOptions.CultureInvariant))
             return new(OperationalSubjectStatus.Unavailable);
         try {
@@ -51,7 +57,9 @@ internal sealed class ProductOperationalSubject(HttpClient http,TimeProvider clo
             var data=json.RootElement.GetProperty("data");var fields=data.EnumerateObject().Select(x=>x.Name).ToArray();
             if(fields.Length!=Fields.Count || fields.Any(x=>!Fields.Contains(x))
                 || data.GetProperty("schema_version").GetInt32()!=1 || data.GetProperty("issuer").GetString()!=ProductCommercialLicense.Issuer
-                || data.GetProperty("subject").GetString()!=subject || data.GetProperty("client_id").GetString()!=client
+                || data.GetProperty("subject").GetString() is not { } observedSubject
+                || !Regex.IsMatch(observedSubject,@"\A[1-9][0-9]{0,18}\z",RegexOptions.CultureInvariant)
+                || subject is not null && observedSubject!=subject || data.GetProperty("client_id").GetString()!=client
                 || data.GetProperty("product_code").GetString()!="kuubu" || data.GetProperty("purpose").GetString()!="erp-session-v1"
                 || !data.GetProperty("verified").GetBoolean() || data.GetProperty("operational_access_granted").GetBoolean())return new(OperationalSubjectStatus.Unavailable);
             var observed=Date(data.GetProperty("observed_at"));var deadline=Date(data.GetProperty("proof_until"));
@@ -59,7 +67,7 @@ internal sealed class ProductOperationalSubject(HttpClient http,TimeProvider clo
             if(observed<start.AddSeconds(-5) || observed>now.AddSeconds(5) || deadline<=observed || deadline>observed.AddSeconds(30)
                 || elapsed<TimeSpan.Zero || elapsed>=TimeSpan.FromSeconds(30))return new(OperationalSubjectStatus.Unavailable);
             var expires=deadline<start.AddSeconds(30)?deadline:start.AddSeconds(30);
-            var proof=new OperationalSubjectObservation(subject,client,expires,clock,timestamp,expires-start);
+            var proof=new OperationalSubjectObservation(observedSubject,client,expires,clock,timestamp,expires-start);
             return proof.IsCurrent?new(OperationalSubjectStatus.Verified,proof):new(OperationalSubjectStatus.Unavailable);
         }catch(OperationCanceledException)when(!cancellation.IsCancellationRequested){return new(OperationalSubjectStatus.Unavailable);}
         catch(Exception error)when(error is HttpRequestException or JsonException or InvalidOperationException or KeyNotFoundException
