@@ -1,3 +1,53 @@
+# Integrated main and owner editor — 9 November 2026
+
+Published merged ERP/UI source `9edf05635f109427e95c8a514baff1942f51faee` includes main
+`52bdb5a0c36778a2f082e8e4085d65cbff25df7e` (PR208, custom Procurement role entry) while
+preserving owner editor68de4d6e and unchanged companion APIe52e8049. Main advanced
+independently during the editor checkpoint; it was fetched/inspected and merged
+normally into the SaaS topic branch, with both handoff histories kept. No published
+history was rewritten and main/UI-main/B1 were not updated by this task. Older
+main83ee9fd5 references below are historical snapshots, not the current integrated
+baseline. Foundation runtime75cc91ff and website consent1ade23e7 are unchanged.
+
+The source merge retains the server-authorized default-company/current-principal
+Procurement entry fix, existing request shortcut, and upstream notification
+configuration/docs. Seven imported files were formatted for repository lint;
+normalized emitted runtime ASTs match their unformatted merged index. No private
+environment, SMTP worker/container, service, database, DNS or production activation
+action occurred. Do not render private Compose configuration or request credentials
+to reproduce this frontend qualification.
+
+Fresh UI04 uses VITE_USE_REAL_API=true.125 contracts, targeted lint (zero errors/
+five inherited fast-refresh warnings), production build/typecheck and28 browser
+cases pass:13 owner editor,10 picker andfive imported Procurement entry fixtures.
+The custom-role forbidden response, actor/company authority, mobile viewports,
+grant/revoke, exact-key uncertain retry, all-company confirmation, module switching,
+stale/inactive members, paging, late response and sign-out cases pass. Final390px
+editor/confirmation screenshots were inspected.373 source files/491 built outputs
+retain verified manifests; seven C# inputs remain unchanged. Owned SSR/listener
+stopped. No new database migration/API change was required.
+
+Evidence: inspection/qualifications/module-access-ui-04 and
+module-access-ui-verification-02/verification.json, plus
+module-editor-main-format-02/verification.json. UI03 retains its125-contract pass/
+imported formatting-only lint failure. Earlier UI01/UI02 retain their original
+121/122 contract and22/23 browser scopes. The first AST verifier mistakenly
+included SourceFile.text (the formatted program itself); its failed receipt is
+retained. No application security rule or acceptance assertion was weakened.
+
+All browser API responses remain synthetic. This does not qualify actual
+browser/Core/Passport/database persistence or ingress; companion API579 Windows/
+68 PostgreSQL evidence remains separately scoped. Next: actual branded website/
+relay/picker/editor/Core/provider composition, bound revocable ERP sessions and
+module/company/branch route/data isolation. The imported classic context request
+uses an all-branches header; a SaaS session must enforce only its explicit allowed
+branches/company/module server-side and never widen access from that header,
+nominal roles or UI admission. Local/on-premise authentication remains separate.
+Production DB/ingress/proxies/rates/logging, capacity/monitoring/recovery, SMTP/
+inbox and controlled rollout remain gates. Lenco, hosting/domain/email adapters
+and dedicated/on-premise/offline licensing/upgrades/backup restore remain programme
+work. All modes keep one maintained ASP.NET/Docker codebase. Keep both PRs draft.
+
 # Latest published checkpoint — department request entry, 9 November 2026
 
 Fetch ERP main `619c241e1dcf6f9f2b4b376c06f7ae05c1efcbeb` (PR205) and UI main `657d9acb7c03f47c224ae287b901ee8d303d0ab8` (PR113), or reviewed descendants. Both frontend changes are deployed. ERP/HRM Home and Procurement Home/My Requests now lead into the existing scoped request editor through a guided entry. No new backend, migration, role grant or company approval policy was introduced. API remains on the qualified3da35edf image and239 tables; held B1c still prevents wholesale backend main deployment.
