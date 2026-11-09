@@ -1,3 +1,4 @@
+import { MaterialRequestShortcut } from "@/platform/components/MaterialRequestShortcut";
 import { createFileRoute } from "@tanstack/react-router";
 import { ArrowRight, Clock, Loader2, LogOut } from "lucide-react";
 import { modules } from "@/platform/modules";
@@ -45,6 +46,8 @@ function Entrance() {
       <main className="mx-auto max-w-5xl px-4 py-12">
         <h1 className="text-2xl font-semibold text-foreground">Choose a module</h1>
         <p className="mt-1 text-sm text-muted-foreground">Choose the workspace you want to manage.</p>
+
+        <MaterialRequestShortcut />
 
         <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {modules.map((m) =>

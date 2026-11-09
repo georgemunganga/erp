@@ -1,3 +1,4 @@
+import { MaterialRequestShortcut } from "@/platform/components/MaterialRequestShortcut";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { Button } from "@/components/ui/button";
 import { workspaces } from "@/mock/data";
@@ -150,6 +151,7 @@ function Home() {
           description="Live tenant work is ordered by urgency. Resolve exceptions first, then approvals and operational tasks."
           primaryAction={<Button asChild><Link to="/hrm/employees/new">Add employee</Link></Button>}
         />
+        <MaterialRequestShortcut />
         <Async state={state}>
           {(data) => (
             <WorkQueue
