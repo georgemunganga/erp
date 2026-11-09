@@ -1,3 +1,11 @@
+# Latest published checkpoint — department request entry, 9 November 2026
+
+Fetch ERP main `619c241e1dcf6f9f2b4b376c06f7ae05c1efcbeb` (PR205) and UI main `657d9acb7c03f47c224ae287b901ee8d303d0ab8` (PR113), or reviewed descendants. Both frontend changes are deployed. ERP/HRM Home and Procurement Home/My Requests now lead into the existing scoped request editor through a guided entry. No new backend, migration, role grant or company approval policy was introduced. API remains on the qualified3da35edf image and239 tables; held B1c still prevents wholesale backend main deployment.
+
+Two authority tests, both frontend checks/builds,23 fixture Playwright cases,8 actual read-only signed-in checks and1243 public asset hashes passed. See [entry behaviour, limits and deployed evidence](docs/procurement/gap-closure/DEPARTMENT-REQUEST-ENTRY-20261109.md). Unknown estimates still need a valid amount to save; on-behalf-of, automatic department assignment, file uploads and stock fulfillment are not added. This does not close company UAT or whole-module issues. Unrelated Kuubu PR199–201 remain separate and are not part of this release. The old dirty/divergent original checkout was preserved; use these clean published prerequisites for new work.
+
+---
+
 # Latest published checkpoint — Procurement, 4 November 2026
 
 Fetch ERP main `ae32466e2959b79e62ae1d0a3b457c58110389ae` (PR197) and UI main `2b3357d2de3c383ea2926264abc701b1564a5895` (PR108/109), or reviewed descendants. These supersede earlier prerequisite pins below. Latest UI company-context/settings fixes are deployed; API stays on the separately qualified c93/M2 image with239 tables. Held B1c prevents wholesale main deployment.
