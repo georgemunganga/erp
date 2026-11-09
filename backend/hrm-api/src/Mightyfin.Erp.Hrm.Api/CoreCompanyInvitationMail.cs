@@ -127,6 +127,14 @@ internal sealed class SmtpCompanyInvitationMail:ICompanyInvitationMail
         if(sendOverride is not null){await sendOverride(message,cancellation);return;}
         using var client=new SmtpClient(host,port){EnableSsl=true,UseDefaultCredentials=false,Timeout=20000};
         if(user.Length>0)client.Credentials=new NetworkCredential(user,password);
+        // The pinned SmtpClient has a synchronous final acknowledgement read.
+        // Cancelling its token alone does not interrupt that read promptly.
+        // Dispose aborts an active connection; never leave it holding Core locks.
+        using var abort=cancellation.UnsafeRegister(static state=>{
+            try{((SmtpClient)state!).Dispose();}catch(Exception){} // No callback exception/transport detail escapes cancellation.
+        },client);
+        cancellation.ThrowIfCancellationRequested();
         await client.SendMailAsync(message,cancellation);
+        cancellation.ThrowIfCancellationRequested();
     }
 }

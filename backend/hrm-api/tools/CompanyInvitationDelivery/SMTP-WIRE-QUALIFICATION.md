@@ -45,6 +45,9 @@ Kuubu's adapter accepts DNS hostnames only. The initial IP fixture exposed the
 its failed result remains retained. The conflicting-DNS-SAN case must still fail
 authentication with no credentials or email transferred. Cancellation checks
 require the send task to terminate; a test timeout cannot count as a rejection.
+The pinned SMTP client performs a synchronous final acknowledgement read. The
+adapter explicitly aborts its active connection on cancellation so that the
+awaited send terminates and releases the worker's database/authority locks.
 Linux process trust uses the documented [OpenSSL certificate-store environment](https://github.com/dotnet/docs/blob/main/docs/standard/security/cross-platform-cryptography.md).
 The adapter uses [SmtpClient STARTTLS](https://learn.microsoft.com/en-us/dotnet/api/system.net.mail.smtpclient.enablessl?view=net-10.0).
 These tests do not qualify a production SMTP account, DNS sender authentication,

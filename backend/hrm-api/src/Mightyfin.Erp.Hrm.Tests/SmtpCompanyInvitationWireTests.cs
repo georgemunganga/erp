@@ -232,6 +232,30 @@ public sealed class SmtpCompanyInvitationWireTests
         return new(new DbContextOptionsBuilder<HrmDbContext>().UseNpgsql(original.Database.GetConnectionString()).Options,tenant);
     }
     [InvitationSmtpStoreWireFact]
+    public async Task Cancelled_real_SMTP_send_rolls_back_and_releases_row_and_company_locks()
+    {
+        await using var core=await CoreFixture.Start();await using var sink=new Sink("server",Mode.HoldAcknowledgement);
+        var protection=new EphemeralDataProtectionProvider().CreateProtector(CoreCompanyInvitationsApi.DeliveryPurpose);
+        Assert.Equal(CompanyInvitationStatus.Issued,(await new CoreCompanyInvitations(t=>core.Context(t),core.Clock,protection)
+            .IssueAsync(core.Owner.Proof,new(core.Company,Guid.NewGuid(),"invited@example.test","member",true),core.License())).Status);
+        var mail=new CoreCompanyInvitationMail(t=>core.Context(t),new(t=>core.Context(t),(_,_)=>Task.FromResult(new CommercialLicenseResult(CommercialLicenseStatus.Authorized,core.License())),core.Clock),
+            protection,Sender(sink,core.Clock),core.Clock,Client);
+        var tenant=new OutboxPublisherTenantAccessor();await using var db=Publisher(core,tenant);
+        using var stopping=new CancellationTokenSource();
+        var processing=new CompanyInvitationDeliveryStore(db,tenant,core.Clock).ProcessNextAsync(mail.DeliverAsync,stopping.Token);
+        await sink.DataReceived.Task.WaitAsync(TimeSpan.FromSeconds(15));await stopping.CancelAsync();
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(()=>processing.WaitAsync(TimeSpan.FromSeconds(5)));
+        Assert.True(processing.IsCompleted);
+        await using var check=core.Context();var row=await check.OutboxMessages.SingleAsync(x=>x.EventType==CompanyInvitationDeliveryStore.EventType);
+        Assert.Equal("pending",row.Status);Assert.Equal(0,row.PublishAttempts);Assert.Null(row.PublishedAt);
+        Assert.Empty(await check.AuditEntries.Where(x=>x.Action=="core.company.invitation.delivery.attempted").ToArrayAsync());
+        await using var transaction=await check.Database.BeginTransactionAsync();
+        await check.Database.ExecuteSqlInterpolatedAsync($"SELECT 1 FROM hrm.outbox_messages WHERE id={row.Id} FOR UPDATE NOWAIT");
+        var scope="core.company.team.v1\n"+core.Tenant+"\n"+core.Company.ToString("D");
+        Assert.True(await check.Database.SqlQuery<bool>($"SELECT pg_try_advisory_xact_lock(hashtextextended({scope}, 0)) AS \"Value\"").SingleAsync());
+        Assert.False(Assert.Single(sink.Sessions).DataAccepted);
+    }
+    [InvitationSmtpStoreWireFact]
     public async Task PostgreSQL_worker_records_actual_TLS_acceptance_without_provisioning_access()
     {
         await using var core=await CoreFixture.Start();await using var sink=new Sink("server",Mode.Accept);
