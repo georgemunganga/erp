@@ -22,7 +22,7 @@ export const Route = createFileRoute("/")({
 });
 
 function Entrance() {
-  const { loading, authenticated, erpAuthorized, coreAccessLoading, coreActions, user, signOut } = useAuth();
+  const { loading, authenticated, erpAuthorized, coreAccessLoading, coreActions, procurementAuthorized, user, signOut } = useAuth();
   const real = import.meta.env.VITE_USE_REAL_API === "true";
   const administrator = canManageCore(user?.roles ?? []);
   const roles = user?.roles ?? [];
@@ -51,7 +51,7 @@ function Entrance() {
 
         <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {modules.map((m) =>
-            m.available && (m.id === "core" ? administrator || coreActions.includes("core-currency-precision-read") : m.id === "hrm" ? hasHrmStaffRole(roles) : m.id === "procurement" ? canAccessProcurement(roles) : true) ? (
+            m.available && (m.id === "core" ? administrator || coreActions.includes("core-currency-precision-read") : m.id === "hrm" ? hasHrmStaffRole(roles) : m.id === "procurement" ? (procurementAuthorized || canAccessProcurement(roles)) : true) ? (
               <a
                 key={m.id}
                 href={m.to}
