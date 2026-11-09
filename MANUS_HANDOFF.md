@@ -1,7 +1,71 @@
+# ERP session scope authority qualified — 9 November 2026
+
+Published ERP scope-authority source `53afc426e0fea675519d19e4d01c52fa03868f82`
+adds `CoreErpSessionScopeAuthority`, its tests and the28-section feature contract.
+It binds an explicit company/link/module selection to the reviewed current grant
+version/revision and a copied, nonempty branch set or separately confirmed
+company-wide scope. Request authority rechecks current person/client, exact
+company/tenant/principal, current membership/grant/license and owned branches.
+A narrower session selection cannot follow a request for all branches, an empty
+scope, another company/module or a newly expanded/regranted version.
+
+Selection/request arrays are copied before asynchronous database reads. Final
+ownership checks deny a selected branch moved during the final parent-grant read,
+including under company-wide parent grants. Expired proof, missing license, DB
+failure and cancellation yield no reusable successful fallback. This is a
+read-only component: no session row, cookie, principal, legacy role, DI registration,
+route map, auth-mode change or production activation is introduced.
+
+Fresh API02/test03 evidence:616 Windows passes/40 explicit environment skips and
+105 native PostgreSQL passes/zero skips. All37 new scope cases pass in each,
+including input mutation during the first query, moved/archived branches,
+retargeted identity/client/tenant/principal/link/company, changed/revoked grants,
+membership changes, missing licensing and unavailable DB. Identity/license
+observations in these component tests are synthetic; Core reads/commands and
+relational DBs are actual. This does not extend the earlier branded browser
+journey to a working ERP-session launch.
+
+Evidence: inspection/qualifications/erp-session-scope-api-02 (API build), erp-session-scope-api-03
+(corrected independent test build), erp-session-scope-native-02,
+erp-session-scope-verification-01/verification.json and
+erp-session-scope-windows-verification-01/verification.json.49 dependency DLLs,
+585 read-only native runtime files and compiled source hashes are verified. Native
+containers exited with no published host ports. API retains27 existing warnings;
+tests have20 existing plus one EF1003 on test schema-failure SQL over two hardcoded
+identifiers, with no external input. Native01 was stopped after its fixture tried
+manual extra-company creation in a licensed tenant. PostgreSQL correctly denied
+it (23514); exit137/unchanged binaries/stopped DB remain retained. The corrected
+fixture uses the real purchased-slot provisioner for its separate company/tenant.
+No workspace guard or authority assertion was weakened.
+
+Read-only erp-session-adapter-inspection-01 records eight source hashes/seven next
+requirements: deliberate product authentication mode; verified tenant source;
+bound self-service context; distinct WorkLocation/OrgUnit scope; product-aware
+Procurement current-principal refresh; company-owned master/ledger versus branch
+resource policy; and protected-route/data acceptance. Do not reuse the legacy
+empty-branch-means-all behavior or let a classic all-branches header widen access.
+
+Source terminology: ERP/UI9edf0563, companion APIe52e8049, integrated main52bdb5a0,
+Foundation75cc91ff and website1ade23e7 are qualified source baselines, not proof
+that those revisions are deployed. The prior seven pinned companion C# inputs
+comprise four API files and three tests. Their hashes are unchanged; earlier
+"seven production C# inputs" labels were too broad. Current API compilation adds
+this scope component. The earlier actual branded permission journey at a0cef594
+retains its own source/evidence scope.
+
+Next: durable revocable ERP session registry and trusted restoration of the exact
+stored binding without adopting a newer grant; secure opaque cookie bound to
+browser/credential/absolute expiry; real authentication and request/resource
+adapters; protected HRM/Procurement reads/writes and company/branch isolation;
+then connected browser ERP launch and production ingress/rollout. Preserve local/
+OIDC dedicated/on-premise behavior, one ERP codebase, existing Perfex and explicit
+commercial ownership. Lenco, hosting/domain/email and offline licensing/upgrades/
+restore remain programme work. Keep both PRs draft; no production change occurred.
+
 # Actual branded permission journey qualified — 9 November 2026
 
 Published ERP test/tool source `a0cef594a144bb0ed01ad0d3c3fef68063ab28a7` adds the
-opt-in real browser qualification and reviewable runner. Production ERP/UI remains
+opt-in real browser qualification and reviewable runner. Qualified ERP/UI source remains
 `9edf05635f109427e95c8a514baff1942f51faee`, integrated main remains
 `52bdb5a0c36778a2f082e8e4085d65cbff25df7e`, API remains e52e8049,
 Foundation runtime remains75cc91ff and website consent remains1ade23e7. No
@@ -37,8 +101,8 @@ router scroll history. Credentials, grants and setup attempts do not remain ther
 Evidence: inspection/qualifications/module-browser-composition-12,
 module-browser-composition-verification-01/verification.json,
 module-browser-network-cleanup-01/verification.json and
-module-browser-opt-in-verification-02/verification.json. Seven production C#
-inputs,49 dependencies,373 UI source/491 outputs,95 website source/25 outputs and
+module-browser-opt-in-verification-02/verification.json. Seven pinned companion C# inputs (four API files and three tests)
+,49 dependencies,373 UI source/491 outputs,95 website source/25 outputs and
 137 provider source files retain verified hashes. Test build06 matches current
 C# source; published runner matches executed runner05. All12 attempt databases
 are stopped, DB bindings were only127.0.0.1:8135, and all five owned ports are
