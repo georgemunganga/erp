@@ -6,10 +6,10 @@ Tier3 Core feature,9 November2026. Implementation in progress; not live.
 Let an explicitly enrolled Kuubu person enter an authorized company and licensed
 module with current permissions and branch scope, using the existing ERP.
 ## 3. Scope
-Current increment: separately scoped, email-free Foundation person observation
-and strict bounded Core reader. These do not create a session or grant access.
-Next: protected OAuth/refresh state, explicit company/module grants and selection,
-revocable operational session, route/module enforcement and scoped work context.
+Implemented: separately scoped, email-free person observation/reader and private
+encrypted credential/rotation machinery. These create no ERP session or grant.
+Next: operational OAuth callback/browser handoff, explicit company/module grants
+and selection, revocable session, route/module enforcement and scoped context.
 ## 4. Parent
 Core company membership/team/invitations; purchased workspace/licensing contracts.
 Keep one ASP.NET/Docker release for shared SaaS and dedicated/on-premise use.
@@ -109,6 +109,76 @@ No SaaS operational activation until all acceptance checks pass. Lenco/hosting
 integrations and dedicated/offline licensing/installation/upgrades/backup restore
 remain part of the full platform programme, with separate deployment evidence.
 ## 28. Evidence
+
+### Protected credential/rotation qualification
+
+Published Core8b7cee073a303b9d9da8aa89b221a0f28ec28079 adds encrypted operational
+identity credentials and rotating-token machinery. It is not registered by the
+API and creates no operational cookie/session, company/module/branch grant or
+business authentication. Foundation runtime75cc91ff is unchanged.
+
+The private store binds a random handle/browser binding, exact confidential
+client/subject, access/refresh tokens, revision and immutable eight-hour absolute
+deadline. Separate private state/key directories and Data Protection purpose
+isolate credentials. Capacity is bounded (default512, supported1–2048; directory
+scan limit16,384). A directory gate coordinates admission, lock acquisition and
+expiry cleanup. Rotation holds an exclusive per-handle lock; ordinary person
+observations release it across the provider call and revalidate state afterward.
+No successful-proof cache or failure fallback is introduced.
+
+Before sending a rotating token, a write-through/disk-flushed revision/complement
+journal fences that revision. Success atomically publishes a new encrypted
+revision; lost/invalid acknowledgement, cancellation/crash or older-ciphertext
+restoration cannot submit the old refresh again. Sign-out/provider denial writes
+a durable tombstone, so an in-flight rotation cannot resurrect credentials.
+Definitive rejection differs from transient unavailability. Fixed HTTPS refresh
+accepts only bounded Bearer/token/expiry/scope responses. Returned person proofs
+preserve their original monotonic origin and are further capped by access and
+absolute expiry. Refresh never extends that absolute deadline.
+
+Expired cleanup waits15 minutes, skips held locks and removes expired state,
+fence/tombstone/temporary publications and lock inode under the directory gate
+before returning capacity. The runbook documents filesystem/ownership, bounds,
+uncertain-refresh recovery and pending production registration requirements.
+It does not qualify distributed/NFS/SMB storage or multiple physical hosts.
+
+Fresh API/test builds passed with27/20 existing warnings.503 Windows checks
+passed/37 native opt-ins skipped (43 new credential/refresh cases alongside the
+existing460 checks). Linux storage/refresh/person-proof suite passed78 cases,
+zero skips. Separate holder/observer processes each passed: the observer skips
+the locked rotation, revokes without waiting for it, and the holder denies
+without observing a person or publishing credentials after sign-out.
+
+Independent audit verifies the persisted revision1 fence/complement and revoke
+marker, no unfinished publication in the process probe, no plaintext synthetic
+provider credentials in87 state files, and private modes for150 Linux entries
+(directories0700/files0600).35 independent dependency DLLs and586 test/151 API
+runtime files retain hashes/size/mtime. All three owned containers are stopped,
+use network none, publish no host ports and mount binaries/SDK/scripts read-only.
+
+Evidence: inspection/qualifications/operational-credentials-core-02,
+operational-credentials-linux-02 and
+operational-credentials-verification-02/verification.json. Build01 is retained:
+its test span comparison crossed await (CS4007); separating the awaited value
+fixes it, and property access removes two new primary-constructor capture
+warnings. No protected publication was overwritten.
+
+These tests use synthetic provider responses and a real shared Linux key ring/
+filesystem for the process probe. Actual Laravel refresh + store wire composition,
+callback/browser binding, authenticated per-person admission/rate limits, owned
+cleanup/monitoring and session recovery UX remain required before registration.
+Next: operational OAuth handoff and explicit module/action/branch grants,
+followed by revocable company sessions, route enforcement and browser acceptance.
+No classic local-authentication behavior is changed.
+
+No production deployment/schema/config/flag, external mail/payment, Perfex
+migration, DNS, frontend/Laravel runtime or main/UI-main/B1 change. Both PRs stay
+draft. Shared SaaS, dedicated/on-premise deployment/offline licensing/upgrades/
+backup restore, Lenco and hosting/domain/email integrations remain in scope and
+unqualified where recorded on the milestone board.
+
+### Earlier person-proof contract
+
 Published Foundation75cc91ff5025a54f3803fc34c4d297b12dcd5a98 and
 Corece5bc76ff618d0eee98648b723100f248a3802d1 implement the first licensed ERP
 admission contract: current, email-free person observation under the exact
