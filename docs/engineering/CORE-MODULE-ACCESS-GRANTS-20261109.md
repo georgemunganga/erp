@@ -258,3 +258,77 @@ browser/Core/Passport acceptance. In particular the existing classic context
 request uses an all-branches header: future SaaS session enforcement must bind
 the selected company/module and explicit allowed branches server-side and must
 not let a classic header, nominal role or UI entry widen those grants.
+
+
+Actual branded browser/provider/native-database acceptance — 9 November 2026:
+
+`ProductModuleAccessBrowserInteropTests` and the reviewable runner in
+`backend/hrm-api/tools/ModuleAccessBrowser` compose the frozen website consent
+source1ade23e7, actual session relay, Foundation runtime75cc91ff, merged real-API
+UI9edf0563 and unchanged APIe52e8049. The opt-in host maps production handlers
+without a response fixture and applies owning migrations to a fresh PostgreSQL
+DB with no model drift. The ordinary test run explicitly skips without its private
+manifest; the browser is never started by default.
+
+`inspection/qualifications/module-browser-composition-12` passes one complete
+browser fact (one executed/one passed/zero skips), including actual login, explicit
+Kuubu enrollment, two separately confirmed companies, separate operational
+consent, company/member/module selection and a Head office-scoped HR grant. The
+transport loses the first successful command response only after the real commit.
+Explicit retry preserves the exact key/body and leaves one version/receipt/audit.
+Revocation denies the current reader; historical replay returns its old outcome
+without restoring access. A fresh reviewed regrant creates revision3. A different
+company/link pair is denied. Suspending the actual Laravel subscription denies
+both current resolution and command replay, without another write. Sign-out
+clears the editor and returns an unauthorized operational session. The test host's default-auth protected endpoint stays401 even after a valid permission grant.
+
+Final native evidence has two company bindings, three versions, three receipts,
+three permission audits and three ID-only outbox events. There are zero ERP
+sessions, legacy role assignments or local credential links; provisioned users
+have no password/email/legacy-role payload. Laravel retains only the deliberately
+seeded payer/subscription and explicit Kuubu enrollment: no contacts, payment
+attempts or payment webhook receipts were created. The final subscription is
+suspended by the fixture-only control. Google, payment rails and outgoing mail
+remain disabled in that environment.
+
+The fixed commercial HTTPS origin uses a private fixture CA with normal hostname
+validation and pinned loopback TCP; a wrong hostname is rejected.62 real provider
+requests were made. Chrome uses private context/no service workers and fails
+closed on missed DNS/interception. CDP transports real redirects, cookies, CSRF
+and statuses at reviewed origins; it is not deployed browser TLS/ingress evidence.
+Windows certificate loading uses the platform-supported default keyset. Only the
+disposable PHP server enables OPcache; the real relay's15-second deadline is
+unchanged. No global trust-store/DNS or production configuration is changed.
+
+Sign-out leaves local storage empty. The only permitted session-storage entry is
+TanStack's documented scroll-restoration cache: opaque history keys and empty or
+numeric window-coordinate records are checked structurally. No credentials,
+grants or setup attempts remain. The390px actual-PostgreSQL editor and branded
+login screenshots were visually inspected.
+
+`module-browser-composition-verification-01/verification.json` verifies seven
+unchanged production C# inputs,49 independently copied dependencies,373 UI
+source/491 built files,95 website source/25 output files and137 provider source
+files. Test source matches fresh build06; the published runner matches executed
+runner05. `module-browser-opt-in-verification-02` verifies explicit fixture-absent
+skip from the retained TRX. `module-browser-network-cleanup-01` independently
+checks all12 owned databases stopped, only127.0.0.1:8135 DB bindings, and all five
+owned listeners closed. All volumes and failed attempts remain retained.
+
+Earlier attempts retain their actual failures: Docker Desktop internal-network
+reachability, Windows TLS key loading, duplicate operational registration in the
+new test host, an uncached local PHP timeout, a generated assertion's Unicode
+encoding, and an overbroad zero-all-storage assertion. The duplicate mapping was
+removed because MapProductIdentity already maps operational endpoints. The
+storage assertion now enforces the actual no-authority-storage contract and
+validates the documented inert router cache; no authentication/permission rule
+was weakened. The first skip verifier assumed xUnit's notExecuted counter; the
+corrected verifier checks explicit NotExecuted outcome and skip reason. No old
+artifact or failed run was replaced.
+
+This qualifies the composed permission-management journey only. Revocable bound
+ERP sessions, default-auth integration, module/company/branch protected-route and
+data isolation, production database/ingress/proxy/rate/logging checks, capacity,
+monitoring/recovery, controlled deployment and on-premise release qualification
+remain outstanding. The classic all-branches header must never widen a future
+SaaS grant. Preserve one ERP codebase and existing local/on-premise authentication.
