@@ -119,3 +119,8 @@ its disabled/rejected startup paths, and unchanged data/identity/schema state.
 Private qualification does not establish production privileges, SMTP sender
 deliverability, live operator authorization, monitoring ownership or recovery
 readiness. Keep activation off until those deployment-specific checks pass.
+
+The separate [operator executable composition](OPERATOR-EXECUTABLE-QUALIFICATION.md)
+exercises the actual CLI against private Laravel licensing and SMTP, including
+historical replay, conflicting arguments and actual subscription suspension.
+Its test gateway/seeded setup scope and deployment-specific limits are explicit.
