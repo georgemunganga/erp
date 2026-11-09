@@ -1,3 +1,69 @@
+# Protected operational OAuth handoff —9 November2026
+
+Published Core `86abac3b0e577ff070304828ed9aa95bc00a0040` adds a separately
+flagged operational identity callback/browser handoff. It uses website consent
+source `1ade23e7629d8a3004ac2caf8d3157691fa8681e` and unchanged Foundation
+runtime `75cc91ff5025a54f3803fc34c4d297b12dcd5a98`. All remain draft/default-off.
+This is identity continuity, not a licensed company/module ERP session.
+
+Same-origin JSON start requires protected browser cookie/CSRF and rotates its
+binding/challenge. Anonymous bootstrap creates no disk record. Protected purpose,
+fixed callback/return path and five-minute browser state are checked before code
+exchange, followed by framework correlation, confidential client and S256. Only
+the exact identity + ERP-session scope pair is requested. Bearer lifetime,
+refresh token and optional returned scopes are checked; subject discovery uses
+the strict current-person resource, never unverified JWT/email claims.
+
+Credentials stay encrypted server-side. The separate non-default identity cookie
+contains opaque handle/binding and verified subject/issuer, without provider
+tokens, tenant, email or roles. Successful handoff revokes old setup/invitation
+handles; ordinary product sign-in/logout revokes operational state in return.
+Identity status rechecks the current person and returns no operational access,
+pending company selection. Sign-out/provider denial persist revocation. An outage
+returns unavailable with no cached identity fallback. The callback currently
+returns to the status endpoint; the actual selection UI remains required.
+
+Under the shared directory gate, one verified subject/client can hold four active
+credentials and receive six issues per ten minutes. Revocation frees concurrent
+capacity but not recent-issue history; reopening preserves both limits. Fixed
+memory salted IP budgets bound bootstrap/start/status/callback attempts. Owned
+five-minute expiry cleanup retains existing grace and skips held rotation locks.
+Monitoring/capacity tuning and distributed-storage qualification remain gates.
+
+Final fresh API/test builds pass with27/20 existing warnings, none added.
+Windows regression:523 passed/37 opt-in native skips. Native Linux:98 passed,
+zero skips, plus holder/observer one pass each. Real ASP.NET OAuth handling with
+synthetic provider responses tests PKCE/correlation, browser/state denials before
+token exchange, purpose/lifetime/refresh denials, default-off, no implicit ERP
+user/session, outage versus durable denial, restored-cookie denial and code
+replay. Two-process shared key-ring/rotation/sign-out fencing remains passed.
+
+Independent audit verifies seven C# sources,35 unchanged dependency DLLs,
+586 test/151 API immutable runtime files,149 state files without plaintext
+synthetic provider tokens and268 private Linux entries (0700 directories/0600
+files). All three owned containers stopped, network none/no host ports, with
+read-only binaries/SDK/scripts. Persisted revision fence and tombstone remain;
+there is no unfinished publication in the process probe. Evidence:
+`inspection/qualifications/operational-flow-core-03`, `operational-flow-linux-03`
+and `operational-flow-verification-03/verification.json`.
+
+Attempt01 retains two strict duplicate Set-Cookie failures. The callback now
+revokes server state without emitting a redundant deletion before its replacement
+cookie; assertions remain strict. Intermediate02 compilation is retained.
+Final03 records its final source manifest before its first build; assertion
+analyzer cleanup and explicit non-null observation checking remove new warnings.
+No retained publication was overwritten.
+
+Actual Laravel callback/refresh/store wire, connected browser/consent composition,
+account-switch/recovery UX, company selection, explicit module/action/branch
+grants, revocable bound ERP sessions and route enforcement remain required.
+The new `ERP:OperationalIdentity:Enabled` flag defaults false; separate client,
+secret and state path remain unconfigured. Classic local authentication and
+main/UI-main/B1 are unchanged. No production schema/config/deployment/flags,
+external mail/payment, Perfex or DNS change. Shared SaaS, Lenco, hosting/domain/
+email products and dedicated/on-premise/offline/upgrade/restore qualification
+remain in scope. Both backend PRs remain draft.
+
 # Protected operational credentials —9 November2026
 
 Published Core8b7cee073a303b9d9da8aa89b221a0f28ec28079 adds encrypted operational

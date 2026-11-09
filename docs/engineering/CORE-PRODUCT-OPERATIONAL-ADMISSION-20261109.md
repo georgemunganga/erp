@@ -7,9 +7,10 @@ Let an explicitly enrolled Kuubu person enter an authorized company and licensed
 module with current permissions and branch scope, using the existing ERP.
 ## 3. Scope
 Implemented: separately scoped, email-free person observation/reader and private
-encrypted credential/rotation machinery. These create no ERP session or grant.
-Next: operational OAuth callback/browser handoff, explicit company/module grants
-and selection, revocable session, route/module enforcement and scoped context.
+encrypted credential/rotation machinery, plus default-off operational OAuth
+callback/browser handoff. These create no ERP session or grant. Next: actual
+provider/browser wire, explicit company/module grants and selection, revocable
+session, route/module enforcement and scoped context.
 ## 4. Parent
 Core company membership/team/invitations; purchased workspace/licensing contracts.
 Keep one ASP.NET/Docker release for shared SaaS and dedicated/on-premise use.
@@ -80,7 +81,43 @@ must contain references/outcomes, never credentials or raw proof bodies.
 ## 20. Configuration
 `PRODUCT_ERP_SESSION_ENABLED=false` plus existing product identity flag. Only a
 confidential Kuubu identity client may request the exact two scopes. No ERP
-operational registration/route or production activation in this increment.
+operational activation without the independent Core `ERP:OperationalIdentity:Enabled`
+flag (default false), separate canonical confidential client UUID/secret and
+existing private state directory outside application assets. This identity
+continuity scheme is non-default and cannot satisfy ERP authorization.
+
+### Operational callback/browser implementation contract
+
+`GET /api/core/product-identity/operational/bootstrap` returns a CSRF token and
+sets a protected host-only Secure/HttpOnly/Lax browser cookie; anonymous bootstrap
+allocates no disk state. Same-origin JSON `POST /start` requires that cookie and
+CSRF, rejects selectors/nonempty command bodies, revokes prior operational state
+and rotates browser binding/challenge. Only the fixed Kuubu authorization URL,
+S256, exact identity + ERP-session scopes, separate confidential client and
+fixed operational callback are used. Protected state binds purpose, browser,
+challenge, fixed return path and five-minute deadline. Pre-handler checks deny
+invalid browser/state before code exchange; framework correlation remains required.
+
+The callback discovers a canonical subject only through the strictly validated
+current-person resource. It requires a short-lived Bearer/access/refresh pair,
+stores it privately, consumes the browser challenge and emits a separate opaque
+identity cookie with no provider tokens, email, roles or tenant. Successful
+handoff revokes prior setup/invitation handles and clears pending identity;
+ordinary product sign-in/logout revokes operational identity in return. Neither
+direction alters the default ERP/local session. Session status freshly observes
+the person and returns `operational_access_granted=false`/company-selection next
+step; no browser company/module selector is accepted here. The interim callback
+returns to that status endpoint; company/module selection UI remains next work.
+
+Credential admission under the shared directory gate permits at most four active
+credentials and six issues per ten minutes for one verified subject/client.
+Revocation frees concurrent capacity but not recent-issue history; separate
+workers/key-ring readers apply the same limits. Directory capacity/scans remain
+bounded. Fixed-memory salted IP budgets limit anonymous bootstrap/start/status;
+there is no success-proof cache or public identity directory. Owned five-minute
+cleanup removes expired credentials after the existing grace. Cleanup failures
+emit a generic warning. Operational dashboards/alerts and capacity/load tuning
+remain deployment gates, not established by the code.
 ## 21. Security
 Test real PKCE/token/refresh, current verification/enrollment/client/token
 revocation, public/foreign/machine/cookie denials, scope mixing and default-off.
@@ -109,6 +146,73 @@ No SaaS operational activation until all acceptance checks pass. Lenco/hosting
 integrations and dedicated/offline licensing/installation/upgrades/backup restore
 remain part of the full platform programme, with separate deployment evidence.
 ## 28. Evidence
+
+### Protected operational OAuth handoff —9 November2026
+
+Published Core `86abac3b0e577ff070304828ed9aa95bc00a0040` adds a separately
+flagged operational identity callback/browser handoff. It uses website consent
+source `1ade23e7629d8a3004ac2caf8d3157691fa8681e` and unchanged Foundation
+runtime `75cc91ff5025a54f3803fc34c4d297b12dcd5a98`. All remain draft/default-off.
+This is identity continuity, not a licensed company/module ERP session.
+
+Same-origin JSON start requires protected browser cookie/CSRF and rotates its
+binding/challenge. Anonymous bootstrap creates no disk record. Protected purpose,
+fixed callback/return path and five-minute browser state are checked before code
+exchange, followed by framework correlation, confidential client and S256. Only
+the exact identity + ERP-session scope pair is requested. Bearer lifetime,
+refresh token and optional returned scopes are checked; subject discovery uses
+the strict current-person resource, never unverified JWT/email claims.
+
+Credentials stay encrypted server-side. The separate non-default identity cookie
+contains opaque handle/binding and verified subject/issuer, without provider
+tokens, tenant, email or roles. Successful handoff revokes old setup/invitation
+handles; ordinary product sign-in/logout revokes operational state in return.
+Identity status rechecks the current person and returns no operational access,
+pending company selection. Sign-out/provider denial persist revocation. An outage
+returns unavailable with no cached identity fallback. The callback currently
+returns to the status endpoint; the actual selection UI remains required.
+
+Under the shared directory gate, one verified subject/client can hold four active
+credentials and receive six issues per ten minutes. Revocation frees concurrent
+capacity but not recent-issue history; reopening preserves both limits. Fixed
+memory salted IP budgets bound bootstrap/start/status/callback attempts. Owned
+five-minute expiry cleanup retains existing grace and skips held rotation locks.
+Monitoring/capacity tuning and distributed-storage qualification remain gates.
+
+Final fresh API/test builds pass with27/20 existing warnings, none added.
+Windows regression:523 passed/37 opt-in native skips. Native Linux:98 passed,
+zero skips, plus holder/observer one pass each. Real ASP.NET OAuth handling with
+synthetic provider responses tests PKCE/correlation, browser/state denials before
+token exchange, purpose/lifetime/refresh denials, default-off, no implicit ERP
+user/session, outage versus durable denial, restored-cookie denial and code
+replay. Two-process shared key-ring/rotation/sign-out fencing remains passed.
+
+Independent audit verifies seven C# sources,35 unchanged dependency DLLs,
+586 test/151 API immutable runtime files,149 state files without plaintext
+synthetic provider tokens and268 private Linux entries (0700 directories/0600
+files). All three owned containers stopped, network none/no host ports, with
+read-only binaries/SDK/scripts. Persisted revision fence and tombstone remain;
+there is no unfinished publication in the process probe. Evidence:
+`inspection/qualifications/operational-flow-core-03`, `operational-flow-linux-03`
+and `operational-flow-verification-03/verification.json`.
+
+Attempt01 retains two strict duplicate Set-Cookie failures. The callback now
+revokes server state without emitting a redundant deletion before its replacement
+cookie; assertions remain strict. Intermediate02 compilation is retained.
+Final03 records its final source manifest before its first build; assertion
+analyzer cleanup and explicit non-null observation checking remove new warnings.
+No retained publication was overwritten.
+
+Actual Laravel callback/refresh/store wire, connected browser/consent composition,
+account-switch/recovery UX, company selection, explicit module/action/branch
+grants, revocable bound ERP sessions and route enforcement remain required.
+The new `ERP:OperationalIdentity:Enabled` flag defaults false; separate client,
+secret and state path remain unconfigured. Classic local authentication and
+main/UI-main/B1 are unchanged. No production schema/config/deployment/flags,
+external mail/payment, Perfex or DNS change. Shared SaaS, Lenco, hosting/domain/
+email products and dedicated/on-premise/offline/upgrade/restore qualification
+remain in scope. Both backend PRs remain draft.
+
 
 ### Protected credential/rotation qualification
 
