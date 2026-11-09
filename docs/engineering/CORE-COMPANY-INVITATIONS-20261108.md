@@ -24,6 +24,8 @@ No production activation.
 CORE-COMPANY-TEAM-20261108.md; one ERP release for SaaS and dedicated installations.
 ## 5. Actors
 Current company owner/admin, invited verified and explicitly enrolled identity.
+Deployment-owned service operator for delivery monitoring and bounded recovery;
+this authority is separate from customer/company roles.
 ## 6. Entry
 Invitation creation must explicitly name recipient, company and bounded role.
 Acceptance must review the company/role and require an unchecked consent control.
@@ -71,6 +73,9 @@ means the SMTP call returned acceptance, not inbox receipt or company acceptance
 ## 10. Permissions
 Owner may invite administrators/members; administrator may invite ordinary members only.
 Owner promotion remains an explicit owner-authorized action. Server enforces all.
+Delivery operations have no HTTP route. A trusted OS/service account, dedicated
+database connection and default-off configuration own this authority. Monitoring
+uses a SELECT-only role; retry requires separately enabled operational privileges.
 ## 11. Rules
 Email match alone grants nothing. Require an exact targeted invitation, token,
 verified identity, enrollment, explicit acceptance and current Core guards.
@@ -175,6 +180,16 @@ invitations need no further email. This adds no membership or billing authority.
 
 ## 22. Operations
 No real mail, customer access, production deployment or DNS changes in this stage.
+The separate [local operations runbook](../../backend/hrm-api/tools/CompanyInvitationDelivery/OPERATIONS.md)
+defines aggregate read-only reports, alert thresholds/exit codes, protected
+configuration and one selected due failed-delivery retry. This process never
+runs migrations, identity bootstrap, HTTP or background workers. Retry retains
+the normal original-inviter/license/envelope checks and row lock, commits its
+operator receipt atomically with the delivery attempt and supports exact
+idempotent replay. It cannot reset backoff/counters or revive terminal targets.
+Monitoring and retry have separate default-off flags and a dedicated connection;
+the operator identity comes from trusted service configuration, not a caller
+argument. Production monitoring/recovery ownership remains a release gate.
 ERP:CompanyInvitationDelivery:Enabled defaults false and requires the product,
 licensing, team, invitation and recipient-acceptance flags. Only API mode starts the worker; migration
 and generic publisher modes do not instantiate SMTP or start background delivery.

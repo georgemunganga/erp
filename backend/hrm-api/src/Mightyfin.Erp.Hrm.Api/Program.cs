@@ -22,6 +22,10 @@ using Mightyfin.Erp.Hrm.Application.Integration;
 // Reject contradictory process authority before configuring any database access.
 var startupMode = CoreHostStartupPolicy.Parse(args);
 var builder = WebApplication.CreateBuilder(args);
+if(startupMode==CoreHostMode.InvitationDeliveryOperations) {
+    Environment.ExitCode=await CoreCompanyInvitationOperations.RunAsync(builder.Configuration,args);
+    return;
+}
 
 // ---------- Logging: structured JSON in production, console otherwise ----------
 builder.Logging.ClearProviders();

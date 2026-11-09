@@ -28,6 +28,15 @@ public sealed class CompanyInvitationDeliveryStore(HrmDbContext db, OutboxPublis
         if(rows.Length==0)return false;
         var row=rows[0];
         using var scope=tenant.BindAuthoritativeRow(row);
+        await ApplyAttemptAsync(db,row,deliver,clock,cancellation);
+        await db.SaveChangesAsync(cancellation);
+        await transaction.CommitAsync(cancellation);
+        return true;
+    }
+
+    internal static async Task ApplyAttemptAsync(HrmDbContext db,OutboxMessage row,
+        Func<OutboxMessage,CancellationToken,Task<InvitationMailOutcome>> deliver,TimeProvider clock,CancellationToken cancellation)
+    {
         InvitationMailOutcome outcome;
         try {outcome=await deliver(row,cancellation);}
         catch(OperationCanceledException) when(cancellation.IsCancellationRequested){throw;}
@@ -56,8 +65,5 @@ public sealed class CompanyInvitationDeliveryStore(HrmDbContext db, OutboxPublis
             CorrelationId=row.CorrelationId,CreatedBy="core-invitation-delivery",
             AfterJson=System.Text.Json.JsonSerializer.Serialize(new {event_id=row.PublicId,state=row.Status,attempt=row.PublishAttempts})
         });
-        await db.SaveChangesAsync(cancellation);
-        await transaction.CommitAsync(cancellation);
-        return true;
     }
 }

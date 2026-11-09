@@ -36,6 +36,14 @@ UI now reads scoped delivery outcomes separately from joining and offers a
 read-only refresh. Creation is queued; only a bound SMTP acknowledgement is
 submitted, and it never confirms inbox receipt. No resend control is introduced.
 
+The separate default-off [local operations command](OPERATIONS.md) provides
+aggregate read-only health reporting and one explicitly selected due retry.
+It requires deployment-owned service authority and a dedicated connection;
+reporting needs no SMTP/product setup. Retry preserves the normal authority,
+backoff and eight-attempt cap and commits a separate operator receipt. This is
+not a new HTTP endpoint or customer control. It never runs migrations, identity
+bootstrap or the automatic worker.
+
 Each worker selects one due delivery row using PostgreSQL `FOR UPDATE SKIP LOCKED`.
 The row stays locked through outcome commit. Fresh license, exact company/client
 and original inviter authority are checked; a company advisory lock protects the
