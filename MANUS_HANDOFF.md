@@ -1,3 +1,42 @@
+# Durable ERP session registry qualified — 9 November 2026
+
+Published ERP registry source `de699313adcafdce6fc1169e6bedbeb0f5a36965`
+adds durable, explicitly bound ERP sessions, recovery of the same opaque token on
+exact retry, durable revocation and atomic replacement across companies. Stored
+bindings retain the exact grant revision and selected scope; later grants cannot
+silently expand them. Tokens are encrypted at rest, excluded from JSON, and bound
+to the verified identity/client, browser, operational credential and absolute
+expiry. Current identity, membership, licensing and branch ownership remain
+required at resolution. Immutable rows and scope digests protect issued scope.
+
+Isolated qualification:648 Windows passes/44 explicit environment skips and141
+native PostgreSQL passes/zero skips. All32 ordinary registry cases pass in each;
+native adds four concurrency, constraint and migration cases. Nine compiled C#
+inputs,32 dependencies and586 read-only native runtime files retain verified
+hashes. Model drift is zero. Four owned test containers are stopped without host
+ports. Domain/Infrastructure/API/tests have0/3/27/21 build warnings; warning scope
+and retained unsuccessful attempts are documented in the feature contract.
+
+Evidence: inspection/qualifications/product-session-registry-verification-01/verification.json,
+product-session-registry-core-03 and product-session-registry-native-02. Identity/
+license observations in these component checks are synthetic; Core commands,
+registry persistence, key-ring recovery and relational checks are actual. This
+qualification does not extend the earlier real-provider browser journey to ERP
+launch. No production migration or activation occurred.
+
+Next: trusted operational credential/browser/absolute-expiry material, secure
+HttpOnly cookie lifecycle, deliberate product authentication and request/resource
+adapters, then protected HRM/Procurement reads/writes and actual browser ERP
+launch. Do not use legacy empty-branch-means-all behavior for product sessions.
+Preserve local/OIDC dedicated/on-premise operation and one ERP codebase. Lenco,
+hosting/domain/email integrations, production recovery/rollout and on-premise
+licensing/offline policy, upgrades and restore remain programme requirements.
+Registry correctness alone does not establish SaaS or on-premise readiness.
+Keep both PRs draft. See docs/engineering/CORE-PRODUCT-SESSION-REGISTRY-20261109.md
+in the ERP repository for the owning migration, contracts and acceptance scope.
+
+## Previous scope-only checkpoint
+
 # ERP session scope authority qualified — 9 November 2026
 
 Published ERP scope-authority source `53afc426e0fea675519d19e4d01c52fa03868f82`
