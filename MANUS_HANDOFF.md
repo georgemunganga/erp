@@ -1,3 +1,53 @@
+# Product-scoped HRM worker CRUD qualified —10 November2026
+
+Published ERP source `1c72d5c8a65b82b02250072aba6f63770b7b6e10` admits the existing HRM worker list/detail/
+create/update/archive routes in explicit product mode with reviewed operation
+metadata, current private authority and owning-context transactions. It reuses
+WorkerService and WorkerRepository. SQL filters apply before count/pagination and
+to profile children; persistence checks both the stored source and proposed target,
+including original child parents. The allocated workspace's sole company owns the
+records. Finite location grants cannot widen through filters, FK changes, missing
+assignments, empty/stale scope or another membership/company. Company-wide scope
+can include owned unassigned/historical profiles. New master selections must be
+active; departments do not confer physical-site authority.
+
+Mutations require origin/JSON/CSRF/body bounds, share the company/team lock and
+recheck registry/licensing/Core in the same transaction before and after service
+saves. Final denial rolls back. Existing role checks remain; payroll read access
+cannot create workers. New employee numbering sees company number occupancy,
+never hidden worker data. Profile creation creates no login/workspace; SubjectId
+changes are denied. Import/account-link/lifecycle/other modules remain held.
+Profile child replacement now explicitly tracks new GUID children as inserts,
+preserving the tenant guard. The two-argument context constructor remains available.
+
+Qualification: 743 Windows passes/44 explicit environment skips;
+255 native PostgreSQL-run passes/0 skips. All19 worker cases pass
+in each (16 actual authenticated HTTP cases, three direct synthetic-scope storage
+cases); focused Windows19/zero skips passes. Actual cookies/encrypted state,
+services/repository/relational persistence execute with synthetic person/license
+providers. This is not actual-provider ERP browser or other-module acceptance.
+
+Evidence: inspection/qualifications/product-worker-scope-core-01 (Application),
+core-04 (Infrastructure/API/model check), core-05 (final tests),
+product-worker-scope-focused-04, product-worker-scope-native-01 and
+product-worker-scope-verification-01/verification.json.15 compiled C# inputs,
+49 independent dependency DLLs and585 read-only native runtime files retain
+verified hashes; model drift is zero. Two owned native containers are stopped/no
+host ports. Build warning counts are in the verifier. Earlier attempts retain the
+history-type name collision, invalid seed branch code, corrected totalCount test
+contract and actual child-tracking fix. No tenant or authority guard was weakened.
+
+No production mode/flag/schema, DNS, Perfex, mail or payment change. See the28-section
+ERP docs/engineering/HRM-PRODUCT-WORKER-SCOPE-20261110.md contract. Earlier worker
+inspection remains a historical baseline; its identified basic CRUD/child-scope
+requirements are addressed here. Import/link/lifecycle, remaining HRM/payroll/
+Procurement resource scope and connected frontend/real-provider browser operations
+remain next. Preserve one SaaS/dedicated/on-premise codebase and separate brands.
+Lenco, hosting/domain/email, controlled rollout/capacity/recovery and offline
+licensing/installation/upgrades/restore remain programme work. Keep both PRs draft.
+
+## Previous request-authentication checkpoint
+
 # Product request authentication and selected Core context qualified —10 November2026
 
 Published ERP source `99371068b63841d846c5879f66d2b8d1bc38d28e` adds explicit ERP:AuthMode=product with fresh
