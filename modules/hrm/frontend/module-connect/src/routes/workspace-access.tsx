@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { KuubuIdentity } from "@/platform/components/KuubuIdentity";
 import { CompanyModuleAccess } from "@/modules/core/CompanyModuleAccess";
+import { CompanyErpSession } from "@/modules/core/CompanyErpSession";
 import {
   createOperationalClient,
   OperationalError,
@@ -407,6 +408,16 @@ function WorkspaceAccess() {
               </Card>
             </section>
           </div>
+        )}
+        {entry.status === "ready" && currentReview && (
+          <CompanyErpSession
+            key={currentReview.company.id + ":" + currentReview.company.linkId + ":session"}
+            company={currentReview.company}
+            modules={currentReview.modules}
+            csrf={entry.session.csrf}
+            onBusy={setBusy}
+            onExpired={() => setEntry({ status: "signed-out", csrf: entry.session.csrf })}
+          />
         )}
         {entry.status === "ready" && currentReview?.company.role === "owner" && (
           <CompanyModuleAccess
