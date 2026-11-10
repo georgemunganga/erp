@@ -1,3 +1,22 @@
+# Product employee directory connected — 10 November 2026
+
+ERP source `d39a6e613305e56d21f1b5d3180dc0f62a041f7c` opens the employee directory from a selected HRM
+session. Employees are scoped by the current Core company and branch assignment.
+The directory supports search, branch filtering, pagination and archive. Archive
+requires an eligible HR role and explicit confirmation. The API checks the
+expected-session marker against the cookie so a replaced session cannot read
+or archive through the stale screen. The UI clears records on access loss and
+checks the same session on return to the page.
+
+46 focused API and scope tests, one native PostgreSQL regression, 135 contracts and three product browser tests passed. The browser tests use fixture HTTP responses with the production UI build. Build, TypeScript and targeted lint also passed.
+The isolated API and browser checks are separate. A combined browser run with
+the Laravel provider and persisted worker operations remains the next gate.
+Employee detail and create/edit screens still require scoped reference data and
+reviewed assignment operations. This source is on the draft branch and the
+product frontend flag is off by default.
+
+## Previous session UI checkpoint
+
 # Product ERP session UI verified — 10 November 2026
 
 ERP source `73340ce12425799ae080ff7c76ff807ef5114e82` adds ordinary member self-review and explicit ERP session
