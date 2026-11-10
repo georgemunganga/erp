@@ -21,6 +21,14 @@ public sealed class ShellContextMiddleware(RequestDelegate next, ILogger<ShellCo
             return;
         }
 
+        if(http.User.Identity?.AuthenticationType==ProductRequestAuthentication.Scheme) {
+            var verified=ProductRequestContext.Current(http);
+            if(verified is null || verified.Module!="hrm"){http.Response.StatusCode=403;return;}
+            scope.EntityId=verified.CompanyId;scope.LocationId=null;scope.OrgUnitId=null;
+            scope.AllowedLocationIds.Clear();
+            if(!verified.AllCompanyLocations)scope.AllowedLocationIds.AddRange(verified.LocationIds);
+            await next(http);return;
+        }
         var tenantId = tenant.GetTenantId();
 
         // M45: load the operator's branch confinement (empty = org-wide top HR).

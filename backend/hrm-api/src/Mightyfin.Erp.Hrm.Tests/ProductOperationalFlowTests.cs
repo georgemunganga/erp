@@ -180,6 +180,7 @@ public sealed partial class ProductOperationalFlowTests
                 ["ERP:OperationalIdentity:Enabled"]=enabled.ToString(),["ERP:OperationalIdentity:ClientId"]=ClientId,["ERP:OperationalIdentity:ClientSecret"]=Secret,["ERP:OperationalIdentity:StatePath"]=state,
                 ["ERP:ProductSessions:Enabled"]=(sessions is not null).ToString(),["ERP:ProductLicensing:Enabled"]=companies.ToString(),["ERP:OperationalCompanies:Enabled"]=companies.ToString(),["ERP:ModuleAccess:Enabled"]=(moduleApi is not null).ToString()});
             builder.Services.AddHttpContextAccessor();builder.Services.AddSingleton(TimeProvider.System);
+            builder.Services.AddScoped<Mightyfin.Erp.Hrm.Application.Workers.IWorkerDataScope,ProductWorkerScope>();
             if(contexts is null){builder.Services.AddScoped<ITenantAccessor>(_=>new FixedTenantAccessor("tenant-a"));builder.Services.AddDbContext<HrmDbContext>(options=>options.UseInMemoryDatabase(root));}
             else{builder.Services.AddScoped<ITenantAccessor,PrincipalTenantAccessor>();builder.Services.AddScoped(contexts);}
             if(product)ProductRequestAuthentication.Add(builder.Services,builder.Configuration);
@@ -191,11 +192,18 @@ public sealed partial class ProductOperationalFlowTests
             if(sessions is not null)builder.Services.AddSingleton(sessions);
             if(enabled){builder.Services.Configure<OAuthOptions>(ProductOperationalFlow.OAuthScheme,o=>o.Backchannel=new HttpClient(channel){MaxResponseContentBufferSize=65536});
                 builder.Services.AddSingleton(new ProductOperationalSubject(new HttpClient(channel),TimeProvider.System,ClientId));}
+            if(product){builder.Services.AddScoped<Mightyfin.Erp.Hrm.Application.IAuthzService,AuthzServiceImpl>();builder.Services.AddSingleton<Mightyfin.Erp.Hrm.Application.IIdProvider,IdProvider>();
+                builder.Services.AddScoped<Mightyfin.Erp.Hrm.Application.IWorkerRepository,Mightyfin.Erp.Hrm.Infrastructure.WorkerRepository>();
+                builder.Services.AddScoped<Mightyfin.Erp.Hrm.Application.Workers.IWorkerService,Mightyfin.Erp.Hrm.Application.Workers.WorkerServiceImpl>();
+                builder.Services.AddScoped<Mightyfin.Erp.Hrm.Application.Workers.IWorkerLifecycleService,Mightyfin.Erp.Hrm.Application.Workers.WorkerLifecycleServiceImpl>();
+                builder.Services.AddScoped<Mightyfin.Erp.Hrm.Application.Workers.IWorkerImportService,Mightyfin.Erp.Hrm.Application.Workers.WorkerImportService>();}
             builder.Services.AddAuthorization(CoreWorkspaceContextRoutes.AddPolicy);var app=builder.Build();app.UseRouting();app.UseProductIdentityOriginGuard();app.UseProductRequestBoundary();app.UseAuthentication();app.UseAuthorization();
             var observations=new List<OperationalCredentialResult>();
             app.MapGet("/trusted-material-check",async(HttpContext context)=>{var result=await ProductOperationalFlow.ObserveAsync(context);observations.Add(result);return Results.Ok(result);});
             ProductOperationalFlow.Map(app);app.MapGet("/erp-protected",()=>"ERP").RequireAuthorization();
-            if(product){CoreWorkspaceContextRoutes.MapRoutes(app);app.MapGet("/api/legacy-anonymous",()=>Results.StatusCode(418)).AllowAnonymous();}
+            if(product){
+                CoreWorkspaceContextRoutes.MapRoutes(app);app.MapGet("/api/legacy-anonymous",()=>Results.StatusCode(418)).AllowAnonymous();}
+            if(product){Mightyfin.Erp.Hrm.Api.Routing.Routes.HrmPrefix="/api/hrm";Mightyfin.Erp.Hrm.Api.Routing.Routes.RegisterWorkers(app);}
             await app.StartAsync();
             var scope=app.Services.CreateAsyncScope();var client=app.GetTestClient();client.BaseAddress=new Uri(Origin);
             return new(){TrustedObservations=observations,App=app,Client=client,Channel=channel,State=state,Scope=scope,Db=scope.ServiceProvider.GetRequiredService<HrmDbContext>()};

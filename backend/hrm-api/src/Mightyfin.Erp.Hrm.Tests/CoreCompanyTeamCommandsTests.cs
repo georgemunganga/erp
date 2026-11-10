@@ -255,7 +255,7 @@ public sealed class CoreCompanyTeamCommandsTests
         private const string Enrollment="01arz3ndektsv4rrffq69g5fav";
         internal CoreWorkspaceProvisionerTests.Clock Clock=>clock;internal Probe Probe=>probe;
         internal Guid Company;internal string Tenant=null!;internal Person Owner=null!;
-        internal HrmDbContext Context(string? tenant=null)=>new(options,new Scope(tenant??Tenant));
+        internal HrmDbContext Context(string? tenant=null,Mightyfin.Erp.Hrm.Application.Workers.IWorkerDataScope? workers=null)=>new(options,new Scope(tenant??Tenant),workers);
         internal CoreCompanyTeamCommands Service=>new(x=>Context(x),clock);
         internal CommercialLicenseLease License(string enrollment=Enrollment)=>new(enrollment,[],2,clock.GetUtcNow().AddMinutes(1),clock,clock.GetTimestamp(),TimeSpan.FromMinutes(1));
         internal Task<CompanyTeamResult> Run(Person actor,CompanyTeamCommand command)=>Service.ExecuteAsync(actor.Proof,command,License());

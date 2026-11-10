@@ -21,6 +21,7 @@ using Mightyfin.Erp.Hrm.Application.Performance;
 using Mightyfin.Erp.Hrm.Application.Offboarding;
 using Mightyfin.Erp.Hrm.Application.Integration;
 using Mightyfin.Erp.Hrm.Infrastructure.Data;
+using Mightyfin.Erp.Hrm.Api;
 namespace Mightyfin.Erp.Hrm.Api.Routing;
 
 // Minimal-API routes grouped by the frontend client interfaces (PeopleClient,
@@ -533,10 +534,10 @@ public static class Routes
         var g = app.MapGroup($"{HrmPrefix}/workers").RequireAuthorization();
 
         g.MapGet("/", async ([AsParameters] WorkerListFilters filters, IWorkerService svc, CancellationToken ct)
-            => await svc.ListAsync(filters, ct));
+            => await svc.ListAsync(filters, ct)).ProductWorker(ProductWorkerOperation.List);
 
         g.MapGet("/{id:guid}", async (Guid id, IWorkerService svc, CancellationToken ct)
-            => await svc.GetByIdAsync(id, ct));
+            => await svc.GetByIdAsync(id, ct)).ProductWorker(ProductWorkerOperation.Detail);
 
         g.MapPost("/", async (HttpContext http, IWorkerService svc, CancellationToken ct) =>
         {
@@ -546,7 +547,7 @@ public static class Routes
                 return Results.UnprocessableEntity(new ApiError("validation-failed", string.Join("; ", errors), []));
             var created = await svc.CreateAsync(request, ct);
             return Results.Created($"{HrmPrefix}/workers/{created.Id}", created);
-        });
+        }).ProductWorker(ProductWorkerOperation.Create);
 
         g.MapPost("/import", async (HttpContext http, IWorkerImportService svc, CancellationToken ct) =>
         {
@@ -561,13 +562,13 @@ public static class Routes
         {
             var request = await ReadBodyAsync<WorkerUpdateRequest>(http, ct) ?? throw new DomainException("bad-request", "Request body is missing or invalid.");
             return Results.Ok(await svc.UpdateAsync(id, request, ct));
-        });
+        }).ProductWorker(ProductWorkerOperation.Update);
 
         g.MapPost("/{id:guid}/archive", async (Guid id, IWorkerService svc, CancellationToken ct) =>
         {
             await svc.ArchiveAsync(id, ct);
             return Results.Ok();
-        });
+        }).ProductWorker(ProductWorkerOperation.Archive);
 
         // M27 P0 UX audit: admin identity-linking — ends the circular
         // dead-end where My HR / My documents / self-leave 422-ed because

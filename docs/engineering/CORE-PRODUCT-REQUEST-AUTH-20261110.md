@@ -10,7 +10,9 @@ legacy role/bootstrap, default-tenant or empty-branch-means-all fallbacks.
 Explicit ERP:AuthMode=product, reviewed endpoint boundary, per-request person/
 license/registry verification and actual protected Core workspace-context read.
 HRM/Procurement business resource adapters remain required and are denied until
-reviewed. This feature is not full ERP operational acceptance.
+reviewed. The subsequent [worker resource adapter](HRM-PRODUCT-WORKER-SCOPE-20261110.md)
+adds reviewed HRM worker list/detail/create/update/archive scope; its acceptance
+is recorded separately. This feature is not full ERP operational acceptance.
 ## 4. Ownership
 Core owns authentication, selected company/principal/module/branch context and
 request proof. Laravel owns enrollment/subscriptions/licensing. Business modules

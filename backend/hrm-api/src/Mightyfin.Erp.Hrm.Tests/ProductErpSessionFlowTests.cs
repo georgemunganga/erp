@@ -15,7 +15,7 @@ public sealed class ProductErpSessionFlowTests
     internal sealed class Fixture:IAsyncDisposable
     {
         internal required Sessions.Fixture Core;internal required Operational.Fixture Http;
-        internal string Cookies="",Csrf="";internal CommercialLicenseStatus LicenseStatus=CommercialLicenseStatus.Authorized;internal int LicenseReads;
+        internal string Cookies="",Csrf="";internal CommercialLicenseStatus LicenseStatus=CommercialLicenseStatus.Authorized;internal int LicenseReads;internal Func<int,CommercialLicenseStatus>? LicenseDecision;
         internal Dictionary<string,object> Command(Sessions.Target? target=null,Guid? key=null)
         {
             var t=target??Core.Target;
@@ -31,12 +31,13 @@ public sealed class ProductErpSessionFlowTests
             var core=await Sessions.Fixture.Start();Fixture? f=null;
             Task<CommercialLicenseResult> License(string enrollment,CancellationToken ct){
                 ct.ThrowIfCancellationRequested();Assert.Equal("01arz3ndektsv4rrffq69g5fav",enrollment);f!.LicenseReads++;
-                return Task.FromResult(new CommercialLicenseResult(f.LicenseStatus,f.LicenseStatus==CommercialLicenseStatus.Authorized
+                var state=f.LicenseDecision?.Invoke(f.LicenseReads)??f.LicenseStatus;
+                return Task.FromResult(new CommercialLicenseResult(state,state==CommercialLicenseStatus.Authorized
                     ?new(enrollment,["hrm"],2,TimeProvider.System.GetUtcNow().AddMinutes(1),TimeProvider.System,TimeProvider.System.GetTimestamp(),TimeSpan.FromMinutes(1)):null));
             }
             var admission=new CoreProductSessionAdmission(t=>core.Core.Context(t),core.Protection,License,TimeProvider.System);
             var editor=new CoreModuleAccessApi(t=>core.Core.Context(t),License,TimeProvider.System);
-            var http=await Operational.Fixture.Start(companies:true,moduleApi:editor,sessions:admission,product:product,contexts:product?provider=>core.Core.Context(provider.GetRequiredService<ITenantAccessor>().GetTenantId()):null);f=new(){Core=core,Http=http};
+            var http=await Operational.Fixture.Start(companies:true,moduleApi:editor,sessions:admission,product:product,contexts:product?provider=>core.Core.Context(provider.GetRequiredService<ITenantAccessor>().GetTenantId(),provider.GetRequiredService<Mightyfin.Erp.Hrm.Application.Workers.IWorkerDataScope>()):null);f=new(){Core=core,Http=http};
             var callback=await http.Callback(await http.Challenge());Assert.Equal(HttpStatusCode.Redirect,callback.StatusCode);
             f.Cookies=Cookie(callback,ProductOperationalFlow.Cookie)+"; "+Cookie(callback,ProductOperationalBrowser.Cookie);
             var session=await http.Get(ProductOperationalFlow.Prefix+"/session",f.Cookies);Assert.Equal(HttpStatusCode.OK,session.StatusCode);

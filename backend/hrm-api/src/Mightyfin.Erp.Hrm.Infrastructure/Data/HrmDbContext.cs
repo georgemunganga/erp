@@ -16,21 +16,25 @@ namespace Mightyfin.Erp.Hrm.Infrastructure.Data;
 /// as the rest of the ERP). A global query filter scopes every query to the
 /// current tenant from the OIDC token; audit entries record before/after JSON
 /// via the interceptor.</summary>
-public sealed partial class HrmDbContext(DbContextOptions<HrmDbContext> options, ITenantAccessor tenant) : DbContext(options)
+public sealed partial class HrmDbContext(DbContextOptions<HrmDbContext> options, ITenantAccessor tenant, Mightyfin.Erp.Hrm.Application.Workers.IWorkerDataScope? workerScope=null) : DbContext(options)
 {
+    private readonly Mightyfin.Erp.Hrm.Application.Workers.IWorkerDataScope? productWorkerScope=workerScope;
+    public HrmDbContext(DbContextOptions<HrmDbContext> options,ITenantAccessor tenant):this(options,tenant,null) {}
     /// <summary>Auto-populates <see cref="Entity.TenantId"/> on all newly added
     /// entities so every row is tenant-scoped from day one (both sync and async
     /// save paths).</summary>
     public override int SaveChanges()
     {
         FillTenantIds();
+        GuardProductWorkerWritesAsync(CancellationToken.None).GetAwaiter().GetResult();
         return base.SaveChanges();
     }
 
-    public override Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
+    public override async Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
     {
         FillTenantIds();
-        return base.SaveChangesAsync(cancellationToken);
+        await GuardProductWorkerWritesAsync(cancellationToken).ConfigureAwait(false);
+        return await base.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
     }
 
     private void FillTenantIds()
@@ -682,6 +686,7 @@ public sealed partial class HrmDbContext(DbContextOptions<HrmDbContext> options,
         modelBuilder.Entity<ExitInterview>().HasOne(x => x.Request).WithOne().HasForeignKey<ExitInterview>(x => x.OffboardingRequestId);
         modelBuilder.Entity<ExitInterview>().HasOne(x => x.Worker).WithMany().HasForeignKey(x => x.WorkerId).OnDelete(DeleteBehavior.Restrict);
 
+        ConfigureProductWorkerScope(modelBuilder);
         base.OnModelCreating(modelBuilder);
     }
 

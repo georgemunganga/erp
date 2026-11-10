@@ -119,6 +119,7 @@ builder.Services.AddScoped<IAuthzService, AuthzServiceImpl>();
 builder.Services.AddSingleton<IIdProvider, IdProvider>();
 
 // ---------- Services ----------
+builder.Services.AddScoped<Mightyfin.Erp.Hrm.Application.Workers.IWorkerDataScope,ProductWorkerScope>();
 builder.Services.AddScoped<IWorkerRepository, WorkerRepository>();
 builder.Services.AddScoped<IWorkerService, WorkerServiceImpl>();
 builder.Services.AddScoped<IWorkerImportService, WorkerImportService>();

@@ -134,7 +134,7 @@ internal sealed class CoreProductSessionRegistry(Func<string,HrmDbContext> conte
             return row is null?new(ModuleAccessStatus.Denied):await ResolveIn(db,row,person,license,credential,browser,request,ct);
         } catch(Exception error)when(error is DbException or CryptographicException or FormatException or ArgumentException){return new(ModuleAccessStatus.Unavailable);}
     }
-    private async Task<CoreErpScopeResult> ResolveIn(HrmDbContext db,CoreProductSession row,OperationalSubjectObservation person,
+    internal async Task<CoreErpScopeResult> ResolveIn(HrmDbContext db,CoreProductSession row,OperationalSubjectObservation person,
         CommercialLicenseLease license,string credential,string browser,CoreErpScopeRequest request,CancellationToken ct)
     {
         var now=clock.GetUtcNow();

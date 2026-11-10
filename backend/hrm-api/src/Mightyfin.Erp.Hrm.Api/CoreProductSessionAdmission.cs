@@ -64,9 +64,13 @@ internal sealed class CoreProductSessionAdmission(Func<string,HrmDbContext> cont
         =>Registry().RevokeAsync(token,credential,browser,subject,client,ct);
     internal async Task<CoreProductSessionState> ReadAsync(OperationalCredentialResult identity,string token,CancellationToken ct=default)
     {
+        await using var db=contexts("untrusted-session-state");
+        return await ReadWithinAsync(db,identity,token,ct);
+    }
+    internal async Task<CoreProductSessionState> ReadWithinAsync(HrmDbContext db,OperationalCredentialResult identity,string token,CancellationToken ct=default)
+    {
         if(!Current(identity) || !ProductInvitationIntentStore.Opaque(token))return new(ModuleAccessStatus.Denied);
         try {
-            await using var db=contexts("untrusted-session-state");
             var material=identity.Material!;var person=identity.Observation!;
             var hash=ProductInvitationIntentStore.Hash(token);var credential=ProductInvitationIntentStore.Hash(material.Handle);var browser=ProductInvitationIntentStore.Hash(material.BrowserBinding);
             var row=await db.ProductSessions.IgnoreQueryFilters().AsNoTracking().SingleOrDefaultAsync(x=>x.TokenHash==hash
@@ -80,7 +84,7 @@ internal sealed class CoreProductSessionAdmission(Func<string,HrmDbContext> cont
                 return new(license.Status==CommercialLicenseStatus.Denied?ModuleAccessStatus.Denied:ModuleAccessStatus.Unavailable);
             var locations=await db.ProductSessionLocations.IgnoreQueryFilters().AsNoTracking().Where(x=>x.SessionId==row.Id).Select(x=>x.LocationId).Take(129).ToArrayAsync(ct);
             if(locations.Length>128)return new(ModuleAccessStatus.Denied);
-            var result=await Registry().ResolveAsync(token,material.Handle,material.BrowserBinding,person,license.Lease,
+            var result=await Registry().ResolveIn(db,row,person,license.Lease,material.Handle,material.BrowserBinding,
                 new(row.LegalEntityId,row.ModuleCode,row.ModuleCode=="hrm"?"hrm-access":"procurement-access",row.ScopeKind=="company",locations),ct);
             return result.Status==ModuleAccessStatus.Authorized && result.Scope is {IsCurrent:true} && Current(identity)
                 ?new(result.Status,result.Scope,row.ExpiresAt):new(result.Status==ModuleAccessStatus.Authorized?ModuleAccessStatus.Denied:result.Status);

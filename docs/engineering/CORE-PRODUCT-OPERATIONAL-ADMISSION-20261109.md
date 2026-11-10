@@ -28,9 +28,11 @@ can review/select their own explicit grant without owner-editor privileges.
 Explicit product request authentication and the actual protected selected Core
 workspace context are now separately qualified; see
 [product request authentication](CORE-PRODUCT-REQUEST-AUTH-20261110.md). Production
-mode remains unchanged. HRM/Procurement business routes remain denied in product
-mode until their action/resource data adapters are reviewed. Next: actual business
-company/branch isolation and connected ERP frontend/browser operations.
+mode remains unchanged. Business routes require reviewed action/resource data
+adapters. The subsequent [HRM worker adapter](HRM-PRODUCT-WORKER-SCOPE-20261110.md)
+covers basic worker list/detail/create/update/archive; other HRM/payroll/Procurement
+resources remain held. Next: remaining resource isolation and connected ERP
+frontend/browser operations.
 ## 4. Parent
 Core company membership/team/invitations; purchased workspace/licensing contracts.
 Keep one ASP.NET/Docker release for shared SaaS and dedicated/on-premise use.
