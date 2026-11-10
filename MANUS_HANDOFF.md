@@ -1,3 +1,28 @@
+# Product ERP session UI verified — 10 November 2026
+
+ERP source `73340ce12425799ae080ff7c76ff807ef5114e82` adds ordinary member self-review and explicit ERP session
+selection to the existing branded company access page. The screen confirms the
+current company, module and branch scope before showing selection. It retains the
+exact command for an explicit retry after an uncertain response and clears the
+selected display when logout starts. Session proof uses same-origin cookies and
+protected CSRF. The owner permission editor remains a separate workflow.
+
+Isolated SSR build and TypeScript passed; 135 contract checks and 36 Chrome checks
+passed (10 and eight new, respectively). Browser checks used synthetic API
+responses. The 33 previously qualified C# inputs remain unchanged. No production
+activation. The public Kuubu Account page displayed its email form and a disabled
+Google button; the intended ERP app host did not resolve from the workstation.
+
+Next: integrate the selected server authority into the existing ERP shell and
+employee screens. Replace legacy tenant/Bearer/shell headers in product mode and
+validate the protected Core company/branch context. Clear both component-local
+and query data on switch, logout or authority loss. Existing create/edit forms
+use company reference lookups and additional assignment/contact/bank/history
+operations; map each dependency before enabling it. Keep unreviewed operations
+unavailable, and qualify the real provider-to-persisted-worker browser journey.
+
+## Previous worker scope checkpoint
+
 # Product-scoped HRM worker CRUD qualified —10 November2026
 
 Published ERP source `1c72d5c8a65b82b02250072aba6f63770b7b6e10` admits the existing HRM worker list/detail/
