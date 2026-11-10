@@ -12,9 +12,10 @@ namespace Mightyfin.Erp.Hrm.Tests;
 public sealed class ProductWorkerScopeTests
 {
     private const string Path="/api/hrm/workers";
-    private static async Task<HttpResponseMessage> Send(Flow.Fixture f,HttpMethod method,string path,string cookie,object? body=null,bool csrf=true)
+    private static async Task<HttpResponseMessage> Send(Flow.Fixture f,HttpMethod method,string path,string cookie,object? body=null,bool csrf=true,string? sessionContext=null)
     {
         using var request=new HttpRequestMessage(method,path);request.Headers.Add("Cookie",cookie);
+        if (sessionContext is not null) request.Headers.Add(ProductRequestAuthentication.SessionContextHeader,sessionContext);
         if(method!=HttpMethod.Get){request.Content=JsonContent.Create(body??new{});request.Headers.Add("Origin",ProductOperationalFlowTests.Fixture.Origin);if(csrf)request.Headers.Add(ProductOperationalBrowser.Header,f.Csrf);}
         return await f.Http.Client.SendAsync(request);
     }
@@ -38,6 +39,27 @@ public sealed class ProductWorkerScopeTests
         Assert.DoesNotContain("synthetic-private-bank",await list.Content.ReadAsStringAsync());
         var filtered=await Send(f,HttpMethod.Get,Path+$"/?locationId={seed.Other:D}",cookie);Assert.Equal(HttpStatusCode.OK,filtered.StatusCode);Assert.Equal(0,(await filtered.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("totalCount").GetInt32());
     }
+    [Fact]
+    public async Task Stale_browser_context_cannot_read_or_archive_after_session_replacement()
+    {
+        await using var f = await Flow.Fixture.Start(product:true);
+        var seed = await Seed(f);
+        var first = await f.Select();
+        var context = await Send(f,HttpMethod.Get,"/api/core/v1/workspace-context",f.With(first));
+        Assert.Equal(HttpStatusCode.OK,context.StatusCode);
+        var data = await context.Content.ReadFromJsonAsync<JsonElement>();
+        var marker = data.GetProperty("sessionContext").GetString()!;
+        Assert.True(data.GetProperty("workerDirectory").GetBoolean());
+        Assert.True(data.GetProperty("workerArchive").GetBoolean());
+        Assert.Equal(HttpStatusCode.OK,(await Send(f,HttpMethod.Get,Path+"/",f.With(first),sessionContext:marker)).StatusCode);
+
+        var second = await f.Select(f.Command());
+        Assert.Equal(HttpStatusCode.Conflict,(await Send(f,HttpMethod.Get,Path+"/",f.With(second),sessionContext:marker)).StatusCode);
+        Assert.Equal(HttpStatusCode.Conflict,(await Send(f,HttpMethod.Post,Path+$"/{seed.Owned:D}/archive",f.With(second),sessionContext:marker)).StatusCode);
+        await using var db = f.Core.Core.Context(f.Core.Target.Tenant);
+        Assert.False((await db.Workers.SingleAsync(x=>x.Id==seed.Owned)).IsArchived);
+    }
+
     [Fact]
     public async Task Worker_create_update_and_archive_reuse_services_without_creating_login_or_workspace()
     {

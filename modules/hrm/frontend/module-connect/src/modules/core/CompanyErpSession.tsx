@@ -3,6 +3,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { OperationalError, type OperationalCompany } from "./product-operational-api";
+import { PRODUCT_ERP } from "./product-worker-api";
 import {
   createErpSelectionAttempt,
   createErpSessionClient,
@@ -250,6 +251,15 @@ export function CompanyErpSession({
                 Your selected scope is confirmed. ERP operations remain subject to their current
                 permissions and availability.
               </p>
+              {PRODUCT_ERP &&
+                selected.module === "hrm" &&
+                review?.roles.some((role) =>
+                  ["hr_ops", "hr_admin", "payroll", "manager"].includes(role),
+                ) && (
+                  <Button asChild>
+                    <a href="/hrm/employees">Open employees</a>
+                  </Button>
+                )}
               <Button variant="outline" disabled={busy} onClick={() => void endSession()}>
                 End company session
               </Button>

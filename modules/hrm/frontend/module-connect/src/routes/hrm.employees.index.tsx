@@ -42,6 +42,8 @@ import type { Employee } from "@/mock/types";
 import { useMock } from "@/platform/use-mock";
 import { adaptWorkers, realApi, useApi } from "@/platform/use-api";
 import { ExportButton } from "@/platform/components/ImportExport/ExportButton";
+import { PRODUCT_ERP } from "@/modules/core/product-worker-api";
+import { ProductEmployeeDirectory } from "@/modules/core/ProductEmployeeDirectory";
 
 export const Route = createFileRoute("/hrm/employees/")({
   head: () => ({
@@ -52,7 +54,7 @@ export const Route = createFileRoute("/hrm/employees/")({
       { property: "og:description", content: "Filterable employee directory across entities, branches and employment types." },
     ],
   }),
-  component: EmployeesPage,
+  component: PRODUCT_ERP ? ProductEmployeeDirectory : EmployeesPage,
 });
 
 const USE_REAL = import.meta.env.VITE_USE_REAL_API === "true";

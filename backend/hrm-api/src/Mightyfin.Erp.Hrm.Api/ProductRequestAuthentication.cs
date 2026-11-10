@@ -38,6 +38,12 @@ internal static class ProductRequestContext
 internal static class ProductRequestAuthentication
 {
     internal const string Scheme="kuubu-erp";
+    internal const string SessionContextHeader = "X-Kuubu-Session-Context";
+
+    // A browser precondition, never a credential. Domain separation keeps the
+    // returned marker distinct from both the opaque cookie and its stored hash.
+    internal static string SessionContext(string token)
+        => ProductInvitationIntentStore.Hash("kuubu-browser-context-v1\n" + token);
     internal static bool Enabled(IConfiguration config)=>(config["ERP:AuthMode"]??config["HRM:AuthMode"]??"local").Equals("product",StringComparison.OrdinalIgnoreCase);
     internal static void Add(IServiceCollection services,IConfiguration config)
     {
@@ -76,6 +82,9 @@ internal sealed class ProductRequestAuthenticationHandler(IOptionsMonitor<Produc
     {
         if(Context.GetEndpoint()?.Metadata.GetMetadata<ProductWorkspaceRequestPolicy>() is null && Context.GetEndpoint()?.Metadata.GetMetadata<ProductWorkerRequestPolicy>() is null)return AuthenticateResult.NoResult();
         var token=ProductErpSessionFlow.ReadCookie(Context);if(token is null)return Deny(401);
+        if (Request.Headers.TryGetValue(ProductRequestAuthentication.SessionContextHeader, out var expected)
+            && (expected.Count != 1 || expected[0] != ProductRequestAuthentication.SessionContext(token)))
+            return Deny(409);
         if(!Context.RequestServices.GetRequiredService<OperationalRequestBudget>().Budget.TryAcquire(ProductInvitationGuestBudget.Operation.Session,Context.Connection.RemoteIpAddress))return Deny(429);
         var identity=await ProductOperationalFlow.ObserveAsync(Context);
         if(identity.Status!=OperationalCredentialStatus.Verified)return Deny(identity.Status is OperationalCredentialStatus.Unavailable or OperationalCredentialStatus.Busy?503:401);

@@ -17,6 +17,11 @@ import { TimesheetBoundary } from "../platform/components/TimesheetWorkspace";
 import { AppProvider } from "../platform/app-context";
 import { AuthProvider, useAuth } from "../platform/auth";
 import { BrandingProvider, useBranding } from "@/platform/branding";
+import { PRODUCT_ERP } from "@/modules/core/product-worker-api";
+import { Button } from "@/components/ui/button";
+import { KuubuIdentity } from "@/platform/components/KuubuIdentity";
+
+const productIdentityPaths = ["/setup", "/team", "/accept-invitation", "/workspace-access"];
 
 function PreloaderController() {
   const { loading } = useAuth();
@@ -152,12 +157,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
 
 function RootShell({ children }: { children: ReactNode }) {
   const path = useRouterState({ select: (state) => state.location.pathname.replace(/\/$/, "") });
-  const productIdentityPage = [
-    "/setup",
-    "/team",
-    "/accept-invitation",
-    "/workspace-access",
-  ].includes(path);
+  const productIdentityPage = productIdentityPaths.includes(path);
   return (
     <html lang="en">
       <head>
@@ -165,7 +165,7 @@ function RootShell({ children }: { children: ReactNode }) {
         <HeadContent />
       </head>
       <body>
-        {!productIdentityPage ? (
+        {!productIdentityPage && !PRODUCT_ERP ? (
           <div
             id="erp-global-preloader"
             className="erp-global-preloader"
@@ -187,17 +187,21 @@ function RootShell({ children }: { children: ReactNode }) {
 
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
-  const productIdentityPage = useRouterState({
-    select: (state) =>
-      ["/setup", "/team", "/accept-invitation", "/workspace-access"].includes(
-        state.location.pathname.replace(/\/$/, ""),
-      ),
-  });
+  const path = useRouterState({ select: (state) => state.location.pathname.replace(/\/$/, "") });
+  const productIdentityPage = productIdentityPaths.includes(path);
 
   return (
     <QueryClientProvider client={queryClient}>
-      {productIdentityPage ? (
+      {productIdentityPage || (PRODUCT_ERP && path === "/hrm/employees") ? (
         <Outlet />
+      ) : PRODUCT_ERP ? (
+        <main className="mx-auto min-h-dvh max-w-6xl space-y-6 px-5 py-8">
+          <KuubuIdentity />
+          <h1 className="text-2xl font-semibold">Kuubu ERP</h1>
+          <Button asChild>
+            <a href="/workspace-access">Continue to your companies</a>
+          </Button>
+        </main>
       ) : (
         <AuthProvider>
           <BrandingProvider>

@@ -71,7 +71,9 @@ public static class CoreWorkspaceContextRoutes
     }
     private static async Task<IResult> ReadProduct(HttpContext http,HrmDbContext core,CancellationToken ct)
     {
-        var scope=ProductRequestContext.Current(http);if(scope is null)return Results.Forbid();
+        var scope=ProductRequestContext.Current(http);
+        var token = ProductErpSessionFlow.ReadCookie(http);
+        if(scope is null || token is null)return Results.Forbid();
         var tenant=scope.TenantId;var company=scope.CompanyId;var selected=scope.LocationIds.ToArray();
         var companies=await core.LegalEntities.AsNoTracking().Where(x=>x.TenantId==tenant && x.Id==company && !x.IsArchived)
             .Select(x=>new{x.Id,x.Code,x.RegisteredName,x.Currency,x.IsDefault}).ToArrayAsync(ct);
@@ -85,7 +87,10 @@ public static class CoreWorkspaceContextRoutes
         // Product context never consults legacy RolesCsv, branch assignments or
         // role-to-Core-action bootstrap. Company-wide means this company only.
         return Results.Ok(new{schemaVersion=1,tenantId=tenant,principalId=scope.PrincipalId,contextKind="product",selectedModule=scope.Module,
-            selectedCompanyId=company,organisationWide=scope.AllCompanyLocations,companies,branches=choices,coreActions=Array.Empty<string>()});
+            selectedCompanyId=company,organisationWide=scope.AllCompanyLocations,companies,branches=choices,coreActions=Array.Empty<string>(),
+            sessionContext = ProductRequestAuthentication.SessionContext(token),
+            workerDirectory = scope.Module == "hrm" && scope.Roles.Any(role => role is "hr_ops" or "hr_admin" or "payroll" or "manager"),
+            workerArchive = scope.Module == "hrm" && scope.Roles.Any(role => role is "hr_ops" or "hr_admin")});
     }
 
 }
