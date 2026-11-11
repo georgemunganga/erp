@@ -140,12 +140,20 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
         rel: "stylesheet",
         href: appCss,
       },
-      { rel: "preconnect", href: "https://fonts.googleapis.com" },
-      { rel: "preconnect", href: "https://fonts.gstatic.com", crossOrigin: "anonymous" },
-      {
-        rel: "stylesheet",
-        href: "https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Montserrat:wght@400;500;600;700&family=Poppins:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap",
-      },
+      ...(!PRODUCT_ERP
+        ? [
+            { rel: "preconnect", href: "https://fonts.googleapis.com" },
+            {
+              rel: "preconnect",
+              href: "https://fonts.gstatic.com",
+              crossOrigin: "anonymous" as const,
+            },
+            {
+              rel: "stylesheet",
+              href: "https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Montserrat:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap",
+            },
+          ]
+        : []),
       { rel: "icon", href: "/favicon.svg", type: "image/svg+xml" },
     ],
   }),
@@ -159,12 +167,12 @@ function RootShell({ children }: { children: ReactNode }) {
   const path = useRouterState({ select: (state) => state.location.pathname.replace(/\/$/, "") });
   const productIdentityPage = productIdentityPaths.includes(path);
   return (
-    <html lang="en">
+    <html lang="en" className={productIdentityPage || PRODUCT_ERP ? "kuubu-document" : undefined}>
       <head>
         {path === "/accept-invitation" && <script src="/invitation-bootstrap.js" />}
         <HeadContent />
       </head>
-      <body>
+      <body className={productIdentityPage || PRODUCT_ERP ? "kuubu-product-shell" : undefined}>
         {!productIdentityPage && !PRODUCT_ERP ? (
           <div
             id="erp-global-preloader"
