@@ -1,3 +1,11 @@
+# Latest published checkpoint — permission-aware Procurement UI, 11 November 2026
+
+Fetch published ERP main `52bdb5a0c36778a2f082e8e4085d65cbff25df7e` and UI main `91d165f1cf2f8d7af578ebffd5ef8adbba0ad39f` (UI PR115), or reviewed descendants. The new UI is deployed. Effective server permissions now filter navigation/shortcuts/Home and deny direct page entry before branch selection, preserving the supplied authorized layouts and narrow task workflows. Core runtime, API/schema/grants/company policy are unchanged; held B1c still prevents wholesale backend main deployment.
+
+[Scope,98-case regression/focused evidence,26 actual read-only checks, initial handover rollback and safe continuation](docs/procurement/gap-closure/PERMISSION-AWARE-UI-20261111.md). This does not close company approval setup, Finance integration or whole-module UAT. Do not copy customer account/credential evidence into Git. Older source checkpoints below are historical.
+
+---
+
 # Latest published checkpoint — department request entry, 9 November 2026
 
 Fetch ERP main `619c241e1dcf6f9f2b4b376c06f7ae05c1efcbeb` (PR205) and UI main `657d9acb7c03f47c224ae287b901ee8d303d0ab8` (PR113), or reviewed descendants. Both frontend changes are deployed. ERP/HRM Home and Procurement Home/My Requests now lead into the existing scoped request editor through a guided entry. No new backend, migration, role grant or company approval policy was introduced. API remains on the qualified3da35edf image and239 tables; held B1c still prevents wholesale backend main deployment.
