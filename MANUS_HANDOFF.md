@@ -1,3 +1,11 @@
+# Latest published checkpoint — request catalog lookup, 11 November 2026
+
+Fetch ERP main `e614fb7df5479102d2e5231144dacd4b1c4bab8e` and UI main `1c1f984c78545dfe006def035518b17449f56afe` (UI PR117), or reviewed descendants. The UI is deployed. Approved catalog read is separate from item stewardship; request-only roles can have lookup without seeing/managing item masters. Front Desk received only the existing catalog-read action through Core configuration. Core runtime/API/schema are unchanged. [Follow-up scope, role boundary and actual search verification](docs/procurement/gap-closure/PERMISSION-AWARE-UI-20261111.md#catalog-lookup-follow-up--ui-pr117).
+
+The available approved catalog is currently empty; no imported data was auto-activated or published. Manual request entry remains available. Existing company-policy/Finance/full-module UAT holds remain open. Private credentials, role receipts and screenshots stay outside Git. Earlier checkpoints are historical.
+
+---
+
 # Latest published checkpoint — permission-aware Procurement UI, 11 November 2026
 
 Fetch published ERP main `52bdb5a0c36778a2f082e8e4085d65cbff25df7e` and UI main `91d165f1cf2f8d7af578ebffd5ef8adbba0ad39f` (UI PR115), or reviewed descendants. The new UI is deployed. Effective server permissions now filter navigation/shortcuts/Home and deny direct page entry before branch selection, preserving the supplied authorized layouts and narrow task workflows. Core runtime, API/schema/grants/company policy are unchanged; held B1c still prevents wholesale backend main deployment.
