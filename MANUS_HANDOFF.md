@@ -1,3 +1,54 @@
+# Kuubu public deployment checkpoint — 11 November 2026
+
+The initial controlled release is live at https://app.kuubuerp.com/workspace-access.
+Company setup is https://app.kuubuerp.com/setup; branded identity remains at
+https://www.kuubuerp.com/account/. This is a bounded release, not acceptance of
+all ERP modules or the full paid self-service SaaS journey.
+
+- ERP runtime source: `d39a6e613305e56d21f1b5d3180dc0f62a041f7c`.
+  Full Docker build gate: 2,793 passed, 50 skipped, zero failed. Image
+  `kuubu/erp-api:d39a6e61-deploy01` uses the existing ASP.NET application.
+- Central Laravel runtime source: `75cc91ff5025a54f3803fc34c4d297b12dcd5a98`,
+  release `/opt/greenwebb-foundation/releases/75cc91ff-deploy01`. A fresh database
+  backup preceded additive migrations and atomic current-symlink activation.
+  Product identity and operational ERP-session integration are enabled.
+- Website source: `1ade23e7629d8a3004ac2caf8d3157691fa8681e`, Vercel production
+  deployment `dpl_7qo4GJtUbJmv1zrnvXgN5fSnqYdn`; both Kuubu website domains alias it.
+  Server-only purpose-specific OAuth client IDs connect the production provider.
+- Kuubu runs on 2.24.140.104 with a fresh separate PostgreSQL database, restricted
+  runtime role, loopback API/database ports and Caddy public HTTPS. Let's Encrypt
+  issued the public app certificate. The web bundle exactly matches the retained
+  492-file qualified SSR output. API, database, web and proxy restart automatically.
+  Existing qualification deployments remain; temporary synthetic provider/API/database
+  containers were stopped after acceptance, with their state and evidence retained.
+  Perfex was not modified.
+
+Actual isolated end-to-end evidence is retained in
+`inspection/qualifications/directory-deploy-browser-run-05`: real Laravel provider,
+company setup, explicit HRM/branch grant and selection, actual deployed browser/API,
+worker archive independently verified in PostgreSQL, and subscription suspension
+removing visible access. This used a synthetic identity and isolated database;
+it is not evidence of a real customer's production account or payment.
+
+Direct public HTTPS Chrome verification is retained in
+`inspection/qualifications/public-kuubu-launch-03`: website CSRF relay 200, app readiness 200, central
+health 200, anonymous protected subject/workspace/worker requests 401, actual
+app-to-branded-login handoff, no page exceptions, disabled Google control. No
+request interception or ignored certificate errors was used in this public check.
+
+Remaining: a real customer's registration/email verification and explicit product
+enrollment, an authorized subscription with positive workspace allowance, and the
+public company/team selection journey need production acceptance. A new login
+alone cannot create a company. Lenco keys and paid checkout/reconciliation remain
+deferred. Employee directory/search/filter/archive is qualified; detail/create/edit
+UI and other HRM/payroll/procurement operations still require scoped integration.
+A root-private initial PostgreSQL/runtime backup was retained and its archive
+inventory validated; no restore drill is claimed. Production backup restore,
+monitoring and broader recovery drills remain release
+work. Dedicated/on-premise qualification remains pending on the same codebase.
+
+## Earlier checkpoint (historical)
+
 # Product employee directory connected — 10 November 2026
 
 ERP source `d39a6e613305e56d21f1b5d3180dc0f62a041f7c` opens the employee directory from a selected HRM
