@@ -1,3 +1,58 @@
+## Kuubu account hub deployed — 11 November 2026
+
+Kuubu website/account source `58228ba820ec7a47002a0c039824e6c4f5c35254` is published
+on website draft PR4 and deployed as Vercel `dpl_Dbu7i6XBU8JYc1kgwZ4VfDpa5J4W`.
+Laravel app source `1ad7da1e09396000d144369dd096cd71de139636` is deployed from
+`/opt/greenwebb-foundation/releases/1ad7da1-deploy03`; its branch/draft PR3 retains
+subsequent documentation and the separately installed versioned backup repair.
+ERP source `be00031940e8698564111b538bf79ddc5996266d` is published on draft PR201
+and runs as `kuubu-account-be000319-api02`, image
+`kuubu/erp-api:account-be000319-build01`, API loopback28951. Active proxy is
+`kuubu-account-proxy01`; branded ERP web remains28931 and the existing production
+PostgreSQL database/key ring are preserved. No ERP migration was added.
+
+The account UI owns per-module user selection/subscriptions, explicit payer and
+company setup, billing delegates, company teams, invitations and module/location
+permissions. ERP owns company and operational authority. Approved ZMW monthly
+bands are K500 for1–5 users/module/company or K2,000 above five with no purchased
+cap. Separate company groups under one payer aggregate modules without adding
+workspace allowances. Pending requests do not create a workspace. Trials require
+explicit GreenWebb operator authorization; Lenco remains disabled without keys.
+Existing `/setup`, `/team` and `/workspace-access` redirect to Kuubu account routes.
+
+Acceptance: full Docker gate2799 passed/50 opt-in skips;27 native PostgreSQL
+module-access cases passed with no skips; Laravel137 passed/1127 assertions;
+website53 passed/two opt-in skips. Retained real-service browser cohort
+`inspection/qualifications/account-hub-real-browser-10` passed two-module
+purchase requests, explicit fixture activation, two independent company tenants,
+module grants, HRM opening/switching, invitation issue/revoke, last-owner denial
+recovery and module cancellation. Independent database receipt confirms these
+records. Real recipient cohort `account-hub-real-recipient-03` accepted the actual
+protected invitation through verified Passport identity and remained denied ERP
+access without a module grant; billing membership and module grant counts are0.
+Public HTTPS/CORS/catalogue/redirect/Poppins/mobile checks passed, including
+same-document invitation capture in `account-hub-public-browser-02`. SMTP STARTTLS
+authentication passed; no public inbox receipt or Lenco payment is claimed.
+
+Current remote main observations: ERP main
+`e7fb04f255887c3dce6023b8473719c60c3976ab`; UI `georgemunganga/module-connect`
+main `1c1f984c78545dfe006def035518b17449f56afe`. These are published observations,
+not this release's qualified API image. Do not deploy wholesale main or replace
+the existing UI/source with this account work. Shared UI and Procurement business
+milestones retain their separate owners/holds. HRM directory/session is the
+qualified operational destination; Procurement subscriptions/permissions are
+connected but its operational opening remains held for persistence/release checks.
+
+Perfex origin login returned200 and its data/jobs were untouched. Foundation's
+failed scheduled backup was repaired through a dedicated versioned-helper drop-in;
+a real disposable SQL restore passed, receipt `20261111T121333Z-40569e895c40`.
+Previous deployment containers/releases/backups remain available for coordinated
+rollback. Commercial schema history is forward-only. See foundation
+`docs/KUUBU-ACCOUNT-HUB-20261111.md` and its maintained milestone board for ownership,
+runtime paths, test boundaries and remaining Lenco/hosting/on-premise work.
+
+---
+
 ## First-party Kuubu sign-in return corrected — 11 November 2026
 
 The production catalog row for Kuubu still had `enrollment_enabled=false` after
