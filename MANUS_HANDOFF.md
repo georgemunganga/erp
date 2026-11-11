@@ -1,3 +1,47 @@
+## First-party Kuubu sign-in return corrected — 11 November 2026
+
+The production catalog row for Kuubu still had `enrollment_enabled=false` after
+identity endpoints were enabled. The reported identity was already email-verified,
+but had no Kuubu identity enrollment; explicit Join therefore returned403. The
+Kuubu row alone is now enabled, with `catalogue.product_updated` console audit and
+before/after evidence in `inspection/qualifications/kuubu-enrollment-enable-20261111-01`.
+No identity enrollment, commercial membership, subscription or workspace was created
+on the user's behalf. Existing suspended enrollments remain blocked.
+
+Website source `61d4f71fa0e2ccefd703372f256cdaa5abd62c6c` is published on draft
+website PR4. It includes the previously qualified identity/authorization relay
+source, which was present in frozen deployments but missing from repository main.
+The full reviewed source tree was overlaid on the branch without deleting other
+repository files or rewriting history. Vercel deployment
+`dpl_GLvTj1PHQrK2pzKvbagWCBJCjRWF` is READY on the public Kuubu website domains.
+
+An ordinary ERP authorization now returns a verified, enrolled identity automatically
+to the exact validated PKCE callback after rechecking the current identity and
+enrollment. First-time Join remains explicit and continues immediately afterwards.
+No repeated ERP consent checkbox is shown. Setup and invitation purposes retain
+their independent confirmations, and no operational/company/payment rights follow
+from sign-in. A changed identity stops the handoff; provider errors permit explicit
+retry without an automatic retry loop. Relay client/callback/purpose restrictions,
+CSRF and server-side enrollment checks are retained.
+
+Production-mode build and48 protocol/account tests passed (2 existing isolated
+service tests skipped). Eight local Chrome cases and nine public deployed-bundle
+Chrome cases passed; public cases add login-form-to-return. Protocol responses and
+callback pages in those browser cases were synthetic, not the user's real session.
+Public catalog inspection independently confirmed Kuubu is listed. Evidence:
+`inspection/qualifications/kuubu-signin-auto-local-01` and
+`inspection/qualifications/kuubu-signin-auto-public-01`. A real customer login and
+company/workspace acceptance remain distinct from these UI checks.
+
+Management UI ownership clarified by the user: the existing Kuubu account frontend
+is the management hub for subscriptions, company setup, teams and access. Laravel
+owns identity and commercial records; ASP.NET owns company/team/module/branch
+operational records and enforces them. The ERP workload opens the selected
+workspace after admission. Existing separate `/setup`, `/team` and
+`/workspace-access` management views are interim integration surfaces. Finish the
+original account UI against owning API contracts; do not treat their links as the
+completed dashboard or move ERP-owned records into Laravel.
+
 ## Kuubu brand continuity and account navigation — 11 November 2026
 
 Frontend source `b313cdf142b74880eb11f798febeec28aa860757` is deployed from
