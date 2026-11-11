@@ -1,3 +1,34 @@
+## Kuubu brand continuity and account navigation — 11 November 2026
+
+Frontend source `b313cdf142b74880eb11f798febeec28aa860757` is deployed from
+`/opt/kuubu-production/releases/branding-b313cdf1-web01`, container
+`kuubu-branding-b313cdf1-web01`, loopback 28931. The public proxy now targets this
+web container; prior 28916 output remains available for rollback. API/database
+source and operational authority are unchanged.
+
+Root product pages now inherit Kuubu branding before company selection, including
+workspace access, employee directory, dialogs and fallback views. The former pages
+missed the product theme and inherited legacy navy/Montserrat. Four Poppins weights
+and their OFL license are bundled locally. Existing shared controls retain their
+behavior; product-scoped tokens/variant selectors carry account-style green buttons,
+rounded controls and cards. Legacy tenant branding remains independently configured.
+
+Final build and TypeScript passed. Targeted ESLint: zero errors, one export/fast-refresh
+warning. Public Chrome evidence `inspection/qualifications/kuubu-branding-public-01`
+confirms actual custom Poppins glyphs, #004b3b controls, 16px button corners, paper
+background, no page exceptions and no desktop/mobile overflow. This is visual
+acceptance, not broader ERP module acceptance.
+
+Website draft PR4 (`aafe1c7c21946d1f3436a0c4ee4ac3ae90abdd3b`) repairs account
+company/team navigation. Vercel deployment `dpl_ZYvSeVWMDKL5vznNwG5aWEAHT734` is READY
+on both public Kuubu website domains, from the previous qualified website snapshot
+plus the reviewed ConnectedAccount change. Account tests:48 passed,2 skipped.
+Deployed navigation checks use explicitly synthetic identity responses; they are
+not production customer/team acceptance. Navigation repair does not restore the
+complete original account UI. Its Team.jsx describes commercial billing delegates,
+which must never be mapped implicitly to ERP operational roles. The maintained
+foundation readiness board contains the original-screen-to-owning-API contract map.
+
 # Kuubu public deployment checkpoint — 11 November 2026
 
 The initial controlled release is live at https://app.kuubuerp.com/workspace-access.
