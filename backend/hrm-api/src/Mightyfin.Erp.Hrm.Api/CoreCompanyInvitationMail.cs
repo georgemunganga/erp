@@ -20,7 +20,7 @@ internal interface ICompanyInvitationMail
 
 /// <summary>Confidential envelope resolution. The queue carries IDs, never a mail address/link.</summary>
 internal sealed class CoreCompanyInvitationMail(Func<string,HrmDbContext> contextFactory,CoreCompanyTeamApi team,
-    IDataProtector protection,ICompanyInvitationMail transport,TimeProvider clock,string clientId)
+    IDataProtector protection,ICompanyInvitationMail transport,TimeProvider clock,string clientId,bool accountHub=false)
 {
     internal async Task<InvitationMailOutcome> DeliverAsync(OutboxMessage intent,CancellationToken cancellation)
     {
@@ -61,7 +61,7 @@ internal sealed class CoreCompanyInvitationMail(Func<string,HrmDbContext> contex
             if(root.ValueKind!=JsonValueKind.Object || root.EnumerateObject().Count()!=3
                 || root.GetProperty("schema_version").GetInt32()!=1)return InvitationMailOutcome.Invalid;
             recipient=root.GetProperty("recipient").GetString()!;link=root.GetProperty("review_url").GetString()!;
-            const string prefix="https://app.kuubuerp.com/accept-invitation#token=";
+            var prefix=accountHub && link is not null && link.StartsWith("https://www.kuubuerp.com/account/#/company-invitation?token=",StringComparison.Ordinal)?"https://www.kuubuerp.com/account/#/company-invitation?token=":"https://app.kuubuerp.com/accept-invitation#token=";
             if(!ProductInvitationRecipient.CanonicalEmail(recipient) || ProductInvitationIntentStore.Hash(recipient)!=row.RecipientHash
                 || link is null || !link.StartsWith(prefix,StringComparison.Ordinal)
                 || !ProductInvitationIntentStore.Opaque(link[prefix.Length..])

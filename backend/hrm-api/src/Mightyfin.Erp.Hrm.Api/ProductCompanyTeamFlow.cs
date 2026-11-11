@@ -46,7 +46,7 @@ internal static class ProductCompanyTeamFlow
         group.MapGet("/start", () =>
         {
             var properties = new AuthenticationProperties
-            { RedirectUri = "/team", IssuedUtc = DateTimeOffset.UtcNow };
+            { RedirectUri = ProductAccountHub.Landing(app.Configuration, "team", "/team"), IssuedUtc = DateTimeOffset.UtcNow };
             properties.Items[Purpose] = PurposeValue;
             return Results.Challenge(properties, [ProductIdentity.OAuthScheme]);
         }).AllowAnonymous();
@@ -200,7 +200,7 @@ internal static class ProductCompanyTeamFlow
         var issuer = result.Principal.FindFirstValue(ProductIdentity.IssuerClaim);
         var subject = result.Principal.FindFirstValue(ProductIdentity.SubjectClaim);
         var nonce = result.Principal.FindFirstValue(NonceClaim);
-        if (issuer != ProductCommercialLicense.Issuer || subject is null
+        if (issuer != ProductCommercialLicense.Issuer || subject is null || !ProductAccountHub.MatchesSubject(context, subject)
             || !Regex.IsMatch(subject, "^[1-9][0-9]{0,18}\\z", RegexOptions.CultureInvariant)
             || nonce is null || !Regex.IsMatch(nonce, "^[0-9a-f]{64}\\z", RegexOptions.CultureInvariant)) return null;
         var identity = new ClaimsIdentity([new Claim(ClaimTypes.NameIdentifier, issuer+"#"+subject+"#"+nonce)], "kuubu-team-csrf");

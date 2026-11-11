@@ -279,7 +279,7 @@ builder.Services.AddHealthChecks()
 var allowedOrigins = (builder.Configuration["HRM:AllowedOrigins"] ?? "http://localhost:3000")
     .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
 builder.Services.AddCors(o => o.AddDefaultPolicy(p =>
-    p.WithOrigins(allowedOrigins)
+    p.WithOrigins(allowedOrigins.Concat(ProductAccountHub.Enabled(builder.Configuration) ? new[] { ProductAccountHub.Origin } : Array.Empty<string>()).Distinct(StringComparer.Ordinal).ToArray())
      .AllowAnyHeader()
      .AllowAnyMethod()
      .AllowCredentials()

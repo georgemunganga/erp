@@ -13,7 +13,7 @@ internal sealed record CompanyInvitationView(Guid Id, string Recipient, string R
 
 /// <summary>Licensed sender-side orchestration. Never sends email or exposes invitation secrets.</summary>
 internal sealed class CoreCompanyInvitationsApi(Func<string, HrmDbContext> contextFactory, CoreCompanyTeamApi team,
-    TimeProvider clock, IDataProtector protection)
+    TimeProvider clock, IDataProtector protection, bool accountHub = false)
 {
     internal const string DeliveryPurpose = "kuubu-company-invitation-delivery-v1";
     internal async Task<CompanyTeamPage<CompanyInvitationView>> ListAsync(CompanyTeamActor actor, Guid company,
@@ -59,7 +59,7 @@ internal sealed class CoreCompanyInvitationsApi(Func<string, HrmDbContext> conte
         try {
             var ready = await team.Resolve(actor, command.CompanyId, cancellation);
             return ready.Status == CompanyTeamReadStatus.Ok
-            ? await new CoreCompanyInvitations(contextFactory, clock, protection).IssueAsync(actor, command, ready.License!, cancellation)
+            ? await new CoreCompanyInvitations(contextFactory, clock, protection, accountHub).IssueAsync(actor, command, ready.License!, cancellation)
                 : new(ready.Status == CompanyTeamReadStatus.Denied ? CompanyInvitationStatus.Denied : CompanyInvitationStatus.Unavailable);
         } catch (DbException) { return new(CompanyInvitationStatus.Unavailable); }
     }
@@ -68,7 +68,7 @@ internal sealed class CoreCompanyInvitationsApi(Func<string, HrmDbContext> conte
         try {
             var ready = await team.Resolve(actor, command.CompanyId, cancellation);
             return ready.Status == CompanyTeamReadStatus.Ok
-            ? await new CoreCompanyInvitations(contextFactory, clock, protection).RevokeAsync(actor, command, ready.License!, cancellation)
+            ? await new CoreCompanyInvitations(contextFactory, clock, protection, accountHub).RevokeAsync(actor, command, ready.License!, cancellation)
                 : new(ready.Status == CompanyTeamReadStatus.Denied ? CompanyInvitationStatus.Denied : CompanyInvitationStatus.Unavailable);
         } catch (DbException) { return new(CompanyInvitationStatus.Unavailable); }
     }

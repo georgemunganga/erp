@@ -92,7 +92,7 @@ internal static class ProductOperationalFlow
             options.Events.OnCreatingTicket=async context=> {
                 var http=context.HttpContext;var browser=http.RequestServices.GetRequiredService<ProductOperationalBrowser>();
                 var binding=browser.Read(http);
-                if(binding is null || !ValidChallenge(context.Properties,binding))throw new AuthenticationFailureException("Operational sign-in expired.");
+                if(binding is null || !ValidChallenge(context.Properties,binding,config))throw new AuthenticationFailureException("Operational sign-in expired.");
                 // Consume the browser challenge even if provider verification subsequently fails.
                 browser.Write(http,binding with{Challenge=""});
                 var now=options.TimeProvider!.GetUtcNow();var ttl=context.ExpiresIn;
@@ -123,7 +123,7 @@ internal static class ProductOperationalFlow
                     context.Identity!.AddClaims([new(ProductIdentity.SubjectClaim,proof.Subject),new(ProductIdentity.IssuerClaim,ProductCommercialLicense.Issuer),
                         new(HandleClaim,handle),new(BindingClaim,binding.Binding)]);
                     context.Properties.Items.Clear();context.Properties.Items[PurposeKey]=Purpose;
-                    context.Properties.RedirectUri=Landing;context.Properties.IssuedUtc=now;
+                    context.Properties.RedirectUri=ProductAccountHub.Landing(config,"companies",Landing);context.Properties.IssuedUtc=now;
                     context.Properties.ExpiresUtc=now.AddHours(8);context.Properties.AllowRefresh=false;context.Properties.IsPersistent=false;
                 }catch {await store.RevokeAsync(handle,binding.Binding);throw;}
             };
@@ -134,10 +134,10 @@ internal static class ProductOperationalFlow
         });
     }
     private static HttpClient Backchannel()=>new(new HttpClientHandler{AllowAutoRedirect=false,UseCookies=false}){Timeout=TimeSpan.FromSeconds(10),MaxResponseContentBufferSize=65536};
-    private static bool ValidChallenge(AuthenticationProperties properties,OperationalBrowser browser)=>
+    private static bool ValidChallenge(AuthenticationProperties properties,OperationalBrowser browser,IConfiguration config)=>
         Item(properties,PurposeKey)==Purpose && Item(properties,BindingKey)==ProductInvitationIntentStore.Hash(browser.Binding)
         && browser.Challenge!="" && Item(properties,ChallengeKey)==ProductInvitationIntentStore.Hash(browser.Challenge)
-        && properties.RedirectUri==Landing && properties.IssuedUtc is {} issued
+        && properties.RedirectUri==ProductAccountHub.Landing(config,"companies",Landing) && properties.IssuedUtc is {} issued
         && issued<=DateTimeOffset.UtcNow && issued>DateTimeOffset.UtcNow.AddMinutes(-5)
         && !properties.Items.ContainsKey(ProductIdentity.SetupPurpose) && !properties.Items.ContainsKey(ProductCompanyTeamFlow.Purpose)
         && !properties.Items.ContainsKey(ProductInvitationAcceptanceFlow.Purpose);
@@ -160,7 +160,7 @@ internal static class ProductOperationalFlow
         if(!context.RequestServices.GetRequiredService<OperationalRequestBudget>().Budget.TryAcquire(ProductInvitationGuestBudget.Operation.Prepare,context.Connection.RemoteIpAddress))return false;
         var options=context.RequestServices.GetRequiredService<IOptionsMonitor<OAuthOptions>>().Get(OAuthScheme);
         var properties=options.StateDataFormat.Unprotect(query["state"]);
-        return properties is not null && ValidChallenge(properties,browser);
+        return properties is not null && ValidChallenge(properties,browser,context.RequestServices.GetRequiredService<IConfiguration>());
     }
     internal static async Task RevokeAsync(HttpContext context,bool clearCookie=true)
     {
@@ -197,7 +197,7 @@ internal static class ProductOperationalFlow
             var now=DateTimeOffset.UtcNow;
             var value=new OperationalBrowser(ProductInvitationIntentStore.Random(),ProductInvitationIntentStore.Random(),ProductInvitationIntentStore.Random(),now,now.AddHours(8));
             service.Write(context,value);
-            var properties=new AuthenticationProperties{IssuedUtc=now,RedirectUri=Landing};
+            var properties=new AuthenticationProperties{IssuedUtc=now,RedirectUri=ProductAccountHub.Landing(app.Configuration,"companies",Landing)};
             properties.Items[PurposeKey]=Purpose;properties.Items[BindingKey]=ProductInvitationIntentStore.Hash(value.Binding);
             properties.Items[ChallengeKey]=ProductInvitationIntentStore.Hash(value.Challenge);
             return Results.Challenge(properties,[OAuthScheme]);
@@ -228,6 +228,7 @@ internal static class ProductOperationalFlow
         if(!ticket.Succeeded || browser is null || ticket.Properties is null || Item(ticket.Properties,PurposeKey)!=Purpose
             || ticket.Principal?.FindFirstValue(BindingClaim)!=browser.Binding || ticket.Principal.FindFirstValue(HandleClaim) is not {} handle
             || ticket.Principal.FindFirstValue(ProductIdentity.IssuerClaim)!=ProductCommercialLicense.Issuer)return new(OperationalCredentialStatus.Denied);
+        if (!ProductAccountHub.MatchesSubject(context, ticket.Principal!.FindFirstValue(ProductIdentity.SubjectClaim) ?? "")) return new(OperationalCredentialStatus.Denied);
         var person=context.RequestServices.GetRequiredService<ProductOperationalSubject>();var refresh=context.RequestServices.GetRequiredService<ProductOperationalRefresh>();
         var proof=await context.RequestServices.GetRequiredService<ProductOperationalCredentialStore>().ObserveAsync(handle,browser.Binding,person.ReadAsync,refresh.RefreshAsync,context.RequestAborted);
         if(proof.Status!=OperationalCredentialStatus.Verified)return proof;

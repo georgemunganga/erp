@@ -26,7 +26,7 @@ internal sealed record AcceptCompanyInvitation(string Token, Guid CommandKey, in
 }
 
 /// <summary>Explicit, atomic company governance. No mail sending, module grants, local credentials or ERP sessions.</summary>
-internal sealed class CoreCompanyInvitations(Func<string, HrmDbContext> contextFactory, TimeProvider clock, IDataProtector deliveryProtection)
+internal sealed class CoreCompanyInvitations(Func<string, HrmDbContext> contextFactory, TimeProvider clock, IDataProtector deliveryProtection, bool accountHub = false)
 {
     internal async Task<CompanyInvitationResult> IssueAsync(CompanyTeamActor actor, IssueCompanyInvitation command,
         CommercialLicenseLease license, CancellationToken cancellation = default)
@@ -61,7 +61,7 @@ internal sealed class CoreCompanyInvitations(Func<string, HrmDbContext> contextF
                 RecipientHash = recipient, TokenHash = Hash(token), Role = command.Role,
                 CreatedAt = issuedAt, ExpiresAt = issuedAt.AddHours(48), CreatedBy = evidenceActor,
                 ProtectedDelivery = deliveryProtection.Protect(JsonSerializer.Serialize(new { schema_version = 1,
-                    recipient = email, review_url = "https://app.kuubuerp.com/accept-invitation#token="+token })) };
+                    recipient = email, review_url = (accountHub?"https://www.kuubuerp.com/account/#/company-invitation?token=":"https://app.kuubuerp.com/accept-invitation#token=")+token })) };
             db.CompanyInvitations.Add(invitation);
             Evidence(db, invitation, actor.Subject, "issued", command.CommandKey);
             // Durable delivery intent contains only IDs. The encrypted envelope

@@ -34,6 +34,8 @@ internal sealed class CoreModuleAccessReader(HrmDbContext db,TimeProvider clock)
             var candidate=await access.FindCandidateAsync(ProductCommercialLicense.Issuer,person.Subject,link,company,ct);
             var scope=await access.ReadAsync(ProductCommercialLicense.Issuer,person.Subject,link,company,license,ct);
             if(candidate is null || scope is null || !license.AllowsWorkspaceModule(candidate.Slot,module))return new(ModuleAccessStatus.Denied);
+            if(license.UserLimit(module) is {} cap && await CoreModuleSeats.CountAsync(db,scope.TenantId,company,module,null,cap+1,ct)>cap)
+                return new(ModuleAccessStatus.Denied);
             var member=await db.CompanyMemberships.IgnoreQueryFilters().AsNoTracking().SingleOrDefaultAsync(x=>x.Id==candidate.MembershipId
                 && x.TenantId==candidate.TenantId && x.LegalEntityId==company && x.IsActive && !x.IsArchived,ct);
             if(member is null)return new(ModuleAccessStatus.Denied);

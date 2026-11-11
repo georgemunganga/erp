@@ -4,7 +4,7 @@ using Mightyfin.Erp.Hrm.Infrastructure.Data;
 
 namespace Mightyfin.Erp.Hrm.Api;
 
-internal sealed record OperationalCompany(Guid CompanyId,Guid LinkId,string CompanyName,string Role);
+internal sealed record OperationalCompany(Guid CompanyId,Guid LinkId,string CompanyName,string Role,string CountryCode="",string Currency="",string TimeZoneId="",string EnrollmentId="");
 internal sealed record OperationalCompanyPage(CompanyTeamReadStatus Status,OperationalCompany[]? Items=null,string? Next=null);
 internal sealed record OperationalCompanyReview(CompanyTeamReadStatus Status,OperationalCompany? Company=null,string[]? LicensedModules=null);
 
@@ -17,7 +17,7 @@ internal sealed class CoreOperationalCompanies(HrmDbContext db,
         if(!person.IsCurrent)return new(CompanyTeamReadStatus.Denied);
         try {
             var page=await new CoreCompanyAccess(db,clock).MemberDirectoryAsync(ProductCommercialLicense.Issuer,person.Subject,after,ct);
-            return person.IsCurrent?new(CompanyTeamReadStatus.Ok,page.Rows.Select(x=>new OperationalCompany(x.CompanyId,x.LinkId,x.CompanyName,x.Role)).ToArray(),page.Next)
+            return person.IsCurrent?new(CompanyTeamReadStatus.Ok,page.Rows.Select(x=>new OperationalCompany(x.CompanyId,x.LinkId,x.CompanyName,x.Role,x.CountryCode,x.Currency,x.TimeZoneId,x.EnrollmentId)).ToArray(),page.Next)
                 :new(CompanyTeamReadStatus.Denied);
         }catch(DbException){return new(CompanyTeamReadStatus.Unavailable);}
     }
@@ -37,7 +37,7 @@ internal sealed class CoreOperationalCompanies(HrmDbContext db,
             // Catalog allowances are informational; each module still needs an
             // implemented route and an explicit person/action/branch grant.
             var modules=license.Lease.ModuleCodes;
-            return new(CompanyTeamReadStatus.Ok,new(candidate.CompanyId,candidate.LinkId,candidate.CompanyName,access.Role),modules);
+            return new(CompanyTeamReadStatus.Ok,new(candidate.CompanyId,candidate.LinkId,candidate.CompanyName,access.Role,candidate.CountryCode,candidate.Currency,candidate.TimeZoneId,candidate.EnrollmentId),modules);
         }catch(DbException){return new(CompanyTeamReadStatus.Unavailable);}
     }
     internal static bool Enabled(IConfiguration config)=>ProductOperationalFlow.Enabled(config)
@@ -59,7 +59,7 @@ internal sealed class CoreOperationalCompanies(HrmDbContext db,
             if(proof.Status!=OperationalCredentialStatus.Verified || proof.Observation is null)return ProductOperationalFlow.Failure(proof.Status);
             var page=await http.RequestServices.GetRequiredService<CoreOperationalCompanies>().DirectoryAsync(proof.Observation,after,http.RequestAborted);
             if(page.Status!=CompanyTeamReadStatus.Ok)return page.Status==CompanyTeamReadStatus.Denied?Results.Unauthorized():Results.StatusCode(503);
-            return Results.Ok(new{companies=page.Items!.Select(x=>new{company_id=x.CompanyId,link_id=x.LinkId,name=x.CompanyName,role=x.Role}),
+            return Results.Ok(new{companies=page.Items!.Select(x=>View(x,http,config)),
                 next_cursor=page.Next,operational_access_granted=false});
         }).WithMetadata(new OperationalQueryPolicy(["after"])).AllowAnonymous();
         group.MapGet("/companies/{companyId}",async(HttpContext http,string companyId)=> {
@@ -70,10 +70,13 @@ internal sealed class CoreOperationalCompanies(HrmDbContext db,
             var review=await http.RequestServices.GetRequiredService<CoreOperationalCompanies>().ReviewAsync(proof.Observation,link,company,http.RequestAborted);
             if(review.Status!=CompanyTeamReadStatus.Ok)return review.Status==CompanyTeamReadStatus.Denied?Results.StatusCode(403):Results.StatusCode(503);
             var row=review.Company!;
-            return Results.Ok(new{company=new{company_id=row.CompanyId,link_id=row.LinkId,name=row.CompanyName,role=row.Role},
+            return Results.Ok(new{company=View(row,http,config),
                 licensed_modules=review.LicensedModules,operational_access_granted=false,next_step="module_access_assignment"});
         }).WithMetadata(new OperationalQueryPolicy(["link_id"])).AllowAnonymous();
     }
+    private static object View(OperationalCompany x,HttpContext http,IConfiguration config) => ProductAccountHub.Enabled(config) && http.Request.Headers.Origin==ProductAccountHub.Origin
+        ?new{company_id=x.CompanyId,link_id=x.LinkId,name=x.CompanyName,role=x.Role,country_code=x.CountryCode,currency=x.Currency,time_zone_id=x.TimeZoneId,subscription_group_id=x.EnrollmentId}
+        :(object)new{company_id=x.CompanyId,link_id=x.LinkId,name=x.CompanyName,role=x.Role};
     private static bool Canonical(string value,out Guid id)=>Guid.TryParseExact(value,"D",out id) && id!=Guid.Empty && id.ToString("D")==value;
 }
 internal sealed record OperationalQueryPolicy(string[] Allowed);

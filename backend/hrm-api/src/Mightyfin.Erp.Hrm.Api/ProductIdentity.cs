@@ -207,7 +207,7 @@ internal static class ProductIdentity
             if (context.Request.Scheme+"://"+context.Request.Host != origin)
             { context.Response.StatusCode = 400; return; }
             if (HttpMethods.IsPost(context.Request.Method)
-                && (context.Request.Headers.Origin.ToString() != origin || !context.Request.HasJsonContentType()))
+                && (!ProductAccountHub.Allows(app.Configuration, context.Request.Headers.Origin.ToString()) || !context.Request.HasJsonContentType()))
             { context.Response.StatusCode = 403; return; }
             if(context.Request.Path.StartsWithSegments(ProductOperationalFlow.Prefix)) {
                 if(!ProductOperationalFlow.Enabled(app.Configuration)){context.Response.StatusCode=503;return;}

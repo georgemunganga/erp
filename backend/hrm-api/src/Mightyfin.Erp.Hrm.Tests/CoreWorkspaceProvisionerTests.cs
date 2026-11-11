@@ -19,6 +19,22 @@ public sealed class CoreWorkspaceProvisionerTests
     private static string Key(int n) => "synthetic_workspace_request_"+n.ToString("D8");
 
     [Fact]
+    public async Task Company_preferences_persist_and_are_bound_to_the_exact_retry()
+    {
+        await using var f=await Fixture.Start();
+        var preferences=new WorkspaceCompanyPreferences("KE","USD","Africa/Nairobi");
+        var result=await f.Service.CreateAsync(f.Authority(),f.License(),Key(91),"Regional company",preferences);
+        Assert.Equal(WorkspaceCreateStatus.Created,result.Status);
+        await using var db=f.Context("unrelated");
+        var company=Assert.Single(await db.LegalEntities.IgnoreQueryFilters().ToArrayAsync());
+        Assert.Equal("KE",company.CountryCode);Assert.Equal("USD",company.Currency);Assert.Equal("Africa/Nairobi",company.TimeZoneId);
+        Assert.Equal(WorkspaceCreateStatus.Existing,(await f.Service.CreateAsync(f.Authority(),f.License(),Key(91),"Regional company",preferences)).Status);
+        Assert.Equal(WorkspaceCreateStatus.Conflict,(await f.Create(Key(91),"Regional company")).Status);
+        Assert.Equal(WorkspaceCreateStatus.Invalid,(await f.Service.CreateAsync(f.Authority(),f.License(),Key(92),"Invalid",new WorkspaceCompanyPreferences("KE","USD","not/a/timezone"))).Status);
+        Assert.Single(await db.WorkspaceBindings.IgnoreQueryFilters().ToArrayAsync());
+    }
+
+    [Fact]
     public async Task Explicit_create_is_atomic_role_free_and_idempotent_without_a_login_or_billing_record()
     {
         await using var f = await Fixture.Start();

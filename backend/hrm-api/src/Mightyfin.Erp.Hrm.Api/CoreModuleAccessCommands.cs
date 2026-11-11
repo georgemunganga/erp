@@ -60,6 +60,9 @@ internal sealed class CoreModuleAccessCommands(Func<string,HrmDbContext> context
                 && x.MembershipId==command.MembershipId && x.ModuleCode==command.ModuleCode).OrderByDescending(x=>x.Revision).FirstOrDefaultAsync(ct);
             if((prior?.Revision??0)!=command.ExpectedRevision || command.ExpectedRevision==int.MaxValue || prior?.IsArchived==true)return new(ModuleAccessStatus.Conflict);
             if(command.Revoke && prior is null)return new(ModuleAccessStatus.Denied);
+            if(!command.Revoke && license.UserLimit(command.ModuleCode) is {} limit
+                && await CoreModuleSeats.CountAsync(db,current.TenantId,command.CompanyId,command.ModuleCode,command.MembershipId,limit,ct)>=limit)
+                return new(ModuleAccessStatus.CapacityExhausted);
             if(command.ScopeKind=="locations") {
                 var owned=await db.WorkLocations.AsNoTracking().Where(x=>normalized.Locations.Contains(x.Id) && x.LegalEntityId==command.CompanyId && !x.IsArchived).Select(x=>x.Id).ToArrayAsync(ct);
                 if(owned.Length!=normalized.Locations.Length)return new(ModuleAccessStatus.Denied);

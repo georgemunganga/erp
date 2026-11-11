@@ -26,6 +26,26 @@ namespace Mightyfin.Erp.Hrm.Tests;
 public sealed partial class ProductOperationalFlowTests
 {
     [Fact]
+    public async Task Account_hub_return_is_fixed_and_browser_reads_require_the_same_subject()
+    {
+        await using var f=await Fixture.Start(accountHub:true);
+        var response=await f.Callback(await f.Challenge());
+        Assert.Equal("https://www.kuubuerp.com/account/#/companies",response.Headers.Location!.ToString());
+        var cookie=SetCookie(response,ProductOperationalFlow.Cookie)+"; "+SetCookie(response,ProductOperationalBrowser.Cookie);
+        var local=await f.Get(ProductOperationalFlow.Prefix+"/session",cookie);
+        Assert.Equal(HttpStatusCode.OK,local.StatusCode);
+        var subject="42";
+        foreach(var supplied in new[]{"", "999999999",subject!}) {
+            using var request=new HttpRequestMessage(HttpMethod.Get,ProductOperationalFlow.Prefix+"/session");
+            request.Headers.Add("Cookie",cookie);request.Headers.Add("Origin",ProductAccountHub.Origin);
+            if(supplied!="")request.Headers.Add("X-Kuubu-Account-Subject",supplied);
+            var read=await f.Client.SendAsync(request);
+            Assert.Equal(supplied==subject?HttpStatusCode.OK:HttpStatusCode.Unauthorized,read.StatusCode);
+        }
+        Assert.Equal(HttpStatusCode.Forbidden,(await f.Post(ProductOperationalFlow.Prefix+"/start",cookie,"synthetic",origin:"https://foreign.invalid")).StatusCode);
+    }
+
+    [Fact]
     public async Task Company_discovery_requires_the_distinct_bound_identity_and_rejects_unreviewed_selectors()
     {
         await using var f=await Fixture.Start(companies:true);
@@ -168,14 +188,14 @@ public sealed partial class ProductOperationalFlowTests
     {
         internal const string Origin="https://app.kuubuerp.com",ClientId="391bdeaa-87b3-44b3-8e64-2110dcc1a564",Secret="synthetic-operational-secret";
         internal required List<OperationalCredentialResult> TrustedObservations;internal required WebApplication App;internal required HttpClient Client;internal required Channel Channel;internal required string State;internal required HrmDbContext Db;internal AsyncServiceScope Scope;
-        internal static async Task<Fixture> Start(bool enabled=true,string mode="",bool companies=false,CoreModuleAccessApi? moduleApi=null,CoreProductSessionAdmission? sessions=null,bool product=false,Func<IServiceProvider,HrmDbContext>? contexts=null)
+        internal static async Task<Fixture> Start(bool enabled=true,string mode="",bool companies=false,CoreModuleAccessApi? moduleApi=null,CoreProductSessionAdmission? sessions=null,bool product=false,Func<IServiceProvider,HrmDbContext>? contexts=null,bool accountHub=false)
         {
             var root=Path.Combine(Path.GetTempPath(),"kuubu-operational-flow-"+Guid.NewGuid().ToString("N"));
             var keys=Path.Combine(root,"keys");var state=Path.Combine(root,"credentials");
             foreach(var path in new[]{root,keys,state}){Directory.CreateDirectory(path);if(!OperatingSystem.IsWindows())File.SetUnixFileMode(path,UnixFileMode.UserRead|UnixFileMode.UserWrite|UnixFileMode.UserExecute);}
             var builder=WebApplication.CreateBuilder();builder.WebHost.UseTestServer();builder.Logging.ClearProviders();
             builder.Configuration.AddInMemoryCollection(new Dictionary<string,string?>{
-                ["ERP:AuthMode"]=product?"product":"local",["ERP:ProductIdentity:Enabled"]="true",["ERP:ProductIdentity:ClientId"]="4798a03c-5ed7-4438-9ec9-d46f63a2f4f1",
+                ["ERP:AccountHub:Enabled"]=accountHub.ToString(),["ERP:AuthMode"]=product?"product":"local",["ERP:ProductIdentity:Enabled"]="true",["ERP:ProductIdentity:ClientId"]="4798a03c-5ed7-4438-9ec9-d46f63a2f4f1",
                 ["ERP:ProductIdentity:ClientSecret"]="synthetic-setup-secret",["ERP:ProductIdentity:DataProtectionPath"]=keys,
                 ["ERP:OperationalIdentity:Enabled"]=enabled.ToString(),["ERP:OperationalIdentity:ClientId"]=ClientId,["ERP:OperationalIdentity:ClientSecret"]=Secret,["ERP:OperationalIdentity:StatePath"]=state,
                 ["ERP:ProductSessions:Enabled"]=(sessions is not null).ToString(),["ERP:ProductLicensing:Enabled"]=companies.ToString(),["ERP:OperationalCompanies:Enabled"]=companies.ToString(),["ERP:ModuleAccess:Enabled"]=(moduleApi is not null).ToString()});

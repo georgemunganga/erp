@@ -38,6 +38,15 @@ internal sealed class CoreModuleAccessApi(Func<string,HrmDbContext> contexts,
         var scope=await new CoreCompanyAccess(db,clock).ReadAsync(actor.Issuer,actor.Subject,actor.LinkId,company,ready.License!,ct);
         return scope is not null && scope.Role==CoreCompanyRoles.Owner && person.IsCurrent && ready.License!.IsCurrent;
     }
+    internal async Task<(ModuleAccessStatus Status,object[]? Modules)> UsageAsync(OperationalSubjectObservation person,CompanyTeamActor actor,Guid company,CancellationToken ct=default)
+    {
+        try {
+            var ready=await Resolve(person,actor,company,null,ct);if(ready.Status!=ModuleAccessStatus.Authorized)return(ready.Status,null);
+            await using var db=contexts(ready.Scope!.TenantId);var rows=new List<object>();
+            foreach(var module in ready.License!.ModuleCodes)rows.Add(new{module,user_limit=ready.License.UserLimit(module),assigned_users=await CoreModuleSeats.CountAsync(db,ready.Scope.TenantId,company,module,null,100001,ct)});
+            return await Current(db,ready,person,actor,company,ct)?(ModuleAccessStatus.Authorized,rows.ToArray()):(ModuleAccessStatus.Denied,null);
+        }catch(DbException){return(ModuleAccessStatus.Unavailable,null);}
+    }
     internal async Task<ModuleAccessMembers> MembersAsync(OperationalSubjectObservation person,CompanyTeamActor actor,Guid company,Guid? after,CancellationToken ct=default)
     {
         try {

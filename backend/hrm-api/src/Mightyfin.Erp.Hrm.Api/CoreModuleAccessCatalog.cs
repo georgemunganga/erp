@@ -28,7 +28,7 @@ internal static class CoreModuleAccessCatalog
         && Parse(csv).Distinct(StringComparer.Ordinal).Count()==Parse(csv).Length;
 }
 
-internal enum ModuleAccessStatus { Changed,Unchanged,Existing,Authorized,Denied,Invalid,Conflict,Unavailable }
+internal enum ModuleAccessStatus { Changed,Unchanged,Existing,Authorized,Denied,Invalid,Conflict,CapacityExhausted,Unavailable }
 internal sealed record ModuleAccessResult(ModuleAccessStatus Status,Guid? VersionId=null,int Revision=0,string? State=null);
 internal sealed record ModuleAccessCommand(Guid CompanyId,Guid MembershipId,int MembershipRevision,string ModuleCode,int ExpectedRevision,
     Guid CommandKey,bool Revoke,string[] RoleKeys,string[] Actions,string ScopeKind,Guid[] LocationIds,bool AllCompanyLocationsConfirmed,bool Confirm);

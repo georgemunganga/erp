@@ -84,7 +84,7 @@ internal sealed class CoreCompanyAccess(HrmDbContext db, TimeProvider clock)
                 && user.CredentialMode == LocalCredentialModes.Federated
                 && member.IsActive && !member.IsArchived
                 && !company.IsArchived && !binding.IsArchived && binding.Issuer == issuer
-            select new CoreCompanyCandidate { CompanyId = company.Id, CompanyName = company.RegisteredName,
+            select new CoreCompanyCandidate { CompanyId = company.Id, CompanyName = company.RegisteredName, CountryCode = company.CountryCode, Currency = company.Currency, TimeZoneId = company.TimeZoneId,
                 PrincipalId = user.Id, TenantId = member.TenantId, Role = member.Role, LockedUntil = user.LockedUntil,
                 EnrollmentId = binding.EnrollmentId, Slot = binding.Slot, LinkId = link.Id, MembershipId = member.Id };
     }
@@ -94,6 +94,9 @@ internal sealed record CoreCompanyCandidate
 {
     public Guid CompanyId { get; init; }
     public string CompanyName { get; init; } = "";
+    public string CountryCode { get; init; } = "";
+    public string Currency { get; init; } = "";
+    public string TimeZoneId { get; init; } = "";
     public Guid PrincipalId { get; init; }
     public string TenantId { get; init; } = "";
     public string Role { get; init; } = "";

@@ -123,7 +123,7 @@ internal static class CoreCompanyTeamApiRegistration
             services.AddSingleton(provider => new CoreCompanyInvitationsApi(
                 tenant => new HrmDbContext(options, new TeamTenant(tenant)),
                 provider.GetRequiredService<CoreCompanyTeamApi>(), TimeProvider.System,
-                provider.GetRequiredService<IDataProtectionProvider>().CreateProtector(CoreCompanyInvitationsApi.DeliveryPurpose)));
+                provider.GetRequiredService<IDataProtectionProvider>().CreateProtector(CoreCompanyInvitationsApi.DeliveryPurpose), ProductAccountHub.Enabled(config)));
         if (ProductInvitationAcceptanceFlow.Enabled(config))
             services.AddSingleton(provider => new CoreCompanyInvitationAcceptanceApi(
                 tenant => new HrmDbContext(options,new TeamTenant(tenant)),provider.GetRequiredService<CoreCompanyTeamApi>(),TimeProvider.System,
@@ -136,7 +136,7 @@ internal static class CoreCompanyTeamApiRegistration
             services.AddSingleton(provider=>new CoreCompanyInvitationMail(
                 tenant=>new HrmDbContext(options,new TeamTenant(tenant)),provider.GetRequiredService<CoreCompanyTeamApi>(),
                 provider.GetRequiredService<IDataProtectionProvider>().CreateProtector(CoreCompanyInvitationsApi.DeliveryPurpose),
-                provider.GetRequiredService<ICompanyInvitationMail>(),TimeProvider.System,config["ERP:ProductIdentity:ClientId"]!));
+                provider.GetRequiredService<ICompanyInvitationMail>(),TimeProvider.System,config["ERP:ProductIdentity:ClientId"]!,ProductAccountHub.Enabled(config)));
             services.AddSingleton(provider=>new CoreCompanyInvitationDeliveryWorker(
                 tenant=>new HrmDbContext(options,tenant),provider.GetRequiredService<CoreCompanyInvitationMail>(),
                 provider.GetRequiredService<ILogger<CoreCompanyInvitationDeliveryWorker>>()));

@@ -25,6 +25,13 @@ internal static class ProductModuleAccessFlow
     {
         var group=parent.MapGroup(Path);
         group.AddEndpointFilter(async(invocation,next)=>Enabled(config)?await next(invocation):Results.StatusCode(503));
+        group.MapGet("/usage",async(HttpContext http)=> {
+            if(!Selectors(http,out var company,out var link))return Results.BadRequest();
+            var proof=await ProductOperationalFlow.ObserveAsync(http);
+            if(proof.Observation is not {} person || proof.Status!=OperationalCredentialStatus.Verified)return ProductOperationalFlow.Failure(proof.Status);
+            var result=await http.RequestServices.GetRequiredService<CoreModuleAccessApi>().UsageAsync(person,new(ProductCommercialLicense.Issuer,person.Subject,link),company,http.RequestAborted);
+            return result.Status==ModuleAccessStatus.Authorized?Results.Ok(new{modules=result.Modules,operational_access_granted=false}):Failure(result.Status);
+        }).WithMetadata(new OperationalQueryPolicy(["company_id","link_id"])).AllowAnonymous();
         group.MapGet("/members",async(HttpContext http)=> {
             if(!Selectors(http,out var company,out var link) || !ProductCompanyTeamFlow.Cursor(http.Request.Query,out var after))return Results.BadRequest();
             var proof=await ProductOperationalFlow.ObserveAsync(http);
@@ -62,7 +69,7 @@ internal static class ProductModuleAccessFlow
     private static object Member(CompanyTeamMember x)=>new{membership_id=x.MembershipId,display_name=x.DisplayName,role=x.Role,
         membership_active=x.MembershipActive,identity_available=x.IdentityAvailable,revision=x.Revision};
     private static object Location(ModuleAccessLocation x)=>new{location_id=x.Id,name=x.Name,available=x.Available};
-    private static IResult Failure(ModuleAccessStatus status)=>Results.StatusCode(status switch{ModuleAccessStatus.Invalid=>400,ModuleAccessStatus.Denied=>403,ModuleAccessStatus.Conflict=>409,_=>503});
+    private static IResult Failure(ModuleAccessStatus status)=>Results.StatusCode(status switch{ModuleAccessStatus.Invalid=>400,ModuleAccessStatus.Denied=>403,ModuleAccessStatus.Conflict or ModuleAccessStatus.CapacityExhausted=>409,_=>503});
     private static async Task<IResult> Execute(HttpContext http)
     {
         var browserService=http.RequestServices.GetRequiredService<ProductOperationalBrowser>();var browser=browserService.Read(http);
@@ -93,7 +100,7 @@ internal static class ProductModuleAccessFlow
         var proof=await ProductOperationalFlow.ObserveAsync(http);
         if(proof.Observation is not {} person || proof.Status!=OperationalCredentialStatus.Verified)return ProductOperationalFlow.Failure(proof.Status);
         var result=await http.RequestServices.GetRequiredService<CoreModuleAccessApi>().ExecuteAsync(person,new(ProductCommercialLicense.Issuer,person.Subject,link),command,http.RequestAborted);
-        var status=result.Status switch{ModuleAccessStatus.Changed or ModuleAccessStatus.Existing or ModuleAccessStatus.Unchanged=>200,ModuleAccessStatus.Invalid=>400,ModuleAccessStatus.Denied=>403,ModuleAccessStatus.Conflict=>409,_=>503};
+        var status=result.Status switch{ModuleAccessStatus.Changed or ModuleAccessStatus.Existing or ModuleAccessStatus.Unchanged=>200,ModuleAccessStatus.Invalid=>400,ModuleAccessStatus.Denied=>403,ModuleAccessStatus.Conflict or ModuleAccessStatus.CapacityExhausted=>409,_=>503};
         return Results.Json(new{status=result.Status.ToString(),version_id=result.VersionId,revision=result.Revision,state=result.State,operational_access_granted=false},statusCode:status);
     }
     private static bool GuidValue(JsonElement root,string name,out Guid value)=>ProductCompanyTeamFlow.CanonicalGuid(root.GetProperty(name).GetString(),out value);

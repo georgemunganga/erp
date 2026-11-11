@@ -67,7 +67,7 @@ internal static class ProductInvitationAcceptanceFlow
             || proof.Properties.Items.ContainsKey(ProductIdentity.SetupPurpose) || proof.Properties.Items.ContainsKey(ProductCompanyTeamFlow.Purpose)
             || State(http,IntentCookie) is not { } state || proof.Principal.FindFirstValue(HandleClaim)!=state.Handle)return null;
         var grant=await http.RequestServices.GetRequiredService<ProductInvitationIntentStore>().ReadAsync(state.Handle,state.Binding,http.RequestAborted);
-        return grant?.Subject is { } subject && subject==proof.Principal.FindFirstValue(ProductIdentity.SubjectClaim) ? grant : null;
+        return grant?.Subject is { } subject && subject==proof.Principal.FindFirstValue(ProductIdentity.SubjectClaim) && ProductAccountHub.MatchesSubject(http,subject) ? grant : null;
     }
     private static bool Csrf(string expected,string supplied) => ProductInvitationIntentStore.Opaque(supplied)
         && CryptographicOperations.FixedTimeEquals(System.Text.Encoding.ASCII.GetBytes(expected),System.Text.Encoding.ASCII.GetBytes(supplied));
@@ -115,7 +115,7 @@ internal static class ProductInvitationAcceptanceFlow
             if(http.Request.Query.Count!=0 || State(http,IntentCookie) is not { } state)return Results.BadRequest();
             var value=await http.RequestServices.GetRequiredService<ProductInvitationIntentStore>().ReadAsync(state.Handle,state.Binding,http.RequestAborted);
             if(value is null || value.Subject is not null)return Results.StatusCode(403);
-            var properties=new OAuthChallengeProperties{RedirectUri="/accept-invitation",IssuedUtc=DateTimeOffset.UtcNow,Scope=["product:identity","product:invitation-recipient"]};
+            var properties=new OAuthChallengeProperties{RedirectUri=ProductAccountHub.Landing(app.Configuration,"company-invitation","/accept-invitation"),IssuedUtc=DateTimeOffset.UtcNow,Scope=["product:identity","product:invitation-recipient"]};
             properties.Items[Purpose]=PurposeValue;properties.Items[HandleClaim]=state.Handle;properties.Items[BindingProperty]=ProductInvitationIntentStore.Hash(state.Binding);
             return Results.Challenge(properties,[ProductIdentity.OAuthScheme]);
         })).AllowAnonymous().WithMetadata(new ProductInvitationGuestBudget.Policy(ProductInvitationGuestBudget.Operation.Start));

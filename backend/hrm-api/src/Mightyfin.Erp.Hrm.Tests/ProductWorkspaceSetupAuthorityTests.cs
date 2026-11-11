@@ -14,6 +14,18 @@ public sealed class ProductWorkspaceSetupAuthorityTests
     private const string ClientId = "391bdeaa-87b3-44b3-8e64-2110dcc1a564";
 
     [Fact]
+    public async Task Selected_company_subscription_group_is_bound_to_the_authority_response()
+    {
+        using var f=new Fixture();f.Transport.ExpectedEnrollment=Enrollment;
+        Assert.Equal(WorkspaceAuthorityStatus.Verified,(await f.Client.ReadAsync("42",Customer,"synthetic.person.token",default,Enrollment)).Status);
+        f.Transport.ExpectedEnrollment=Customer;
+        Assert.Equal(WorkspaceAuthorityStatus.Unavailable,(await f.Client.ReadAsync("42",Customer,"synthetic.person.token",default,Customer)).Status);
+        var calls=f.Transport.Calls;
+        Assert.Equal(WorkspaceAuthorityStatus.Unavailable,(await f.Client.ReadAsync("42",Customer,"synthetic.person.token",default,"INVALID")).Status);
+        Assert.Equal(calls,f.Transport.Calls);
+    }
+
+    [Fact]
     public async Task Exact_person_and_payer_observation_is_bounded_and_contains_no_token_or_operational_grant()
     {
         using var f = new Fixture();
@@ -148,6 +160,7 @@ public sealed class ProductWorkspaceSetupAuthorityTests
 
     private sealed class Transport(Clock clock) : HttpMessageHandler
     {
+        internal string? ExpectedEnrollment;
         internal int Calls, Status = 200, Lifetime = 60;
         internal string Fault = "";
         internal TimeSpan Elapsed;
@@ -157,7 +170,7 @@ public sealed class ProductWorkspaceSetupAuthorityTests
         {
             Calls++;
             Assert.Equal(HttpMethod.Get, request.Method);
-            Assert.Equal(ProductCommercialLicense.Issuer+"/api/v1/product-identity/customers/"+Customer+"/workspace-setup-authority", request.RequestUri!.AbsoluteUri);
+            Assert.Equal(ProductCommercialLicense.Issuer+"/api/v1/product-identity/customers/"+Customer+"/workspace-setup-authority"+(ExpectedEnrollment is null?"":"?enrollment_id="+ExpectedEnrollment), request.RequestUri!.AbsoluteUri);
             Assert.Equal("Bearer", request.Headers.Authorization!.Scheme);
             Assert.Equal("synthetic.person.token", request.Headers.Authorization.Parameter);
             Assert.Equal("application/json", Assert.Single(request.Headers.Accept).MediaType);

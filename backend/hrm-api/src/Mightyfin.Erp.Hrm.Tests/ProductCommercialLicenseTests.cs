@@ -15,6 +15,18 @@ public sealed class ProductCommercialLicenseTests
     private const string Credential = "synthetic-machine-secret";
 
     [Fact]
+    public async Task Account_hub_licenses_require_complete_valid_per_module_user_limits()
+    {
+        using var f=new Fixture(requireCaps:true);
+        Assert.Equal(CommercialLicenseStatus.Unavailable,(await f.Client.ReadAsync(Enrollment)).Status);
+        f.Transport.Fault="caps";var lease=(await f.Client.ReadAsync(Enrollment)).Lease!;
+        Assert.Equal(5,lease.UserLimit("hrm"));Assert.Null(lease.UserLimit("payroll"));
+        foreach(var mode in new[]{"caps-missing-module","caps-zero","caps-extra","caps-duplicate"}) {
+            f.Transport.Fault=mode;Assert.Equal(CommercialLicenseStatus.Unavailable,(await f.Client.ReadAsync(Enrollment)).Status);
+        }
+    }
+
+    [Fact]
     public async Task Machine_channel_uses_exact_scope_endpoint_and_binding_without_any_human_credentials()
     {
         using var fixture = new Fixture();
@@ -247,11 +259,11 @@ public sealed class ProductCommercialLicenseTests
         internal readonly Transport Transport;
         internal readonly ProductCommercialLicense Client;
         private readonly HttpClient http;
-        internal Fixture()
+        internal Fixture(bool requireCaps=false)
         {
             Transport = new Transport(Clock);
             http = new HttpClient(Transport);
-            Client = new ProductCommercialLicense(http, Clock, ClientId, Credential);
+            Client = new ProductCommercialLicense(http, Clock, ClientId, Credential, requireCaps);
         }
         public void Dispose() => http.Dispose();
     }
@@ -310,8 +322,12 @@ public sealed class ProductCommercialLicenseTests
                 ["module_codes"] = new[] { "hrm", "payroll" }, ["observed_at"] = observed,
                 ["lease_until"] = observed.AddSeconds(ShortLease ? 10 : 60),
                 ["access_until"] = observed.AddSeconds(ShortLease ? 10 : 600) };
+            if(Fault.StartsWith("caps",StringComparison.Ordinal))fields2["module_user_limits"]=new Dictionary<string,int?>{{"hrm",5},{"payroll",null}};
             switch (Fault)
             {
+                case "caps-missing-module": fields2["module_user_limits"]=new Dictionary<string,int?>{{"hrm",5}};break;
+                case "caps-zero": fields2["module_user_limits"]=new Dictionary<string,int?>{{"hrm",0},{"payroll",null}};break;
+                case "caps-extra": fields2["module_user_limits"]=new Dictionary<string,int?>{{"hrm",5},{"payroll",null},{"unbought",null}};break;
                 case "capacity-missing": fields2.Remove("workspace_limit"); break;
                 case "capacity-null": fields2["workspace_limit"] = null; break;
                 case "capacity-string": fields2["workspace_limit"] = "2"; break;
@@ -339,6 +355,7 @@ public sealed class ProductCommercialLicenseTests
                     fields2["module_codes"] = Array.Empty<string>(); fields2["lease_until"] = observed; break;
             }
             var payload = JsonSerializer.Serialize(new { data = fields2 });
+            if(Fault=="caps-duplicate")payload=payload[..^2]+",\"module_user_limits\":{\"hrm\":5,\"payroll\":null}}}";
             if (Fault == "json") payload = "broken";
             if (Fault == "oversized") payload = "{\"padding\":\""+new string('a', 65536)+"\"}";
             if (Fault == "duplicate-property") payload = payload[..^2]+",\"product_code\":\"kuubu\"}}";

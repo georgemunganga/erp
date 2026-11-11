@@ -31,10 +31,10 @@ internal sealed class ProductWorkspaceSetupAuthority(HttpClient http, TimeProvid
     private static bool ProviderId(string value) => Regex.IsMatch(value, "^[0-7][0-9a-hjkmnp-tv-z]{25}\\z", RegexOptions.CultureInvariant);
 
     internal async Task<WorkspaceAuthorityResult> ReadAsync(string subject, string customer, string accessToken,
-        CancellationToken cancellation = default)
+        CancellationToken cancellation = default, string? selectedEnrollment = null)
     {
         if (!Regex.IsMatch(subject, "^[1-9][0-9]{0,18}\\z", RegexOptions.CultureInvariant)
-            || !ProviderId(customer) || accessToken.Length is < 1 or > 16384
+            || !ProviderId(customer) || selectedEnrollment is not null && !ProviderId(selectedEnrollment) || accessToken.Length is < 1 or > 16384
             || !Regex.IsMatch(accessToken, "^[A-Za-z0-9._~-]+\\z", RegexOptions.CultureInvariant))
             return new(WorkspaceAuthorityStatus.Unavailable);
         try
@@ -43,7 +43,7 @@ internal sealed class ProductWorkspaceSetupAuthority(HttpClient http, TimeProvid
             var timestamp = clock.GetTimestamp();
             using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellation);
             timeout.CancelAfter(TimeSpan.FromSeconds(10));
-            using var request = new HttpRequestMessage(HttpMethod.Get, Prefix+customer+"/workspace-setup-authority");
+            using var request = new HttpRequestMessage(HttpMethod.Get, Prefix+customer+"/workspace-setup-authority"+(selectedEnrollment is null?"":"?enrollment_id="+selectedEnrollment));
             request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
             request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
             using var response = await http.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, timeout.Token);
@@ -59,6 +59,7 @@ internal sealed class ProductWorkspaceSetupAuthority(HttpClient http, TimeProvid
             if (capacity.ValueKind != JsonValueKind.Number || !capacity.TryGetInt32(out var workspaceLimit)
                 || workspaceLimit is < 0 or > 10000) return new(WorkspaceAuthorityStatus.Unavailable);
             var enrollment = data.GetProperty("product_enrollment_id").GetString();
+            if(selectedEnrollment is not null && enrollment!=selectedEnrollment)return new(WorkspaceAuthorityStatus.Unavailable);
             if (data.GetProperty("schema_version").GetInt32() != 1
                 || data.GetProperty("issuer").GetString() != ProductCommercialLicense.Issuer
                 || data.GetProperty("subject").GetString() != subject

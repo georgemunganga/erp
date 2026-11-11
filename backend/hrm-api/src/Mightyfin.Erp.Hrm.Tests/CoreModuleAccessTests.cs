@@ -23,6 +23,35 @@ public sealed class CoreModuleAccessTests
         return await new CoreModuleAccessReader(db,f.Clock).ReadAsync(Person(f,person),person.Link,f.Company,module,License(f,module));
     }
     [Fact]
+    public async Task Five_user_band_counts_module_assignments_independently_of_other_modules()
+    {
+        await using var f=await Team.Fixture.Start();var people=new List<Team.Person>{f.Owner};
+        for(var n=43;n<=47;n++)people.Add(await f.Add(n.ToString(),CoreCompanyRoles.Member));
+        var license=new CommercialLicenseLease(Enrollment,["hrm","procurement"],2,f.Clock.GetUtcNow().AddSeconds(60),f.Clock,f.Clock.GetTimestamp(),TimeSpan.FromSeconds(60),new Dictionary<string,int?>{{"hrm",5},{"procurement",null}});
+        var service=new CoreModuleAccessCommands(t=>f.Context(t),f.Clock);
+        foreach(var member in people.Take(5))Assert.Equal(ModuleAccessStatus.Changed,(await service.ExecuteAsync(Person(f),f.Owner.Proof,Grant(f,member),license)).Status);
+        Assert.Equal(ModuleAccessStatus.CapacityExhausted,(await service.ExecuteAsync(Person(f),f.Owner.Proof,Grant(f,people[5]),license)).Status);
+        var procurement=Grant(f,people[5]) with{ModuleCode="procurement",RoleKeys=["procurement_manager"],Actions=["procurement-access"]};
+        Assert.Equal(ModuleAccessStatus.Changed,(await service.ExecuteAsync(Person(f),f.Owner.Proof,procurement,license)).Status);
+    }
+
+    [Fact]
+    public async Task Seats_are_counted_per_module_and_revocation_frees_a_place()
+    {
+        await using var f=await Team.Fixture.Start();var member=await f.Add("43",CoreCompanyRoles.Member);
+        var limited=new CommercialLicenseLease(Enrollment,["hrm"],2,f.Clock.GetUtcNow().AddSeconds(60),f.Clock,f.Clock.GetTimestamp(),TimeSpan.FromSeconds(60),new Dictionary<string,int?>{{"hrm",1}});
+        var service=new CoreModuleAccessCommands(t=>f.Context(t),f.Clock);var first=Grant(f,f.Owner);
+        Assert.Equal(ModuleAccessStatus.Changed,(await service.ExecuteAsync(Person(f),f.Owner.Proof,first,limited)).Status);
+        Assert.Equal(ModuleAccessStatus.Existing,(await service.ExecuteAsync(Person(f),f.Owner.Proof,first,limited)).Status);
+        Assert.Equal(ModuleAccessStatus.CapacityExhausted,(await service.ExecuteAsync(Person(f),f.Owner.Proof,Grant(f,member),limited)).Status);
+        var revoke=first with{CommandKey=Guid.NewGuid(),ExpectedRevision=1,Revoke=true,RoleKeys=[],Actions=[],ScopeKind="none",AllCompanyLocationsConfirmed=false};
+        Assert.Equal(ModuleAccessStatus.Changed,(await service.ExecuteAsync(Person(f),f.Owner.Proof,revoke,limited)).Status);
+        Assert.Equal(ModuleAccessStatus.Changed,(await service.ExecuteAsync(Person(f),f.Owner.Proof,Grant(f,member),limited)).Status);
+        await using var db=f.Context();var tenant=(await db.CompanyMemberships.SingleAsync(x=>x.Id==f.Owner.Member)).TenantId;
+        Assert.Equal(1,await CoreModuleSeats.CountAsync(db,tenant,f.Company,"hrm",null,10,default));
+    }
+
+    [Fact]
     public async Task Governance_owner_has_no_module_access_until_an_explicit_confirmed_snapshot_and_never_gets_an_ERP_session()
     {
         await using var f=await Team.Fixture.Start();Assert.Equal(ModuleAccessStatus.Denied,(await Read(f)).Status);
