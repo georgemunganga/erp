@@ -202,7 +202,7 @@ function buildOrgTree(
   // Tree-shaped unit list so the department picker shows the org hierarchy
   // (Entity › Department › Team) instead of flat unit names.
   const flatUnits = references.data?.orgUnits ?? [];
-  const treeRoots = USE_REAL && flatUnits.length ? buildOrgTree(flatUnits) : demoEntityTree;
+  const treeRoots = USE_REAL ? buildOrgTree(flatUnits) : demoEntityTree;
   const treeUnits = flattenEntityTree(treeRoots, false);
   const treeOptions = treeToSelectOptions(treeRoots);
   const treeUnitById = new Map(treeUnits.map((t) => [t.unitId, t]));
@@ -435,6 +435,7 @@ function buildOrgTree(
         if (!entityId) return "A legal entity is required — choose it from the list.";
         if (!locationId) return "A work location is required — pick the branch this employee works at.";
         if (!orgUnitId) return "A department is required — pick the department (or team) this employee belongs to.";
+        if (USE_REAL && !entityUnits.some(unit => String(unit.id) === orgUnitId)) return "Choose a department configured for this company.";
         // Tree options use the plain unit id, but legacy entity: prefixed values
         // would bypass the backend org-unit lookup too.
         if (orgUnitId.startsWith("entity:")) return "A department is required — an entity-level placement is not enough; pick a department or team.";
@@ -499,6 +500,7 @@ function buildOrgTree(
                     ))}
               </SelectContent>
             </Select>
+            {USE_REAL && !entityUnits.length ? <p className="mt-2 text-sm text-muted-foreground">Create a department in <Link to="/hrm/people/org" className="text-primary underline">Organisation structure</Link>, then return to this saved draft.</p> : null}
           </div>
           <div className="sm:col-span-2">
             <Label htmlFor="manager">Reports to</Label>
