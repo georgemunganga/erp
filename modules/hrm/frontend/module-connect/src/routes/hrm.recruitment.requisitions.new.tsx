@@ -81,7 +81,7 @@ function LiveRequisition() {
   }, { id: "review", title: "Review draft", purpose: "Saving creates a draft. It does not approve recruitment or publish a vacancy.",
     render: () => <dl className="space-y-3 text-sm"><div><dt>Job title</dt><dd>{jobTitle}</dd></div><div><dt>Department</dt><dd>{rows.find(row => row.id === unitId)?.name}</dd></div><div><dt>Posts</dt><dd>{headcount}</dd></div><div><dt>Business case</dt><dd>{businessCase || "Not recorded"}</dd></div></dl>,
   }];
-  return <AuthGate><AppShell><PageHeader eyebrow="Recruitment" title="Raise a requisition" description="Use your company's departments and locations to prepare a hiring request." /><Async state={units}>{() => <GuidedFlow flowId="live-requisition-new" steps={steps} submitLabel="Save draft" onSubmit={async () => {
+  return <AuthGate><AppShell><PageHeader eyebrow="Recruitment" title="Raise a requisition" description="Use your company's departments and locations to prepare a hiring request." /><Async state={units}>{() => <GuidedFlow flowId="live-requisition-new" steps={steps} submitLabel="Save draft" busyLabel="Saving…" submitHint="This saves a draft only. Submit it for approval from Requisitions when ready." onSubmit={async () => {
     if (!rows.some(row => row.id === unitId) || locationId && !locations.some(row => row.id === locationId)) throw new Error("Review your company placement before saving.");
     await realApi.createRequisition({ jobTitle: jobTitle.trim(), reason, orgUnitId: unitId, locationId: locationId || null, headcount: Number(headcount), grade: grade.trim() || null, budgetAnnual: budget ? Number(budget) : null, businessCase: businessCase.trim() || null });
     feedback.saved("Hiring draft saved. Open it from Requisitions to submit for approval.");
