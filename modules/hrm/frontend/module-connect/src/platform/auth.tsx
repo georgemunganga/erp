@@ -431,6 +431,7 @@ function ProductHrmAuthProvider({ children }: { children: ReactNode }) {
         const result = await loadProductHrmSession(controller.signal, marker);
         if (!stopped && !controller.signal.aborted) {
           marker = result.marker; expectedMarker.current = result.marker;
+          setError("");
           setSelected(previous => previous?.marker === result.marker ? previous : result);
         }
       } catch (failure) {
@@ -473,6 +474,6 @@ function ProductHrmAuthProvider({ children }: { children: ReactNode }) {
       <h1 className="text-2xl font-semibold">{error ? "Return to Kuubu" : "Checking your HR workspace"}</h1>
       <p role={error ? "alert" : "status"}>{error || "Checking your company, HR permissions and assigned locations…"}</p>
       {error ? <div className="flex gap-3"><Button asChild><a href="https://www.kuubuerp.com/account/#/companies">Choose company in Kuubu</a></Button>
-        <Button variant="outline" onClick={() => { setError(""); setAttempt(x => x + 1); }}>Try again</Button></div> : null}
+        <Button variant="outline" onClick={() => { setSelected(null); setError(""); setAttempt(x => x + 1); }}>Try again</Button></div> : null}
     </main>}</Ctx.Provider>;
 }
