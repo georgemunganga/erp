@@ -18,6 +18,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { cn } from "@/lib/utils";
 import { realApi, useApi } from "@/platform/use-api";
 import { FULL_PRODUCT_HRM } from "@/modules/core/product-hrm-session";
+import { useAuth } from "@/platform/auth";
 import {
   AlertCircle,
   ArrowLeft,
@@ -209,6 +210,7 @@ function SwitchGlyph() {
 }
 
 export function WelcomeOverlay({ pageMode = false }: { pageMode?: boolean } = {}) {
+  const { coreWorkspace } = useAuth();
   const api = useApi(async () => {
     const [state, steps] = await Promise.all([realApi.setupState(), realApi.setupSteps()]);
     return { state, steps: steps as StepDto[] };
@@ -523,7 +525,14 @@ export function WelcomeOverlay({ pageMode = false }: { pageMode?: boolean } = {}
           className="w-full outline-none"
           style={pageMode ? undefined : { animation: "wizardModalIn 260ms ease-out both" }}
         >
-          <StepRenderer
+          {FULL_PRODUCT_HRM && active === "structure" ? <Card><CardHeader>
+            <CardTitle>Branches and departments</CardTitle>
+            <CardDescription>Your company already exists. Review your assigned locations and manage departments in the organisation structure.</CardDescription>
+          </CardHeader><CardContent className="space-y-4">
+            <p className="font-medium">{coreWorkspace?.companies[0]?.name}</p>
+            <div><h2 className="text-sm font-semibold">Assigned locations</h2><ul className="mt-2 space-y-1 text-sm">{coreWorkspace?.branches.map(branch => <li key={branch.id}>{branch.name}</li>)}</ul></div>
+            <div className="flex flex-wrap gap-3"><Button variant="outline" asChild><a href="/hrm/people/org">Manage departments</a></Button><Button variant="outline" asChild><a href="https://www.kuubuerp.com/account/#/team">Review access in Kuubu</a></Button></div>
+          </CardContent><CardFooter><Button onClick={() => setActive("employment")}>Continue to employment</Button></CardFooter></Card> : <StepRenderer
             key={active}
             stepKey={active}
             step={current}
@@ -538,7 +547,7 @@ export function WelcomeOverlay({ pageMode = false }: { pageMode?: boolean } = {}
                 setMessage({ text: setupErrorText(err), kind: "error" });
               }
             }}
-          />
+          />}
 
           {message && (
             <div
