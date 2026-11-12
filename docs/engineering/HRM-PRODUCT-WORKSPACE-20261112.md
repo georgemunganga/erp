@@ -83,7 +83,7 @@ owning exclusive transaction fence without acquiring a second conflicting lock.
 ## 16. Commit
 Every admitted HRM EF save requires a real transaction. Before its owning commit,
 recheck current identity/license/Core authority and complete location coverage.
-Expiry, revocation, outage and an uncovered new location abort/roll back. Sync
+A save guard also checks persisted source ownership and both declared and logical employee/company/location references. Expiry, revocation, outage, unassigned workers outside finite scope and an uncovered new location abort/roll back. Sync
 commits fail closed. No uncertain mutation is replayed automatically.
 
 ## 17. Business rules
@@ -132,7 +132,7 @@ back together on failed readiness. Do not reverse migrations or restore over
 customer data to roll back code. Existing Procurement and Perfex remain separate.
 
 ## 26. Automated acceptance
-74 focused tests passed in the Linux fixture, including five native PostgreSQL
+75 focused tests passed in the Linux fixture, including five native PostgreSQL
 commit cases and legacy employee/Procurement regressions. The initial native test
 fixture used a UUID where the domain requires a bounded numeric subject; corrected
 fixture results are retained without changing the domain. Type checks and full
@@ -145,7 +145,7 @@ financial acceptance, statutory validation, inbox delivery or a decision about a
 real employee. Production browser verification must not add synthetic HR records.
 
 ## 28. Evidence and handoff
-Infrastructure inspection/qualifications/full-hrm-build-04 and full-hrm-tests-02
-retain the build and 74-case test receipts. Native/private browser and deployment
+Infrastructure inspection/qualifications/full-hrm-build-06 and full-hrm-tests-03
+retain the build and 75-case test receipts. Native/private browser and deployment
 receipts, exact source pins and any remaining holds are recorded in the maintained
 MANUS_HANDOFF.md checkpoint. Server build publications remain write-once.

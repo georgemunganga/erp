@@ -1721,7 +1721,7 @@ public static class Routes
             var title = form["title"].ToString();
             var storageDir = Path.Combine(Path.GetTempPath(), "erp-docs");
             Directory.CreateDirectory(storageDir);
-            var storagePath = Path.Combine(storageDir, $"{Guid.NewGuid():N}-{file.FileName}");
+            var storagePath = Path.Combine(storageDir, $"{Guid.NewGuid():N}-{Path.GetFileName(file.FileName)}");
             await using (var fs = File.Create(storagePath))
                 await file.CopyToAsync(fs, ct);
             return Results.Created("", await svc.UploadDocumentAsync(

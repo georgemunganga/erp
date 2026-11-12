@@ -40,8 +40,10 @@ internal static class ProductHrmWorkspace
         // company-wide legacy report when only a current branch is assigned.
         var locations = await db.WorkLocations.IgnoreQueryFilters().AsNoTracking()
             .Where(x => x.TenantId == scope.TenantId).Select(x => new { x.Id, x.LegalEntityId }).ToArrayAsync(ct);
-        return locations.All(x => x.LegalEntityId == scope.CompanyId
-            && (scope.AllCompanyLocations || scope.LocationIds.Contains(x.Id)));
+        if (!locations.All(x => x.LegalEntityId == scope.CompanyId
+            && (scope.AllCompanyLocations || scope.LocationIds.Contains(x.Id)))) return false;
+        return scope.AllCompanyLocations || !await db.Workers.IgnoreQueryFilters().AnyAsync(x => x.TenantId == scope.TenantId
+            && (!x.LocationId.HasValue || !scope.LocationIds.Contains(x.LocationId.Value)), ct);
     }
 
     internal static bool PathAllowed(PathString path, string method)

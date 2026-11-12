@@ -100,4 +100,27 @@ public sealed class ProductHrmWorkspaceTests
         await ProductHrmWorkspace.Boundary(http, _ => { reached = true; return Task.CompletedTask; });
         Assert.False(reached); Assert.Equal(403, http.Response.StatusCode);
     }
+
+    [Fact]
+    public async Task Logical_worker_references_and_detached_foreign_updates_are_denied_before_sql()
+    {
+        await using var db = Database();
+        var own = new Worker { EmployeeNo = "OWN", FirstName = "Own", LastName = "Worker" };
+        db.Workers.Add(own); await db.SaveChangesAsync();
+        var other = new Worker { EmployeeNo = "OTHER", FirstName = "Other", LastName = "Worker" };
+        await using (var foreign = new HrmDbContext(new DbContextOptionsBuilder<HrmDbContext>()
+            .UseSqlite(db.Database.GetDbConnection()).Options, new Tenant("tenant-b")))
+        { foreign.Workers.Add(other); await foreign.SaveChangesAsync(); }
+        var http = Request(Proof(Guid.NewGuid(), [], all: true));
+        var guard = new ProductHrmWriteGuard(new HttpContextAccessor { HttpContext = http }, new ConfigurationBuilder().Build());
+        var document = new WorkerDocument { TenantId = "tenant-a", WorkerId = own.Id, Category = "test", Title = "Synthetic", FileName = "test.pdf", ContentType = "application/pdf", Classification = "internal", StoragePath = "/private/test.pdf" };
+        db.WorkerDocuments.Add(document);
+        await guard.ValidateAsync(db, http, default);
+        document.WorkerId = other.Id;
+        Assert.Equal(403, (await Assert.ThrowsAsync<ProductProcurementAuthorityException>(() => guard.ValidateAsync(db, http, default))).Status);
+        db.ChangeTracker.Clear();
+        var retarget = new Worker { Id = other.Id, TenantId = "tenant-a", EmployeeNo = "SPOOF", FirstName = "Attempt", LastName = "Retarget" };
+        db.Workers.Attach(retarget); db.Entry(retarget).State = EntityState.Modified;
+        Assert.Equal(403, (await Assert.ThrowsAsync<ProductProcurementAuthorityException>(() => guard.ValidateAsync(db, http, default))).Status);
+    }
 }
