@@ -17,6 +17,7 @@ import {
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
 import { realApi, useApi } from "@/platform/use-api";
+import { FULL_PRODUCT_HRM } from "@/modules/core/product-hrm-session";
 import {
   AlertCircle,
   ArrowLeft,
@@ -227,14 +228,16 @@ export function WelcomeOverlay({ pageMode = false }: { pageMode?: boolean } = {}
   const routerRef = useRef(useRouter());
 
   const state = api.data?.state;
-  const steps = api.data?.steps ?? [];
+  const steps = useMemo(() => (api.data?.steps ?? []).filter(step => !FULL_PRODUCT_HRM || !["organisation", "roles"].includes(step.key)), [api.data?.steps]);
   const isComplete = state?.status === "complete";
 
   // Resume at the first incomplete mandatory step (or the backend's hint) so
   // returning to the wizard picks up exactly where the operator left off.
   const stepsByCompletion = useMemo(() => {
     const done = new Set(state?.completedSteps ?? []);
-    return steps.map((s) => ({ ...s, done: done.has(s.key) }));
+    // Legacy state marks every step complete when Core provisioned a tenant
+    // without the standalone bootstrap record. That is not payroll readiness.
+    return steps.map((s) => ({ ...s, done: !FULL_PRODUCT_HRM && done.has(s.key) }));
   }, [steps, state]);
 
   useEffect(() => {
@@ -309,14 +312,17 @@ export function WelcomeOverlay({ pageMode = false }: { pageMode?: boolean } = {}
       // Refetch the authoritative setup state (steps + overall status).
       const [freshState, freshSteps] = await Promise.all([realApi.setupState(), realApi.setupSteps()]);
       const done = new Set(freshState?.completedSteps ?? []);
-      const refreshedSteps = (freshSteps as StepDto[]).map((s) => ({ ...s, done: done.has(s.key) }));
+      const refreshedSteps = (freshSteps as StepDto[]).filter(step => !FULL_PRODUCT_HRM || !["organisation", "roles"].includes(step.key)).map((s) => ({ ...s, done: done.has(s.key) }));
       const mandatory = refreshedSteps.filter((s) => s.mandatory);
       const allMandatoryDone = mandatory.length > 0 && mandatory.every((s) => s.done);
       // Advance to the next incomplete step when one exists.
       const idx = refreshedSteps.findIndex((s) => s.key === key);
-      const next = refreshedSteps.find((s, i) => i > idx && !s.done);
+      const next = refreshedSteps.find((s, i) => i > idx && (FULL_PRODUCT_HRM || !s.done));
       if (next) {
         setActive(next.key);
+      } else if (FULL_PRODUCT_HRM) {
+        setMessage({ text: "HR configuration saved. Review another section or return to HR.", kind: "info" });
+        api.reload();
       } else if (allMandatoryDone && freshState?.status !== "complete") {
         // The saved step closed the last mandatory gap — finish the setup so
         // the operator never lands on a success toast with nothing after it.
@@ -375,13 +381,13 @@ export function WelcomeOverlay({ pageMode = false }: { pageMode?: boolean } = {}
                 <CheckCircle2 className="size-9 text-primary" aria-hidden />
               </div>
               <Badge variant="default" className="mb-3 bg-emerald-600 text-white hover:bg-emerald-600">
-                You are all set up
+                {FULL_PRODUCT_HRM ? "Company workspace available" : "You are all set up"}
               </Badge>
-              <CardTitle className="text-2xl">The HRM is ready to use</CardTitle>
+              <CardTitle className="text-2xl">{FULL_PRODUCT_HRM ? "Review your HR configuration" : "The HRM is ready to use"}</CardTitle>
               <CardDescription className="max-w-lg">
-                Every step of the setup wizard has been completed. Your organisation
+                {FULL_PRODUCT_HRM ? "Your company and team access are managed in Kuubu. Review employment rules, working time, leave and payroll settings before processing pay. Workspace access does not mean payroll configuration is complete." : <>Every step of the setup wizard has been completed. Your organisation
                 is configured and the workspace is unlocked — head to the dashboard
-                to start working, or come back here any time to update information.
+                to start working, or come back here any time to update information.</>}
               </CardDescription>
             </CardHeader>
             <CardContent className="mx-auto w-full max-w-lg">
@@ -411,7 +417,7 @@ export function WelcomeOverlay({ pageMode = false }: { pageMode?: boolean } = {}
                   setActive(null); // resume effect picks step 1 via the editing flag
                 }}
               >
-                Make changes
+                {FULL_PRODUCT_HRM ? "Review HR settings" : "Make changes"}
               </Button>
             </CardFooter>
           </Card>
@@ -460,9 +466,9 @@ export function WelcomeOverlay({ pageMode = false }: { pageMode?: boolean } = {}
         <div className="flex w-full items-center gap-4 pb-4">
           <SwitchGlyph />
           <div>
-            <h1 className="text-lg font-semibold text-foreground sm:text-xl">Set up your organisation</h1>
+            <h1 className="text-lg font-semibold text-foreground sm:text-xl">{FULL_PRODUCT_HRM ? "HR configuration" : "Set up your organisation"}</h1>
             <p className="text-sm text-muted-foreground">
-              {pageMode
+              {FULL_PRODUCT_HRM ? "Company and team access stay in Kuubu. Configure HR rules here; payroll checks its prerequisites separately." : pageMode
                 ? "Configure your organisation step by step — the HRM unlocks when setup is finished."
                 : "The HRM stays locked until first-time setup is finished."}
             </p>
@@ -477,9 +483,9 @@ export function WelcomeOverlay({ pageMode = false }: { pageMode?: boolean } = {}
           <CardContent className="space-y-3 pt-5">
             <div className="flex items-center gap-3 text-sm">
               <span className="font-semibold">Step {idx + 1} of {stepsByCompletion.length}</span>
-              <Badge variant="secondary" className="ml-auto">{state.completionPercent ?? 0}% done</Badge>
+              <Badge variant="secondary" className="ml-auto">{FULL_PRODUCT_HRM ? "Review configuration" : `${state.completionPercent ?? 0}% done`}</Badge>
             </div>
-            <Progress value={state.completionPercent ?? 0} className="h-2" />
+            {!FULL_PRODUCT_HRM ? <Progress value={state.completionPercent ?? 0} className="h-2" /> : null}
             <div className="flex flex-wrap gap-x-2 gap-y-1">
               {stepsByCompletion.map((s, i) => (
                 <button
