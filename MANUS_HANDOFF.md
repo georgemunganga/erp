@@ -1,4 +1,49 @@
-## Current checkpoint — 12 November 2026
+## Deployed checkpoint — 12 November 2026
+
+This checkpoint supersedes the historical pins and holds below. Public ERP runs
+`991ba01c0a6aac701c4d8319011bf21bb50075d6`, API
+`kuubu-procurement-991ba01-api01`, image ID
+`sha256:0257b28f1413839d0954ae0b3ed8fe921902c0d8e6f84f575b81025d2f0704fc`,
+proxy `kuubu-procurement-991ba01-proxy01`. Original Procurement UI source
+`c0dde2b9bb948e33c844ee127f38deaf9ac86f8c` is served at
+`https://app.kuubuerp.com/procurement/workspace/`. Product admission is enabled;
+advanced purchasing, approval and Finance gates remain held independently.
+
+Public website source `4586a9e34019efd08ad35ff47d9319bbc010d292` is Vercel
+`dpl_FnFAUfgocvv17H13q9joiNPbJDCr`, READY and aliased to www.kuubuerp.com.
+It adds Procurement launch, permission-read Refresh recovery and paid setup copy.
+The prior trial UI remains included. Laravel commercial runtime `67b9d19` plus
+trial changes `7b8ead4` runs from
+`/opt/greenwebb-foundation/releases/visible-trials-7b8ead4-deploy01`.
+No real merchant charge was made. Perfex ownership is unchanged; its existing
+administration authentication returned 200 directly at the central origin.
+
+Production evidence: infrastructure
+`inspection/qualifications/procurement-production-release-01/`; remote
+`/opt/kuubu-production/releases/procurement-991ba01-deploy01/activation.json`.
+Backup: `/opt/kuubu-production/backups/procurement-991ba01-before01`, dump SHA256
+`9ebc3c0ecef99efb641d8efb41825f837ff7c1fa042a55c89904d5a6a05e5540`.
+The genuine migration applied twice to a private restore of production first
+(110 HRM / 136 Procurement tables). Effective runtime privileges deny schema
+creation, migration-history writes and Finance execution. Reviewed finite grants
+are in `deployment/hrm/kuubu-procurement-runtime-grants.psql`.
+The old `kuubu-account-proxy01` and `kuubu-account-be000319-api02` remain available
+for application rollback; do not down-migrate or restore over new customer data.
+
+Additional native concurrency acceptance held an admitted vendor write inside
+its transaction while real Core grant revocation waited on the shared company
+fence. The write committed before revocation; subsequent access and writes were
+denied. Entry-only grants could not expand legacy roles. Evidence:
+`inspection/qualifications/procurement-concurrency-native-05/result.json`.
+
+Trials support verified platform-admin authority or explicit actual root CLI
+authority; finite expiry, reason, review and confirmation remain required.
+Unresolved collection blocks issuance. An explicitly requested production trial
+was issued without creating a company or assigning operational access. The
+account shows Trial active, K0 fee, expiry, separate standard pricing and a
+Continue trial setup action. See foundation `docs/KUUBU-OPERATOR-TRIALS.md`.
+
+## Earlier checkpoint — 12 November 2026
 
 Public ERP remains source `be00031940e8698564111b538bf79ddc5996266d`, API
 `kuubu-account-be000319-api02`, image `kuubu/erp-api:account-be000319-build01`,
