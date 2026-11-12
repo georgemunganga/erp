@@ -2,8 +2,8 @@
 
 ## 1. Identification
 Tier 3, 12 November 2026. Parent: product request authentication, selected ERP
-session registry and HRM product worker scope. Candidate; deployment evidence is
-recorded in MANUS_HANDOFF.md when promoted.
+session registry and HRM product worker scope. Deployed; exact API/web pins,
+rollback and acceptance evidence are recorded in MANUS_HANDOFF.md.
 
 ## 2. Purpose
 Replace the isolated employee-directory entry with the existing HRM application,
@@ -132,11 +132,15 @@ back together on failed readiness. Do not reverse migrations or restore over
 customer data to roll back code. Existing Procurement and Perfex remain separate.
 
 ## 26. Automated acceptance
-75 focused tests passed in the Linux fixture, including five native PostgreSQL
-commit cases and legacy employee/Procurement regressions. The initial native test
-fixture used a UUID where the domain requires a bounded numeric subject; corrected
-fixture results are retained without changing the domain. Type checks and full
-frontend/API builds passed. Browser/protocol evidence follows in the handoff.
+132 focused Linux checks passed, including five native PostgreSQL commit cases,
+legacy worker/Procurement regressions and concurrent observation/one-time refresh.
+The cross-process case was skipped in that suite and passed separately in both
+holder and observer roles. Three Laravel quota tests passed with 25 assertions.
+TypeScript and full API/SSR builds passed. The private browser saved a company
+department, employee plus assignment, leave rule and real recruitment draft;
+read screens covered payroll, time, recruitment, performance and offboarding.
+Protected PDF upload/download survived an API restart. No real payroll release or
+merchant payment was performed by this acceptance run.
 
 ## 27. Risks and limits
 Compatibility is deliberately narrower than every possible HRM role/location
@@ -145,7 +149,25 @@ financial acceptance, statutory validation, inbox delivery or a decision about a
 real employee. Production browser verification must not add synthetic HR records.
 
 ## 28. Evidence and handoff
-Infrastructure inspection/qualifications/full-hrm-build-06 and full-hrm-tests-03
-retain the build and 75-case test receipts. Native/private browser and deployment
-receipts, exact source pins and any remaining holds are recorded in the maintained
-MANUS_HANDOFF.md checkpoint. Server build publications remain write-once.
+Infrastructure inspection/qualifications/full-hrm-build-07, full-hrm-tests-05,
+full-hrm-native-11, full-hrm-web-publication-09, full-hrm-production-release-01,
+full-hrm-production-web03 and full-hrm-final-acceptance-01 retain the receipts.
+Cross-process receipts are retained under the private qualification's
+credential-process01. Failed/partial publications remain retained; partial
+web-publication-03 was never served. Consumers mount publications read-only.
+
+Session publication locks use a bounded, cancellable wait, without replaying a
+refresh or HR mutation. Laravel budgets are configurable; the qualified deployment
+uses 300/minute per verified person and 600/minute per explicit enrollment.
+Identity, token and edge rules remain enforced. Four durable authenticated HR file
+stores are included with the database, keys and active configuration in daily
+same-host recovery copies; off-site recovery is not qualified by this change.
+
+Empty companies use real empty department lists. Organisation creation supplies
+the selected legal entity. Recruitment saves a real draft without sample approver
+names or establishment decisions. Failed guided saves retain the form and show an
+error. Product setup offers HR-owned configuration; company and login/team access
+remain in Kuubu. Legacy bootstrap status does not assert payroll readiness.
+Product structure review displays verified existing company/location choices and
+links to the real department editor, rather than collecting a second company or
+asking a finite-location administrator to bootstrap duplicate branches.

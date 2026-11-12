@@ -1,4 +1,55 @@
-## Deployed checkpoint — 12 November 2026
+## Deployed full HR workspace — 12 November 2026
+
+This supersedes the historical deployment pins below. Original HRM navigation,
+forms and real services now use verified Kuubu company sessions. Kuubu remains
+the company/module switcher and team/access owner. No database migration.
+
+| Component | Qualified live pin |
+| --- | --- |
+| API source | `07104108814072a90d69f384ffed1e11621e99b2` |
+| API image | `sha256:39b1f605b50b8a964bd63386db0933602aba05e683408afd42145d7ae71cd0cc` |
+| API consumer | `kuubu-full-hrm-release01-api01`, HTTPS loopback28981 |
+| HR SSR source | `36374eca45cd83390bea4443329cb2f640227436` |
+| Web consumer | `kuubu-full-hrm-release03-web01`, loopback28973 |
+| Proxy | `kuubu-full-hrm-release03-proxy01` |
+| Web publication | `full-hrm-web-publication-09`, 492 files, read-only |
+| Laravel capacity patch | `1569b40`, release `hrm-capacity-1569b40-deploy01` |
+
+Public website/Vercel pins and Procurement UI/capability holds are unchanged from
+the checkpoint below. Perfex origin authentication returned200. 132 regression
+checks passed, plus both dedicated cross-process roles and three Laravel quota
+tests (25 assertions). Private browser acceptance saved a company department,
+employee plus assignment, leave rule and real hiring draft. Protected PDFs survive
+restart. Major original HR read screens and public company-to-HR entry were checked.
+Production verification adds no synthetic HR records or real payroll payments.
+
+The finite existing location grant is preserved. Full legacy HR compatibility
+requires coverage of every company location/history and worker; narrower grants
+keep the bounded directory. Workforce self-service needs an explicit employee
+identity link. Planned/demo-only screens remain held. Workspace provisioning is
+not evidence of payroll/statutory readiness; company and login administration
+remain in Kuubu, while HR-owned setup remains available in the ERP.
+
+Recovery evidence: `/opt/kuubu-production/backups/hrm-full-before01`, database SHA256
+`f1c1dc5033f4ee3071663be65fe621c9ddb5a5a6b83d8de4e07e19cf95254cb2`.
+Four durable HR file mounts under shared/hrm-documents-01 cover employee/candidate
+uploads, case evidence and payslips. Daily root-private same-host DB/state/document
+backups use kuubu-production-backup-hrm01.timer; initial and updated-config runs
+passed. Off-site recovery is outside this qualification.
+
+Web rollback: first start kuubu-full-hrm-release02-web01 (28972), then replace the
+active proxy with kuubu-full-hrm-release02-proxy01. API28981 stays current. The
+previous minimal deployment also remains retained: API kuubu-procurement-991ba01-api01
+(28961), web kuubu-branding-b313cdf1-web01 (28931), proxy
+kuubu-procurement-991ba01-proxy01. Start its paired consumers before switching its
+proxy, then verify readiness. Rollback never down-migrates or restores over current
+customer records. Old consumers/private qualification consumers are retained stopped.
+
+Detailed contract: docs/engineering/HRM-PRODUCT-WORKSPACE-20261112.md. Receipts and
+screenshots: infrastructure inspection/qualifications/full-hrm-final-acceptance-01,
+full-hrm-production-release-01 and full-hrm-production-web03.
+
+## Historical deployed checkpoint — 12 November 2026
 
 This checkpoint supersedes the historical pins and holds below. Public ERP runs
 `991ba01c0a6aac701c4d8319011bf21bb50075d6`, API
