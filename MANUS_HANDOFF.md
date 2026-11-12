@@ -36,6 +36,21 @@ fence. The write committed before revocation; subsequent access and writes were
 denied. Entry-only grants could not expand legacy roles. Evidence:
 `inspection/qualifications/procurement-concurrency-native-05/result.json`.
 
+The final CUA browser cohort purchased HRM (3 users) plus Procurement (8 users)
+for K2500 and a second company's Procurement (1 user) for K500 through a
+controlled provider fixture. Real Laravel activation preceded explicit Core
+company creation. A recipient accepted a genuine protected invitation; module
+entry was denied before a separate grant and succeeded with read-only actions
+after it. Company A -> B -> A retained the correct company/Head office context:
+B had no vendors, A restored its persisted vendor. HRM employees opened directly
+from Kuubu for A and survived refresh. Invoice PDF downloaded through the browser.
+The public Procurement entry recovered to Return to Kuubu without an operational
+session; its initial navigation stalled once and succeeded after reload.
+Evidence: `inspection/qualifications/full-procurement-browser-02/acceptance.json`.
+This private browser transport maps origins/cookies and uses array mail plus
+controlled settlement; it does not prove a real public paid purchase or inbox
+delivery. Actual public sign-in and the K0 trial review were checked separately.
+
 Trials support verified platform-admin authority or explicit actual root CLI
 authority; finite expiry, reason, review and confirmation remain required.
 Unresolved collection blocks issuance. An explicitly requested production trial
