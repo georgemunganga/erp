@@ -85,6 +85,20 @@ builder.Services.AddCoreCompanyBusinessDate();
 // Procurement is a bounded module in this ERP host. Its schema still has an
 // independent migration command and credential; normal HRM startup never migrates it.
 var procurementConnStr = builder.Configuration.GetConnectionString("Procurement");
+if (Mightyfin.Erp.Hrm.Api.ProductProcurementAdmission.Enabled(builder.Configuration))
+{
+    if (string.IsNullOrWhiteSpace(procurementConnStr))
+        throw new InvalidOperationException("Product Procurement requires its owning database connection.");
+    var procurementValue = procurementConnStr.StartsWith("postgres", StringComparison.OrdinalIgnoreCase)
+        ? NpgsqlConnectionStringNormalizer.Normalize(procurementConnStr) : procurementConnStr;
+    var coreValue = connStr.StartsWith("postgres", StringComparison.OrdinalIgnoreCase)
+        ? NpgsqlConnectionStringNormalizer.Normalize(connStr) : connStr;
+    var coreDatabase = new Npgsql.NpgsqlConnectionStringBuilder(coreValue);
+    var procurementDatabase = new Npgsql.NpgsqlConnectionStringBuilder(procurementValue);
+    if (coreDatabase.Host != procurementDatabase.Host || coreDatabase.Port != procurementDatabase.Port
+        || coreDatabase.Database != procurementDatabase.Database)
+        throw new InvalidOperationException("Product Procurement must share the existing Core database and company fence.");
+}
 if (!string.IsNullOrWhiteSpace(procurementConnStr))
 {
     if (procurementConnStr.StartsWith("postgresql", StringComparison.OrdinalIgnoreCase) && procurementConnStr.Contains('?'))

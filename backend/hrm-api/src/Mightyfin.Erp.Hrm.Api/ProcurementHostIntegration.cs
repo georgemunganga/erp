@@ -113,9 +113,14 @@ public static class ProcurementHostIntegration
         services.AddScoped<IInvoiceMappingEvidenceReviewer, UnavailableInvoiceMappingEvidenceReviewer>();
         ProcurementInvoiceDocumentRoutes.AddServices(services, configuration);
         services.AddScoped<IProcurementScope>(sp => sp.GetRequiredService<ProcurementRequestScope>());
-        services.AddDbContext<ProcurementDbContext>(options =>
-            options.UseNpgsql(connection, provider =>
-                provider.MigrationsHistoryTable("__procurement_migrations", "procurement")));
+        services.AddScoped<ProductProcurementCommitGuard>();
+        services.AddDbContext<ProcurementDbContext>((provider, options) =>
+        {
+            options.UseNpgsql(connection, postgres =>
+                postgres.MigrationsHistoryTable("__procurement_migrations", "procurement"));
+            if (ProductProcurementAdmission.Enabled(configuration))
+                options.AddInterceptors(provider.GetRequiredService<ProductProcurementCommitGuard>());
+        });
         // The Core approval model shares the ERP database but owns a separate
         // schema and migration history. Its workflow endpoints stay disabled
         // until Procurement's Finance and policy guards are connected.
@@ -366,7 +371,7 @@ public static class ProcurementHostIntegration
             {
                 return Results.Problem(statusCode: 503, title: "Procurement database unavailable.");
             }
-        }).RequireAuthorization("procurement-access");
+        }).RequireAuthorization("procurement-access").ProductProcurement();
     }
 }
 
@@ -398,6 +403,21 @@ public sealed class ProcurementRequestScope : IProcurementScope, IApprovalScope,
     // alias metadata. Unlike WorkerId, this does not assert active employment,
     // home-company membership, access, or operational approval authority.
     public Guid? CoreLinkedWorkerId { get; private set; }
+    private CoreErpRequestScope? productAuthority;
+    private ProcurementCorePrincipal? productPrincipal;
+    internal bool IsProduct => productAuthority is not null;
+    internal ProcurementCorePrincipal? ProductPrincipal => productAuthority is { IsCurrent: true }
+        ? productPrincipal : null;
+    internal void AssignProductPrincipal(CoreErpRequestScope authority, ProcurementCorePrincipal principal)
+    {
+        if (productAuthority is not null || !ProductProcurementAdmission.Allows(authority)
+            || authority.TenantId != TenantId || authority.CompanyId != LegalEntityId
+            || authority.PrincipalId != PrincipalId || principal.Id != PrincipalId
+            || !authority.Actions.SequenceEqual(principal.Actions) || !authority.Roles.SequenceEqual(principal.Roles))
+            throw new InvalidOperationException("A current selected Procurement proof is required.");
+        productAuthority = authority;
+        productPrincipal = principal;
+    }
     // Retained response compatibility only. System users are never narrowed by HR linkage.
     public bool AdminViewOnly => false;
     public bool IsConfined { get; private set; }
@@ -443,7 +463,7 @@ public sealed class ProcurementRequestScope : IProcurementScope, IApprovalScope,
 }
 
 /// <summary>Resolves entity and branch from authenticated ERP identity and Organization data.</summary>
-public sealed class ProcurementScopeMiddleware(RequestDelegate next, IWebHostEnvironment environment)
+public sealed class ProcurementScopeMiddleware(RequestDelegate next, IWebHostEnvironment environment, IConfiguration? configuration = null)
 {
     public async Task InvokeAsync(HttpContext http, ProcurementRequestScope scope, HrmDbContext db)
     {
@@ -458,6 +478,14 @@ public sealed class ProcurementScopeMiddleware(RequestDelegate next, IWebHostEnv
         // Authorization runs before this middleware. Anonymous requests retain the normal 401.
         if (http.User.Identity?.IsAuthenticated != true)
         {
+            await next(http);
+            return;
+        }
+
+        if (configuration is not null && ProductRequestAuthentication.Enabled(configuration)
+            || http.User.Identity?.AuthenticationType == ProductRequestAuthentication.Scheme)
+        {
+            if (!await ProductProcurementFlow.BindScope(http, db, scope)) return;
             await next(http);
             return;
         }

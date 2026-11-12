@@ -61,6 +61,7 @@ internal sealed class CoreErpRequestScope(CompanyModuleAccessDecision grant, boo
     internal bool AllCompanyLocations { get; } = allCompany;
     internal IReadOnlyList<Guid> LocationIds { get; } = Array.AsReadOnly(locations.ToArray());
     internal IReadOnlyList<string> Roles => grant.Roles;
+    internal IReadOnlyList<string> Actions => grant.Actions;
     internal bool IsCurrent => grant.IsCurrent;
     internal bool AllowsAction(string action) => grant.AllowsAction(action);
     public override string ToString() => nameof(CoreErpRequestScope);

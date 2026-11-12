@@ -61,9 +61,11 @@ internal static class ProductRequestAuthentication
             var health=endpoint is not null && HttpMethods.IsGet(http.Request.Method) && (http.Request.Path=="/health/live" || http.Request.Path=="/health/ready");
             if(callback || health || endpoint?.Metadata.GetMetadata<ProductIdentityRequestBoundary>() is not null){await next(http);return;}
             http.Response.Headers.CacheControl="no-store";http.Response.Headers.Pragma="no-cache";
-            if(endpoint?.Metadata.GetMetadata<ProductWorkspaceRequestPolicy>() is null && endpoint?.Metadata.GetMetadata<ProductWorkerRequestPolicy>() is null){http.Response.StatusCode=endpoint is null?404:403;return;}
+            var procurement = ProductProcurementAdmission.IsEndpoint(http, app.Configuration);
+            if(endpoint?.Metadata.GetMetadata<ProductWorkspaceRequestPolicy>() is null && endpoint?.Metadata.GetMetadata<ProductWorkerRequestPolicy>() is null && !procurement){http.Response.StatusCode=endpoint is null?404:403;return;}
             var origin=app.Configuration["ERP:ProductIdentity:PublicOrigin"]??"https://app.kuubuerp.com";
             if(http.Request.Scheme+"://"+http.Request.Host!=origin || http.Request.Headers["Sec-Fetch-Site"]=="cross-site") {http.Response.StatusCode=403;return;}
+            if(procurement){await ProductProcurementFlow.Boundary(http,next);return;}
             string[] selectors=["Authorization","X-Tenant","X-Tenant-Id","X-Shell-Entity","X-Shell-Location","X-Branch-Id","X-All-Branches"];
             if(selectors.Any(x=>http.Request.Headers.ContainsKey(x))){http.Response.StatusCode=400;return;}
             var worker=endpoint.Metadata.GetMetadata<ProductWorkerRequestPolicy>();
@@ -80,7 +82,8 @@ internal sealed class ProductRequestAuthenticationHandler(IOptionsMonitor<Produc
     private AuthenticateResult Deny(int status){failureStatus=status;return AuthenticateResult.Fail("Product request authority unavailable.");}
     protected override async Task<AuthenticateResult> HandleAuthenticateAsync()
     {
-        if(Context.GetEndpoint()?.Metadata.GetMetadata<ProductWorkspaceRequestPolicy>() is null && Context.GetEndpoint()?.Metadata.GetMetadata<ProductWorkerRequestPolicy>() is null)return AuthenticateResult.NoResult();
+        var procurement = ProductProcurementAdmission.IsEndpoint(Context, Context.RequestServices.GetRequiredService<IConfiguration>());
+        if(Context.GetEndpoint()?.Metadata.GetMetadata<ProductWorkspaceRequestPolicy>() is null && Context.GetEndpoint()?.Metadata.GetMetadata<ProductWorkerRequestPolicy>() is null && !procurement)return AuthenticateResult.NoResult();
         var token=ProductErpSessionFlow.ReadCookie(Context);if(token is null)return Deny(401);
         if (Request.Headers.TryGetValue(ProductRequestAuthentication.SessionContextHeader, out var expected)
             && (expected.Count != 1 || expected[0] != ProductRequestAuthentication.SessionContext(token)))
@@ -91,10 +94,12 @@ internal sealed class ProductRequestAuthenticationHandler(IOptionsMonitor<Produc
         var admission=Context.RequestServices.GetRequiredService<CoreProductSessionAdmission>();
         var state=await admission.ReadAsync(identity,token,Context.RequestAborted);
         if(state.Status!=ModuleAccessStatus.Authorized || state.Scope is not {IsCurrent:true} scope)return Deny(state.Status==ModuleAccessStatus.Unavailable?503:403);
+        if(procurement && !ProductProcurementAdmission.Allows(scope))return Deny(403);
         ProductRequestContext.Set(Context,scope,(db,ct)=>db is null?admission.ReadAsync(identity,token,ct):admission.ReadWithinAsync(db,identity,token,ct));
         var claims=new List<Claim>{new("tenant",scope.TenantId),new("sub",scope.PrincipalId.ToString("D")),
             new(ClaimTypes.NameIdentifier,scope.PrincipalId.ToString("D")),new("kuubu:company",scope.CompanyId.ToString("D")),new("kuubu:module",scope.Module)};
         claims.AddRange(scope.Roles.Select(x=>new Claim(ClaimTypes.Role,x)));
+        if(procurement){claims.Add(new Claim(ProcurementPermissions.ConfiguredClaim,"true"));claims.AddRange(scope.Actions.Select(x=>new Claim(ProcurementPermissions.ActionClaim,x)));}
         return AuthenticateResult.Success(new AuthenticationTicket(new ClaimsPrincipal(new ClaimsIdentity(claims,ProductRequestAuthentication.Scheme,ClaimTypes.Name,ClaimTypes.Role)),Scheme.Name));
     }
     protected override Task HandleChallengeAsync(AuthenticationProperties properties){Response.StatusCode=failureStatus;return Task.CompletedTask;}

@@ -10,7 +10,7 @@ public static class ProcurementContextRoutes
     public static void MapRoutes(WebApplication app)
     {
         app.MapGet("/api/procurement/v1/context", GetAsync)
-            .RequireAuthorization("procurement-access");
+            .RequireAuthorization("procurement-access").ProductProcurement();
     }
 
     private static async Task<IResult> GetAsync(HttpContext http, HrmDbContext db,
@@ -27,7 +27,8 @@ public static class ProcurementContextRoutes
     public static async Task<ProcurementContextResponse?> BuildAsync(HrmDbContext db,
         ProcurementRequestScope scope, IEnumerable<Claim> claims, CancellationToken ct = default)
     {
-        var principal = await ProcurementCorePrincipals.CurrentAsync(db, scope.TenantId, scope.SubjectId, ct);
+        var principal = scope.IsProduct ? scope.ProductPrincipal
+            : await ProcurementCorePrincipals.CurrentAsync(db, scope.TenantId, scope.SubjectId, ct);
         if (principal is null || scope.PrincipalId != principal.Id) return null;
         var currentClaims = principal.Claims(scope.TenantId);
         var granted = ProcurementPermissions.GrantedPolicies(currentClaims);
@@ -36,7 +37,8 @@ public static class ProcurementContextRoutes
             .Where(x => x.TenantId == scope.TenantId && x.Id == scope.LegalEntityId && !x.IsArchived)
             .Select(x => new ProcurementCompany(x.Id, x.Code, x.RegisteredName, x.Currency)).SingleOrDefaultAsync(ct);
         if (company is null) return null;
-        var assignments = await db.UserBranchAssignments.AsNoTracking()
+        var assignments = scope.IsProduct ? scope.IsConfined ? scope.PermittedWorkLocationIds.ToArray() : []
+            : await db.UserBranchAssignments.AsNoTracking()
             .Where(x => x.TenantId == scope.TenantId && x.UserId == principal.Id && !x.IsArchived)
             .Select(x => x.LocationId).Distinct().ToArrayAsync(ct);
         if (assignments.Length > 0 && !scope.IsExplicitAllBranches
