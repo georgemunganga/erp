@@ -17,7 +17,7 @@ import { realApi, useApi } from "@/platform/use-api";
 
 export const Route = createFileRoute("/hrm/configuration/holidays")({
   beforeLoad: () => { throw redirect({ to: "/hrm/workspace/settings/$slug", params: { slug: "holidays" }, replace: true }); },
-  head: () => ({ meta: [{ title: "Holiday List — Newworldcargo HRM" }, { name: "description", content: "Live public holiday calendars." }] }),
+  head: () => ({ meta: [{ title: "Holiday List — Kuubu HRM" }, { name: "description", content: "Live public holiday calendars." }] }),
   component: HolidaysPage,
 });
 

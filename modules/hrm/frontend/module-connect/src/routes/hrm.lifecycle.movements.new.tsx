@@ -18,9 +18,9 @@ import { PageHeader } from "@/platform/components/PageHeader";
 export const Route = createFileRoute("/hrm/lifecycle/movements/new")({
   head: () => ({
     meta: [
-      { title: "Raise a movement — Newworldcargo HRM" },
+      { title: "Raise a movement — Kuubu HRM" },
       { name: "description", content: "Guided movement: purpose, current assignment, proposed change with an effective date, impact summary, review and submit." },
-      { property: "og:title", content: "Raise a movement — Newworldcargo HRM" },
+      { property: "og:title", content: "Raise a movement — Kuubu HRM" },
       { property: "og:description", content: "Submitting records a pending future change — nothing in the employment history is overwritten." },
     ],
   }),

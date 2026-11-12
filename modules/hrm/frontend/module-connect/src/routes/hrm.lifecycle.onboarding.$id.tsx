@@ -11,9 +11,9 @@ import { RestrictedState } from "@/platform/components/States";
 export const Route = createFileRoute("/hrm/lifecycle/onboarding/$id")({
   head: () => ({
     meta: [
-      { title: "Onboarding case — Newworldcargo HRM" },
+      { title: "Onboarding case — Kuubu HRM" },
       { name: "description", content: "One joiner's statutory pack: what is complete, what is missing and what blocks a clean start." },
-      { property: "og:title", content: "Onboarding case — Newworldcargo HRM" },
+      { property: "og:title", content: "Onboarding case — Kuubu HRM" },
       { property: "og:description", content: "One joiner's statutory pack: what is complete, what is missing and what blocks a clean start." },
     ],
   }),

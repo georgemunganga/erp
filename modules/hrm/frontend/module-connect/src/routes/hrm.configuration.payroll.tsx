@@ -36,9 +36,9 @@ export const Route = createFileRoute("/hrm/configuration/payroll")({
   beforeLoad: () => { throw redirect({ to: "/hrm/workspace/settings/$slug", params: { slug: "payroll" }, replace: true }); },
   head: () => ({
     meta: [
-      { title: "Payroll setup — Newworldcargo HRM" },
+      { title: "Payroll setup — Kuubu HRM" },
       { name: "description", content: description },
-      { property: "og:title", content: "Payroll setup — Newworldcargo HRM" },
+      { property: "og:title", content: "Payroll setup — Kuubu HRM" },
       { property: "og:description", content: description },
     ],
   }),

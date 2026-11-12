@@ -26,9 +26,9 @@ import { feedback } from "@/platform/feedback";
 export const Route = createFileRoute("/hrm/people/data-quality")({
   head: () => ({
     meta: [
-      { title: "Data quality — Newworldcargo HRM" },
+      { title: "Data quality — Kuubu HRM" },
       { name: "description", content: "Quality rules with real consequences, reversible merges, previewed bulk changes and import reconciliation." },
-      { property: "og:title", content: "Data quality — Newworldcargo HRM" },
+      { property: "og:title", content: "Data quality — Kuubu HRM" },
       { property: "og:description", content: "Quality rules with real consequences, reversible merges, previewed bulk changes and import reconciliation." },
     ],
   }),

@@ -13,9 +13,9 @@ import { useMock } from "@/platform/use-mock";
 export const Route = createFileRoute("/hrm/talent/succession")({
   head: () => ({
     meta: [
-      { title: "Succession and skills — Newworldcargo HRM" },
+      { title: "Succession and skills — Kuubu HRM" },
       { name: "description", content: "Which roles would hurt to lose, who could step up, and where the skills gaps are." },
-      { property: "og:title", content: "Succession and skills — Newworldcargo HRM" },
+      { property: "og:title", content: "Succession and skills — Kuubu HRM" },
       { property: "og:description", content: "Which roles would hurt to lose, and where the skills gaps are." },
     ],
   }),

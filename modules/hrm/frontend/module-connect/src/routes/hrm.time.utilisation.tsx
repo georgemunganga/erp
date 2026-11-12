@@ -11,9 +11,9 @@ import { useMock } from "@/platform/use-mock";
 export const Route = createFileRoute("/hrm/time/utilisation")({
   head: () => ({
     meta: [
-      { title: "Utilisation and hand-off — Newworldcargo HRM" },
+      { title: "Utilisation and hand-off — Kuubu HRM" },
       { name: "description", content: "Where time went, and what gets passed to payroll and accounting." },
-      { property: "og:title", content: "Utilisation and hand-off — Newworldcargo HRM" },
+      { property: "og:title", content: "Utilisation and hand-off — Kuubu HRM" },
       { property: "og:description", content: "Where time went, and what gets passed to payroll and accounting." },
     ],
   }),

@@ -20,9 +20,9 @@ import { useMock } from "@/platform/use-mock";
 export const Route = createFileRoute("/hrm/relations/safety")({
   head: () => ({
     meta: [
-      { title: "Health and safety — Newworldcargo HRM" },
+      { title: "Health and safety — Kuubu HRM" },
       { name: "description", content: "Report an incident or hazard, and track investigations and corrective actions." },
-      { property: "og:title", content: "Health and safety — Newworldcargo HRM" },
+      { property: "og:title", content: "Health and safety — Kuubu HRM" },
       { property: "og:description", content: "Report an incident or hazard, and track investigations and corrective actions." },
     ],
   }),

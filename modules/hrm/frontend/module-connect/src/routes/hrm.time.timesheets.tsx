@@ -20,7 +20,7 @@ import { isTimesheetOnly, useAuth } from "@/platform/auth";
 import { realApi, useApi } from "@/platform/use-api";
 
 export const Route = createFileRoute("/hrm/time/timesheets")({
-  head: () => ({ meta: [{ title: "Timesheet summary — Newworldcargo HRM" }, { name: "description", content: "Review live attendance across daily, weekly, and monthly periods." }] }),
+  head: () => ({ meta: [{ title: "Timesheet summary — Kuubu HRM" }, { name: "description", content: "Review live attendance across daily, weekly, and monthly periods." }] }),
   component: TimesheetsPage,
 });
 

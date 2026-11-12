@@ -15,7 +15,7 @@ import { PeriodOvertimeAmounts } from "@/platform/components/PeriodOvertimeAmoun
 import { realApi, useApi } from "@/platform/use-api";
 
 export const Route = createFileRoute("/hrm/time/operations")({
-  head: () => ({ meta: [{ title: "Overtime review — Newworldcargo HRM" }, { name: "description", content: "Review attendance-derived overtime before payroll." }] }),
+  head: () => ({ meta: [{ title: "Overtime review — Kuubu HRM" }, { name: "description", content: "Review attendance-derived overtime before payroll." }] }),
   component: OvertimeReviewPage,
 });
 

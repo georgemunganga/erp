@@ -21,12 +21,12 @@ export const Route = createFileRoute("/hrm/configuration/technical")({
   beforeLoad: () => { throw redirect({ to: "/hrm/workspace/settings/$slug", params: { slug: "technical" }, replace: true }); },
   head: () => ({
     meta: [
-      { title: "Technical settings — Newworldcargo HRM" },
+      { title: "Technical settings — Kuubu HRM" },
       {
         name: "description",
         content: "Integrations, import and export, numbering series and HR vendors.",
       },
-      { property: "og:title", content: "Technical settings — Newworldcargo HRM" },
+      { property: "og:title", content: "Technical settings — Kuubu HRM" },
       {
         property: "og:description",
         content: "Integrations, import and export, numbering series and HR vendors.",
