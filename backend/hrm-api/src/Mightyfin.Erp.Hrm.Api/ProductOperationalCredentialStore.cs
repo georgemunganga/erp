@@ -59,6 +59,22 @@ internal sealed class ProductOperationalCredentialStore
         return stream;
     }
     private FileStream Gate()=>Open(Path.Combine(directory,".operational-credentials.lock"),FileMode.OpenOrCreate);
+    private async Task<FileStream?> ObservationLockAsync(string path,CancellationToken cancellation)
+    {
+        // Parallel screen reads must wait for brief publication locks, without
+        // replaying a refresh or holding the directory gate while waiting.
+        var start=System.Diagnostics.Stopwatch.GetTimestamp();
+        while(true) {
+            cancellation.ThrowIfCancellationRequested();
+            try {
+                using var gate=Gate();
+                if(!File.Exists(path+".capacity"))return null;
+                return Open(path+".lock",FileMode.OpenOrCreate);
+            }catch(IOException)when(System.Diagnostics.Stopwatch.GetElapsedTime(start)<TimeSpan.FromSeconds(2)) {
+                await Task.Delay(20,cancellation);
+            }
+        }
+    }
     private static DateTimeOffset? CapacityExpiry(string path)
     {
         if(!Private(path,32))return null;
@@ -151,9 +167,9 @@ internal sealed class ProductOperationalCredentialStore
         if(!ProductInvitationIntentStore.Opaque(handle) || !ProductInvitationIntentStore.Opaque(binding))return new(OperationalCredentialStatus.Denied);
         var path=PathFor(handle);FileStream held;
         try {
-            using var gate=Gate();
-            if(!File.Exists(path+".capacity"))return new(OperationalCredentialStatus.Denied);
-            held=Open(path+".lock",FileMode.OpenOrCreate);
+            var acquired=await ObservationLockAsync(path,cancellation);
+            if(acquired is null)return new(OperationalCredentialStatus.Denied);
+            held=acquired;
         }catch(IOException){return new(OperationalCredentialStatus.Busy);}
         catch(UnauthorizedAccessException){return new(OperationalCredentialStatus.Unavailable);}
         using(held) {
@@ -187,9 +203,8 @@ internal sealed class ProductOperationalCredentialStore
                 held.Dispose();
                 var current=await observe(value.Subject,value.Access,budget.Token);
                 budget.Token.ThrowIfCancellationRequested();
-                using var finalGate=Gate();
-                if(!File.Exists(path+".capacity"))return new(OperationalCredentialStatus.Denied);
-                using var finalLock=Open(path+".lock",FileMode.OpenOrCreate);
+                using var finalLock=await ObservationLockAsync(path,cancellation);
+                if(finalLock is null)return new(OperationalCredentialStatus.Denied);
                 if(Revoked(path))return new(OperationalCredentialStatus.Denied);
                 var latest=Read(path,handle,binding);
                 if(latest is null || latest.Subject!=value.Subject || Fence(path+".fence")!=latest.Revision-1)

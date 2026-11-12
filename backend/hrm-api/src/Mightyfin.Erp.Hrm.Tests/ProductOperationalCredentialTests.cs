@@ -6,6 +6,19 @@ namespace Mightyfin.Erp.Hrm.Tests;
 public sealed class ProductOperationalCredentialTests
 {
     [Fact]
+    public async Task Parallel_screen_reads_wait_for_one_refresh_and_each_observe_the_current_person()
+    {
+        var f=new Fixture();var handle=await f.Issue(10);var observations=0;
+        var requests=Enumerable.Range(0,16).Select(_=>Task.Run(()=>f.Reopen().ObserveAsync(handle,f.Binding,
+            async(subject,token,ct)=> { await Task.Yield();Interlocked.Increment(ref observations);return await f.Observe(subject,token,ct); },
+            async(token,ct)=> { await Task.Delay(100,ct);return await f.Refresh(token,ct); }))).ToArray();
+        var results=await Task.WhenAll(requests);
+        Assert.All(results,result=>Assert.Equal(OperationalCredentialStatus.Verified,result.Status));
+        Assert.Equal(1,f.Refreshes);Assert.Equal(16,observations);
+        f.Person=OperationalSubjectStatus.Denied;
+        Assert.Equal(OperationalCredentialStatus.Denied,(await f.Read(handle)).Status);
+    }
+    [Fact]
     public async Task Authenticated_person_limits_survive_reopening_and_revocation_does_not_reset_issue_rate()
     {
         var f=new Fixture();var handles=new List<string>();
