@@ -1,3 +1,7 @@
+import { ProductEmployeeDirectory } from "@/modules/core/ProductEmployeeDirectory";
+import { FULL_PRODUCT_HRM, clearProductHrmSession, loadProductHrmSession, logoutProductHrmSession, type ProductHrmSession } from "@/modules/core/product-hrm-session";
+import { Button } from "@/components/ui/button";
+import { KuubuIdentity } from "@/platform/components/KuubuIdentity";
 /**
  * Authentication provider for the ERP web shell.
  *
@@ -17,7 +21,7 @@
  * Identity is always owned by the IdP — the shell never stores or validates
  * credentials itself.
  */
-import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import type { Role } from "@/mock/types";
 import { hrmApi, type LinkedWorker, type LocalAuthUser } from "@/platform/api-client";
@@ -146,7 +150,7 @@ function mapRolesToDemoRole(roles: string[]): Role {
 /** Public paths that never need a session (speak-up must stay anonymous). */
 const PUBLIC_PATHS = new Set(["/sign-in", "/speak-up"]);
 
-export function AuthProvider({ children }: { children: ReactNode }) {
+function LegacyAuthProvider({ children }: { children: ReactNode }) {
   const [authSettings, setAuthSettings] = useState(INITIAL_AUTH_SETTINGS);
   const [session, setSession] = useState<OidcSession | null>(null);
   const [localUser, setLocalUser] = useState<LocalAuthUser | null>(null);
@@ -403,4 +407,72 @@ export function useAuth() {
   const ctx = useContext(Ctx);
   if (!ctx) throw new Error("useAuth must be used inside AuthProvider");
   return ctx;
+}
+
+
+export function AuthProvider({ children }: { children: ReactNode }) {
+  return FULL_PRODUCT_HRM ? <ProductHrmAuthProvider>{children}</ProductHrmAuthProvider>
+    : <LegacyAuthProvider>{children}</LegacyAuthProvider>;
+}
+
+function ProductHrmAuthProvider({ children }: { children: ReactNode }) {
+  const expectedMarker = useRef<string | undefined>(undefined);
+  const [selected, setSelected] = useState<ProductHrmSession | null>(null);
+  const [error, setError] = useState("");
+  const [attempt, setAttempt] = useState(0);
+  useEffect(() => {
+    let stopped = false;
+    let request: AbortController | undefined;
+    let marker: string | undefined = expectedMarker.current;
+    async function check() {
+      if (document.hidden || request || stopped) return;
+      const controller = new AbortController(); request = controller;
+      try {
+        const result = await loadProductHrmSession(controller.signal, marker);
+        if (!stopped && !controller.signal.aborted) {
+          marker = result.marker; expectedMarker.current = result.marker;
+          setSelected(previous => previous?.marker === result.marker ? previous : result);
+        }
+      } catch (failure) {
+        if (!stopped && !controller.signal.aborted) {
+          clearProductHrmSession(); setSelected(null);
+          setError(failure instanceof Error ? failure.message : "Return to Kuubu to choose your company.");
+        }
+      } finally { if (request === controller) request = undefined; }
+    }
+    function visibility() {
+      if (document.hidden) { request?.abort(); request = undefined; clearProductHrmSession(); setSelected(null); }
+      else void check();
+    }
+    setError(""); void check();
+    const timer = window.setInterval(() => void check(), 30000);
+    document.addEventListener("visibilitychange", visibility);
+    window.addEventListener("pageshow", visibility);
+    return () => { stopped = true; request?.abort(); clearProductHrmSession(); window.clearInterval(timer);
+      document.removeEventListener("visibilitychange", visibility); window.removeEventListener("pageshow", visibility); };
+  }, [attempt]);
+  const value = useMemo<AuthState>(() => ({
+    authSettings: { ready: true, available: true, localEnabled: false, oidcEnabled: false },
+    session: null, user: selected ? { subject: selected.principal, name: "Workspace owner", roles: selected.roles } : null,
+    loading: !selected && !error, authenticated: Boolean(selected), authorized: Boolean(selected),
+    erpAuthorized: Boolean(selected), procurementAuthorized: false,
+    resolveRole: () => mapRolesToDemoRole(selected?.roles ?? []),
+    signInInteractive: () => window.location.assign("https://www.kuubuerp.com/account/#/companies"),
+    signInLocal: async () => { throw new Error("Sign in through Kuubu."); },
+    signOut: () => {
+      setSelected(null);
+      void logoutProductHrmSession().then(() => window.location.assign("https://www.kuubuerp.com/account/#/companies"))
+        .catch(() => setError("We couldn’t confirm sign-out. Please try again."));
+    },
+    worker: null, resolvingWorker: false, coreWorkspace: selected?.choices ?? null,
+    coreAccessLoading: !selected && !error, coreActions: [],
+  }), [selected, error]);
+  const boundedDirectory = selected && !selected.fullWorkspace && !error;
+  return <Ctx.Provider value={value}>{boundedDirectory ? <ProductEmployeeDirectory /> : selected && !error ? children :
+    <main className="mx-auto min-h-dvh max-w-xl space-y-6 px-5 py-8"><KuubuIdentity />
+      <h1 className="text-2xl font-semibold">{error ? "Return to Kuubu" : "Checking your HR workspace"}</h1>
+      <p role={error ? "alert" : "status"}>{error || "Checking your company, HR permissions and assigned locations…"}</p>
+      {error ? <div className="flex gap-3"><Button asChild><a href="https://www.kuubuerp.com/account/#/companies">Choose company in Kuubu</a></Button>
+        <Button variant="outline" onClick={() => { setError(""); setAttempt(x => x + 1); }}>Try again</Button></div> : null}
+    </main>}</Ctx.Provider>;
 }

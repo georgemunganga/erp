@@ -1,3 +1,4 @@
+import { FULL_PRODUCT_HRM } from "@/modules/core/product-hrm-session";
 import { createContext, useContext, useEffect, useLayoutEffect, useState, type ReactNode } from "react";
 import { useRouterState } from "@tanstack/react-router";
 import type { CompanyBranding } from "@/platform/api-client";
@@ -22,6 +23,7 @@ function cachedBranding(): CompanyBranding | null {
 }
 
 function rememberBranding(value: CompanyBranding) {
+  if (FULL_PRODUCT_HRM) return;
   try { localStorage.setItem(BRANDING_CACHE_KEY, JSON.stringify(value)); } catch { /* Storage can be disabled or full. */ }
 }
 
@@ -52,13 +54,13 @@ export function BrandingProvider({ children }: { children: ReactNode }) {
   };
 
   useLayoutEffect(() => {
-    const cached = cachedBranding();
+    const cached = FULL_PRODUCT_HRM ? null : cachedBranding();
     if (cached) {
       setCurrentBranding(cached);
       setReady(true);
     }
     const onStorage = (event: StorageEvent) => {
-      if (event.key === BRANDING_CACHE_KEY) {
+      if (!FULL_PRODUCT_HRM && event.key === BRANDING_CACHE_KEY) {
         const next = cachedBranding();
         if (next) setCurrentBranding(next);
       }
@@ -76,16 +78,17 @@ export function BrandingProvider({ children }: { children: ReactNode }) {
     const timeout = window.setTimeout(() => { if (active) setReady(true); }, 3000);
     // This endpoint contains public presentation settings only. Fetch it before
     // sign-in and again after authentication so tenant claims are respected.
-    realApi.publicBranding().then((value) => {
-      if (active) setBranding(value);
+    (FULL_PRODUCT_HRM ? realApi.branding() : realApi.publicBranding()).then((value) => {
+      if (active) setBranding(FULL_PRODUCT_HRM && !value.updatedAt ? { ...value, displayName: "Kuubu", fontFamily: "Poppins", primaryColor: "#004b3b", primaryForegroundColor: "#ffffff", buttonColor: "#004b3b", buttonForegroundColor: "#ffffff", secondaryColor: "#f2f7ed", secondaryForegroundColor: "#004b3b", accentColor: "#69c829", accentForegroundColor: "#004b3b", railColor: "#073e2e", railForegroundColor: "#ffffff", railMutedColor: "#b6cfbf", railActiveColor: "#69c829", logoLightDataUri: null, logoDarkDataUri: null, faviconDataUri: null } : value);
     }).catch(() => { /* A branding outage must not prevent sign-in. */ })
       .finally(() => { if (active) setReady(true); window.clearTimeout(timeout); });
     return () => { active = false; window.clearTimeout(timeout); };
   }, [authenticated]);
 
   useLayoutEffect(() => {
+    if (FULL_PRODUCT_HRM) document.documentElement.style.setProperty("--erp-font-family", '"Poppins", ui-sans-serif, system-ui, sans-serif');
     if (!branding) return;
-    const root = document.documentElement;
+    const root = FULL_PRODUCT_HRM ? document.body : document.documentElement;
     for (const [token, field] of Object.entries(colourTokens)) {
       const value = branding[field];
       if (typeof value === "string") root.style.setProperty(token, value);
@@ -95,7 +98,7 @@ export function BrandingProvider({ children }: { children: ReactNode }) {
       Poppins: '"Poppins", ui-sans-serif, system-ui, sans-serif',
       Inter: '"Inter", ui-sans-serif, system-ui, sans-serif',
     };
-    root.style.setProperty("--erp-font-family", fonts[branding.fontFamily] ?? fonts.Montserrat);
+    root.style.setProperty("--erp-font-family", FULL_PRODUCT_HRM ? fonts.Poppins : fonts[branding.fontFamily] ?? fonts.Montserrat);
     document.title = `${branding.displayName} — ${pathname.startsWith("/core") ? "ERP Core" : "HR workspace"}`;
     const icon = document.querySelector<HTMLLinkElement>('link[rel="icon"]');
     if (icon) icon.href = branding.faviconDataUri || "/favicon.svg";

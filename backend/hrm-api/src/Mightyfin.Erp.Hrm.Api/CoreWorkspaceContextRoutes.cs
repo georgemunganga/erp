@@ -86,7 +86,10 @@ public static class CoreWorkspaceContextRoutes
         if(final!=ModuleAccessStatus.Authorized)return final==ModuleAccessStatus.Unavailable?Results.StatusCode(503):Results.Forbid();
         // Product context never consults legacy RolesCsv, branch assignments or
         // role-to-Core-action bootstrap. Company-wide means this company only.
+        var fullHrm = ProductHrmWorkspace.Enabled(http.RequestServices.GetRequiredService<IConfiguration>())
+            && await ProductHrmWorkspace.CoversCompanyAsync(http, core, ct);
         return Results.Ok(new{schemaVersion=1,tenantId=tenant,principalId=scope.PrincipalId,contextKind="product",selectedModule=scope.Module,
+            hrmWorkspace=fullHrm,moduleRoles=scope.Roles,
             selectedCompanyId=company,organisationWide=scope.AllCompanyLocations,companies,branches=choices,coreActions=Array.Empty<string>(),
             sessionContext = ProductRequestAuthentication.SessionContext(token),
             workerDirectory = scope.Module == "hrm" && scope.Roles.Any(role => role is "hr_ops" or "hr_admin" or "payroll" or "manager"),

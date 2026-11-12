@@ -694,11 +694,11 @@ function OrganisationStep(props: { sending: boolean; onComplete: (p: Record<stri
         <div className="grid gap-4 sm:grid-cols-2">
           <div className="space-y-1.5">
             <Label htmlFor="org-name">Registered name *</Label>
-            <Input id="org-name" value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Newworldcargo" />
+            <Input id="org-name" value={name} onChange={(e) => setName(e.target.value)} placeholder="Company name" />
           </div>
           <div className="space-y-1.5">
             <Label htmlFor="org-trading">Trading name</Label>
-            <Input id="org-trading" value={trading} onChange={(e) => setTrading(e.target.value)} placeholder="e.g. Newworldcargo" />
+            <Input id="org-trading" value={trading} onChange={(e) => setTrading(e.target.value)} placeholder="Company name" />
           </div>
         </div>
         <div className="grid gap-4 sm:grid-cols-2">

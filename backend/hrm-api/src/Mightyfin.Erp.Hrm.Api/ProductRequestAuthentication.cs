@@ -62,10 +62,12 @@ internal static class ProductRequestAuthentication
             if(callback || health || endpoint?.Metadata.GetMetadata<ProductIdentityRequestBoundary>() is not null){await next(http);return;}
             http.Response.Headers.CacheControl="no-store";http.Response.Headers.Pragma="no-cache";
             var procurement = ProductProcurementAdmission.IsEndpoint(http, app.Configuration);
-            if(endpoint?.Metadata.GetMetadata<ProductWorkspaceRequestPolicy>() is null && endpoint?.Metadata.GetMetadata<ProductWorkerRequestPolicy>() is null && !procurement){http.Response.StatusCode=endpoint is null?404:403;return;}
+            var hrm = ProductHrmWorkspace.IsEndpoint(http, app.Configuration);
+            if(endpoint?.Metadata.GetMetadata<ProductWorkspaceRequestPolicy>() is null && endpoint?.Metadata.GetMetadata<ProductWorkerRequestPolicy>() is null && !procurement && !hrm){http.Response.StatusCode=endpoint is null?404:403;return;}
             var origin=app.Configuration["ERP:ProductIdentity:PublicOrigin"]??"https://app.kuubuerp.com";
             if(http.Request.Scheme+"://"+http.Request.Host!=origin || http.Request.Headers["Sec-Fetch-Site"]=="cross-site") {http.Response.StatusCode=403;return;}
             if(procurement){await ProductProcurementFlow.Boundary(http,next);return;}
+            if(hrm){await ProductHrmWorkspace.Boundary(http,next);return;}
             string[] selectors=["Authorization","X-Tenant","X-Tenant-Id","X-Shell-Entity","X-Shell-Location","X-Branch-Id","X-All-Branches"];
             if(selectors.Any(x=>http.Request.Headers.ContainsKey(x))){http.Response.StatusCode=400;return;}
             var worker=endpoint.Metadata.GetMetadata<ProductWorkerRequestPolicy>();
@@ -83,7 +85,8 @@ internal sealed class ProductRequestAuthenticationHandler(IOptionsMonitor<Produc
     protected override async Task<AuthenticateResult> HandleAuthenticateAsync()
     {
         var procurement = ProductProcurementAdmission.IsEndpoint(Context, Context.RequestServices.GetRequiredService<IConfiguration>());
-        if(Context.GetEndpoint()?.Metadata.GetMetadata<ProductWorkspaceRequestPolicy>() is null && Context.GetEndpoint()?.Metadata.GetMetadata<ProductWorkerRequestPolicy>() is null && !procurement)return AuthenticateResult.NoResult();
+        var hrm = ProductHrmWorkspace.IsEndpoint(Context, Context.RequestServices.GetRequiredService<IConfiguration>());
+        if(Context.GetEndpoint()?.Metadata.GetMetadata<ProductWorkspaceRequestPolicy>() is null && Context.GetEndpoint()?.Metadata.GetMetadata<ProductWorkerRequestPolicy>() is null && !procurement && !hrm)return AuthenticateResult.NoResult();
         var token=ProductErpSessionFlow.ReadCookie(Context);if(token is null)return Deny(401);
         if (Request.Headers.TryGetValue(ProductRequestAuthentication.SessionContextHeader, out var expected)
             && (expected.Count != 1 || expected[0] != ProductRequestAuthentication.SessionContext(token)))

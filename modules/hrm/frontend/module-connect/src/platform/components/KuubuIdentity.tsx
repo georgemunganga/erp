@@ -6,7 +6,13 @@ export function KuubuIdentity() {
       aria-label="Kuubu home"
       className="inline-flex items-center gap-2 text-3xl font-bold tracking-tight"
     >
-      <svg
+      <KuubuMark />
+    </a>
+  );
+}
+
+export function KuubuMark() {
+  return <><svg
         className="size-9 text-[var(--product-kuubu-mark)]"
         viewBox="0 0 48 46"
         aria-hidden="true"
@@ -21,6 +27,5 @@ export function KuubuIdentity() {
       <span>
         kuubu<span className="text-[var(--product-kuubu-mark)]">.</span>
       </span>
-    </a>
-  );
+    </>;
 }

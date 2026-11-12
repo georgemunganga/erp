@@ -27,6 +27,19 @@ public sealed class ShellContextMiddleware(RequestDelegate next, ILogger<ShellCo
             scope.EntityId=verified.CompanyId;scope.LocationId=null;scope.OrgUnitId=null;
             scope.AllowedLocationIds.Clear();
             if(!verified.AllCompanyLocations)scope.AllowedLocationIds.AddRange(verified.LocationIds);
+            if (ProductHrmWorkspace.IsEndpoint(http, http.RequestServices.GetRequiredService<IConfiguration>())
+                && await ProductHrmWorkspace.CoversCompanyAsync(http, db, http.RequestAborted))
+            {
+                // The compatibility gate proved this uniquely provisioned tenant
+                // contains only this company and every historical/current location
+                // is covered. Legacy company configuration may use its normal
+                // company-wide rules; the request/commit gate prevents expansion.
+                scope.AllowedLocationIds.Clear();
+                if (Guid.TryParse(http.Request.Headers["X-Shell-Location"].ToString(), out var selected)
+                    && await db.WorkLocations.AnyAsync(x => x.Id == selected && x.LegalEntityId == verified.CompanyId
+                        && (verified.AllCompanyLocations || verified.LocationIds.Contains(selected)), http.RequestAborted))
+                    scope.LocationId = selected;
+            }
             await next(http);return;
         }
         var tenantId = tenant.GetTenantId();

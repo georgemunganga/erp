@@ -1,3 +1,4 @@
+import { FULL_PRODUCT_HRM } from "@/modules/core/product-hrm-session";
 /**
  * M18 — Employer-side employee directory with live admin CRUD.
  *
@@ -54,7 +55,7 @@ export const Route = createFileRoute("/hrm/employees/")({
       { property: "og:description", content: "Filterable employee directory across entities, branches and employment types." },
     ],
   }),
-  component: PRODUCT_ERP ? ProductEmployeeDirectory : EmployeesPage,
+  component: PRODUCT_ERP && !FULL_PRODUCT_HRM ? ProductEmployeeDirectory : EmployeesPage,
 });
 
 const USE_REAL = import.meta.env.VITE_USE_REAL_API === "true";

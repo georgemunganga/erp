@@ -69,7 +69,7 @@ public static class Routes
     // confirm which entity/branch its requests are executing under.
     public static void RegisterShell(WebApplication app)
     {
-        var g = app.MapGroup($"{HrmPrefix}/shell").RequireAuthorization();
+        var g = app.MapGroup($"{HrmPrefix}/shell").RequireAuthorization().ProductHrm();
         g.MapGet("/", (ShellContext scope) => Results.Ok(new
         {
             locationId = scope.LocationId,
@@ -87,7 +87,7 @@ public static class Routes
     // Confined branch HR can never enter the wizard: top-level HR completes it.
     public static void RegisterSetup(WebApplication app)
     {
-        var g = app.MapGroup($"{HrmPrefix}/setup").RequireAuthorization();
+        var g = app.MapGroup($"{HrmPrefix}/setup").RequireAuthorization().ProductHrm();
         g.MapGet("/state", async (HttpContext http, ShellContext scope, Mightyfin.Erp.Hrm.Application.Setup.ISetupService svc, CancellationToken ct) =>
         {
             if (scope.IsConfined)
@@ -213,7 +213,7 @@ public static class Routes
     public static void RegisterIdentityAccess(WebApplication app)
     {
         var group = app.MapGroup($"{HrmPrefix}/identity/users")
-            .RequireAuthorization("hrm-admin");
+            .RequireAuthorization("hrm-admin").ProductHrm();
 
         group.MapGet("/", async (IIdentityProvisioningService service, CancellationToken ct) =>
             Results.Ok(await service.ListUsersAsync(ct)));
@@ -248,7 +248,7 @@ public static class Routes
     }
     public static void RegisterNotifications(WebApplication app)
     {
-        var g = app.MapGroup($"{HrmPrefix}/admin/notifications").RequireAuthorization();
+        var g = app.MapGroup($"{HrmPrefix}/admin/notifications").RequireAuthorization().ProductHrm();
         g.MapGet("/", async (string? eventType, string? status, int? limit,
             INotificationDeliveryService svc, CancellationToken ct) =>
             Results.Ok(await svc.ListAsync(eventType, status, limit ?? 50, ct)));
@@ -291,7 +291,7 @@ public static class Routes
     // identical on both surfaces.
     public static void RegisterMe(WebApplication app)
     {
-        var g = app.MapGroup($"{HrmPrefix}/me").RequireAuthorization();
+        var g = app.MapGroup($"{HrmPrefix}/me").RequireAuthorization().ProductHrm();
         g.MapGet("/", async (HttpContext http, IWorkerService svc, CancellationToken ct) =>
         {
             var subject = ResolveSubjectId(http);
@@ -531,7 +531,7 @@ public static class Routes
 
     public static void RegisterWorkers(WebApplication app)
     {
-        var g = app.MapGroup($"{HrmPrefix}/workers").RequireAuthorization();
+        var g = app.MapGroup($"{HrmPrefix}/workers").RequireAuthorization().ProductHrm();
 
         g.MapGet("/", async ([AsParameters] WorkerListFilters filters, IWorkerService svc, CancellationToken ct)
             => await svc.ListAsync(filters, ct)).ProductWorker(ProductWorkerOperation.List);
@@ -757,7 +757,7 @@ public static class Routes
 
     public static void RegisterTime(WebApplication app)
     {
-        var g = app.MapGroup($"{HrmPrefix}/time").RequireAuthorization();
+        var g = app.MapGroup($"{HrmPrefix}/time").RequireAuthorization().ProductHrm();
         g.MapGet("/leave", async ([FromQuery] Guid? workerId, [FromQuery] string? status, ITimeService svc, CancellationToken ct)
             => await svc.ListLeaveAsync(workerId, status, ct));
         g.MapPost("/leave", async (HttpContext http, ITimeService svc, CancellationToken ct) =>
@@ -906,7 +906,7 @@ public static class Routes
 
     public static void RegisterWorkflow(WebApplication app)
     {
-        var g = app.MapGroup($"{HrmPrefix}/workflow").RequireAuthorization();
+        var g = app.MapGroup($"{HrmPrefix}/workflow").RequireAuthorization().ProductHrm();
         g.MapGet("/queue", async (IWorkflowService svc, CancellationToken ct)
             => await svc.GetWorkQueueAsync(ct));
         g.MapGet("/requests/{id:guid}", async (Guid id, IWorkflowService svc, CancellationToken ct)
@@ -928,7 +928,7 @@ public static class Routes
 
     public static void RegisterExperience(WebApplication app)
     {
-        var g = app.MapGroup($"{HrmPrefix}/experience").RequireAuthorization();
+        var g = app.MapGroup($"{HrmPrefix}/experience").RequireAuthorization().ProductHrm();
         g.MapGet("/requests", async ([FromQuery] Guid? workerId, [FromQuery] string? status, IExperienceService svc, CancellationToken ct)
             => await svc.ListRequestsAsync(workerId, status, ct));
         g.MapPost("/requests", async (HttpContext http, IExperienceService svc, IWorkerService ws, CancellationToken ct) =>
@@ -1004,7 +1004,7 @@ public static class Routes
 
     public static void RegisterPayroll(WebApplication app)
     {
-        var g = app.MapGroup($"{HrmPrefix}/payroll").RequireAuthorization();
+        var g = app.MapGroup($"{HrmPrefix}/payroll").RequireAuthorization().ProductHrm();
         g.MapGet("/components", async ([FromQuery] string? type, IPayrollService svc, CancellationToken ct)
             => await svc.ListComponentsAsync(type, ct));
         g.MapPost("/components", async (HttpContext http, IPayrollService svc, CancellationToken ct) =>
@@ -1377,7 +1377,7 @@ public static class Routes
             http.Response.Headers.CacheControl = "no-store";
             return Results.Ok(await svc.GetPublicAsync(ct));
         }).WithMetadata(new TimesheetAccess());
-        var g = app.MapGroup($"{HrmPrefix}/admin").RequireAuthorization();
+        var g = app.MapGroup($"{HrmPrefix}/admin").RequireAuthorization().ProductHrm();
         g.MapGet("/config", async (IConfigService svc, CancellationToken ct) => await svc.GetConfigAsync(ct));
         g.MapGet("/branding", async (Mightyfin.Erp.Hrm.Application.Branding.ICompanyBrandingService svc, CancellationToken ct) =>
             Results.Ok(await svc.GetAsync(ct)));
@@ -1548,7 +1548,7 @@ public static class Routes
 
     public static void RegisterRecruitment(WebApplication app)
     {
-        var g = app.MapGroup($"{HrmPrefix}/recruitment").RequireAuthorization();
+        var g = app.MapGroup($"{HrmPrefix}/recruitment").RequireAuthorization().ProductHrm();
         g.MapGet("/vacancies", async ([FromQuery] string? status, IRecruitmentService svc, CancellationToken ct) =>
             await svc.ListVacanciesAsync(status, ct));
         g.MapPost("/vacancies", async (HttpContext http, IRecruitmentService svc, CancellationToken ct) =>
@@ -1638,7 +1638,7 @@ public static class Routes
 
     public static void RegisterRelations(WebApplication app)
     {
-        var g = app.MapGroup($"{HrmPrefix}/relations").RequireAuthorization();
+        var g = app.MapGroup($"{HrmPrefix}/relations").RequireAuthorization().ProductHrm();
         g.MapGet("/cases", async ([FromQuery] string? category, IRelationsService svc, CancellationToken ct) =>
             await svc.ListCasesAsync(category, ct));
         g.MapPost("/cases", async (HttpContext http, IRelationsService svc, CancellationToken ct) =>
@@ -1706,7 +1706,7 @@ public static class Routes
 
     public static void RegisterDocuments(WebApplication app)
     {
-        var g = app.MapGroup($"{HrmPrefix}/documents").RequireAuthorization();
+        var g = app.MapGroup($"{HrmPrefix}/documents").RequireAuthorization().ProductHrm();
         g.MapGet("/worker/{workerId:guid}", async (Guid workerId, IDocumentsService svc, CancellationToken ct) =>
             await svc.ListDocumentsAsync(workerId, ct));
         g.MapPost("/upload", async (HttpContext http, IDocumentsService svc, CancellationToken ct) =>
@@ -1733,7 +1733,7 @@ public static class Routes
             var (doc, stream) = await svc.GetDocumentStreamAsync(id, ct);
             return Results.File(stream, doc.ContentType, doc.FileName);
         });
-        var reports = app.MapGroup($"{HrmPrefix}/reports").RequireAuthorization();
+        var reports = app.MapGroup($"{HrmPrefix}/reports").RequireAuthorization().ProductHrm();
         reports.MapGet("/", async ([AsParameters] ReportQuery query, IDocumentsService svc, CancellationToken ct) =>
             await svc.GetReportAsync(query, ct));
         reports.MapGet("/management", async ([AsParameters] ManagementReportQuery query, IManagementReportingService svc, CancellationToken ct) =>
@@ -1747,13 +1747,13 @@ public static class Routes
 
     public static void RegisterDq(WebApplication app)
     {
-        var g = app.MapGroup($"{HrmPrefix}/dq").RequireAuthorization();
+        var g = app.MapGroup($"{HrmPrefix}/dq").RequireAuthorization().ProductHrm();
         g.MapGet("/checks", async (IDqService svc, CancellationToken ct) => await svc.RunChecksAsync(ct));
     }
 
     public static void RegisterMasterData(WebApplication app)
     {
-        var g = app.MapGroup($"{HrmPrefix}/master-data").RequireAuthorization();
+        var g = app.MapGroup($"{HrmPrefix}/master-data").RequireAuthorization().ProductHrm();
         g.MapGet("/batches", async ([FromQuery] string? batchType, [FromQuery] string? status,
             IMasterDataService svc, CancellationToken ct) => Results.Ok(await svc.ListAsync(batchType, status, ct)));
         g.MapPost("/imports/preview", async (HttpContext http, IMasterDataService svc, CancellationToken ct) =>
@@ -1782,7 +1782,7 @@ public static class Routes
 
     public static void RegisterStatutory(WebApplication app)
     {
-        var g = app.MapGroup($"{HrmPrefix}/statutory-exports").RequireAuthorization();
+        var g = app.MapGroup($"{HrmPrefix}/statutory-exports").RequireAuthorization().ProductHrm();
         g.MapGet("/", async ([AsParameters] StatutoryExportQuery q, IStatutoryExportService svc, CancellationToken ct) =>
         {
             var file = await svc.GenerateAsync(q.ExportType, q.PeriodId, ct);
@@ -1800,7 +1800,7 @@ public static class Routes
 
     public static void RegisterIntegrations(WebApplication app)
     {
-        var g = app.MapGroup($"{HrmPrefix}/integrations").RequireAuthorization();
+        var g = app.MapGroup($"{HrmPrefix}/integrations").RequireAuthorization().ProductHrm();
         g.MapGet("/", async ([FromQuery] string? integrationKey, [FromQuery] string? status,
             IIntegrationOperationsService svc, CancellationToken ct) =>
             Results.Ok(await svc.GetDashboardAsync(integrationKey, status, ct)));
@@ -1844,7 +1844,7 @@ public static class Routes
 
     public static void RegisterSecurityCompliance(WebApplication app)
     {
-        var g = app.MapGroup($"{HrmPrefix}/security").RequireAuthorization("hrm-admin");
+        var g = app.MapGroup($"{HrmPrefix}/security").RequireAuthorization("hrm-admin").ProductHrm();
         g.MapGet("/", async ([FromQuery] string? actor, [FromQuery] string? outcome,
             ISecurityComplianceService svc, CancellationToken ct) =>
             Results.Ok(await svc.GetDashboardAsync(actor, outcome, ct)));
@@ -1873,7 +1873,7 @@ public static class Routes
 
     public static void RegisterGoLive(WebApplication app)
     {
-        var g = app.MapGroup($"{HrmPrefix}/go-live").RequireAuthorization();
+        var g = app.MapGroup($"{HrmPrefix}/go-live").RequireAuthorization().ProductHrm();
         g.MapGet("/", async (IGoLiveReadinessService svc, CancellationToken ct) =>
             Results.Ok(await svc.GetAsync(ct)));
         g.MapPost("/evidence", async (HttpContext http, IGoLiveReadinessService svc, CancellationToken ct) =>
@@ -1897,7 +1897,7 @@ public static class Routes
     // approved. Export returns round-trip-safe CSV.
     public static void RegisterImportExport(WebApplication app)
     {
-        var g = app.MapGroup($"{HrmPrefix}/import").RequireAuthorization();
+        var g = app.MapGroup($"{HrmPrefix}/import").RequireAuthorization().ProductHrm();
         g.MapGet("/schemas", (IImportExportService svc) => Results.Ok(svc.ListSchemas())).WithMetadata(new TimesheetAccess());
         g.MapPost("/{typeKey}/preview", async (string typeKey, HttpContext http,
             IImportExportService svc, CancellationToken ct) =>
@@ -1929,7 +1929,7 @@ public static class Routes
 public static void RegisterPerformance(WebApplication app)
 {
     // HR admin: cycles
-    var g = app.MapGroup($"{HrmPrefix}/performance").RequireAuthorization();
+    var g = app.MapGroup($"{HrmPrefix}/performance").RequireAuthorization().ProductHrm();
     g.MapGet("/cycles", async ([FromQuery] string? status, IPerformanceService svc, CancellationToken ct)
         => await svc.ListCyclesAsync(status, ct));
     g.MapPost("/cycles", async (HttpContext http, IPerformanceService svc, CancellationToken ct) =>
@@ -1995,7 +1995,7 @@ public static void RegisterPerformance(WebApplication app)
 // M37: Offboarding & Exit Management
 public static void RegisterOffboarding(WebApplication app)
 {
-    var g = app.MapGroup($"{HrmPrefix}/offboarding").RequireAuthorization();
+    var g = app.MapGroup($"{HrmPrefix}/offboarding").RequireAuthorization().ProductHrm();
 
     // HR admin: list and manage offboarding requests
     g.MapGet("/", async (string? status, IOffboardingService svc, CancellationToken ct) =>
@@ -2079,7 +2079,7 @@ public static void RegisterOffboarding(WebApplication app)
 // M38: Requisition Pipeline
 public static void RegisterRequisitions(WebApplication app)
 {
-    var g = app.MapGroup($"{HrmPrefix}/requisitions").RequireAuthorization();
+    var g = app.MapGroup($"{HrmPrefix}/requisitions").RequireAuthorization().ProductHrm();
 
     g.MapGet("/", async (string? status, IRecruitmentService svc, CancellationToken ct) =>
         Results.Ok(await svc.ListRequisitionsAsync(status, ct)));
@@ -2120,15 +2120,15 @@ public static void RegisterRequisitions(WebApplication app)
 
     // Pipeline funnel stats for a vacancy (M38)
     app.MapGet($"{HrmPrefix}/vacancies/{{id:guid}}/pipeline", async (Guid id, IRecruitmentService svc, CancellationToken ct) =>
-        Results.Ok(await svc.GetVacancyPipelineAsync(id, ct))).RequireAuthorization();
+        Results.Ok(await svc.GetVacancyPipelineAsync(id, ct))).RequireAuthorization().ProductHrm();
 
     // Offer letter generation (M38)
     app.MapGet($"{HrmPrefix}/offers/{{id:guid}}/letter", async (Guid id, IRecruitmentService svc, CancellationToken ct) =>
-        Results.Ok(await svc.GetOfferLetterAsync(id, ct))).RequireAuthorization();
+        Results.Ok(await svc.GetOfferLetterAsync(id, ct))).RequireAuthorization().ProductHrm();
     // M39: organization chart + reporting lines.
     app.MapGet($"{HrmPrefix}/org-chart", async (IChartService svc, CancellationToken ct) =>
-        Results.Ok(await svc.GetOrgChartAsync(ct))).RequireAuthorization();
-    var reportingLines = app.MapGroup($"{HrmPrefix}/reporting-lines").RequireAuthorization();
+        Results.Ok(await svc.GetOrgChartAsync(ct))).RequireAuthorization().ProductHrm();
+    var reportingLines = app.MapGroup($"{HrmPrefix}/reporting-lines").RequireAuthorization().ProductHrm();
     reportingLines.MapGet("/", async (Guid? orgUnitId, string? search, IChartService svc, CancellationToken ct) =>
         Results.Ok(await svc.ListReportingLinesAsync(orgUnitId, search, ct)));
     reportingLines.MapPost("/", async (HttpContext http, IChartService svc, CancellationToken ct) =>
@@ -2141,12 +2141,12 @@ public static void RegisterRequisitions(WebApplication app)
     // M40: HR analytics dashboard — workforce, leave, payroll cost, performance,
     // recruitment and attendance panels in a single call for HR/HRM users.
     app.MapGet($"{HrmPrefix}/analytics/dashboard", async (IAnalyticsService svc, CancellationToken ct) =>
-        Results.Ok(await svc.GetDashboardAsync(ct))).RequireAuthorization();
+        Results.Ok(await svc.GetDashboardAsync(ct))).RequireAuthorization().ProductHrm();
 }
 
 public static void RegisterBenefits(WebApplication app)
 {
-    var g = app.MapGroup($"{HrmPrefix}/benefits").RequireAuthorization();
+    var g = app.MapGroup($"{HrmPrefix}/benefits").RequireAuthorization().ProductHrm();
 
     // Benefit types (hr_admin configures claim categories)
     g.MapGet("/types", async (Mightyfin.Erp.Hrm.Application.Benefits.IBenefitService svc, CancellationToken ct) =>

@@ -75,10 +75,11 @@ if (string.IsNullOrEmpty(connStr))
 if (connStr.StartsWith("postgresql", StringComparison.OrdinalIgnoreCase) && connStr.Contains('?'))
     connStr = NpgsqlConnectionStringNormalizer.Normalize(connStr);
 builder.Services.AddScoped<AuditInterceptor>();
+builder.Services.AddScoped<ProductHrmCommitGuard>();
 builder.Services.AddDbContext<HrmDbContext>((services, options) =>
 {
     options.UseNpgsql(connStr, npgsql => npgsql.MigrationsHistoryTable("__hrm_migrations", "hrm"));
-    options.AddInterceptors(services.GetRequiredService<AuditInterceptor>());
+    options.AddInterceptors(services.GetRequiredService<AuditInterceptor>(), services.GetRequiredService<ProductHrmCommitGuard>());
 });
 // Company business date belongs to Core organisation and is available even without Procurement.
 builder.Services.AddCoreCompanyBusinessDate();
