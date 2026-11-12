@@ -1,3 +1,69 @@
+## Current checkpoint — 12 November 2026
+
+Public ERP remains source `be00031940e8698564111b538bf79ddc5996266d`, API
+`kuubu-account-be000319-api02`, image `kuubu/erp-api:account-be000319-build01`,
+proxy `kuubu-account-proxy01`. Public Kuubu website source is
+`2f1b57d49292952470e0ceb1147a4dcb88032724`, Vercel
+`dpl_GVi8AKLWokC5LWhmMTNXnH42Scb6`. Laravel's qualified commercial runtime is
+`67b9d19` plus the published `2a1ed16` operator trial command, deployed at
+`/opt/greenwebb-foundation/releases/trial-console-2a1ed16-deploy01`.
+The native billing/Lenco integration is configured and controlled provider
+acceptance passed; real merchant settlement still needs customer acceptance.
+Perfex remains operational and owns its existing invoices/payments.
+
+Procurement admission is published as ERP `991ba01c0a6aac701c4d8319011bf21bb50075d6`
+on draft PR201. The existing `georgemunganga/module-connect` Procurement UI is
+published as `c0dde2b9bb948e33c844ee127f38deaf9ac86f8c` on draft PR118. Preserve
+its imported layouts/shared controls; product mode uses the selected Core
+company/person/action/location proof and Kuubu/Poppins branding. It is default-off.
+Do not copy source into a second ERP repository or deploy wholesale main.
+Published main observations remain ERP `e7fb04f255887c3dce6023b8473719c60c3976ab`
+and UI `1c1f984c78545dfe006def035518b17449f56afe`.
+
+Private acceptance on 12 November: 141 focused API compatibility/scope tests;
+995 original/adapter UI cases, then 10 focused handoff/bridge cases; strict
+TypeScript and production bundle. Genuine Procurement migrations applied twice
+on an isolated fixture (136 Procurement / 110 HRM tables). Actual private Laravel
+login, PKCE exchange, module grant/selection for two companies, vendor persistence,
+CSRF/foreign-company/stale-marker denials and hidden cross-company records passed.
+Codex browser saved a vendor through the original form and retained it after
+refresh. That browser uses a documented loopback session adapter, so it does not
+prove public browser SSO. Evidence: infrastructure workspace
+`inspection/qualifications/procurement-product-native-04/`, remote
+`/opt/kuubu-builds/procurement-product-private-02`. No production Procurement
+schema, connection, flag, assets or launch button has changed. Paired production
+release and remaining transaction/concurrency checks are outstanding; advanced
+purchasing, approval and Finance holds are independent and remain in place.
+
+Native commit gate subsequently passed all four PostgreSQL cases: authorized
+single-save commit; expired authority, revoked access and verifier outage each
+abort the owning transaction, with a new connection confirming no persisted row.
+The first local SSH-tunnel run failed at transport; the server-native rerun passed
+without weakening SSH settings. Evidence:
+`inspection/qualifications/procurement-commit-native-02/native-results.log`.
+This independently qualifies the EF commit guard, not concurrent public
+company/grant changes or whole-module workflows. New private consumers were
+stopped after acceptance; their data and evidence remain retained.
+
+Kuubu storage was dominated by retained builds and old test databases, not
+customer records. The obsolete stopped `kuubu-session-native-pgdata01` test
+volume was archived on the PC and fully hash/file-manifest verified before its
+sole stopped container/volume were retired. Recovery archive is
+`inspection/private-retention/session-test-database-20261112-02/`; server decision
+and configuration evidence is `/root/kuubu-retention-20261112-session01`.
+No complete central-server archive copy exists. Disk after cleanup was 9.2 GB
+free / 81% used. Production DB/key volumes, retained publications and rollback
+images were preserved. Subsequent new private Procurement fixtures consume some
+of that headroom. Public ERP, commercial API, website and Perfex returned 200.
+
+Trials are currently issued using Laravel's reviewed operator console, not an
+admin portal screen. See foundation `docs/KUUBU-OPERATOR-TRIALS.md`. Existing
+verified platform-admin, finite expiry, reason and explicit confirmation are
+required; unpaid invoices block issuance. No production trial was created.
+
+The following sections are historical checkpoints; the current pins and holds
+above supersede earlier deployment/key-availability statements.
+
 ## Kuubu account hub deployed — 11 November 2026
 
 Kuubu website/account source `58228ba820ec7a47002a0c039824e6c4f5c35254` is published

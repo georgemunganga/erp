@@ -3,7 +3,15 @@
 ## 1. Feature Identification
 Procurement / shared ERP admission / Kuubu company and licensed module session.
 Design baseline: ERP `be000319`, UI `1c1f984c`, Kuubu website `2f1b57d4`.
-Status: inspected and designed; operational release remains held pending implementation and acceptance.
+Status: admission implemented and published as ERP `991ba01c`; original UI adapter
+published as `georgemunganga/module-connect` `c0dde2b9` (draft PR118). Private
+schema, protocol and vendor browser persistence checks passed on 12 November.
+Public opening remains held pending the paired production release and remaining
+transaction/concurrency acceptance. Advanced purchasing/approval/Finance
+capabilities remain independently held; this is not whole-module business UAT.
+The subsequent server-native EF commit gate passed four cases (commit while
+authorized; physical rollback after expiry, revocation or verifier outage).
+Concurrent company/grant changes and the paired public release remain outstanding.
 
 ## 2. Purpose & Business Outcome
 A customer completes Kuubu payment or an explicit operator trial, finishes company
