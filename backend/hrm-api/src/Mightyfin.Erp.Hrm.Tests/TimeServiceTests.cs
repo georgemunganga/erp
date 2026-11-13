@@ -17,6 +17,21 @@ namespace Mightyfin.Erp.Hrm.Tests;
 /// correction and leave decisions) over EF InMemory with a fixed tenant.</summary>
 public class TimeServiceTests
 {
+    [Fact]
+    public async Task Empty_accrual_does_not_consume_the_month_before_the_first_employee_is_added()
+    {
+        var (service, ctx, worker, _, _) = Build();
+        worker.Status = "pre-hire"; await ctx.SaveChangesAsync();
+        var error = await Assert.ThrowsAsync<DomainException>(() =>
+            service.RunScheduledLeaveAccrualAsync(new LeaveAccrualRunRequest("2026-08"), default));
+        Assert.Equal("accrual-no-workers", error.Code);
+        Assert.Empty(await ctx.LeaveAccrualRuns.ToListAsync());
+        worker.Status = "active"; await ctx.SaveChangesAsync();
+        var run = await service.RunScheduledLeaveAccrualAsync(new LeaveAccrualRunRequest("2026-08"), default);
+        Assert.Equal(1, run.WorkerCount);
+        Assert.Equal("system:monthly-leave-accrual", run.RunBySubjectId);
+    }
+
     private sealed class TimesheetAuthz : IAuthzService
     {
         public string CurrentSubjectId => "timesheet-clerk";

@@ -52,6 +52,13 @@ retain their dates when future group settings change; no retroactive payroll rew
 ## 13. Calendar
 The working-time step creates a default company calendar when absent. Holidays
 come from configured business data; this change does not invent holiday declarations.
+The wizard no longer preselects an inaccurate fixed annual holiday template.
+Movable holidays and additional declarations require year-specific configuration;
+see the [Zambian Public Holidays Act](https://www.parliament.gov.zm/sites/default/files/documents/acts/Public%20Holidays%20Act.pdf).
+The background accrual worker discovers only active Core-registered allocations,
+then uses a separately filtered/audited context and transaction for each company.
+HTTP tenant headers and browser roles cannot select the job's tenant. Empty eligible
+populations do not create an immutable monthly run; completed runs remain unique.
 
 ## 14. Payroll rules
 The UI statutory summary matches the existing qualified 2026 setup engine. Company

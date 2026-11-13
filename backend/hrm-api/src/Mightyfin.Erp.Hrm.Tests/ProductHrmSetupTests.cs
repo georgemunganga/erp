@@ -4,11 +4,34 @@ using Mightyfin.Erp.Hrm.Application.Setup;
 using Mightyfin.Erp.Hrm.Application.Payroll;
 using Mightyfin.Erp.Hrm.Domain.Entities;
 using Mightyfin.Erp.Hrm.Infrastructure;
+using Mightyfin.Erp.Hrm.Infrastructure.Data;
 
 namespace Mightyfin.Erp.Hrm.Tests;
 
 public class ProductHrmSetupTests
 {
+    private sealed record Tenant(string Id) : ITenantAccessor { public string GetTenantId() => Id; }
+
+    [Fact]
+    public async Task Background_discovery_selects_only_registered_active_company_tenants()
+    {
+        await using var db = TestDbContextFactory.Create("tenant-a");
+        foreach (var (id, registered, archived) in new[] { ("tenant-a", true, false), ("tenant-b", true, false), ("tenant-c", false, false), ("tenant-d", true, true) })
+        {
+            await using var company = new Mightyfin.Erp.Hrm.Infrastructure.Data.HrmDbContext(
+                new DbContextOptionsBuilder<Mightyfin.Erp.Hrm.Infrastructure.Data.HrmDbContext>().UseSqlite(db.Database.GetDbConnection()).Options, new Tenant(id));
+            var entity = new LegalEntity { Code = id, RegisteredName = "Synthetic " + id };
+            var owner = LocalUser.Federated("Synthetic owner");
+            company.LegalEntities.Add(entity); company.LocalUsers.Add(owner);
+            if (registered) company.WorkspaceBindings.Add(new CoreWorkspaceBinding { LegalEntityId = entity.Id, OwnerLocalUserId = owner.Id,
+                Issuer = "qualification", Subject = id, ClientId = "qualification", CustomerId = id, EnrollmentId = id, Slot = 1, PurchasedLimit = 1,
+                IdempotencyHash = id.PadRight(64, 'a'), RequestHash = id.PadRight(64, 'b'), IsArchived = archived });
+            await company.SaveChangesAsync();
+        }
+        Assert.Equal(new[] { "tenant-a", "tenant-b" }, await global::MonthlyLeaveAccrualWorker.RegisteredProductTenantsAsync(db, default));
+        Assert.Single(await db.LegalEntities.ToListAsync());
+    }
+
     private sealed class ProductRepository(ISetupRepository inner) : ISetupRepository
     {
         public Task<bool> IsProductWorkspaceAsync(CancellationToken ct) => Task.FromResult(true);

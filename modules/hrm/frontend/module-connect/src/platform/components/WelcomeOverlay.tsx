@@ -974,29 +974,15 @@ function EmploymentStep(props: { sending: boolean; onComplete: (p: Record<string
 }
 
 /* Step 4 — Working time (optional) */
-// Zambian public holidays — name + month-day (MM-DD) that repeats every year.
-const ZAMBIAN_HOLIDAYS: { name: string; date: string }[] = [
-  { name: "New Year's Day", date: "01-01" },
-  { name: "Youth Day", date: "03-12" },
-  { name: "Women's Day", date: "03-13" },
-  { name: "Kenneth Kaunda Day", date: "04-28" },
-  { name: "Labour Day", date: "05-01" },
-  { name: "Africa Day", date: "05-25" },
-  { name: "Heroes' Day", date: "07-01" },
-  { name: "Unity Day", date: "07-02" },
-  { name: "Farmers' Day", date: "08-06" },
-  { name: "National Prayer Day", date: "10-18" },
-  { name: "Independence Day", date: "10-24" },
-  { name: "Christmas Day", date: "12-25" },
-];
+// Movable and specially declared holidays must not become fixed annual dates.
 function holidayRows(holidays: { name: string; date: string }[]) {
   return holidays.map((h) => ({ Name: h.name, Date: h.date, IsRecurring: true }));
 }
 function WorkingTimeStep(props: { sending: boolean; onComplete: (p: Record<string, unknown>) => Promise<void> }) {
   const [hours, setHours] = useState("45");
   const [weekends, setWeekends] = useState<string[]>(["sat", "sun"]);
-  const [useHolidays, setUseHolidays] = useState(true);
-  const [holidays, setHolidays] = useState<{ name: string; date: string }[]>(ZAMBIAN_HOLIDAYS);
+  const [useHolidays, setUseHolidays] = useState(false);
+  const [holidays, setHolidays] = useState<{ name: string; date: string }[]>([]);
   // M50.19: re-opens with the previously saved working-time configuration.
   const { data: saved } = useStepHydration("working-time");
   const appliedRef = useRef(false);
@@ -1013,7 +999,7 @@ function WorkingTimeStep(props: { sending: boolean; onComplete: (p: Record<strin
       setHolidays(hl.map((h) => ({ name: s(h.Name), date: s(h.Date) })));
     } else if (saved.PublicHolidays != null && Array.isArray(saved.PublicHolidays) && hl.length === 0) {
       setUseHolidays(false);
-      setHolidays(ZAMBIAN_HOLIDAYS);
+      setHolidays([]);
     }
   }, [saved]);
   const DAY_KEYS = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"] as const;
@@ -1064,9 +1050,10 @@ function WorkingTimeStep(props: { sending: boolean; onComplete: (p: Record<strin
               className="size-4 accent-primary"
             />
             <Label htmlFor="wt-holidays" className="cursor-pointer">
-              Use Zambia's public holidays ({holidays.length} days — repeats every year)
+              Add recurring holiday dates
             </Label>
           </div>
+          <p className="text-xs text-muted-foreground">Use Configuration → Public holidays for year-specific, movable and observed holiday dates.</p>
           {useHolidays && (
             <div className="space-y-1.5">
               {holidays.map((h, i) => (
