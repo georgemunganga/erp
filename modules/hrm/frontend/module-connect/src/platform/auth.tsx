@@ -1,5 +1,5 @@
 import { ProductEmployeeDirectory } from "@/modules/core/ProductEmployeeDirectory";
-import { FULL_PRODUCT_HRM, clearProductHrmSession, loadProductHrmSession, logoutProductHrmSession, type ProductHrmSession } from "@/modules/core/product-hrm-session";
+import { FULL_PRODUCT_HRM, ProductHrmSessionError, clearProductHrmSession, loadProductHrmSession, logoutProductHrmSession, type ProductHrmSession } from "@/modules/core/product-hrm-session";
 import { Button } from "@/components/ui/button";
 import { KuubuIdentity } from "@/platform/components/KuubuIdentity";
 /**
@@ -21,7 +21,7 @@ import { KuubuIdentity } from "@/platform/components/KuubuIdentity";
  * Identity is always owned by the IdP — the shell never stores or validates
  * credentials itself.
  */
-import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
+import { Activity, createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import type { Role } from "@/mock/types";
 import { hrmApi, type LinkedWorker, type LocalAuthUser } from "@/platform/api-client";
@@ -420,9 +420,13 @@ function ProductHrmAuthProvider({ children }: { children: ReactNode }) {
   const [selected, setSelected] = useState<ProductHrmSession | null>(null);
   const [error, setError] = useState("");
   const [attempt, setAttempt] = useState(0);
+  const [paused, setPaused] = useState(false);
+  const [temporary, setTemporary] = useState(false);
   useEffect(() => {
     let stopped = false;
     let request: AbortController | undefined;
+    let retry: ReturnType<typeof setTimeout> | undefined;
+    let failures = 0;
     let marker: string | undefined = expectedMarker.current;
     async function check() {
       if (document.hidden || request || stopped) return;
@@ -431,25 +435,29 @@ function ProductHrmAuthProvider({ children }: { children: ReactNode }) {
         const result = await loadProductHrmSession(controller.signal, marker);
         if (!stopped && !controller.signal.aborted) {
           marker = result.marker; expectedMarker.current = result.marker;
-          setError("");
-          setSelected(previous => previous?.marker === result.marker ? previous : result);
+          failures = 0; setError(""); setTemporary(false); setPaused(false);
+          setSelected(result);
         }
       } catch (failure) {
         if (!stopped && !controller.signal.aborted) {
-          clearProductHrmSession(); setSelected(null);
+          clearProductHrmSession();
+          const unavailable = failure instanceof ProductHrmSessionError && failure.temporary;
+          setTemporary(unavailable); setPaused(true);
+          if (!unavailable) setSelected(null);
           setError(failure instanceof Error ? failure.message : "Return to Kuubu to choose your company.");
+          if (unavailable && ++failures <= 3) retry = setTimeout(() => void check(), failures * 1000);
         }
       } finally { if (request === controller) request = undefined; }
     }
     function visibility() {
-      if (document.hidden) { request?.abort(); request = undefined; clearProductHrmSession(); setSelected(null); }
+      if (document.hidden) { request?.abort(); request = undefined; clearTimeout(retry); clearProductHrmSession(); setPaused(true); }
       else void check();
     }
     setError(""); void check();
     const timer = window.setInterval(() => void check(), 30000);
     document.addEventListener("visibilitychange", visibility);
     window.addEventListener("pageshow", visibility);
-    return () => { stopped = true; request?.abort(); clearProductHrmSession(); window.clearInterval(timer);
+    return () => { stopped = true; request?.abort(); clearTimeout(retry); clearProductHrmSession(); window.clearInterval(timer);
       document.removeEventListener("visibilitychange", visibility); window.removeEventListener("pageshow", visibility); };
   }, [attempt]);
   const value = useMemo<AuthState>(() => ({
@@ -468,12 +476,18 @@ function ProductHrmAuthProvider({ children }: { children: ReactNode }) {
     worker: null, resolvingWorker: false, coreWorkspace: selected?.choices ?? null,
     coreAccessLoading: !selected && !error, coreActions: [],
   }), [selected, error]);
-  const boundedDirectory = selected && !selected.fullWorkspace && !error;
-  return <Ctx.Provider value={value}>{boundedDirectory ? <ProductEmployeeDirectory /> : selected && !error ? children :
+  // Activity retains draft form state while removing the unverified UI and its
+  // effects. The request-header capability is cleared until a fresh proof passes.
+  const visible = Boolean(selected) && !paused && !error;
+  return <Ctx.Provider value={value}>
+    <Activity mode={visible ? "visible" : "hidden"}>{selected ? !selected.fullWorkspace ? <ProductEmployeeDirectory /> : children : null}</Activity>
+    {!visible ?
     <main className="mx-auto min-h-dvh max-w-xl space-y-6 px-5 py-8"><KuubuIdentity />
-      <h1 className="text-2xl font-semibold">{error ? "Return to Kuubu" : "Checking your HR workspace"}</h1>
+      <h1 className="text-2xl font-semibold">{error ? temporary ? "Reconnecting your HR workspace" : "Reconnect through Kuubu" : "Checking your HR workspace"}</h1>
       <p role={error ? "alert" : "status"}>{error || "Checking your company, HR permissions and assigned locations…"}</p>
-      {error ? <div className="flex gap-3"><Button asChild><a href="https://www.kuubuerp.com/account/#/companies">Choose company in Kuubu</a></Button>
-        <Button variant="outline" onClick={() => { setSelected(null); setError(""); setAttempt(x => x + 1); }}>Try again</Button></div> : null}
-    </main>}</Ctx.Provider>;
+      {error ? <div className="flex gap-3">
+        <Button onClick={() => { setError(""); setPaused(true); setAttempt(x => x + 1); }}>Try again</Button>
+        {!temporary ? <Button variant="outline" asChild><a href="https://www.kuubuerp.com/account/#/companies">Choose company in Kuubu</a></Button> : null}
+      </div> : null}
+    </main> : null}</Ctx.Provider>;
 }

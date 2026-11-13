@@ -1,5 +1,17 @@
 import { parseCoreWorkspaceChoices } from "./core-workspace-context";
-import { createOperationalClient } from "./product-operational-api";
+import { createOperationalClient, OperationalError } from "./product-operational-api";
+
+export class ProductHrmSessionError extends Error {
+  readonly temporary: boolean;
+  constructor(readonly status: number) {
+    const temporary = status === 429 || status >= 500;
+    super(temporary ? "We’re temporarily unable to check workspace access. Your form is kept here while we reconnect."
+      : status === 409 ? "The selected workspace changed in another tab. Choose your company in Kuubu again."
+      : status === 401 ? "Your ERP session has expired. Continue through Kuubu to reconnect."
+      : "Your HR permissions or company access have changed. Review your access in Kuubu.");
+    this.temporary = temporary;
+  }
+}
 
 export const FULL_PRODUCT_HRM = import.meta.env.VITE_ERP_PRODUCT_MODE === "true"
   && import.meta.env.VITE_ERP_FULL_HRM === "true";
@@ -28,12 +40,14 @@ export function productHrmHeaders(extra?: Record<string, string>): Record<string
     "X-Kuubu-Operational-CSRF": current.csrf };
 }
 export async function loadProductHrmSession(signal: AbortSignal, expected?: string): Promise<HrmSession> {
-  const [response, operational] = await Promise.all([
-    fetch("/api/core/v1/workspace-context", { credentials: "same-origin", cache: "no-store", redirect: "error",
-      headers: { Accept: "application/json", ...(expected ? { "X-Kuubu-Session-Context": expected } : {}) }, signal }),
-    createOperationalClient().session(signal),
-  ]);
-  if (!response.ok) throw new Error("Your HR workspace access could not be confirmed. Return to Kuubu to choose your company.");
+  try {
+  // Observe/refresh continuity before reading company context, rather than
+  // competing with our own credential-rotation lock through parallel reads.
+  const operational = await createOperationalClient().session(signal);
+  const response = await fetch("/api/core/v1/workspace-context", { credentials: "same-origin", cache: "no-store", redirect: "error",
+    headers: { Accept: "application/json", ...(expected ? { "X-Kuubu-Session-Context": expected } : {}) },
+    signal: AbortSignal.any([signal, AbortSignal.timeout(20000)]) });
+  if (!response.ok) throw new ProductHrmSessionError(response.status);
   const data = await response.json();
   const choices = parseCoreWorkspaceChoices(data);
   if (data.contextKind !== "product" || data.selectedModule !== "hrm" || typeof data.hrmWorkspace !== "boolean"
@@ -49,5 +63,13 @@ export async function loadProductHrmSession(signal: AbortSignal, expected?: stri
   if (signal.aborted) throw new Error("Workspace check cancelled.");
   current = result;
   return result;
+  } catch (error) {
+    if (signal.aborted) throw error;
+    clearProductHrmSession();
+    if (error instanceof ProductHrmSessionError) throw error;
+    if (error instanceof OperationalError) throw new ProductHrmSessionError(error.status);
+    if (error instanceof TypeError || error instanceof DOMException) throw new ProductHrmSessionError(503);
+    throw error;
+  }
 }
 export type ProductHrmSession = HrmSession;

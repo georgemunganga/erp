@@ -105,23 +105,22 @@ function PayGroupDialog({
   const [frequency, setFrequency] = useState("monthly");
   const [currency, setCurrency] = useState("ZMW");
   const [dayOfMonth, setDayOfMonth] = useState("28");
+  const [paydayRule, setPaydayRule] = useState("calendar-day");
   const [cutoff, setCutoff] = useState("3");
   const [isDefault, setIsDefault] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Re-seed when the dialog target changes.
-  if (group && String(group.id ?? "") !== name) {
-    // (no-op branch kept readable; state sync happens in onOpenChange handlers below)
-  }
-  if (!open && group) {
+  useEffect(() => {
+    if (!group || !open) return;
     setName(String(group.name ?? ""));
     setFrequency(String(group.frequency ?? "monthly"));
     setCurrency(String(group.currency ?? "ZMW"));
     setDayOfMonth(String(group.calendarDayOfMonth ?? 28));
+    setPaydayRule(String(group.paydayRule ?? "calendar-day"));
     setCutoff(String(group.inputCutoffDaysBeforePayday ?? 3));
     setIsDefault(Boolean(group.isDefault));
-  }
+  }, [group, open]);
 
   if (!group) return null;
   const id = String(group.id ?? "");
@@ -136,6 +135,7 @@ function PayGroupDialog({
           setFrequency(String(group.frequency ?? "monthly"));
           setCurrency(String(group.currency ?? "ZMW"));
           setDayOfMonth(String(group.calendarDayOfMonth ?? 28));
+          setPaydayRule(String(group.paydayRule ?? "calendar-day"));
           setCutoff(String(group.inputCutoffDaysBeforePayday ?? 3));
           setIsDefault(Boolean(group.isDefault));
         }
@@ -160,7 +160,8 @@ function PayGroupDialog({
                 name: name.trim() || undefined,
                 frequency,
                 currency,
-                calendarDayOfMonth: Math.min(28, Math.max(1, Number(dayOfMonth) || 1)),
+                calendarDayOfMonth: Math.min(31, Math.max(1, Number(dayOfMonth) || 1)),
+                paydayRule,
                 inputCutoffDaysBeforePayday: Math.max(0, Number(cutoff) || 0),
                 isDefault,
               });
@@ -181,7 +182,7 @@ function PayGroupDialog({
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="min-w-0">
               <Label htmlFor="pg-freq">Frequency</Label>
-              <Select value={frequency} onValueChange={setFrequency}>
+              <Select value={frequency} onValueChange={(value) => { setFrequency(value); if (value !== "monthly") setPaydayRule("calendar-day"); }}>
                 <SelectTrigger id="pg-freq" className="mt-1.5 w-full">
                   <SelectValue />
                 </SelectTrigger>
@@ -205,21 +206,27 @@ function PayGroupDialog({
               </Select>
             </div>
             <div className="min-w-0">
+              <Label htmlFor="pg-rule">Payday rule</Label>
+              <Select value={paydayRule} onValueChange={setPaydayRule}><SelectTrigger id="pg-rule"><SelectValue /></SelectTrigger>
+                <SelectContent><SelectItem value="calendar-day">Calendar day</SelectItem><SelectItem value="last-working-day" disabled={frequency !== "monthly"}>Last working day of the month</SelectItem></SelectContent>
+              </Select>
+            </div>
+            {paydayRule === "calendar-day" ? <div className="min-w-0">
               <Label htmlFor="pg-day">Payday — day of month</Label>
               <Input
                 id="pg-day"
                 type="number"
                 min={1}
-                max={28}
+                max={31}
                 value={dayOfMonth}
                 onChange={(e) => setDayOfMonth(e.target.value)}
                 className="mt-1.5"
                 aria-describedby="pg-day-hint"
               />
               <p id="pg-day-hint" className="mt-1 text-xs text-muted-foreground">
-                Capped at 28 so every month carries this payday, February included.
+                Short months use their last calendar day. Existing periods retain their dates.
               </p>
-            </div>
+            </div> : <p className="text-sm text-muted-foreground">Uses the working calendar and configured holidays for new periods.</p>}
             <div className="min-w-0">
               <Label htmlFor="pg-cutoff">Input cutoff (days before payday)</Label>
               <Input
@@ -1075,7 +1082,7 @@ function PayGroupTable({
               <td className="px-3 py-3">{String(g.frequency ?? "")}</td>
               <td className="px-3 py-3 font-mono">{String(g.currency ?? "")}</td>
               <td className="px-3 py-3">
-                {n(g.calendarDayOfMonth)
+                {g.paydayRule === "last-working-day" ? "last working day of each month" : n(g.calendarDayOfMonth)
                   ? `day ${Math.round(n(g.calendarDayOfMonth))} of each month`
                   : String(g.frequency ?? "") !== "monthly"
                     ? `every ${String(g.frequency ?? "")}`

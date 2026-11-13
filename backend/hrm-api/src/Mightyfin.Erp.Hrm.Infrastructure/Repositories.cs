@@ -2386,6 +2386,7 @@ public sealed class AnalyticsRepository(HrmDbContext db) : IAnalyticsRepository
 // ===================== Setup (M49: first-time setup wizard) =====================
 public sealed class SetupRepository(HrmDbContext db) : ISetupRepository
 {
+    public Task<bool> IsProductWorkspaceAsync(CancellationToken ct) => db.WorkspaceBindings.AsNoTracking().AnyAsync(ct);
     public Task<SetupState?> GetStateAsync(CancellationToken ct) =>
         db.SetupStates.FirstOrDefaultAsync(ct);
 

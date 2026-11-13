@@ -33,6 +33,7 @@ public interface ISetupService
 /// global query filter on SetupState/SetupStepRecord.</summary>
 public interface ISetupRepository
 {
+    Task<bool> IsProductWorkspaceAsync(CancellationToken ct) => Task.FromResult(false);
     Task<SetupState?> GetStateAsync(CancellationToken ct);
     Task<IReadOnlySet<string>> CompletedStepKeysAsync(CancellationToken ct);
     /// <summary>M50.18: the saved input payload of a completed step.</summary>
@@ -98,36 +99,50 @@ public sealed class SetupServiceImpl(
 
     public async Task<SetupStateDto> GetStateAsync(CancellationToken ct)
     {
+        var product = await repo.IsProductWorkspaceAsync(ct);
         var state = await repo.GetStateAsync(ct);
-        if (state is null)
+        if (state is null && !product)
             // Legacy tenant: setup completed before M49 existed. Never gate.
             return new SetupStateDto("complete", null,
                 SetupDefinitions.Steps.Select(s => s.Key).ToList(),
                 SetupDefinitions.Steps.Where(s => !s.Mandatory).Select(s => s.Key).ToList(), 100);
 
-        var completed = await repo.CompletedStepKeysAsync(ct);
-        var open = SetupDefinitions.Steps.FirstOrDefault(s => !completed.Contains(s.Key))?.Key;
-        return new SetupStateDto(state.Status,
-            state.Status == SetupDefinitions.StatusComplete ? null : open,
+        var completed = await CompletedAsync(product, ct);
+        var steps = Steps(product);
+        var open = steps.FirstOrDefault(s => !completed.Contains(s.Key))?.Key;
+        return new SetupStateDto(state?.Status ?? SetupDefinitions.StatusPending,
+            state?.Status == SetupDefinitions.StatusComplete ? null : open,
             completed.ToList(),
-            SetupDefinitions.Steps.Where(s => !s.Mandatory).Select(s => s.Key).ToList(),
-            SetupDefinitions.CompletionPercent(completed));
+            steps.Where(s => !s.Mandatory).Select(s => s.Key).ToList(),
+            Math.Round(100d * steps.Count(s => completed.Contains(s.Key)) / steps.Count));
+    }
+
+    private static IReadOnlyList<SetupDefinitions.StepDef> Steps(bool product) => product
+        ? SetupDefinitions.Steps.Where(s => s.Key is not ("organisation" or "roles"))
+            .Select(s => s.Key is "employees" or "structure" ? s with { Mandatory = false } : s).ToList()
+        : SetupDefinitions.Steps;
+    private async Task<IReadOnlySet<string>> CompletedAsync(bool product, CancellationToken ct)
+    {
+        var done = new HashSet<string>(await repo.CompletedStepKeysAsync(ct));
+        if (product) done.UnionWith(["organisation", "structure", "roles"]);
+        return done;
     }
 
     public async Task<IReadOnlyList<SetupStepDto>> ListStepsAsync(CancellationToken ct)
     {
+        var product = await repo.IsProductWorkspaceAsync(ct);
         var state = await repo.GetStateAsync(ct);
-        var completed = state is null
+        var completed = state is null && !product
             ? new HashSet<string>(SetupDefinitions.Steps.Select(s => s.Key))
-            : await repo.CompletedStepKeysAsync(ct);
+            : await CompletedAsync(product, ct);
         var result = new List<SetupStepDto>(SetupDefinitions.Steps.Count);
         var done = new HashSet<string>();
-        foreach (var s in SetupDefinitions.Steps)
+        foreach (var s in Steps(product))
         {
             var isComplete = completed.Contains(s.Key);
             if (isComplete) done.Add(s.Key);
             result.Add(new SetupStepDto(s.Key, s.Label, s.Description, s.Mandatory,
-                isComplete, !isComplete && SetupDefinitions.MayComplete(s.Key, done)));
+                isComplete, !isComplete && (product ? Steps(product).TakeWhile(x => x.Key != s.Key).Where(x => x.Mandatory).All(x => completed.Contains(x.Key)) : SetupDefinitions.MayComplete(s.Key, done))));
             if (isComplete) done.Add(s.Key);
         }
         return result;
@@ -147,10 +162,13 @@ public sealed class SetupServiceImpl(
     }
     public async Task CompleteStepAsync(string stepKey, string? dataJson, CancellationToken ct)
     {
+        var product = await repo.IsProductWorkspaceAsync(ct);
+        if (product && stepKey is ("organisation" or "roles" or "structure"))
+            throw new DomainException("setup-core-owned", "Company, locations and team access are managed in Kuubu. Configure departments through HR configuration.");
         var state = await repo.GetStateAsync(ct);
         // A tenant with live HR data and no setup row predates the wizard.
         // Its completion view must remain complete when an admin saves a step.
-        var legacyTenant = state is null && HasWriteServices;
+        var legacyTenant = state is null && HasWriteServices && !product;
         if (!legacyTenant)
             state ??= await repo.SeedPendingStateAsync(ct);
 
@@ -163,9 +181,9 @@ public sealed class SetupServiceImpl(
             throw new DomainException("setup-step-unknown", $"Setup step '{stepKey}' does not exist.");
         if (state is not null && state.Status != SetupDefinitions.StatusPending && state.Status != SetupDefinitions.StatusComplete)
             throw new DomainException("setup-already-finished", "Setup is already complete. Reset the organisation to run the wizard again.");
-        var records = await repo.CompletedStepKeysAsync(ct);
+        var records = await CompletedAsync(product, ct);
         if (!legacyTenant && state?.Status != SetupDefinitions.StatusComplete
-            && !records.Contains(stepKey) && !SetupDefinitions.MayComplete(stepKey, records))
+            && !records.Contains(stepKey) && !(product ? Steps(product).TakeWhile(s => s.Key != stepKey).Where(s => s.Mandatory).All(s => records.Contains(s.Key)) : SetupDefinitions.MayComplete(stepKey, records)))
             throw new DomainException("setup-step-gated",
                 $"Step '{stepKey}' cannot be completed yet — complete the required steps before it first.");
 
@@ -211,14 +229,19 @@ public sealed class SetupServiceImpl(
 
     public async Task FinishAsync(CancellationToken ct)
     {
+        var product = await repo.IsProductWorkspaceAsync(ct);
         var state = await repo.GetStateAsync(ct);
-        if (state is null) return;
+        if (state is null)
+        {
+            if (product) throw new DomainException("setup-incomplete", "Complete the HR configuration steps first.");
+            return;
+        }
         if (state.Status != SetupDefinitions.StatusPending)
             throw new DomainException("setup-already-finished", "Setup is already complete.");
         // Only the mandatory prefix (incl. payroll confirmation) gates finish;
         // optional steps surface afterwards as the after-onboarding checklist.
-        var completed = await repo.CompletedStepKeysAsync(ct);
-        var missing = SetupDefinitions.Steps.Where(s => s.Mandatory && !completed.Contains(s.Key)).ToList();
+        var completed = await CompletedAsync(product, ct);
+        var missing = Steps(product).Where(s => s.Mandatory && !completed.Contains(s.Key)).ToList();
         if (missing.Count != 0)
             throw new DomainException("setup-incomplete",
                 $"Cannot finish: mandatory steps are still open ({string.Join(", ", missing.Select(s => s.Key))}).");
@@ -392,7 +415,14 @@ public sealed class SetupServiceImpl(
         var calendars = (await config!.ListCalendarsAsync(ct)).Items;
         var calendar = calendars.FirstOrDefault(c => c.IsDefault)
             ?? calendars.OrderByDescending(c => c.CreatedAt).FirstOrDefault();
-        if (calendar is null) return; // nothing to configure yet
+        if (calendar is null)
+        {
+            var company = (await config.ListLegalEntitiesAsync(ct)).Items.FirstOrDefault(c => c.IsDefault)
+                ?? (await config.ListLegalEntitiesAsync(ct)).Items.FirstOrDefault()
+                ?? throw new DomainException("working-time-company-required", "Choose a company before configuring working time.");
+            calendar = await config.CreateCalendarAsync(new WorkCalendarCreateRequest("Standard working calendar", company.Id,
+                company.CountryCode, input.StandardWeeklyHours, input.WeekendDays, true), ct);
+        }
         await config.UpdateCalendarAsync(calendar.Id, new WorkCalendarUpdateRequest(
               StandardWeeklyHours: input.StandardWeeklyHours, WeekendDays: input.WeekendDays), ct);
         // Holidays are already loaded (repo includes them with each calendar).
@@ -494,6 +524,9 @@ public sealed class SetupServiceImpl(
         if (!HasWriteServices) return;
 
         var input = RequireJson<WizardPayrollInput>(dataJson, "payroll");
+        Payroll.PayrollPayday.Validate(input.PaydayRule, input.Frequency);
+        if (input.PaydayDay is < 1 or > 31)
+            throw new DomainException("pay-group-payday-invalid", "Payday must be between 1 and 31.");
         if (!input.ConfirmStatutory)
             throw new DomainException("payroll-statutory-not-confirmed",
                 "Confirm the statutory rates before completing the payroll step.");
@@ -603,7 +636,7 @@ public sealed class SetupServiceImpl(
             var payGroup = await payroll.CreatePayGroupAsync(new PayGroupCreateRequest(
                   "ZMW-STANDARD-PG", $"ZMW Standard — {entity.TradingName ?? entity.RegisteredName}",
                   input.Frequency, input.Currency, input.PaydayDay,
-                  5, true), ct);
+                  5, true, input.PaydayRule), ct);
             payGroupId = payGroup.Id;
         }
 
@@ -629,9 +662,16 @@ public sealed class SetupServiceImpl(
         // --- Open period for the current month (if none open). ---
         var monthStart = new DateOnly(today.Year, today.Month, 1);
         var monthEnd = monthStart.AddDays(DateTime.DaysInMonth(today.Year, today.Month) - 1);
-        var payDate = monthEnd.Day >= input.PaydayDay ? new DateOnly(today.Year, today.Month, input.PaydayDay) : monthEnd.AddMonths(1);
-        var cutoffDay = Math.Clamp(input.PaydayDay - 5, 1, monthEnd.Day);
-        var cutoffDate = new DateOnly(today.Year, today.Month, cutoffDay);
+        var configuredGroup = (await payrollRepo.ListPayGroupsAllAsync(ct)).Single(g => g.Id == payGroupId);
+        if (configuredGroup.PaydayRule != input.PaydayRule || configuredGroup.CalendarDayOfMonth != input.PaydayDay
+            || configuredGroup.Frequency != input.Frequency)
+            await payroll.UpdatePayGroupAsync(configuredGroup.Id, new Payroll.PayGroupUpdateRequest(
+                Frequency: input.Frequency, CalendarDayOfMonth: input.PaydayDay, PaydayRule: input.PaydayRule), ct);
+        var calendar = (await config!.ListCalendarsAsync(ct)).Items.FirstOrDefault(c => c.IsDefault);
+        var holidays = calendar?.Holidays.Select(h => DateOnly.Parse(h.ObservedOn ?? h.HolidayDate)).ToArray() ?? [];
+        var payDate = Payroll.PayrollPayday.Resolve(today.Year, today.Month, input.PaydayDay, input.PaydayRule,
+            calendar?.WeekendDays ?? "sat,sun", holidays);
+        var cutoffDate = payDate.AddDays(-5);
         var periodLabel = today.ToString("MMM yyyy");
         if (!(await payrollRepo.ListPeriodsAsync(payGroupId.Value, ct)).Any(p => p.Status == "open"))
         {

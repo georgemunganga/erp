@@ -6097,6 +6097,11 @@ namespace Mightyfin.Erp.Hrm.Infrastructure.Migrations
                         .HasColumnType("integer")
                         .HasColumnName("calendar_day_of_month");
 
+                    b.Property<string>("PaydayRule")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("payday_rule");
+
                     b.Property<string>("Code")
                         .IsRequired()
                         .HasColumnType("text")

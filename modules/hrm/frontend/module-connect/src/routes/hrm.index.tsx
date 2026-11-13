@@ -179,6 +179,10 @@ function Home() {
           }
         />
         <MaterialRequestShortcut />
+        <div className="mb-6 flex flex-wrap items-center justify-between gap-3 rounded-xl border p-4">
+          <p className="text-sm">Set up working time, leave and payroll before your first run.</p>
+          <Button variant="outline" asChild><Link to="/hrm/setup">First-time HR setup</Link></Button>
+        </div>
         <Async state={state}>
           {(data) => (
             <WorkQueue
