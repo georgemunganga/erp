@@ -8591,8 +8591,9 @@ namespace Mightyfin.Erp.Hrm.Infrastructure.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("EmployeeNo")
-                        .IsUnique();
+                    b.HasIndex("TenantId", "EmployeeNo")
+                        .IsUnique()
+                        .HasDatabaseName("ix_workers_tenant_id_employee_no");
 
                     b.HasIndex("LocationId");
 

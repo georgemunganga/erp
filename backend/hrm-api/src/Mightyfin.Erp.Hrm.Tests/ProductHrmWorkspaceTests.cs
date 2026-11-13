@@ -11,6 +11,24 @@ namespace Mightyfin.Erp.Hrm.Tests;
 
 public sealed class ProductHrmWorkspaceTests
 {
+    [Fact]
+    public async Task Employee_numbers_are_unique_within_a_tenant_and_reusable_across_tenants()
+    {
+        await using var db = Database();
+        db.Workers.Add(new Worker { EmployeeNo = "EMP-0001", FirstName = "First", LastName = "Company" });
+        await db.SaveChangesAsync();
+        await using (var foreign = new HrmDbContext(new DbContextOptionsBuilder<HrmDbContext>()
+            .UseSqlite(db.Database.GetDbConnection()).Options, new Tenant("tenant-b")))
+        {
+            foreign.Workers.Add(new Worker { EmployeeNo = "EMP-0001", FirstName = "Second", LastName = "Company" });
+            await foreign.SaveChangesAsync();
+            Assert.Single(await foreign.Workers.ToListAsync());
+        }
+        Assert.Single(await db.Workers.ToListAsync());
+        db.Workers.Add(new Worker { EmployeeNo = "EMP-0001", FirstName = "Duplicate", LastName = "Same company" });
+        await Assert.ThrowsAsync<DbUpdateException>(() => db.SaveChangesAsync());
+    }
+
     private sealed record Tenant(string Id) : ITenantAccessor { public string GetTenantId() => Id; }
     private static HrmDbContext Database()
     {

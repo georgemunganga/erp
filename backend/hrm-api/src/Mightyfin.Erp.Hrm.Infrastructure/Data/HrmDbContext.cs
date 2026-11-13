@@ -445,7 +445,8 @@ public sealed partial class HrmDbContext(DbContextOptions<HrmDbContext> options,
         ConfigureEntity<RetentionRule>(modelBuilder, "retention_rules", e => e.HasIndex(x => new { x.TenantId, x.RecordType }).IsUnique());
         ConfigureEntity<Worker>(modelBuilder, "workers", e =>
         {
-            e.HasIndex(x => x.EmployeeNo).IsUnique();
+            e.HasIndex(x => new { x.TenantId, x.EmployeeNo }).IsUnique()
+                .HasDatabaseName("ix_workers_tenant_id_employee_no");
             // One shared IdP identity may have records in several products,
             // but it may reference at most one worker inside an HRM tenant.
             e.HasIndex(x => new { x.TenantId, x.SubjectId })
