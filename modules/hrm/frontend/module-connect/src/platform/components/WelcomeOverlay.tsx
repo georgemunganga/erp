@@ -968,6 +968,10 @@ function EmploymentStep(props: { sending: boolean; onComplete: (p: Record<string
             })
           }
         />
+        {!saved || (safeList(saved, "Grades").length === 0 && safeList(saved, "Positions").length === 0) ?
+          <Button variant="outline" disabled={props.sending} onClick={() => props.onComplete({ Grades: [], Positions: [] })}>
+            Continue without predefined grades or positions
+          </Button> : null}
       </div>
     </StepCard>
   );

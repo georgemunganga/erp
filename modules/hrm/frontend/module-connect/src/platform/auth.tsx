@@ -1,5 +1,6 @@
 import { ProductEmployeeDirectory } from "@/modules/core/ProductEmployeeDirectory";
-import { FULL_PRODUCT_HRM, ProductHrmSessionError, clearProductHrmSession, loadProductHrmSession, logoutProductHrmSession, type ProductHrmSession } from "@/modules/core/product-hrm-session";
+import { FULL_PRODUCT_HRM, PRODUCT_HRM_RECHECK_EVENT, ProductHrmSessionError, clearProductHrmSession, loadProductHrmSession, logoutProductHrmSession, type ProductHrmSession } from "@/modules/core/product-hrm-session";
+import { AlertDialog, AlertDialogContent, AlertDialogTitle, AlertDialogDescription } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { KuubuIdentity } from "@/platform/components/KuubuIdentity";
 /**
@@ -450,15 +451,20 @@ function ProductHrmAuthProvider({ children }: { children: ReactNode }) {
       } finally { if (request === controller) request = undefined; }
     }
     function visibility() {
-      if (document.hidden) { request?.abort(); request = undefined; clearTimeout(retry); clearProductHrmSession(); setPaused(true); }
+      // The marker/CSRF are routing preconditions, never server authority.
+      // Hiding a tab is not a logout; all business requests still reauthorize.
+      if (document.hidden) { request?.abort(); request = undefined; clearTimeout(retry); }
       else void check();
     }
+    function recheck() { setPaused(true); void check(); }
     setError(""); void check();
     const timer = window.setInterval(() => void check(), 30000);
     document.addEventListener("visibilitychange", visibility);
     window.addEventListener("pageshow", visibility);
+    window.addEventListener(PRODUCT_HRM_RECHECK_EVENT, recheck);
     return () => { stopped = true; request?.abort(); clearTimeout(retry); clearProductHrmSession(); window.clearInterval(timer);
-      document.removeEventListener("visibilitychange", visibility); window.removeEventListener("pageshow", visibility); };
+      document.removeEventListener("visibilitychange", visibility); window.removeEventListener("pageshow", visibility);
+      window.removeEventListener(PRODUCT_HRM_RECHECK_EVENT, recheck); };
   }, [attempt]);
   const value = useMemo<AuthState>(() => ({
     authSettings: { ready: true, available: true, localEnabled: false, oidcEnabled: false },
@@ -481,7 +487,14 @@ function ProductHrmAuthProvider({ children }: { children: ReactNode }) {
   const visible = Boolean(selected) && !paused && !error;
   return <Ctx.Provider value={value}>
     <Activity mode={visible ? "visible" : "hidden"}>{selected ? !selected.fullWorkspace ? <ProductEmployeeDirectory /> : children : null}</Activity>
-    {!visible ?
+    {!visible && selected ? <AlertDialog open>
+      <AlertDialogContent className="z-[201]" overlayClassName="z-[200]">
+        <KuubuIdentity />
+        <AlertDialogTitle>{error ? "Reconnecting your HR workspace" : "Checking your HR workspace"}</AlertDialogTitle>
+        <AlertDialogDescription>{error || "Checking your company access. Your open form is kept here."}</AlertDialogDescription>
+        <Button onClick={() => { setError(""); setPaused(true); setAttempt(x => x + 1); }}>Try again</Button>
+      </AlertDialogContent>
+    </AlertDialog> : !visible ?
     <main className="mx-auto min-h-dvh max-w-xl space-y-6 px-5 py-8"><KuubuIdentity />
       <h1 className="text-2xl font-semibold">{error ? temporary ? "Reconnecting your HR workspace" : "Reconnect through Kuubu" : "Checking your HR workspace"}</h1>
       <p role={error ? "alert" : "status"}>{error || "Checking your company, HR permissions and assigned locations…"}</p>

@@ -35,6 +35,8 @@ HR setup cannot recreate organisation, locations or role grants through those st
 Employment, leave and payroll confirmation are required for configuration finish.
 Working time and policies remain editable; employee entry is a separate next action,
 so configuration can finish without creating fictitious employees.
+Employment can be reviewed without inventing predefined grades or position titles;
+the explicit wizard action saves empty lists and individual employee roles remain separate.
 
 ## 10. Records
 Existing setup states/step payloads remain authoritative. PayGroup gains payday_rule
@@ -76,7 +78,10 @@ selection. A temporary outage is never treated as successful authorization.
 ## 17. Form preservation
 React Activity retains mounted form state while hiding the unverified workflow and
 stopping effects. The memory-only request-header capability is cleared on failure
-or background suspension and restored only after a fresh verified context passes.
+and restored only after a fresh verified context passes. Backgrounding a tab is
+not logout; every business request still reauthorizes on the server. A missing
+memory context stops a save before submission and requests a fresh check. Recovery
+uses a higher modal layer so existing portaled dialogs cannot remain interactive.
 
 ## 18. Concurrency
 Observe/refresh operational continuity before company context to avoid competing

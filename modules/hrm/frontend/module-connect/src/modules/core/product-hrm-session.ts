@@ -19,7 +19,10 @@ type HrmSession = {
   marker: string; csrf: string; principal: string; roles: string[];
   choices: ReturnType<typeof parseCoreWorkspaceChoices>; fullWorkspace: boolean;
 };
-let current: HrmSession | null = null;
+// No eager initializer: a late-loaded API chunk must not reset an already
+// verified session during the bundler's cyclic-module initialization.
+let current: HrmSession | null | undefined;
+export const PRODUCT_HRM_RECHECK_EVENT = "kuubu-hrm-session-recheck";
 export function clearProductHrmSession() { current = null; }
 export async function logoutProductHrmSession() {
   const csrf = current?.csrf;
@@ -27,7 +30,10 @@ export async function logoutProductHrmSession() {
   if (csrf) await createOperationalClient().logout(csrf);
 }
 export function productHrmHeaders(extra?: Record<string, string>): Record<string, string> {
-  if (!current) throw new Error("Choose your HR workspace from Kuubu to continue.");
+  if (!current) {
+    if (typeof window !== "undefined") queueMicrotask(() => window.dispatchEvent(new Event(PRODUCT_HRM_RECHECK_EVENT)));
+    throw new Error("Workspace access is being rechecked. No changes were submitted; try saving again after reconnection.");
+  }
   // No bearer, default tenant or cached organisation authority in product mode.
   const narrowing: Record<string, string> = {};
   try {

@@ -8,7 +8,7 @@ for (const name of ['core-workspace-context', 'product-operational-api'])
   source = source.replace('"./'+name+'"', JSON.stringify(new URL('../src/modules/core/'+name+'.ts',import.meta.url).href));
 source = source.replaceAll('import.meta.env.VITE_ERP_PRODUCT_MODE','"true"').replaceAll('import.meta.env.VITE_ERP_FULL_HRM','"true"');
 const code = ts.transpileModule(source,{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.ESNext}}).outputText;
-const {loadProductHrmSession,clearProductHrmSession,productHrmHeaders,ProductHrmSessionError} = await import('data:text/javascript;base64,'+Buffer.from(code).toString('base64'));
+const {loadProductHrmSession,clearProductHrmSession,productHrmHeaders,ProductHrmSessionError,PRODUCT_HRM_RECHECK_EVENT} = await import('data:text/javascript;base64,'+Buffer.from(code).toString('base64'));
 const company='11111111-1111-4111-8111-111111111111', marker='a'.repeat(64);
 const context={schemaVersion:1,tenantId:'company-a',contextKind:'product',selectedModule:'hrm',hrmWorkspace:true,
   selectedCompanyId:company,principalId:'person-a',moduleRoles:['hr_admin'],sessionContext:marker,
@@ -55,4 +55,12 @@ test('an unavailable operational check never proceeds to context or grants reque
     await assert.rejects(loadProductHrmSession(new AbortController().signal),e=>e.temporary && e.status===503);
     assert.equal(calls.length,1);assert.throws(()=>productHrmHeaders());
   },503);
+});
+test('a missing memory context stops a save and requests a recheck without submitting it',async()=>{
+  const original=globalThis.window, events=new EventTarget();let rechecks=0;
+  globalThis.window=events;events.addEventListener(PRODUCT_HRM_RECHECK_EVENT,()=>rechecks++);
+  try {
+    clearProductHrmSession();assert.throws(()=>productHrmHeaders(),/No changes were submitted/);
+    await new Promise(resolve=>queueMicrotask(resolve));assert.equal(rechecks,1);
+  } finally {if(original===undefined)delete globalThis.window;else globalThis.window=original;}
 });
