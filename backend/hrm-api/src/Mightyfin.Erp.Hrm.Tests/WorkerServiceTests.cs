@@ -58,6 +58,17 @@ internal static class TestDbContextFactory
 
 public class WorkerServiceTests
 {
+    [Fact]
+    public async Task CreateWorker_DuplicateExplicitNumber_ReturnsValidationWithoutCreatingAnotherWorker()
+    {
+        var (service, ctx) = Build();
+        await service.CreateAsync(new WorkerCreateRequest("EMP-001", "First", "Worker"), default);
+        var error = await Assert.ThrowsAsync<DomainException>(() =>
+            service.CreateAsync(new WorkerCreateRequest(" EMP-001 ", "Duplicate", "Worker"), default));
+        Assert.Equal("employee-number-exists", error.Code);
+        Assert.Equal(1, await ctx.Workers.CountAsync());
+    }
+
     private static (WorkerServiceImpl service, HrmDbContext ctx) Build(string tenant = "test-tenant")
     {
         var ctx = TestDbContextFactory.Create(tenant);

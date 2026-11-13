@@ -38,7 +38,9 @@ No worker lifecycle transition changes. A rejected duplicate remains unsaved.
 
 ## 11. Rules
 Different tenants may reuse EMP-0001. The same tenant may not reuse it. Query
-filters and product write guards remain mandatory.
+filters and product write guards remain mandatory. An explicit duplicate receives
+employee-number-exists validation before persistence; the database remains the
+authoritative concurrent uniqueness constraint.
 
 ## 12. Permissions
 Existing hr_admin, explicit HR actions and location scope are unchanged.
@@ -87,12 +89,26 @@ Company hours, leave entitlement, contracts and payday require confirmed policy.
 Statutory setup does not certify employer-specific obligations or registrations.
 
 ## 24. Regression
-A relational test verifies reuse across two tenants, filtered reads, and rejection
-of a duplicate inside one tenant. PostgreSQL migration and native flow proof follow.
+Sixty focused worker, workspace and payroll checks passed. A relational test
+verifies reuse across two tenants, filtered reads, and rejection
+of a duplicate inside one tenant. The EF idempotent delta applied twice on an
+isolated production restore, preserved worker counts, accepted cross-tenant reuse,
+and rejected same-tenant reuse. Probe rows were rolled back.
 
 ## 25. Acceptance
-Pending the qualification run: employee creation, assignments, payroll profile,
-leave accrual/approval, calculation and independently checked net pay.
+Isolated native BFF/PKCE workflow passed: two employees with company/location
+assignments and salary profiles; November leave accrual; two-day paid leave
+approval; payroll preflight, input locking and calculation. Monthly gross 15,000
+and 50,000 produced net 10,924 and 31,512.20 respectively, checked independently.
+The higher case exercises the NAPSA ceiling. Payslip preview metadata is available;
+this is not evidence of approved/released payslip PDFs or bank payment.
+Insufficient leave, repeat monthly accrual and premature payroll release are
+rejected without adding employees, accruing twice or creating a payment.
+
+The 2026 payroll inputs were checked against primary sources:
+[ZRA PAYE](https://www.zra.org.zm/tax-information/),
+[NHIMA contribution guidance](https://www.nhima.co.zm/download/document/0e98ec61c02019110104d23eb0.pdf),
+and [NAPSA's 2026 contribution notice](https://www.linkedin.com/posts/national-pension-scheme-authority_public-notice-revision-in-contribution-ceiling-activity-7417941633180090368-y4Dr).
 
 ## 26. Deployment
 Use a fresh immutable API publication and image. Keep the current qualified web
@@ -100,7 +116,10 @@ publication and persistent keys, intents and HR documents. Record exact pins.
 
 ## 27. Holds
 No real payroll payment, production test employees or invented registration IDs.
-No claim of complete acceptance before the actual flow succeeds.
+Live company policy and employer registrations remain separate setup inputs.
+The current session exposed no Codex browser surface; the selected native Chrome
+window was minimized and could not be acquired. No fresh visual acceptance is
+claimed for this qualification. Native API proof does not replace that check.
 
 ## 28. Evidence
 Local qualification receipts are retained under inspection/qualifications; update
