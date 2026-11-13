@@ -417,6 +417,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 }
 
 function ProductHrmAuthProvider({ children }: { children: ReactNode }) {
+  const recoveryRetry = useRef<HTMLButtonElement>(null);
   const expectedMarker = useRef<string | undefined>(undefined);
   const [selected, setSelected] = useState<ProductHrmSession | null>(null);
   const [error, setError] = useState("");
@@ -488,11 +489,11 @@ function ProductHrmAuthProvider({ children }: { children: ReactNode }) {
   return <Ctx.Provider value={value}>
     <Activity mode={visible ? "visible" : "hidden"}>{selected ? !selected.fullWorkspace ? <ProductEmployeeDirectory /> : children : null}</Activity>
     {!visible && selected ? <AlertDialog open>
-      <AlertDialogContent className="z-[201]" overlayClassName="z-[200]">
+      <AlertDialogContent className="z-[201]" overlayClassName="z-[200]" onOpenAutoFocus={event => { event.preventDefault(); recoveryRetry.current?.focus(); }}>
         <KuubuIdentity />
         <AlertDialogTitle>{error ? "Reconnecting your HR workspace" : "Checking your HR workspace"}</AlertDialogTitle>
         <AlertDialogDescription>{error || "Checking your company access. Your open form is kept here."}</AlertDialogDescription>
-        <Button onClick={() => { setError(""); setPaused(true); setAttempt(x => x + 1); }}>Try again</Button>
+        <Button ref={recoveryRetry} onClick={() => { setError(""); setPaused(true); setAttempt(x => x + 1); }}>Try again</Button>
       </AlertDialogContent>
     </AlertDialog> : !visible ?
     <main className="mx-auto min-h-dvh max-w-xl space-y-6 px-5 py-8"><KuubuIdentity />
