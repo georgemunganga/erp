@@ -1,3 +1,75 @@
+## HR continuity and Levant configuration — 13 November 2026
+
+This supersedes the release pins and pending-policy status below. Published API
+source: `389991f8e117262a45554fe3efcd939bfbccc20e`, image
+`sha256:c6a78be5ad24a4858fbc4a9774361d708455ba56d78407a03901ad8678323302`.
+Consumer `kuubu-hrm-setup-release01-api01` uses HTTPS loopback28984. Web source
+`3a9edf3d726b871b519a3b03c5964c6f86a8d687`, consumer
+`kuubu-hrm-web-setup01-web01` on28975, proxy
+`kuubu-hrm-web-setup01-proxy01`. The490-file web publication is mounted read-only.
+Website/Vercel, central Laravel business code, grants and Perfex are unchanged.
+
+Temporary429/5xx/network access-check failures now reconnect with bounded retries
+and preserve open forms. Continuity refresh precedes company-context reads; hiding
+a tab does not clear the selected routing marker. Missing in-memory request headers
+stop a save before submission and trigger revalidation. A recovery dialog covers
+portaled forms. Confirmed401/403/409 still discard selected authority and require
+reconnection/review; all server reads/writes retain current scope checks.
+
+Migration `20261113050000_PayGroupPaydayRule` adds the calendar-day default and
+last-working-day option. EF delta SHA256
+`8cca690cfa53c6082e0d7c2d1d42312a224e56ca5c207a8fa38e82b881ecfdec` ran twice
+on an isolated production restore before production. Existing groups/counts were
+preserved. Future monthly pay dates exclude configured weekends/holidays; existing
+periods are not retroactively rewritten. No data rollback/down migration is needed
+for code rollback.
+
+Actual live gbanda browser entry from Kuubu Companies opened Levant HR with the
+existing HR administrator/Head office grant, without a second ERP login. Live setup
+was saved through the existing UI and read back from scoped records:
+
+- General department and the existing Head office; no duplicate location.
+- Default40-hour Mon–Fri calendar, Saturday/Sunday weekends.
+- Annual Leave24days/year, monthly automatic accrual enabled. Effective date is
+  13November2026; accrual-start setting is1November. The current month predates the
+  effective date and receives no automatic November credit. Do not claim otherwise.
+- MonthlyZMW group with `last-working-day`; November period pay date30November,
+  attendance cutoff25November, six components/four contribution rules/four PAYE slabs.
+- Setup status `complete`. Job grades/titles were explicitly left configurable.
+  Optional contract probation/notice policy remains unsaved pending actual terms;
+  no sample employees or production pay runs were created.
+
+The live Add employee screen confirmed Levant/Head office/General. The live payroll
+wizard showed persisted dates and zero eligible employees, and reported missing
+profiles/attendance/opening-period evidence. Payroll readiness is separate from
+configuration completion. Employer registrations, real employees, salary/bank
+profiles, configured year-specific holidays and approval/release remain business
+inputs; no salary payment was sent. The existing leave editor currently ignores
+effective-from on updates (the update DTO does not accept it); no direct database
+backdating was used. Preserve that limitation until a separately tested correction.
+
+Verification:110 focused backend tests passed, with the opt-in relational case then
+exercised separately as five passing native PostgreSQL guard cases; seven session
+client tests passed, TypeScript and production build passed. Private native BFF/PKCE
+employee/leave/payroll flow passed with net10,924 and31,512.20 for gross15,000/50,000.
+Browser saved a synthetic employee and department in the private fixture; a forced
+503 while a form was open preserved fields and allowed the subsequent save. A
+second outage/recovery check returned to HR without another login. Nothing from
+the private fixture was copied into Levant. Local evidence:
+`inspection/qualifications/levant-live-setup01`, `hrm-levant-native-01`,
+`levant-setup-tests05`, `levant-native-tests06`, `levant-production-web04`.
+
+Protected predeploy backup: `/opt/kuubu-production/backups/levant-setup-deploy01`,
+database SHA256 `6767a9c846a6cd01181ae75ce4cbecf08288b980f36c268bf49c58fd1be6caaf`.
+The daily backup now runs
+`/opt/kuubu-production/releases/hrm-web-setup-review01/backup-production-hrm06.py`,
+includes current API environment/proxy plus durable keys/intents/documents, and
+completed successfully after configuration. This remains a same-host recovery copy.
+Public `/health/ready` and existing Perfex both returned200 after the changes.
+Retain all prior publications and stopped consumers for rollback.
+
+See [feature record](docs/engineering/HRM-SETUP-CONTINUITY-20261113.md).
+
 ## HR/payroll workflow qualification — 13 November 2026
 
 This supersedes the API/proxy pins below. The qualified API source is
