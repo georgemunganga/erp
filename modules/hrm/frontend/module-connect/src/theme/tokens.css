@@ -86,7 +86,45 @@
   --color-chart-5: var(--accent);
 }
 
+/* Public Kuubu onboarding uses product branding before any company is selected.
+   Keep these semantic overrides here, separate from tenant branding. */
+.kuubu-product-shell {
+  --erp-font-family: "Poppins", Arial, sans-serif;
+  --radius: 0.75rem;
+  --secondary: #f2f7ed;
+  --secondary-foreground: #004b3b;
+  --surface-foreground: #004b3b;
+  --surface-muted: #f4f7ef;
+  --primary-soft: #eff6e9;
+  --rail: #073e2e;
+  --rail-foreground: #ffffff;
+  --rail-muted: #b6cfbf;
+  --rail-active: #69c829;
+  --primary: #004b3b;
+  --primary-foreground: #ffffff;
+  --button-primary: #004b3b;
+  --button-primary-foreground: #ffffff;
+  --accent: #69c829;
+  --accent-foreground: #004b3b;
+  --background: #fcfdf9;
+  --foreground: #004b3b;
+  --card: #ffffff;
+  --card-foreground: #004b3b;
+  --popover: #ffffff;
+  --popover-foreground: #004b3b;
+  --surface: #f4f7ef;
+  --muted: #f4f7ef;
+  --muted-foreground: #54675c;
+  --border: #dce4d9;
+  --input: #c4d2c0;
+  --ring: #004b3b;
+  font-family: var(--erp-font-family);
+}
+
 :root {
+  /* Public Kuubu product identity, matching the maintained website mark.
+     Separate from the configurable employer/tenant accent surface. */
+  --product-kuubu-mark: #69c829;
   --radius: 0.5rem;
 
   /* brand — Newworldcargo */
@@ -191,3 +229,15 @@
   --rail-muted: #a7c7da;
   --rail-active: #0b3a5d;
 }
+
+/* Website/account design carried through the product app. Legacy tenant themes retain their controls. */
+html.kuubu-document { font-size: 16px; }
+.kuubu-product-shell { background: var(--background); color: var(--foreground); -webkit-font-smoothing: antialiased; }
+.kuubu-product-shell [data-erp-button] { min-height: 44px; border-radius: 16px; padding: 12px 16px; font-size: 12px; font-weight: 600; box-shadow: none; }
+.kuubu-product-shell [data-erp-button="default"]:hover { background: #17614d; }
+.kuubu-product-shell [data-erp-button="outline"] { background: #ffffff; color: var(--foreground); border-color: var(--border); }
+.kuubu-product-shell [data-erp-button="outline"]:hover { background: var(--secondary); }
+.kuubu-product-shell input:not([type="checkbox"]):not([type="radio"]),
+.kuubu-product-shell textarea,
+.kuubu-product-shell [role="combobox"] { border-radius: 12px; font-family: inherit; font-size: 13px; }
+.kuubu-product-shell [data-slot="card"] { border-radius: 22px; box-shadow: none; }

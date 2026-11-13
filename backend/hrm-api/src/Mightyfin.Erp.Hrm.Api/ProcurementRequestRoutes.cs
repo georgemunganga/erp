@@ -17,7 +17,7 @@ public static class ProcurementRequestRoutes
 {
     public static void Map(WebApplication app)
     {
-        var group = app.MapGroup("/api/procurement/v1/requests");
+        var group = app.MapGroup("/api/procurement/v1/requests").ProductProcurement();
         group.MapGet("", List).RequireAuthorization("procurement-request-read");
         group.MapGet("/{id:guid}", Get).RequireAuthorization("procurement-request-read");
         group.MapGet("/{id:guid}/review", GetForReview).RequireAuthorization("procurement-request-return");

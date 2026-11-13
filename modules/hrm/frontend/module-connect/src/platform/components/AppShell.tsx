@@ -1,3 +1,4 @@
+import { FULL_PRODUCT_HRM } from "@/modules/core/product-hrm-session";
 import { Link, useRouter, useRouterState } from "@tanstack/react-router";
 import {
   Bell,
@@ -707,7 +708,7 @@ function FullAppShell({ children }: { children: ReactNode }) {
   // route so first-time operators land on the wizard; an already-complete
   // org is passed straight through by the backend's "complete" status.
   const setupPending =
-    USE_REAL && !shellState.data?.confined && Boolean(shellState.data?.setupState) && (shellState.data?.setupState as { status?: string } | null)?.status === "pending";
+    USE_REAL && !FULL_PRODUCT_HRM && !shellState.data?.confined && Boolean(shellState.data?.setupState) && (shellState.data?.setupState as { status?: string } | null)?.status === "pending";
 
   const switchTargetLabel = (() => {
     try {
@@ -818,6 +819,7 @@ function FullAppShell({ children }: { children: ReactNode }) {
               <DropdownMenuLabel className="text-[10px] uppercase tracking-wide text-muted-foreground">
                 Organisation context — entity and branch
               </DropdownMenuLabel>
+              {FULL_PRODUCT_HRM ? <DropdownMenuItem asChild><a href="https://www.kuubuerp.com/account/#/companies">Choose company in Kuubu</a></DropdownMenuItem> : null}
               {entityTree.map((node) => (
                 <div key={node.entityId}>
                   <DropdownMenuRadioGroup value={entityId} onValueChange={setEntityId}>

@@ -143,7 +143,7 @@ public sealed record SalaryAdvanceCancelRequest(string Reason);
 // ---------- M20: payroll setup admin (write surface) ----------
 public sealed record PayGroupUpdateRequest(string? Code = null, string? Name = null,
     string? Frequency = null, string? Currency = null, int? CalendarDayOfMonth = null,
-    int? InputCutoffDaysBeforePayday = null, bool? IsDefault = null);
+    int? InputCutoffDaysBeforePayday = null, bool? IsDefault = null, string? PaydayRule = null);
 public sealed record TaxSlabUpdateRequest(decimal? Rate = null, decimal? MaxAmount = null);
 public sealed record ContributionRuleUpdateRequest(
     decimal? Rate = null,
@@ -176,7 +176,7 @@ public sealed record SalaryComponentUpdateRequest(
     bool CeilingSpecified = false);
 // ---------- M20 DTO extras ----------
 public sealed record PayGroupFullDto(Guid Id, string Code, string Name, string Frequency, string Currency,
-    int CalendarDayOfMonth, int InputCutoffDaysBeforePayday, bool IsDefault, string Status);
+    int CalendarDayOfMonth, int InputCutoffDaysBeforePayday, bool IsDefault, string Status, string PaydayRule = "calendar-day");
 
 public sealed class PayrollServiceImpl(IPayrollRepository repo, IAuthzService authz,
     IPayslipDocumentService payslipDocument,
@@ -196,7 +196,7 @@ public sealed class PayrollServiceImpl(IPayrollRepository repo, IAuthzService au
     {
         authz.RequireAnyRole("hr_ops", "hr_admin", "payroll");
         var items = await repo.ListPayGroupsAsync(ct);
-        return items.Select(g => new PayGroupDto(g.Id, g.Code, g.Name, g.Frequency, g.Currency, g.CalendarDayOfMonth)).ToList();
+        return items.Select(g => new PayGroupDto(g.Id, g.Code, g.Name, g.Frequency, g.Currency, g.CalendarDayOfMonth, g.PaydayRule)).ToList();
     }
 
     public async Task<List<PayPeriodDto>> ListPeriodsAsync(Guid payGroupId, CancellationToken ct)
@@ -241,7 +241,7 @@ public sealed class PayrollServiceImpl(IPayrollRepository repo, IAuthzService au
         var items = await repo.ListPayGroupsAllAsync(ct);
         return items.Select(g => new PayGroupFullDto(g.Id, g.Code, g.Name, g.Frequency, g.Currency,
             g.CalendarDayOfMonth, g.InputCutoffDaysBeforePayday, g.IsDefault,
-            g.IsArchived ? "archived" : "active")).ToList();
+            g.IsArchived ? "archived" : "active", g.PaydayRule)).ToList();
     }
 
     /// <summary>M50: the setup wizard provisions the organisation's first pay
@@ -262,10 +262,12 @@ public sealed class PayrollServiceImpl(IPayrollRepository repo, IAuthzService au
             throw new DomainException("pay-group-name-invalid", "Pay group name must be 2-60 characters.");
         if (request.CalendarDayOfMonth is < 1 or > 31)
             throw new DomainException("pay-group-payday-invalid", "Payday (day of month) must be between 1 and 31.");
+        PayrollPayday.Validate(request.PaydayRule, request.Frequency);
         var group = new PayGroup
         {
             Code = code, Name = name, Frequency = request.Frequency, Currency = request.Currency,
             CalendarDayOfMonth = request.CalendarDayOfMonth,
+            PaydayRule = request.PaydayRule,
             InputCutoffDaysBeforePayday = request.InputCutoffDaysBeforePayday,
             IsDefault = request.IsDefault,
         };
@@ -273,7 +275,7 @@ public sealed class PayrollServiceImpl(IPayrollRepository repo, IAuthzService au
             await repo.UnsetDefaultPayGroupsAsync(ct, group.Id);
         await repo.CreatePayGroupAsync(group, ct);
         return new PayGroupFullDto(group.Id, group.Code, group.Name, group.Frequency, group.Currency,
-            group.CalendarDayOfMonth, group.InputCutoffDaysBeforePayday, group.IsDefault, "active");
+            group.CalendarDayOfMonth, group.InputCutoffDaysBeforePayday, group.IsDefault, "active", group.PaydayRule);
     }
 
     public async Task<PayGroupFullDto> UpdatePayGroupAsync(Guid id, PayGroupUpdateRequest request, CancellationToken ct)
@@ -281,10 +283,14 @@ public sealed class PayrollServiceImpl(IPayrollRepository repo, IAuthzService au
         authz.RequireAnyRole("hr_ops", "hr_admin");
         var group = await repo.GetPayGroupAsync(id, ct)
             ?? throw new DomainException("pay-group-not-found", $"Pay group {id} does not exist.");
+        PayrollPayday.Validate(request.PaydayRule ?? group.PaydayRule, request.Frequency ?? group.Frequency);
+        if (request.CalendarDayOfMonth is < 1 or > 31)
+            throw new DomainException("pay-group-payday-invalid", "Payday (day of month) must be between 1 and 31.");
         if (request.Code is not null) group.Code = request.Code.Trim();
         if (request.Name is not null) group.Name = request.Name.Trim();
         if (request.Frequency is not null) group.Frequency = request.Frequency;
         if (request.Currency is not null) group.Currency = request.Currency;
+        if (request.PaydayRule is not null) group.PaydayRule = request.PaydayRule;
         if (request.CalendarDayOfMonth is not null) group.CalendarDayOfMonth = request.CalendarDayOfMonth.Value;
         if (request.InputCutoffDaysBeforePayday is not null) group.InputCutoffDaysBeforePayday = request.InputCutoffDaysBeforePayday.Value;
         if (request.IsDefault is not null && request.IsDefault == true) await repo.UnsetDefaultPayGroupsAsync(ct, id);
@@ -294,7 +300,7 @@ public sealed class PayrollServiceImpl(IPayrollRepository repo, IAuthzService au
         await repo.UpdatePayGroupAsync(group, ct);
         return new PayGroupFullDto(group.Id, group.Code, group.Name, group.Frequency, group.Currency,
             group.CalendarDayOfMonth, group.InputCutoffDaysBeforePayday, group.IsDefault,
-            group.IsArchived ? "archived" : "active");
+            group.IsArchived ? "archived" : "active", group.PaydayRule);
     }
 
     public async Task<TaxSlabDto> UpdateTaxSlabAsync(Guid id, TaxSlabUpdateRequest request, CancellationToken ct)

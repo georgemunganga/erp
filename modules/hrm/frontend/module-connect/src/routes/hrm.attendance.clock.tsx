@@ -30,13 +30,13 @@ import { useMock } from "@/platform/use-mock";
 export const Route = createFileRoute("/hrm/attendance/clock")({
   head: () => ({
     meta: [
-      { title: "Clock in and out — Newworldcargo HRM" },
+      { title: "Clock in and out — Kuubu HRM" },
       {
         name: "description",
         content:
           "Clock in, take your break and clock out, with today's punches, how each one was captured, and any day that still needs a correction.",
       },
-      { property: "og:title", content: "Clock in and out — Newworldcargo HRM" },
+      { property: "og:title", content: "Clock in and out — Kuubu HRM" },
       {
         property: "og:description",
         content:

@@ -17,7 +17,7 @@ public static class ProcurementVendorRoutes
 {
     public static void MapRoutes(WebApplication app)
     {
-        var group = app.MapGroup("/api/procurement/v1/vendors");
+        var group = app.MapGroup("/api/procurement/v1/vendors").ProductProcurement();
         group.MapGet("", ListAsync).RequireAuthorization("procurement-vendor-read");
         group.MapGet("/export", ExportAsync).RequireAuthorization("procurement-vendor-read")
             .RequireAuthorization("procurement-vendor-export");

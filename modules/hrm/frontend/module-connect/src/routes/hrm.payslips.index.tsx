@@ -48,9 +48,9 @@ function adaptPayslip(raw: unknown): DerivedPayslip | null {
 export const Route = createFileRoute("/hrm/payslips/")({
   head: () => ({
     meta: [
-      { title: "Payslips — Newworldcargo HRM" },
+      { title: "Payslips — Kuubu HRM" },
       { name: "description", content: "Your pay history, each with a full explanation of how it was calculated." },
-      { property: "og:title", content: "Payslips — Newworldcargo HRM" },
+      { property: "og:title", content: "Payslips — Kuubu HRM" },
       { property: "og:description", content: "Your pay history, each with a full explanation of how it was calculated." },
     ],
   }),

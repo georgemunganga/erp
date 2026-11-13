@@ -1,3 +1,4 @@
+import { MaterialRequestShortcut } from "@/platform/components/MaterialRequestShortcut";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { Button } from "@/components/ui/button";
 import { workspaces } from "@/mock/data";
@@ -15,8 +16,11 @@ import { realApi, useApi } from "@/platform/use-api";
 export const Route = createFileRoute("/hrm/")({
   head: () => ({
     meta: [
-      { title: "Home — Newworldcargo HRM" },
-      { name: "description", content: "Live HR work queue: exceptions, approvals, tasks and deadlines." },
+      { title: "Home — HRM" },
+      {
+        name: "description",
+        content: "Live HR work queue: exceptions, approvals, tasks and deadlines.",
+      },
     ],
   }),
   component: Home,
@@ -27,7 +31,7 @@ type Row = Record<string, unknown>;
 
 const rows = (value: unknown): Row[] =>
   Array.isArray(value)
-    ? value as Row[]
+    ? (value as Row[])
     : value && typeof value === "object" && "items" in value
       ? (((value as { items?: unknown[] }).items ?? []) as Row[])
       : [];
@@ -111,7 +115,11 @@ async function loadHome(role: string) {
       roles: ["hr_admin", "hr_ops"],
     });
   }
-  for (const item of rows(payroll).filter((run) => !["released", "reconciled", "reversed"].includes(String(run.status).toLowerCase())).slice(0, 5)) {
+  for (const item of rows(payroll)
+    .filter(
+      (run) => !["released", "reconciled", "reversed"].includes(String(run.status).toLowerCase()),
+    )
+    .slice(0, 5)) {
     items.push({
       id: String(item.id),
       band: "deadline",
@@ -128,10 +136,26 @@ async function loadHome(role: string) {
   return {
     items,
     metrics: [
-      { label: "Open leave requests", value: String(rows(leave).length), hint: "Submitted for decision" },
-      { label: "Attendance exceptions", value: String(rows(corrections).length), hint: "Submitted corrections" },
-      { label: "HR cases open", value: String(rows(cases).length), hint: "Restricted by your role" },
-      { label: "Employees in scope", value: String(workers.totalCount ?? 0), hint: "Active tenant records" },
+      {
+        label: "Open leave requests",
+        value: String(rows(leave).length),
+        hint: "Submitted for decision",
+      },
+      {
+        label: "Attendance exceptions",
+        value: String(rows(corrections).length),
+        hint: "Submitted corrections",
+      },
+      {
+        label: "HR cases open",
+        value: String(rows(cases).length),
+        hint: "Restricted by your role",
+      },
+      {
+        label: "Employees in scope",
+        value: String(workers.totalCount ?? 0),
+        hint: "Active tenant records",
+      },
     ],
   };
 }
@@ -148,8 +172,17 @@ function Home() {
           eyebrow={`${ws.label} workspace`}
           title="Home"
           description="Live tenant work is ordered by urgency. Resolve exceptions first, then approvals and operational tasks."
-          primaryAction={<Button asChild><Link to="/hrm/employees/new">Add employee</Link></Button>}
+          primaryAction={
+            <Button asChild>
+              <Link to="/hrm/employees/new">Add employee</Link>
+            </Button>
+          }
         />
+        <MaterialRequestShortcut />
+        <div className="mb-6 flex flex-wrap items-center justify-between gap-3 rounded-xl border p-4">
+          <p className="text-sm">Set up working time, leave and payroll before your first run.</p>
+          <Button variant="outline" asChild><Link to="/hrm/setup">First-time HR setup</Link></Button>
+        </div>
         <Async state={state}>
           {(data) => (
             <WorkQueue

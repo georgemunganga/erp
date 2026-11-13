@@ -1,6 +1,8 @@
 import { createFileRoute, Outlet, useRouterState } from "@tanstack/react-router";
 import { BriefcaseBusiness, FileCheck2, ShieldCheck, Workflow } from "lucide-react";
 import { configurationGroups } from "@/modules/hrm/nav";
+import { isPathEnabled } from "@/modules/hrm/scope";
+import { FULL_PRODUCT_HRM } from "@/modules/core/product-hrm-session";
 import { AppShell } from "@/platform/components/AppShell";
 import { AuthGate } from "@/platform/components/AuthGate";
 import { SettingsDirectory, type SettingsDirectoryGroup } from "@/platform/components/SettingsDirectory";
@@ -10,7 +12,7 @@ const groups: SettingsDirectoryGroup[] = configurationGroups.map((group, index) 
   title: group.label,
   description: group.description,
   icon: icons[index],
-  items: group.items,
+  items: group.items.filter(item => !FULL_PRODUCT_HRM || !item.to || isPathEnabled(item.to)),
 }));
 
 export const Route = createFileRoute("/hrm/workspace/settings")({

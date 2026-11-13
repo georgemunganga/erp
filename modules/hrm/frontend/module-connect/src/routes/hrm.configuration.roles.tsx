@@ -18,9 +18,9 @@ import { feedback } from "@/platform/feedback";
 export const Route = createFileRoute("/hrm/configuration/roles")({
   head: () => ({
     meta: [
-      { title: "Roles and permissions - Newworldcargo HRM" },
+      { title: "Roles and permissions - Kuubu HRM" },
       { name: "description", content: "Create HRMS roles and assign the permissions each role grants." },
-      { property: "og:title", content: "Roles and permissions - Newworldcargo HRM" },
+      { property: "og:title", content: "Roles and permissions - Kuubu HRM" },
       { property: "og:description", content: "Create HRMS roles and assign the permissions each role grants." },
     ],
   }),

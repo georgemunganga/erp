@@ -38,13 +38,13 @@ import {
 export const Route = createFileRoute("/hrm/pay/compensation")({
   head: () => ({
     meta: [
-      { title: "Compensation — Newworldcargo HRM" },
+      { title: "Compensation — Kuubu HRM" },
       {
         name: "description",
         content:
           "Per-worker salary structures and a live overview of configured benefits and claims.",
       },
-      { property: "og:title", content: "Compensation — Newworldcargo HRM" },
+      { property: "og:title", content: "Compensation — Kuubu HRM" },
       {
         property: "og:description",
         content:

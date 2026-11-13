@@ -14,9 +14,9 @@ import { useMock } from "@/platform/use-mock";
 export const Route = createFileRoute("/hrm/relations/ethics")({
   head: () => ({
     meta: [
-      { title: "Ethics and declarations — Newworldcargo HRM" },
+      { title: "Ethics and declarations — Kuubu HRM" },
       { name: "description", content: "Conflicts of interest, outside employment, gifts and related-party declarations." },
-      { property: "og:title", content: "Ethics and declarations — Newworldcargo HRM" },
+      { property: "og:title", content: "Ethics and declarations — Kuubu HRM" },
       { property: "og:description", content: "Conflicts of interest, outside employment, gifts and related-party declarations." },
     ],
   }),

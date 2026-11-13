@@ -1,3 +1,2579 @@
+## HR continuity and Levant configuration — 13 November 2026
+
+This supersedes the release pins and pending-policy status below. Published API
+source: `389991f8e117262a45554fe3efcd939bfbccc20e`, image
+`sha256:c6a78be5ad24a4858fbc4a9774361d708455ba56d78407a03901ad8678323302`.
+Consumer `kuubu-hrm-setup-release01-api01` uses HTTPS loopback28984. Web source
+`3a9edf3d726b871b519a3b03c5964c6f86a8d687`, consumer
+`kuubu-hrm-web-setup01-web01` on28975, proxy
+`kuubu-hrm-web-setup01-proxy01`. The490-file web publication is mounted read-only.
+Website/Vercel, central Laravel business code, grants and Perfex are unchanged.
+
+Temporary429/5xx/network access-check failures now reconnect with bounded retries
+and preserve open forms. Continuity refresh precedes company-context reads; hiding
+a tab does not clear the selected routing marker. Missing in-memory request headers
+stop a save before submission and trigger revalidation. A recovery dialog covers
+portaled forms. Confirmed401/403/409 still discard selected authority and require
+reconnection/review; all server reads/writes retain current scope checks.
+
+Migration `20261113050000_PayGroupPaydayRule` adds the calendar-day default and
+last-working-day option. EF delta SHA256
+`8cca690cfa53c6082e0d7c2d1d42312a224e56ca5c207a8fa38e82b881ecfdec` ran twice
+on an isolated production restore before production. Existing groups/counts were
+preserved. Future monthly pay dates exclude configured weekends/holidays; existing
+periods are not retroactively rewritten. No data rollback/down migration is needed
+for code rollback.
+
+Actual live gbanda browser entry from Kuubu Companies opened Levant HR with the
+existing HR administrator/Head office grant, without a second ERP login. Live setup
+was saved through the existing UI and read back from scoped records:
+
+- General department and the existing Head office; no duplicate location.
+- Default40-hour Mon–Fri calendar, Saturday/Sunday weekends.
+- Annual Leave24days/year, monthly automatic accrual enabled. Effective date is
+  13November2026; accrual-start setting is1November. The current month predates the
+  effective date and receives no automatic November credit. Do not claim otherwise.
+- MonthlyZMW group with `last-working-day`; November period pay date30November,
+  attendance cutoff25November, six components/four contribution rules/four PAYE slabs.
+- Setup status `complete`. Job grades/titles were explicitly left configurable.
+  Optional contract probation/notice policy remains unsaved pending actual terms;
+  no sample employees or production pay runs were created.
+
+The live Add employee screen confirmed Levant/Head office/General. The live payroll
+wizard showed persisted dates and zero eligible employees, and reported missing
+profiles/attendance/opening-period evidence. Payroll readiness is separate from
+configuration completion. Employer registrations, real employees, salary/bank
+profiles, configured year-specific holidays and approval/release remain business
+inputs; no salary payment was sent. The existing leave editor currently ignores
+effective-from on updates (the update DTO does not accept it); no direct database
+backdating was used. Preserve that limitation until a separately tested correction.
+
+Verification:110 focused backend tests passed, with the opt-in relational case then
+exercised separately as five passing native PostgreSQL guard cases; seven session
+client tests passed, TypeScript and production build passed. Private native BFF/PKCE
+employee/leave/payroll flow passed with net10,924 and31,512.20 for gross15,000/50,000.
+Browser saved a synthetic employee and department in the private fixture; a forced
+503 while a form was open preserved fields and allowed the subsequent save. A
+second outage/recovery check returned to HR without another login. Nothing from
+the private fixture was copied into Levant. Local evidence:
+`inspection/qualifications/levant-live-setup01`, `hrm-levant-native-01`,
+`levant-setup-tests05`, `levant-native-tests06`, `levant-production-web04`.
+
+Protected predeploy backup: `/opt/kuubu-production/backups/levant-setup-deploy01`,
+database SHA256 `6767a9c846a6cd01181ae75ce4cbecf08288b980f36c268bf49c58fd1be6caaf`.
+The daily backup now runs
+`/opt/kuubu-production/releases/hrm-web-setup-review01/backup-production-hrm06.py`,
+includes current API environment/proxy plus durable keys/intents/documents, and
+completed successfully after configuration. This remains a same-host recovery copy.
+Public `/health/ready` and existing Perfex both returned200 after the changes.
+Retain all prior publications and stopped consumers for rollback.
+
+See [feature record](docs/engineering/HRM-SETUP-CONTINUITY-20261113.md).
+
+## HR/payroll workflow qualification — 13 November 2026
+
+This supersedes the API/proxy pins below. The qualified API source is
+`fc139b3786e593da4fb39eb24260183da21b8827`, image
+`sha256:0f0c060bc9565ccf25d215105b78f600bf0634f2a8bfdbda0671e54d77d0a399`.
+Active API: `kuubu-hrm-payroll-release02-api01`, HTTPS loopback28983;
+proxy: `kuubu-hrm-payroll-release02-proxy01`. HR SSR remains `36374eca`,
+`kuubu-full-hrm-release03-web01` on28973. Website and Laravel are unchanged.
+
+Migration `20261113001500_CompanyScopedEmployeeNumbers` replaces global employee
+number uniqueness with tenant+number uniqueness. EF idempotent SQL applied twice
+on an isolated production restore; counts stayed unchanged, cross-company reuse
+passed and same-company duplicates failed. An explicit duplicate now returns
+employee-number-exists validation rather than500. Sixty focused tests passed.
+
+Private native website-BFF/real-PKCE acceptance completed two employee records,
+company/location assignments, salary profiles, monthly leave accrual and paid leave
+approval, payroll preflight, input locking, calculation and payslip-preview metadata.
+Gross15,000/50,000 produced independently checked net10,924/31,512.20. Insufficient
+leave, repeat accrual, duplicate employee and unapproved release were rejected.
+No bank payment, approved payslip PDF or real production employee was created.
+Evidence: local `inspection/qualifications/hrm-payroll-native-05`, `-11`,
+`payroll-fix-build02`, `payroll-migration-rehearsal01`, `payroll-production-release02`.
+See [feature record](docs/engineering/HRM-COMPANY-EMPLOYEE-NUMBERS-20261113.md).
+
+Live company hours, leave entitlement, contract policy and payday remain pending
+confirmed business inputs; employer registration numbers must not be invented.
+This is a completed technical qualification, not completed live company payroll
+setup. No fresh visual acceptance: this session exposed no Codex browser and the
+selected Chrome window could not be acquired while minimized.
+
+Fresh backup: `/opt/kuubu-production/backups/hrm-payroll-deploy02`, database SHA256
+`c99d8f9135f43a2bfc4cad56af20526331aa2d397ca14e9e20fdd0cf55e1e54d`.
+Daily backup now uses release02/backup-production-hrm05.py and includes the current
+API environment/proxy configuration plus existing protected state/documents; run
+passed. Recovery remains same-host. Prior API/proxy release01 is retained stopped;
+start its API on28982 before restoring its paired proxy. Retain the forward index
+on application rollback; down migration fails safely after companies reuse numbers.
+Public readiness and HR/Procurement route delivery passed; Perfex returned200.
+
+## Deployed full HR workspace — 12 November 2026
+
+This supersedes the historical deployment pins below. Original HRM navigation,
+forms and real services now use verified Kuubu company sessions. Kuubu remains
+the company/module switcher and team/access owner. No database migration.
+
+| Component | Qualified live pin |
+| --- | --- |
+| API source | `07104108814072a90d69f384ffed1e11621e99b2` |
+| API image | `sha256:39b1f605b50b8a964bd63386db0933602aba05e683408afd42145d7ae71cd0cc` |
+| API consumer | `kuubu-full-hrm-release01-api01`, HTTPS loopback28981 |
+| HR SSR source | `36374eca45cd83390bea4443329cb2f640227436` |
+| Web consumer | `kuubu-full-hrm-release03-web01`, loopback28973 |
+| Proxy | `kuubu-full-hrm-release03-proxy01` |
+| Web publication | `full-hrm-web-publication-09`, 492 files, read-only |
+| Laravel capacity patch | `1569b40`, release `hrm-capacity-1569b40-deploy01` |
+
+Public website/Vercel pins and Procurement UI/capability holds are unchanged from
+the checkpoint below. Perfex origin authentication returned200. 132 regression
+checks passed, plus both dedicated cross-process roles and three Laravel quota
+tests (25 assertions). Private browser acceptance saved a company department,
+employee plus assignment, leave rule and real hiring draft. Protected PDFs survive
+restart. Major original HR read screens and public company-to-HR entry were checked.
+Production verification adds no synthetic HR records or real payroll payments.
+
+The finite existing location grant is preserved. Full legacy HR compatibility
+requires coverage of every company location/history and worker; narrower grants
+keep the bounded directory. Workforce self-service needs an explicit employee
+identity link. Planned/demo-only screens remain held. Workspace provisioning is
+not evidence of payroll/statutory readiness; company and login administration
+remain in Kuubu, while HR-owned setup remains available in the ERP.
+
+Recovery evidence: `/opt/kuubu-production/backups/hrm-full-before01`, database SHA256
+`f1c1dc5033f4ee3071663be65fe621c9ddb5a5a6b83d8de4e07e19cf95254cb2`.
+Four durable HR file mounts under shared/hrm-documents-01 cover employee/candidate
+uploads, case evidence and payslips. Daily root-private same-host DB/state/document
+backups use kuubu-production-backup-hrm01.timer; initial and updated-config runs
+passed. Off-site recovery is outside this qualification.
+
+Web rollback: first start kuubu-full-hrm-release02-web01 (28972), then replace the
+active proxy with kuubu-full-hrm-release02-proxy01. API28981 stays current. The
+previous minimal deployment also remains retained: API kuubu-procurement-991ba01-api01
+(28961), web kuubu-branding-b313cdf1-web01 (28931), proxy
+kuubu-procurement-991ba01-proxy01. Start its paired consumers before switching its
+proxy, then verify readiness. Rollback never down-migrates or restores over current
+customer records. Old consumers/private qualification consumers are retained stopped.
+
+Detailed contract: docs/engineering/HRM-PRODUCT-WORKSPACE-20261112.md. Receipts and
+screenshots: infrastructure inspection/qualifications/full-hrm-final-acceptance-01,
+full-hrm-production-release-01 and full-hrm-production-web03.
+
+## Historical deployed checkpoint — 12 November 2026
+
+This checkpoint supersedes the historical pins and holds below. Public ERP runs
+`991ba01c0a6aac701c4d8319011bf21bb50075d6`, API
+`kuubu-procurement-991ba01-api01`, image ID
+`sha256:0257b28f1413839d0954ae0b3ed8fe921902c0d8e6f84f575b81025d2f0704fc`,
+proxy `kuubu-procurement-991ba01-proxy01`. Original Procurement UI source
+`c0dde2b9bb948e33c844ee127f38deaf9ac86f8c` is served at
+`https://app.kuubuerp.com/procurement/workspace/`. Product admission is enabled;
+advanced purchasing, approval and Finance gates remain held independently.
+
+Public website source `4586a9e34019efd08ad35ff47d9319bbc010d292` is Vercel
+`dpl_FnFAUfgocvv17H13q9joiNPbJDCr`, READY and aliased to www.kuubuerp.com.
+It adds Procurement launch, permission-read Refresh recovery and paid setup copy.
+The prior trial UI remains included. Laravel commercial runtime `67b9d19` plus
+trial changes `7b8ead4` runs from
+`/opt/greenwebb-foundation/releases/visible-trials-7b8ead4-deploy01`.
+No real merchant charge was made. Perfex ownership is unchanged; its existing
+administration authentication returned 200 directly at the central origin.
+
+Production evidence: infrastructure
+`inspection/qualifications/procurement-production-release-01/`; remote
+`/opt/kuubu-production/releases/procurement-991ba01-deploy01/activation.json`.
+Backup: `/opt/kuubu-production/backups/procurement-991ba01-before01`, dump SHA256
+`9ebc3c0ecef99efb641d8efb41825f837ff7c1fa042a55c89904d5a6a05e5540`.
+The genuine migration applied twice to a private restore of production first
+(110 HRM / 136 Procurement tables). Effective runtime privileges deny schema
+creation, migration-history writes and Finance execution. Reviewed finite grants
+are in `deployment/hrm/kuubu-procurement-runtime-grants.psql`.
+The old `kuubu-account-proxy01` and `kuubu-account-be000319-api02` remain available
+for application rollback; do not down-migrate or restore over new customer data.
+
+Additional native concurrency acceptance held an admitted vendor write inside
+its transaction while real Core grant revocation waited on the shared company
+fence. The write committed before revocation; subsequent access and writes were
+denied. Entry-only grants could not expand legacy roles. Evidence:
+`inspection/qualifications/procurement-concurrency-native-05/result.json`.
+
+The final CUA browser cohort purchased HRM (3 users) plus Procurement (8 users)
+for K2500 and a second company's Procurement (1 user) for K500 through a
+controlled provider fixture. Real Laravel activation preceded explicit Core
+company creation. A recipient accepted a genuine protected invitation; module
+entry was denied before a separate grant and succeeded with read-only actions
+after it. Company A -> B -> A retained the correct company/Head office context:
+B had no vendors, A restored its persisted vendor. HRM employees opened directly
+from Kuubu for A and survived refresh. Invoice PDF downloaded through the browser.
+The public Procurement entry recovered to Return to Kuubu without an operational
+session; its initial navigation stalled once and succeeded after reload.
+Evidence: `inspection/qualifications/full-procurement-browser-02/acceptance.json`.
+This private browser transport maps origins/cookies and uses array mail plus
+controlled settlement; it does not prove a real public paid purchase or inbox
+delivery. Actual public sign-in and the K0 trial review were checked separately.
+
+Trials support verified platform-admin authority or explicit actual root CLI
+authority; finite expiry, reason, review and confirmation remain required.
+Unresolved collection blocks issuance. An explicitly requested production trial
+was issued without creating a company or assigning operational access. The
+account shows Trial active, K0 fee, expiry, separate standard pricing and a
+Continue trial setup action. See foundation `docs/KUUBU-OPERATOR-TRIALS.md`.
+
+## Earlier checkpoint — 12 November 2026
+
+Public ERP remains source `be00031940e8698564111b538bf79ddc5996266d`, API
+`kuubu-account-be000319-api02`, image `kuubu/erp-api:account-be000319-build01`,
+proxy `kuubu-account-proxy01`. Public Kuubu website source is
+`2f1b57d49292952470e0ceb1147a4dcb88032724`, Vercel
+`dpl_GVi8AKLWokC5LWhmMTNXnH42Scb6`. Laravel's qualified commercial runtime is
+`67b9d19` plus the published `2a1ed16` operator trial command, deployed at
+`/opt/greenwebb-foundation/releases/trial-console-2a1ed16-deploy01`.
+The native billing/Lenco integration is configured and controlled provider
+acceptance passed; real merchant settlement still needs customer acceptance.
+Perfex remains operational and owns its existing invoices/payments.
+
+Procurement admission is published as ERP `991ba01c0a6aac701c4d8319011bf21bb50075d6`
+on draft PR201. The existing `georgemunganga/module-connect` Procurement UI is
+published as `c0dde2b9bb948e33c844ee127f38deaf9ac86f8c` on draft PR118. Preserve
+its imported layouts/shared controls; product mode uses the selected Core
+company/person/action/location proof and Kuubu/Poppins branding. It is default-off.
+Do not copy source into a second ERP repository or deploy wholesale main.
+Published main observations remain ERP `e7fb04f255887c3dce6023b8473719c60c3976ab`
+and UI `1c1f984c78545dfe006def035518b17449f56afe`.
+
+Private acceptance on 12 November: 141 focused API compatibility/scope tests;
+995 original/adapter UI cases, then 10 focused handoff/bridge cases; strict
+TypeScript and production bundle. Genuine Procurement migrations applied twice
+on an isolated fixture (136 Procurement / 110 HRM tables). Actual private Laravel
+login, PKCE exchange, module grant/selection for two companies, vendor persistence,
+CSRF/foreign-company/stale-marker denials and hidden cross-company records passed.
+Codex browser saved a vendor through the original form and retained it after
+refresh. That browser uses a documented loopback session adapter, so it does not
+prove public browser SSO. Evidence: infrastructure workspace
+`inspection/qualifications/procurement-product-native-04/`, remote
+`/opt/kuubu-builds/procurement-product-private-02`. No production Procurement
+schema, connection, flag, assets or launch button has changed. Paired production
+release and remaining transaction/concurrency checks are outstanding; advanced
+purchasing, approval and Finance holds are independent and remain in place.
+
+Native commit gate subsequently passed all four PostgreSQL cases: authorized
+single-save commit; expired authority, revoked access and verifier outage each
+abort the owning transaction, with a new connection confirming no persisted row.
+The first local SSH-tunnel run failed at transport; the server-native rerun passed
+without weakening SSH settings. Evidence:
+`inspection/qualifications/procurement-commit-native-02/native-results.log`.
+This independently qualifies the EF commit guard, not concurrent public
+company/grant changes or whole-module workflows. New private consumers were
+stopped after acceptance; their data and evidence remain retained.
+
+Kuubu storage was dominated by retained builds and old test databases, not
+customer records. The obsolete stopped `kuubu-session-native-pgdata01` test
+volume was archived on the PC and fully hash/file-manifest verified before its
+sole stopped container/volume were retired. Recovery archive is
+`inspection/private-retention/session-test-database-20261112-02/`; server decision
+and configuration evidence is `/root/kuubu-retention-20261112-session01`.
+No complete central-server archive copy exists. Disk after cleanup was 9.2 GB
+free / 81% used. Production DB/key volumes, retained publications and rollback
+images were preserved. Subsequent new private Procurement fixtures consume some
+of that headroom. Public ERP, commercial API, website and Perfex returned 200.
+
+Trials are currently issued using Laravel's reviewed operator console, not an
+admin portal screen. See foundation `docs/KUUBU-OPERATOR-TRIALS.md`. Existing
+verified platform-admin, finite expiry, reason and explicit confirmation are
+required; unpaid invoices block issuance. No production trial was created.
+
+The following sections are historical checkpoints; the current pins and holds
+above supersede earlier deployment/key-availability statements.
+
+## Kuubu account hub deployed — 11 November 2026
+
+Kuubu website/account source `58228ba820ec7a47002a0c039824e6c4f5c35254` is published
+on website draft PR4 and deployed as Vercel `dpl_Dbu7i6XBU8JYc1kgwZ4VfDpa5J4W`.
+Laravel app source `1ad7da1e09396000d144369dd096cd71de139636` is deployed from
+`/opt/greenwebb-foundation/releases/1ad7da1-deploy03`; its branch/draft PR3 retains
+subsequent documentation and the separately installed versioned backup repair.
+ERP source `be00031940e8698564111b538bf79ddc5996266d` is published on draft PR201
+and runs as `kuubu-account-be000319-api02`, image
+`kuubu/erp-api:account-be000319-build01`, API loopback28951. Active proxy is
+`kuubu-account-proxy01`; branded ERP web remains28931 and the existing production
+PostgreSQL database/key ring are preserved. No ERP migration was added.
+
+The account UI owns per-module user selection/subscriptions, explicit payer and
+company setup, billing delegates, company teams, invitations and module/location
+permissions. ERP owns company and operational authority. Approved ZMW monthly
+bands are K500 for1–5 users/module/company or K2,000 above five with no purchased
+cap. Separate company groups under one payer aggregate modules without adding
+workspace allowances. Pending requests do not create a workspace. Trials require
+explicit GreenWebb operator authorization; Lenco remains disabled without keys.
+Existing `/setup`, `/team` and `/workspace-access` redirect to Kuubu account routes.
+
+Acceptance: full Docker gate2799 passed/50 opt-in skips;27 native PostgreSQL
+module-access cases passed with no skips; Laravel137 passed/1127 assertions;
+website53 passed/two opt-in skips. Retained real-service browser cohort
+`inspection/qualifications/account-hub-real-browser-10` passed two-module
+purchase requests, explicit fixture activation, two independent company tenants,
+module grants, HRM opening/switching, invitation issue/revoke, last-owner denial
+recovery and module cancellation. Independent database receipt confirms these
+records. Real recipient cohort `account-hub-real-recipient-03` accepted the actual
+protected invitation through verified Passport identity and remained denied ERP
+access without a module grant; billing membership and module grant counts are0.
+Public HTTPS/CORS/catalogue/redirect/Poppins/mobile checks passed, including
+same-document invitation capture in `account-hub-public-browser-02`. SMTP STARTTLS
+authentication passed; no public inbox receipt or Lenco payment is claimed.
+
+Current remote main observations: ERP main
+`e7fb04f255887c3dce6023b8473719c60c3976ab`; UI `georgemunganga/module-connect`
+main `1c1f984c78545dfe006def035518b17449f56afe`. These are published observations,
+not this release's qualified API image. Do not deploy wholesale main or replace
+the existing UI/source with this account work. Shared UI and Procurement business
+milestones retain their separate owners/holds. HRM directory/session is the
+qualified operational destination; Procurement subscriptions/permissions are
+connected but its operational opening remains held for persistence/release checks.
+
+Perfex origin login returned200 and its data/jobs were untouched. Foundation's
+failed scheduled backup was repaired through a dedicated versioned-helper drop-in;
+a real disposable SQL restore passed, receipt `20261111T121333Z-40569e895c40`.
+Previous deployment containers/releases/backups remain available for coordinated
+rollback. Commercial schema history is forward-only. See foundation
+`docs/KUUBU-ACCOUNT-HUB-20261111.md` and its maintained milestone board for ownership,
+runtime paths, test boundaries and remaining Lenco/hosting/on-premise work.
+
+---
+
+## First-party Kuubu sign-in return corrected — 11 November 2026
+
+The production catalog row for Kuubu still had `enrollment_enabled=false` after
+identity endpoints were enabled. The reported identity was already email-verified,
+but had no Kuubu identity enrollment; explicit Join therefore returned403. The
+Kuubu row alone is now enabled, with `catalogue.product_updated` console audit and
+before/after evidence in `inspection/qualifications/kuubu-enrollment-enable-20261111-01`.
+No identity enrollment, commercial membership, subscription or workspace was created
+on the user's behalf. Existing suspended enrollments remain blocked.
+
+Website source `61d4f71fa0e2ccefd703372f256cdaa5abd62c6c` is published on draft
+website PR4. It includes the previously qualified identity/authorization relay
+source, which was present in frozen deployments but missing from repository main.
+The full reviewed source tree was overlaid on the branch without deleting other
+repository files or rewriting history. Vercel deployment
+`dpl_GLvTj1PHQrK2pzKvbagWCBJCjRWF` is READY on the public Kuubu website domains.
+
+An ordinary ERP authorization now returns a verified, enrolled identity automatically
+to the exact validated PKCE callback after rechecking the current identity and
+enrollment. First-time Join remains explicit and continues immediately afterwards.
+No repeated ERP consent checkbox is shown. Setup and invitation purposes retain
+their independent confirmations, and no operational/company/payment rights follow
+from sign-in. A changed identity stops the handoff; provider errors permit explicit
+retry without an automatic retry loop. Relay client/callback/purpose restrictions,
+CSRF and server-side enrollment checks are retained.
+
+Production-mode build and48 protocol/account tests passed (2 existing isolated
+service tests skipped). Eight local Chrome cases and nine public deployed-bundle
+Chrome cases passed; public cases add login-form-to-return. Protocol responses and
+callback pages in those browser cases were synthetic, not the user's real session.
+Public catalog inspection independently confirmed Kuubu is listed. Evidence:
+`inspection/qualifications/kuubu-signin-auto-local-01` and
+`inspection/qualifications/kuubu-signin-auto-public-01`. A real customer login and
+company/workspace acceptance remain distinct from these UI checks.
+
+Management UI ownership clarified by the user: the existing Kuubu account frontend
+is the management hub for subscriptions, company setup, teams and access. Laravel
+owns identity and commercial records; ASP.NET owns company/team/module/branch
+operational records and enforces them. The ERP workload opens the selected
+workspace after admission. Existing separate `/setup`, `/team` and
+`/workspace-access` management views are interim integration surfaces. Finish the
+original account UI against owning API contracts; do not treat their links as the
+completed dashboard or move ERP-owned records into Laravel.
+
+## Kuubu brand continuity and account navigation — 11 November 2026
+
+Frontend source `b313cdf142b74880eb11f798febeec28aa860757` is deployed from
+`/opt/kuubu-production/releases/branding-b313cdf1-web01`, container
+`kuubu-branding-b313cdf1-web01`, loopback 28931. The public proxy now targets this
+web container; prior 28916 output remains available for rollback. API/database
+source and operational authority are unchanged.
+
+Root product pages now inherit Kuubu branding before company selection, including
+workspace access, employee directory, dialogs and fallback views. The former pages
+missed the product theme and inherited legacy navy/Montserrat. Four Poppins weights
+and their OFL license are bundled locally. Existing shared controls retain their
+behavior; product-scoped tokens/variant selectors carry account-style green buttons,
+rounded controls and cards. Legacy tenant branding remains independently configured.
+
+Final build and TypeScript passed. Targeted ESLint: zero errors, one export/fast-refresh
+warning. Public Chrome evidence `inspection/qualifications/kuubu-branding-public-01`
+confirms actual custom Poppins glyphs, #004b3b controls, 16px button corners, paper
+background, no page exceptions and no desktop/mobile overflow. This is visual
+acceptance, not broader ERP module acceptance.
+
+Website draft PR4 (`aafe1c7c21946d1f3436a0c4ee4ac3ae90abdd3b`) repairs account
+company/team navigation. Vercel deployment `dpl_ZYvSeVWMDKL5vznNwG5aWEAHT734` is READY
+on both public Kuubu website domains, from the previous qualified website snapshot
+plus the reviewed ConnectedAccount change. Account tests:48 passed,2 skipped.
+Deployed navigation checks use explicitly synthetic identity responses; they are
+not production customer/team acceptance. Navigation repair does not restore the
+complete original account UI. Its Team.jsx describes commercial billing delegates,
+which must never be mapped implicitly to ERP operational roles. The maintained
+foundation readiness board contains the original-screen-to-owning-API contract map.
+
+# Kuubu public deployment checkpoint — 11 November 2026
+
+The initial controlled release is live at https://app.kuubuerp.com/workspace-access.
+Company setup is https://app.kuubuerp.com/setup; branded identity remains at
+https://www.kuubuerp.com/account/. This is a bounded release, not acceptance of
+all ERP modules or the full paid self-service SaaS journey.
+
+- ERP runtime source: `d39a6e613305e56d21f1b5d3180dc0f62a041f7c`.
+  Full Docker build gate: 2,793 passed, 50 skipped, zero failed. Image
+  `kuubu/erp-api:d39a6e61-deploy01` uses the existing ASP.NET application.
+- Central Laravel runtime source: `75cc91ff5025a54f3803fc34c4d297b12dcd5a98`,
+  release `/opt/greenwebb-foundation/releases/75cc91ff-deploy01`. A fresh database
+  backup preceded additive migrations and atomic current-symlink activation.
+  Product identity and operational ERP-session integration are enabled.
+- Website source: `1ade23e7629d8a3004ac2caf8d3157691fa8681e`, Vercel production
+  deployment `dpl_7qo4GJtUbJmv1zrnvXgN5fSnqYdn`; both Kuubu website domains alias it.
+  Server-only purpose-specific OAuth client IDs connect the production provider.
+- Kuubu runs on 2.24.140.104 with a fresh separate PostgreSQL database, restricted
+  runtime role, loopback API/database ports and Caddy public HTTPS. Let's Encrypt
+  issued the public app certificate. The web bundle exactly matches the retained
+  492-file qualified SSR output. API, database, web and proxy restart automatically.
+  Existing qualification deployments remain; temporary synthetic provider/API/database
+  containers were stopped after acceptance, with their state and evidence retained.
+  Perfex was not modified.
+
+Actual isolated end-to-end evidence is retained in
+`inspection/qualifications/directory-deploy-browser-run-05`: real Laravel provider,
+company setup, explicit HRM/branch grant and selection, actual deployed browser/API,
+worker archive independently verified in PostgreSQL, and subscription suspension
+removing visible access. This used a synthetic identity and isolated database;
+it is not evidence of a real customer's production account or payment.
+
+Direct public HTTPS Chrome verification is retained in
+`inspection/qualifications/public-kuubu-launch-03`: website CSRF relay 200, app readiness 200, central
+health 200, anonymous protected subject/workspace/worker requests 401, actual
+app-to-branded-login handoff, no page exceptions, disabled Google control. No
+request interception or ignored certificate errors was used in this public check.
+
+Remaining: a real customer's registration/email verification and explicit product
+enrollment, an authorized subscription with positive workspace allowance, and the
+public company/team selection journey need production acceptance. A new login
+alone cannot create a company. Lenco keys and paid checkout/reconciliation remain
+deferred. Employee directory/search/filter/archive is qualified; detail/create/edit
+UI and other HRM/payroll/procurement operations still require scoped integration.
+A root-private initial PostgreSQL/runtime backup was retained and its archive
+inventory validated; no restore drill is claimed. Production backup restore,
+monitoring and broader recovery drills remain release
+work. Dedicated/on-premise qualification remains pending on the same codebase.
+
+## Earlier checkpoint (historical)
+
+# Product employee directory connected — 10 November 2026
+
+ERP source `d39a6e613305e56d21f1b5d3180dc0f62a041f7c` opens the employee directory from a selected HRM
+session. Employees are scoped by the current Core company and branch assignment.
+The directory supports search, branch filtering, pagination and archive. Archive
+requires an eligible HR role and explicit confirmation. The API checks the
+expected-session marker against the cookie so a replaced session cannot read
+or archive through the stale screen. The UI clears records on access loss and
+checks the same session on return to the page.
+
+46 focused API and scope tests, one native PostgreSQL regression, 135 contracts and three product browser tests passed. The browser tests use fixture HTTP responses with the production UI build. Build, TypeScript and targeted lint also passed.
+The isolated API and browser checks are separate. A combined browser run with
+the Laravel provider and persisted worker operations remains the next gate.
+Employee detail and create/edit screens still require scoped reference data and
+reviewed assignment operations. This source is on the draft branch and the
+product frontend flag is off by default.
+
+## Previous session UI checkpoint
+
+# Product ERP session UI verified — 10 November 2026
+
+ERP source `73340ce12425799ae080ff7c76ff807ef5114e82` adds ordinary member self-review and explicit ERP session
+selection to the existing branded company access page. The screen confirms the
+current company, module and branch scope before showing selection. It retains the
+exact command for an explicit retry after an uncertain response and clears the
+selected display when logout starts. Session proof uses same-origin cookies and
+protected CSRF. The owner permission editor remains a separate workflow.
+
+Isolated SSR build and TypeScript passed; 135 contract checks and 36 Chrome checks
+passed (10 and eight new, respectively). Browser checks used synthetic API
+responses. The 33 previously qualified C# inputs remain unchanged. No production
+activation. The public Kuubu Account page displayed its email form and a disabled
+Google button; the intended ERP app host did not resolve from the workstation.
+
+Next: integrate the selected server authority into the existing ERP shell and
+employee screens. Replace legacy tenant/Bearer/shell headers in product mode and
+validate the protected Core company/branch context. Clear both component-local
+and query data on switch, logout or authority loss. Existing create/edit forms
+use company reference lookups and additional assignment/contact/bank/history
+operations; map each dependency before enabling it. Keep unreviewed operations
+unavailable, and qualify the real provider-to-persisted-worker browser journey.
+
+## Previous worker scope checkpoint
+
+# Product-scoped HRM worker CRUD qualified —10 November2026
+
+Published ERP source `1c72d5c8a65b82b02250072aba6f63770b7b6e10` admits the existing HRM worker list/detail/
+create/update/archive routes in explicit product mode with reviewed operation
+metadata, current private authority and owning-context transactions. It reuses
+WorkerService and WorkerRepository. SQL filters apply before count/pagination and
+to profile children; persistence checks both the stored source and proposed target,
+including original child parents. The allocated workspace's sole company owns the
+records. Finite location grants cannot widen through filters, FK changes, missing
+assignments, empty/stale scope or another membership/company. Company-wide scope
+can include owned unassigned/historical profiles. New master selections must be
+active; departments do not confer physical-site authority.
+
+Mutations require origin/JSON/CSRF/body bounds, share the company/team lock and
+recheck registry/licensing/Core in the same transaction before and after service
+saves. Final denial rolls back. Existing role checks remain; payroll read access
+cannot create workers. New employee numbering sees company number occupancy,
+never hidden worker data. Profile creation creates no login/workspace; SubjectId
+changes are denied. Import/account-link/lifecycle/other modules remain held.
+Profile child replacement now explicitly tracks new GUID children as inserts,
+preserving the tenant guard. The two-argument context constructor remains available.
+
+Qualification: 743 Windows passes/44 explicit environment skips;
+255 native PostgreSQL-run passes/0 skips. All19 worker cases pass
+in each (16 actual authenticated HTTP cases, three direct synthetic-scope storage
+cases); focused Windows19/zero skips passes. Actual cookies/encrypted state,
+services/repository/relational persistence execute with synthetic person/license
+providers. This is not actual-provider ERP browser or other-module acceptance.
+
+Evidence: inspection/qualifications/product-worker-scope-core-01 (Application),
+core-04 (Infrastructure/API/model check), core-05 (final tests),
+product-worker-scope-focused-04, product-worker-scope-native-01 and
+product-worker-scope-verification-01/verification.json.15 compiled C# inputs,
+49 independent dependency DLLs and585 read-only native runtime files retain
+verified hashes; model drift is zero. Two owned native containers are stopped/no
+host ports. Build warning counts are in the verifier. Earlier attempts retain the
+history-type name collision, invalid seed branch code, corrected totalCount test
+contract and actual child-tracking fix. No tenant or authority guard was weakened.
+
+No production mode/flag/schema, DNS, Perfex, mail or payment change. See the28-section
+ERP docs/engineering/HRM-PRODUCT-WORKER-SCOPE-20261110.md contract. Earlier worker
+inspection remains a historical baseline; its identified basic CRUD/child-scope
+requirements are addressed here. Import/link/lifecycle, remaining HRM/payroll/
+Procurement resource scope and connected frontend/real-provider browser operations
+remain next. Preserve one SaaS/dedicated/on-premise codebase and separate brands.
+Lenco, hosting/domain/email, controlled rollout/capacity/recovery and offline
+licensing/installation/upgrades/restore remain programme work. Keep both PRs draft.
+
+## Previous request-authentication checkpoint
+
+# Product request authentication and selected Core context qualified —10 November2026
+
+Published ERP source `99371068b63841d846c5879f66d2b8d1bc38d28e` adds explicit ERP:AuthMode=product with fresh
+person/licensing/registry authority per protected request and private request proof.
+Only reviewed endpoint metadata plus existing OAuth callbacks/health probes pass
+the product boundary. Unknown/anonymous legacy routes are denied before handlers;
+no local/bearer fallback or client tenant/shell/all-branches selectors. Product
+tenant resolution never uses the standalone default; startup skips legacy role
+bootstrap. Local/OIDC/hybrid behavior remains unchanged outside product mode.
+
+The actual protected Core workspace-context route now reads only the selected
+company and finite branches, or explicitly confirmed company-wide branches of
+that company. It rechecks authority after data reads and never infers all branches
+from missing assignments. No legacy Core currency/admin grants are inherited.
+Session replacement, logout, revoked grants, archived branches and current person/
+license outage/denial are exercised through authenticated HTTP. HRM/Procurement
+business routes remain blocked until their resource adapters are reviewed.
+
+Qualification: 700 Windows passes/44 environment skips and
+212 native PostgreSQL-run passes/0 skips; all22 new request-auth cases
+and four existing classic context cases pass in each. Focused Windows26/zero skips
+passes. Classic cases use SQLite; new protected Core queries use SQLite/native PG.
+Person HTTP responses/licenses are synthetic; OAuth cookies, encrypted store,
+registry and actual protected Core route execute. No real-provider ERP browser
+launch or HRM/Procurement business operation is qualified by this increment.
+
+Evidence: inspection/qualifications/product-request-auth-core-01,
+product-request-auth-focused-01, product-request-auth-native-01 and
+product-request-auth-verification-01/verification.json.13 compiled C# inputs,
+32 independent dependency DLLs and586 read-only native runtime files retain
+verified hashes. Model drift is zero; two owned containers are stopped/no host
+ports. Infrastructure/API/tests retain3/27/21 existing warnings. See the28-section
+ERP docs/engineering/CORE-PRODUCT-REQUEST-AUTH-20261110.md contract.
+
+Read-only product-business-scope-inspection-01/inspection.json records five source
+hashes for the next worker integration. Existing WorkerService role checks can be
+reused, but WorkerRepository currently has tenant filters without branch authority;
+client list filters are not authorization. Worker company ownership, unassigned/
+inconsistent OrgUnit/WorkLocation associations and all mutation/relation paths need
+explicit policy before admission. These routes remain blocked in product mode.
+
+No production mode/flag/schema, DNS, Perfex, mail or payment change. Keep both PRs
+draft. Next: actual HRM/Procurement action/resource and branch/company data filters,
+product-aware shell/Procurement principal adapters, then frontend and real-provider
+browser ERP operations. Preserve separate brands, one SaaS/dedicated/on-premise
+codebase and explicit enrollment. Ingress/capacity/monitoring/recovery, Lenco,
+hosting/domain/email and offline licensing/installation/upgrades/restore remain
+programme work. Full platform/SaaS readiness is unproven.
+
+## Previous HTTP lifecycle checkpoint
+
+# Explicit ERP session HTTP lifecycle qualified —10 November2026
+
+Published ERP source `75c1c468747def8d85b37b22014136de0790c3ec` connects current personal identity/licensing to
+the durable session registry through default-off HTTP self-review, explicit
+selection, current-state and logout endpoints. Self-review is available to an
+ordinary explicitly permitted member while the enabled owner editor still denies
+them. It exposes only their own current grant; foreign selectors are denied.
+Review never creates or confirms a session. Selection requires the exact reviewed
+grant, explicit scope/confirmation and stable retry key, then sets only an opaque
+Secure/HttpOnly/SameSite=Lax/host-only ERP cookie. No credential/tenant/principal/
+deadline may be supplied by browser JSON. Current reads recheck person, licensing,
+exact stored grant and owned branches. Provider outage never returns cached scope.
+
+ERP logout is CSRF/bound-continuity protected and provider-independent, with
+durable idempotent revocation. Parent logout/start revokes parent credentials
+first, attempts registry revocation and clears the ERP cookie. Existing local/
+OIDC/dedicated behavior is preserved. Product authentication/resource adapters
+remain required: these cookies do not satisfy default protected ERP routes and
+responses keep operational_access_granted=false. Production flags remain off.
+
+Qualification: 674 Windows passes/44 explicit environment skips;
+186 native PostgreSQL passes/0 skips. All23 new HTTP cases pass
+in each; focused Windows23/zero skips also passes. Actual OAuth/cookie middleware,
+encrypted credential state, Core commands and relational DBs execute; provider
+HTTP person responses/current-license delegates are synthetic. This is not a new
+actual-provider browser ERP launch. Seven compiled C# inputs and
+35 independent dependency DLLs retain verified hashes; the native receipt
+records 586 unchanged read-only runtime files and two stopped containers/no host ports.
+API/tests retain27/21 existing warnings. Initial focused01 rejected fixture-issued
+sessions as expired because Core's fixed8-November clock differed from real HTTP.
+Focused02 uses a matching runtime clock and passes19 cases; core03/focused03 add
+self-review/member-versus-owner-editor/foreign-selector acceptance,23 cases.
+No production check or authority assertion was weakened. All attempts are retained.
+
+Evidence: inspection/qualifications/product-session-http-core-03,
+product-session-http-windows-focused-03, product-session-http-native-02 and
+product-session-http-verification-01/verification.json. See
+ERP docs/engineering/CORE-PRODUCT-SESSION-HTTP-20261110.md for the28-section contract.
+No production services/schema, DNS, Perfex, mail or payment rails changed.
+
+Next: deliberate product authentication with no legacy fallback, verified tenant
+and Core self-service context, module/action/resource mapping, distinct WorkLocation/
+OrgUnit scope, product-aware Procurement principal refresh, actual protected HRM/
+Procurement company/branch reads/writes and connected frontend/browser ERP entry.
+Keep one codebase for SaaS/dedicated/on-premise. Production ingress/capacity/logging/
+monitoring/recovery, Lenco, hosting/domain/email and on-premise offline licensing/
+installation/upgrades/backup restore remain programme work. Keep both PRs draft.
+
+## Previous trusted-material checkpoint
+
+# Trusted ERP session-creation material qualified — 9 November 2026
+
+Published ERP source `80c4cfd6d4ef2f389afd8cd0bd02644da2a1ad76` supplies trusted session-creation material only
+after final protected credential-store/current-person verification. Handle and
+browser binding are server-only; the absolute deadline is the earliest stored
+credential, authenticated ticket or protected browser expiry. Refresh cannot
+reset it. Material is excluded from default JSON and diagnostic text is redacted.
+This does not issue an ERP cookie or activate default authentication/routes.
+
+Qualification: 651 Windows passes/44 explicit environment skips;
+163 native PostgreSQL passes/0 skips. All three new cases
+pass in each, including deterministic browser-versus-ticket deadline limits,
+refresh/reopen without extending expiry, secret serialization and outage/revoke
+without reusable material. HTTP provider responses are synthetic; OAuth/cookie
+middleware, encrypted storage and relational regression checks are actual.
+API/test builds retain27/21 existing warnings. The initial missing test namespace
+build is retained; no permission or test assertion was weakened.
+
+Evidence: inspection/qualifications/operational-session-material-core-01 (API),
+operational-session-material-core-03 (final tests),
+operational-session-material-native-02 and
+operational-session-material-verification-01/verification.json. Earlier successful
+core02/native01 and the deterministic-test refinement retain their own inputs.
+No production services, schema, DNS, Perfex or payment rails changed.
+
+Next: connect the durable ERP registry to a secure HttpOnly cookie and deliberate
+product authentication, then protected module/company/branch reads and writes and
+actual browser ERP launch. Existing local/OIDC dedicated/on-premise operation,
+separate branded sign-in and explicit enrollment remain required. SaaS rollout,
+Lenco, hosting/domain/email and on-premise offline licensing/upgrades/restore
+remain programme work. Keep both PRs draft; full platform readiness is unproven.
+
+## Previous registry checkpoint
+
+# Durable ERP session registry qualified — 9 November 2026
+
+Published ERP registry source `de699313adcafdce6fc1169e6bedbeb0f5a36965`
+adds durable, explicitly bound ERP sessions, recovery of the same opaque token on
+exact retry, durable revocation and atomic replacement across companies. Stored
+bindings retain the exact grant revision and selected scope; later grants cannot
+silently expand them. Tokens are encrypted at rest, excluded from JSON, and bound
+to the verified identity/client, browser, operational credential and absolute
+expiry. Current identity, membership, licensing and branch ownership remain
+required at resolution. Immutable rows and scope digests protect issued scope.
+
+Isolated qualification:648 Windows passes/44 explicit environment skips and141
+native PostgreSQL passes/zero skips. All32 ordinary registry cases pass in each;
+native adds four concurrency, constraint and migration cases. Nine compiled C#
+inputs,32 dependencies and586 read-only native runtime files retain verified
+hashes. Model drift is zero. Four owned test containers are stopped without host
+ports. Domain/Infrastructure/API/tests have0/3/27/21 build warnings; warning scope
+and retained unsuccessful attempts are documented in the feature contract.
+
+Evidence: inspection/qualifications/product-session-registry-verification-01/verification.json,
+product-session-registry-core-03 and product-session-registry-native-02. Identity/
+license observations in these component checks are synthetic; Core commands,
+registry persistence, key-ring recovery and relational checks are actual. This
+qualification does not extend the earlier real-provider browser journey to ERP
+launch. No production migration or activation occurred.
+
+Next: trusted operational credential/browser/absolute-expiry material, secure
+HttpOnly cookie lifecycle, deliberate product authentication and request/resource
+adapters, then protected HRM/Procurement reads/writes and actual browser ERP
+launch. Do not use legacy empty-branch-means-all behavior for product sessions.
+Preserve local/OIDC dedicated/on-premise operation and one ERP codebase. Lenco,
+hosting/domain/email integrations, production recovery/rollout and on-premise
+licensing/offline policy, upgrades and restore remain programme requirements.
+Registry correctness alone does not establish SaaS or on-premise readiness.
+Keep both PRs draft. See docs/engineering/CORE-PRODUCT-SESSION-REGISTRY-20261109.md
+in the ERP repository for the owning migration, contracts and acceptance scope.
+
+## Previous scope-only checkpoint
+
+# ERP session scope authority qualified — 9 November 2026
+
+Published ERP scope-authority source `53afc426e0fea675519d19e4d01c52fa03868f82`
+adds `CoreErpSessionScopeAuthority`, its tests and the28-section feature contract.
+It binds an explicit company/link/module selection to the reviewed current grant
+version/revision and a copied, nonempty branch set or separately confirmed
+company-wide scope. Request authority rechecks current person/client, exact
+company/tenant/principal, current membership/grant/license and owned branches.
+A narrower session selection cannot follow a request for all branches, an empty
+scope, another company/module or a newly expanded/regranted version.
+
+Selection/request arrays are copied before asynchronous database reads. Final
+ownership checks deny a selected branch moved during the final parent-grant read,
+including under company-wide parent grants. Expired proof, missing license, DB
+failure and cancellation yield no reusable successful fallback. This is a
+read-only component: no session row, cookie, principal, legacy role, DI registration,
+route map, auth-mode change or production activation is introduced.
+
+Fresh API02/test03 evidence:616 Windows passes/40 explicit environment skips and
+105 native PostgreSQL passes/zero skips. All37 new scope cases pass in each,
+including input mutation during the first query, moved/archived branches,
+retargeted identity/client/tenant/principal/link/company, changed/revoked grants,
+membership changes, missing licensing and unavailable DB. Identity/license
+observations in these component tests are synthetic; Core reads/commands and
+relational DBs are actual. This does not extend the earlier branded browser
+journey to a working ERP-session launch.
+
+Evidence: inspection/qualifications/erp-session-scope-api-02 (API build), erp-session-scope-api-03
+(corrected independent test build), erp-session-scope-native-02,
+erp-session-scope-verification-01/verification.json and
+erp-session-scope-windows-verification-01/verification.json.49 dependency DLLs,
+585 read-only native runtime files and compiled source hashes are verified. Native
+containers exited with no published host ports. API retains27 existing warnings;
+tests have20 existing plus one EF1003 on test schema-failure SQL over two hardcoded
+identifiers, with no external input. Native01 was stopped after its fixture tried
+manual extra-company creation in a licensed tenant. PostgreSQL correctly denied
+it (23514); exit137/unchanged binaries/stopped DB remain retained. The corrected
+fixture uses the real purchased-slot provisioner for its separate company/tenant.
+No workspace guard or authority assertion was weakened.
+
+Read-only erp-session-adapter-inspection-01 records eight source hashes/seven next
+requirements: deliberate product authentication mode; verified tenant source;
+bound self-service context; distinct WorkLocation/OrgUnit scope; product-aware
+Procurement current-principal refresh; company-owned master/ledger versus branch
+resource policy; and protected-route/data acceptance. Do not reuse the legacy
+empty-branch-means-all behavior or let a classic all-branches header widen access.
+
+Source terminology: ERP/UI9edf0563, companion APIe52e8049, integrated main52bdb5a0,
+Foundation75cc91ff and website1ade23e7 are qualified source baselines, not proof
+that those revisions are deployed. The prior seven pinned companion C# inputs
+comprise four API files and three tests. Their hashes are unchanged; earlier
+"seven production C# inputs" labels were too broad. Current API compilation adds
+this scope component. The earlier actual branded permission journey at a0cef594
+retains its own source/evidence scope.
+
+Next: durable revocable ERP session registry and trusted restoration of the exact
+stored binding without adopting a newer grant; secure opaque cookie bound to
+browser/credential/absolute expiry; real authentication and request/resource
+adapters; protected HRM/Procurement reads/writes and company/branch isolation;
+then connected browser ERP launch and production ingress/rollout. Preserve local/
+OIDC dedicated/on-premise behavior, one ERP codebase, existing Perfex and explicit
+commercial ownership. Lenco, hosting/domain/email and offline licensing/upgrades/
+restore remain programme work. Keep both PRs draft; no production change occurred.
+
+# Actual branded permission journey qualified — 9 November 2026
+
+Published ERP test/tool source `a0cef594a144bb0ed01ad0d3c3fef68063ab28a7` adds the
+opt-in real browser qualification and reviewable runner. Qualified ERP/UI source remains
+`9edf05635f109427e95c8a514baff1942f51faee`, integrated main remains
+`52bdb5a0c36778a2f082e8e4085d65cbff25df7e`, API remains e52e8049,
+Foundation runtime remains75cc91ff and website consent remains1ade23e7. No
+production application change, migration, flag activation or deployment occurred.
+
+The complete branded login/explicit enrollment/two-company setup/separate
+operational consent/picker/editor journey now passes against actual Laravel/
+Passport, production Core handlers and a fresh native PostgreSQL database. One
+fact executed/one passed/zero skipped, with62 real provider requests. The first
+committed grant response is deliberately lost; exact-key/body retry leaves one
+version/receipt/audit. Revocation and historical replay cannot restore current
+access. A fresh reviewed regrant reaches revision3. Foreign-company/link queries
+and current access/replay after actual subscription suspension are denied.
+Sign-out clears the editor and yields an unauthorized operational session. The
+test host's default-auth protected endpoint remains401 after a valid grant; this
+is not qualification of actual protected ERP module routes.
+
+Final DB evidence: two companies, three grant versions/receipts/permission audits/
+ID-only outbox events, zero ERP sessions, legacy role assignments and local
+credential links. Local users carry no password/email/legacy-role payload. Only
+the deliberately seeded payer/subscription and explicit enrollment remain in
+Laravel; zero contacts/payment attempts/payment webhook receipts were created.
+The actual390px editor and branded login screenshots were inspected.
+
+Fixed-origin TLS trusts only the fixture CA and rejects a wrong hostname; TCP is
+pinned to loopback. Private Chrome/CDP passes real responses, cookies, redirects
+and CSRF at reviewed origins with failed-closed DNS. This is not deployed browser
+TLS or ingress evidence. Only the disposable PHP server enables OPcache; the real
+relay deadline remains15seconds. Google, payments and outgoing mail stay disabled.
+Local storage is empty; session storage contains only structurally checked inert
+router scroll history. Credentials, grants and setup attempts do not remain there.
+
+Evidence: inspection/qualifications/module-browser-composition-12,
+module-browser-composition-verification-01/verification.json,
+module-browser-network-cleanup-01/verification.json and
+module-browser-opt-in-verification-02/verification.json. Seven pinned companion C# inputs (four API files and three tests)
+,49 dependencies,373 UI source/491 outputs,95 website source/25 outputs and
+137 provider source files retain verified hashes. Test build06 matches current
+C# source; published runner matches executed runner05. All12 attempt databases
+are stopped, DB bindings were only127.0.0.1:8135, and all five owned ports are
+closed. Every failed/partial attempt and independent volume remains retained.
+The feature spec records the test-host duplicate mapping, Windows TLS loading,
+uncached PHP deadline, encoding and overbroad storage-oracle corrections. The
+corrected storage check rejects all authority data and validates the router's
+known cache; no authentication, CSRF, licensing or permission rule was weakened.
+
+Next owner: Core/identity. Build revocable ERP sessions bound to the selected
+person/company/module and explicit branches; then verify actual protected routes
+and data isolation. The classic all-branches header must not widen SaaS grants.
+Preserve local/on-premise authentication and one maintained ERP codebase.
+Production DB/ingress/proxy/rate/logging, capacity/monitoring/recovery, delivery,
+controlled rollout, Lenco, hosting/domain/email integrations and dedicated/
+on-premise offline licensing/upgrades/restore remain programme work. Keep both
+PRs draft. Perfex, production services, DNS and payment rails were not changed.
+
+# Integrated main and owner editor — 9 November 2026
+
+Published merged ERP/UI source `9edf05635f109427e95c8a514baff1942f51faee` includes main
+`52bdb5a0c36778a2f082e8e4085d65cbff25df7e` (PR208, custom Procurement role entry) while
+preserving owner editor68de4d6e and unchanged companion APIe52e8049. Main advanced
+independently during the editor checkpoint; it was fetched/inspected and merged
+normally into the SaaS topic branch, with both handoff histories kept. No published
+history was rewritten and main/UI-main/B1 were not updated by this task. Older
+main83ee9fd5 references below are historical snapshots, not the current integrated
+baseline. Foundation runtime75cc91ff and website consent1ade23e7 are unchanged.
+
+The source merge retains the server-authorized default-company/current-principal
+Procurement entry fix, existing request shortcut, and upstream notification
+configuration/docs. Seven imported files were formatted for repository lint;
+normalized emitted runtime ASTs match their unformatted merged index. No private
+environment, SMTP worker/container, service, database, DNS or production activation
+action occurred. Do not render private Compose configuration or request credentials
+to reproduce this frontend qualification.
+
+Fresh UI04 uses VITE_USE_REAL_API=true.125 contracts, targeted lint (zero errors/
+five inherited fast-refresh warnings), production build/typecheck and28 browser
+cases pass:13 owner editor,10 picker andfive imported Procurement entry fixtures.
+The custom-role forbidden response, actor/company authority, mobile viewports,
+grant/revoke, exact-key uncertain retry, all-company confirmation, module switching,
+stale/inactive members, paging, late response and sign-out cases pass. Final390px
+editor/confirmation screenshots were inspected.373 source files/491 built outputs
+retain verified manifests; seven C# inputs remain unchanged. Owned SSR/listener
+stopped. No new database migration/API change was required.
+
+Evidence: inspection/qualifications/module-access-ui-04 and
+module-access-ui-verification-02/verification.json, plus
+module-editor-main-format-02/verification.json. UI03 retains its125-contract pass/
+imported formatting-only lint failure. Earlier UI01/UI02 retain their original
+121/122 contract and22/23 browser scopes. The first AST verifier mistakenly
+included SourceFile.text (the formatted program itself); its failed receipt is
+retained. No application security rule or acceptance assertion was weakened.
+
+All browser API responses remain synthetic. This does not qualify actual
+browser/Core/Passport/database persistence or ingress; companion API579 Windows/
+68 PostgreSQL evidence remains separately scoped. Next: actual branded website/
+relay/picker/editor/Core/provider composition, bound revocable ERP sessions and
+module/company/branch route/data isolation. The imported classic context request
+uses an all-branches header; a SaaS session must enforce only its explicit allowed
+branches/company/module server-side and never widen access from that header,
+nominal roles or UI admission. Local/on-premise authentication remains separate.
+Production DB/ingress/proxies/rates/logging, capacity/monitoring/recovery, SMTP/
+inbox and controlled rollout remain gates. Lenco, hosting/domain/email adapters
+and dedicated/on-premise/offline licensing/upgrades/backup restore remain programme
+work. All modes keep one maintained ASP.NET/Docker codebase. Keep both PRs draft.
+
+# Latest published checkpoint — department request entry, 9 November 2026
+
+Fetch ERP main `619c241e1dcf6f9f2b4b376c06f7ae05c1efcbeb` (PR205) and UI main `657d9acb7c03f47c224ae287b901ee8d303d0ab8` (PR113), or reviewed descendants. Both frontend changes are deployed. ERP/HRM Home and Procurement Home/My Requests now lead into the existing scoped request editor through a guided entry. No new backend, migration, role grant or company approval policy was introduced. API remains on the qualified3da35edf image and239 tables; held B1c still prevents wholesale backend main deployment.
+
+Two authority tests, both frontend checks/builds,23 fixture Playwright cases,8 actual read-only signed-in checks and1243 public asset hashes passed. See [entry behaviour, limits and deployed evidence](docs/procurement/gap-closure/DEPARTMENT-REQUEST-ENTRY-20261109.md). Unknown estimates still need a valid amount to save; on-behalf-of, automatic department assignment, file uploads and stock fulfillment are not added. This does not close company UAT or whole-module issues. Unrelated Kuubu PR199–201 remain separate and are not part of this release. The old dirty/divergent original checkout was preserved; use these clean published prerequisites for new work.
+
+---
+
+# Owner module permission editor — 9 November 2026
+
+Published ERP/UI source `68de4d6eb6cf2dbb783e8ebd7aba0cf8b480d28e` connects the owner company review
+at `/workspace-access` to the qualified permission API. Companion API e52e8049
+remains unchanged (seven C# source hashes verified); Foundation runtime75cc91ff
+and branded website consent1ade23e7 are unchanged. ERP main remains
+83ee9fd51d1d44142c493b088be4b0bf054dbfac. Classic ERP authentication/tenant shell,
+login/picker response contracts and the API's default-off activation are unchanged.
+
+Owners choose an explicit member and licensed HRM/Procurement module, review the
+current membership/grant revisions, and select roles/actions and company or
+nonempty branch scope. Company-wide access requires separate unchecked consent
+for all current/future branches after every review. Shared confirmation dialog
+names the person/company/module, roles/actions and selected branches. Revocation
+has its own confirmation/empty operational snapshot. New/stale grants do not
+inherit old choices; inactive identities cannot receive new grants. Procurement
+switching clears HR choices. Branch/member paging and late response cancellation
+preserve company/person boundaries. No credentials or grants enter browser storage.
+
+Strict client DTOs reject wrong member/module, extra selectors, duplicate IDs,
+unexpected admission, invalid catalogs or contradictory grant state. Transport is
+same-origin/no-store with bounded timeouts and no automatic POST retry. Uncertain
+writes lock the draft and retain the exact reviewed payload/key for explicit
+retry or allow an explicit current-state reload. Conflicts require fresh review.
+Company change, sign-out and expired sign-in clear/unmount permission state and
+cancel work. Server commands still recheck proof, ownership, license, revisions
+and branch validity; UI state is never authoritative. Saving records a permission
+decision, not an ERP session/employee or operational launch.
+
+Acceptance:122 client contracts, targeted lint, production build/typecheck and23
+browser cases pass (13 editor plus10 existing company-picker regressions).
+390px editor/dialog screenshots were inspected; layout fits and final review
+names branches.368 source files and493 immutable build outputs match manifests;
+owned SSR child/listener stopped, no router source sync needed. UI01 retains121
+contracts/22 passing browser cases before added catalog guards and explicit
+Procurement coverage. Source/build evidence: inspection/qualifications/
+module-access-ui-02 and module-access-ui-verification-01/verification.json.
+Companion API retains579 Windows/68 PostgreSQL scope, verified separately.
+
+Browser API responses are synthetic. This does not qualify the actual branded
+website/relay/Passport/Core/database browser composition, production ingress or
+end-to-end permission persistence. Next: run that composed editor/picker journey,
+add bound revocable ERP sessions, then enforce module/company/branch routes and
+business data access. Production DB/ingress/proxy/rate/path-only logging,
+monitoring/capacity/recovery, SMTP/inbox activation and controlled rollout remain
+gates. Lenco, hosting/domain/email products and dedicated/on-premise/offline
+licensing/upgrades/backup restore remain programme work. All modes keep one
+maintained ASP.NET/Docker codebase. No production schema/config/flags, Perfex, DNS,
+external payment/mail or main/UI-main/B1 change. Keep ERP PR201/Foundation PR3 draft.
+
+# Owner module permission API — 9 November 2026
+
+Published Core source `e52e804912958a742e83d9e2c0cb1b327a025052` connects the qualified ledger to
+owner-only HTTP member/location directories, exact member/module review and
+protected grant/revoke commands. It uses the distinct operational cookie/browser
+binding and fresh person observation, never the governance/setup pending proof or
+default ERP principal. The immutable company binding selects current licensing;
+no browser tenant/enrollment/payer selector is accepted. Owner and purchased module
+authority are rechecked after the commercial call and again by ledger commands.
+
+Member and active-location directories page20 records. Review returns the current
+member revision, registered role/action catalogs and latest configuration/grant
+revision, preserving revocation and warning about stale membership or unavailable
+locations. Foreign/archived branch names are not disclosed. Saving requires
+reviewed revisions, explicit confirmation, actor-key idempotency, bound CSRF and
+same-origin JSON. Bodies are capped at32768 bytes/depth4 with all14 exact fields,
+duplicate/unknown rejection and bounded arrays before provider observation.
+Only this registered command accepts a nonempty operational POST body; existing
+start/logout validation and login/picker DTOs remain unchanged.
+
+`ERP:ModuleAccess:Enabled` defaults false and requires operational identity,
+company discovery and licensing. Owning deployment must apply the previously
+qualified grant migration before enabling. This increment changes no schema and
+creates no ERP session/claims, employee record or legacy role assignment. The
+editor, revocable sessions and protected module/company/branch route enforcement
+remain unfinished; the API's outcomes always report no operational admission.
+
+Acceptance:579 Windows regression checks passed/39 environment-specific skips;
+68 PostgreSQL checks passed/zero skips, covering ten API query/license cases,
+thirteen new HTTP/security/configuration cases, existing operational defenses and
+the grant ledger. HTTP tests exercise actual operational handlers/protected store,
+Core relational commands and a synthetic identity backchannel. They are not the
+actual branded website/relay/Passport/network/browser/ingress composition.
+Fresh builds retain27/20 existing warnings. Seven C# inputs,49 independently
+copied dependency DLLs and585 native runtime files match their manifests. Owned
+test/database containers exited; test inputs/root are read-only, no host ports.
+
+Evidence: `inspection/qualifications/module-access-api-01` (fresh build; retained
+578-pass/one fixture expectation failure), `module-access-api-02` (independent
+corrected test build;579 pass), `module-access-native-01` (retained67-pass/one
+identical fixture failure), `module-access-native-02` (68 pass) and
+`module-access-verification-01/verification.json`. The fixture already contained
+one branch; the correction compares the complete authoritative branch-ID set
+across both pages, retaining it and checking no duplicates. No API/security or
+production rule changed to make the test pass.
+
+Next: connect the owner grant editor to this API, then bound revocable ERP sessions,
+protected route/data isolation and the actual branded website/relay/picker journey.
+Existing frontend6c5a8307, Foundation runtime75cc91ff and website consent1ade23e7
+remain unchanged. ERP main remains83ee9fd51d1d44142c493b088be4b0bf054dbfac.
+Production DB/ingress, trusted proxies/rates/path-only logging, monitoring/capacity/
+recovery, SMTP/inbox and controlled rollout remain gates. Lenco, hosting/domain/
+email products and dedicated/on-premise/offline licensing/upgrades/backup restore
+remain programme work. All modes use the maintained ASP.NET/Docker codebase.
+No production schema/config/flags/deployment, external mail/payment, Perfex, DNS or
+main/UI-main/B1 change. Keep ERP PR201 and Foundation PR3 draft.
+
+# Explicit module permission ledger — 9 November 2026
+
+Published Core source `534e7115d5456c9b629e760e95d72812742863c8` adds owner-confirmed, versioned
+module/action and company-or-selected-location grants for current explicit Core
+members. Company governance and purchased modules alone still grant no operational
+access. Roles/actions come from the existing module catalogs without automatic
+bootstrap or global erp_admin fallback. Current resolution rechecks the latest
+version, membership revision, license and current location ownership; revocation
+and historical command replay cannot restore an older grant.
+
+Commands serialize with company-team changes, compare reviewed revisions and
+commit version/location evidence, actor-key receipt, configuration audit and
+ID-only event atomically. Composite keys prevent tenant/company/target/result
+retargeting. Context writes reject evidence edits/deletion. The additive migration
+allows empty rollback/reapply and locks/refuses populated rollback. Referenced
+locations retain history; archive them rather than deleting referenced records.
+Legacy branch company moves remain supported.
+
+Fresh build/model comparison passes with27/20 existing API/test warnings. The
+corrected independent assembly passes556 Windows checks/39 environment-specific
+skips and82 PostgreSQL checks/zero skips, including all25 grant cases, concurrent
+retry, atomic failure/expiry/cancellation, exact actions, branch boundaries and
+rollback. Ten C# source inputs,49 independent dependency DLLs and585 read-only
+native runtime files match their manifests. Both owned native containers exited,
+with no published host ports. Core02 includes the model comparison; Core03 is
+the corrected test assembly. Native01 retains80 passed/one fixture failure: its
+attempt to add a second company to an allocated tenant was correctly refused.
+Native02 respects that guard and passes all82 checks; no guard was bypassed.
+
+Evidence: `inspection/qualifications/module-grants-core-02`,
+`module-grants-core-03`, `module-grants-native-02` and
+`module-grants-verification-02/verification.json`; feature spec
+`docs/engineering/CORE-MODULE-ACCESS-GRANTS-20261109.md`.
+
+This is an internal application ledger and current resolver, not an enabled
+workflow. There is no grant HTTP registration/editor, ERP cookie/session/claims,
+legacy role assignment or route/data enforcement from these records yet. Tests
+use internal person/license fixtures; combined branded browser/Passport/ERP
+composition remains unqualified. Next: owner grant review/editor, revocable bound
+ERP sessions and module/company/branch route isolation, plus the actual website/
+relay/picker journey. Existing page source6c5a8307 is unchanged; Foundation runtime
+75cc91ff and website consent1ade23e7 are unchanged. The ERP main baseline remains
+`83ee9fd51d1d44142c493b088be4b0bf054dbfac`.
+
+No production schema/config/flags/deployment, external mail/payment, Perfex, DNS
+or main/UI-main/B1 change. Keep PR201 and Foundation PR3 draft. Native production
+DB/ingress, monitoring/capacity/recovery, SMTP/inbox and controlled rollout remain
+gates. Lenco, hosting/domain/email integrations and dedicated/on-premise/offline
+licensing/upgrades/backup restore remain programme work. All deployment modes
+continue to use one maintained ASP.NET/Docker codebase.
+
+# Kuubu workspace entry and company review —9 November2026
+
+Published API/UI `6c5a830771a1ececccd4d9876456f17409f1d955` adds the real
+`/workspace-access` page, explicit member company discovery and current commercial
+review. Foundation runtime `75cc91ff5025a54f3803fc34c4d297b12dcd5a98` and branded
+website consent `1ade23e7629d8a3004ac2caf8d3157691fa8681e` are unchanged.
+This is read-only company review, not licensed operational ERP admission.
+
+Protected start now returns200/no-store JSON with the generated authorization
+URL after setting correlation cookies; it no longer redirects a browser fetch
+across origins. The page validates the fixed Kuubu authorization origin/path,
+exact seven fields/scope pair, callback, S256 and bounded state before top-level
+navigation. CSRF, browser binding/challenge and five-minute protected state remain
+required. Callback returns only to the fixed workspace page. This is a paired
+API/UI contract update; old pending sign-in states require a fresh start.
+
+`ERP:OperationalCompanies:Enabled` defaults false and requires operational
+identity plus separate machine licensing. The company directory includes ordinary
+members via active explicit issuer/subject/link/user/membership/entity/binding
+joins; governance-only team discovery still excludes them. It is bounded/paged,
+accepts only a canonical membership cursor, and returns company/link/name/role,
+never tenant/payer/enrollment selectors. Selected review accepts only the exact
+company/link pair, obtains current licensing from the immutable Core binding and
+rechecks membership/person/license after the provider call. Foreign links,
+revocation, expiry, wrong enrollment/slot and outages fail closed. Purchased
+module codes are informational and grant no actions, branch scope or session.
+
+The page reuses Kuubu identity/shared controls outside the classic tenant/auth
+shell. It handles loading, signed out, unavailable, empty list, paging, current
+subscription review, expired identity, stale selection and sign-out. Identity and
+selection stay in memory; requests have bounded timeouts, no auth fallback and no
+automatic POST retry. Old review responses cannot overwrite another selection.
+Browser clock skew is not authoritative for server proof validity. Company
+owners/admins can enter the separate existing team workflow; no fake ERP-launch
+button is shown. Shared Kuubu mark uses the website's maintained green token,
+independent of the employer accent; mobile actions no longer squeeze company names.
+
+Fresh API/test builds pass with27/20 existing warnings, none added.533 Windows
+checks passed/37 native opt-ins skipped. Linux query/flow/storage suite132 passed
+without skips; holder/observer each passed. Real Passport/private-TLS acceptance
+passed with the new JSON start/callback target: three token requests, two distinct
+refreshes and three person observations; suspension persists revocation and old
+cookie reuse makes no further provider call. Its Core host remains TestServer/
+InMemory and provider is SQLite; it does not qualify deployed ingress or native
+ERP/PostgreSQL/MySQL. SELECT-only provider audit leaves its DB unchanged and
+finds zero customers, billing memberships, payer enrollments, subscriptions or
+payments. Eight C# inputs/35 dependency DLLs are unchanged;281 Linux entries have
+private modes. All five owned containers stopped, no host ports/read-only inputs.
+
+Frontend101 contracts, targeted lint, production build and typecheck pass.
+Ten browser cases cover explicit Continue, member/owner review boundaries, empty
+setup, paging, denial, expiry, outage, late selection and390px sign-out/layout.
+These browser API responses are synthetic; actual website/relay/browser/Core/
+provider composition remains unqualified.364 source files and492 built outputs
+retain manifests; owned SSR listener stopped. Generated router was copied back
+as an independent working file only after source/hash checks.
+
+Evidence: `inspection/qualifications/operational-companies-core-02`,
+`operational-companies-linux-02`, `operational-companies-wire-02`,
+`operational-companies-verification-02/core-verification.json` and
+`operational-companies-ui-04/verification.json`. Core01 retained two fixture
+write failures: seeding now uses the owning tenant, while feature reads remain
+untrusted/read-only. UI03 passed before visual fixes; UI04 reruns all checks.
+No retained build publication was overwritten.
+
+Next: connect the actual branded website/relay journey to this picker; implement
+explicit module/action/branch grants, revocable bound ERP sessions and protected
+route isolation. Native database/ingress, path-only logging, monitoring/capacity/
+recovery, SMTP/inbox activation and controlled rollout remain release gates.
+Lenco, hosting/domain/email adapters and dedicated/on-premise/offline licensing/
+upgrades/backup restore remain programme work. No production schema/config/flags,
+deployment, external mail/payment, Perfex, DNS or main/UI-main/B1 change.
+
+# Actual Passport/TLS operational handoff —9 November2026
+
+Published test `2bfc158e2f869172c3211edfb6baf280929b68dd` qualifies actual
+Laravel/Passport HTTP/TLS callback, protected-store refresh rotation and enrollment
+revocation against unchanged Core runtime `86abac3b0e577ff070304828ed9aa95bc00a0040`
+and Foundation runtime `75cc91ff5025a54f3803fc34c4d297b12dcd5a98`. The branded
+website consent remains source `1ade23e7629d8a3004ac2caf8d3157691fa8681e`;
+this acceptance actor uses HTTP explicitly, not a real browser/website relay.
+
+The production fixed-origin clients and ASP.NET OAuth handler use a real private
+TLS endpoint and Laravel/Passport; no provider response, refresh client or store
+is replaced. The provider uses its genuine SQLite database and RSA keys. A
+fixture-only20-second access lifetime forces refresh without waiting five minutes.
+TLS validation uses a process-private CA, without disabling certificate checks
+or changing host trust. Services run inside an internal Docker network, no host
+ports. The Core host uses TestServer/InMemory; this is not deployed ingress or
+native ERP/PostgreSQL/session qualification.
+
+The HTTP actor signs in, is denied before personal enrollment, explicitly enrolls
+and obtains the exact-scoped authorization code. Core callback observes the
+person and stores credentials privately; the cookie contains no saved provider
+tokens, email, role or tenant. Identity status triggers real refresh followed by
+fresh person observation, but denies a protected ERP route. After the fixture
+suspends enrollment, refresh still cannot substitute for current-person proof:
+the resource denies access, Core writes a tombstone, and the restored cookie
+causes no further provider traffic. No ERP user/session/company grant is created.
+
+Final native acceptance passed one opt-in test with no skip in14 seconds:
+three token requests, two distinct refresh requests, three person observations,
+zero refresh reuse. Independent SELECT-only audit leaves the provider DB hash
+unchanged and verifies two seeded identities, one suspended personal enrollment,
+two confidential identity-client bindings, one used code, three access/refresh
+records with two refresh tokens consumed, one enrollment audit/outbox event,
+and zero customers/contacts/billing memberships/payer enrollments/subscriptions/
+payments. Core has one encrypted credential packet and one revocation marker.
+Ten Core entries have0700 directory/0600 file modes.
+
+New acceptance test builds with20 existing warnings, none added. Its source and
+137 provider source files retain hashes.238 copied runtime files match the
+previously qualified runtime bytes; all586 test runtime files remain unchanged
+during execution. Both owned services stopped; scripts/binaries/source inputs
+are read-only. Evidence: `inspection/qualifications/operational-wire-build-03`,
+`operational-wire-native-06` and `operational-wire-verification-06/verification.json`.
+
+Retained attempts:01/05 expose the test gateway dropping chunked JSON login
+bodies; forwarding every POST body fixes the transport. Fresh enrollment must
+assert201 Created.02 completed pristine provider preparation but stopped before
+Docker while awaiting its build; subsequent runs independently copy that closed,
+never-exercised baseline.03 default Docker pool and04 overlapping explicit subnet
+were rejected before services started.06 verifies an unused subnet before
+allocation. No old network/environment or retained publication was removed or
+overwritten, and no application authority/validation assertion was relaxed.
+
+Next: actual branded website/relay/browser composition, selection/recovery UI,
+explicit company/module/action/branch grants, revocable bound ERP sessions and
+route isolation. Native MySQL/provider requalification, production ingress/path-
+only logging, monitoring/capacity/recovery, SMTP/inbox activation and controlled
+deployment remain required. Lenco, hosting/domain/email adapters and dedicated/
+on-premise/offline licensing/upgrades/backup restore remain programme work.
+Default operational flags/settings remain off/unconfigured; no production
+schema/config/deployment, payment, mail, Perfex, DNS or main/UI-main/B1 change.
+
+# Protected operational OAuth handoff —9 November2026
+
+Published Core `86abac3b0e577ff070304828ed9aa95bc00a0040` adds a separately
+flagged operational identity callback/browser handoff. It uses website consent
+source `1ade23e7629d8a3004ac2caf8d3157691fa8681e` and unchanged Foundation
+runtime `75cc91ff5025a54f3803fc34c4d297b12dcd5a98`. All remain draft/default-off.
+This is identity continuity, not a licensed company/module ERP session.
+
+Same-origin JSON start requires protected browser cookie/CSRF and rotates its
+binding/challenge. Anonymous bootstrap creates no disk record. Protected purpose,
+fixed callback/return path and five-minute browser state are checked before code
+exchange, followed by framework correlation, confidential client and S256. Only
+the exact identity + ERP-session scope pair is requested. Bearer lifetime,
+refresh token and optional returned scopes are checked; subject discovery uses
+the strict current-person resource, never unverified JWT/email claims.
+
+Credentials stay encrypted server-side. The separate non-default identity cookie
+contains opaque handle/binding and verified subject/issuer, without provider
+tokens, tenant, email or roles. Successful handoff revokes old setup/invitation
+handles; ordinary product sign-in/logout revokes operational state in return.
+Identity status rechecks the current person and returns no operational access,
+pending company selection. Sign-out/provider denial persist revocation. An outage
+returns unavailable with no cached identity fallback. The callback currently
+returns to the status endpoint; the actual selection UI remains required.
+
+Under the shared directory gate, one verified subject/client can hold four active
+credentials and receive six issues per ten minutes. Revocation frees concurrent
+capacity but not recent-issue history; reopening preserves both limits. Fixed
+memory salted IP budgets bound bootstrap/start/status/callback attempts. Owned
+five-minute expiry cleanup retains existing grace and skips held rotation locks.
+Monitoring/capacity tuning and distributed-storage qualification remain gates.
+
+Final fresh API/test builds pass with27/20 existing warnings, none added.
+Windows regression:523 passed/37 opt-in native skips. Native Linux:98 passed,
+zero skips, plus holder/observer one pass each. Real ASP.NET OAuth handling with
+synthetic provider responses tests PKCE/correlation, browser/state denials before
+token exchange, purpose/lifetime/refresh denials, default-off, no implicit ERP
+user/session, outage versus durable denial, restored-cookie denial and code
+replay. Two-process shared key-ring/rotation/sign-out fencing remains passed.
+
+Independent audit verifies seven C# sources,35 unchanged dependency DLLs,
+586 test/151 API immutable runtime files,149 state files without plaintext
+synthetic provider tokens and268 private Linux entries (0700 directories/0600
+files). All three owned containers stopped, network none/no host ports, with
+read-only binaries/SDK/scripts. Persisted revision fence and tombstone remain;
+there is no unfinished publication in the process probe. Evidence:
+`inspection/qualifications/operational-flow-core-03`, `operational-flow-linux-03`
+and `operational-flow-verification-03/verification.json`.
+
+Attempt01 retains two strict duplicate Set-Cookie failures. The callback now
+revokes server state without emitting a redundant deletion before its replacement
+cookie; assertions remain strict. Intermediate02 compilation is retained.
+Final03 records its final source manifest before its first build; assertion
+analyzer cleanup and explicit non-null observation checking remove new warnings.
+No retained publication was overwritten.
+
+Actual Laravel callback/refresh/store wire, connected browser/consent composition,
+account-switch/recovery UX, company selection, explicit module/action/branch
+grants, revocable bound ERP sessions and route enforcement remain required.
+The new `ERP:OperationalIdentity:Enabled` flag defaults false; separate client,
+secret and state path remain unconfigured. Classic local authentication and
+main/UI-main/B1 are unchanged. No production schema/config/deployment/flags,
+external mail/payment, Perfex or DNS change. Shared SaaS, Lenco, hosting/domain/
+email products and dedicated/on-premise/offline/upgrade/restore qualification
+remain in scope. Both backend PRs remain draft.
+
+# Protected operational credentials —9 November2026
+
+Published Core8b7cee073a303b9d9da8aa89b221a0f28ec28079 adds encrypted operational
+identity credentials and rotating-token machinery. It is not registered by the
+API and creates no operational cookie/session, company/module/branch grant or
+business authentication. Foundation runtime75cc91ff is unchanged.
+
+The private store binds a random handle/browser binding, exact confidential
+client/subject, access/refresh tokens, revision and immutable eight-hour absolute
+deadline. Separate private state/key directories and Data Protection purpose
+isolate credentials. Capacity is bounded (default512, supported1–2048; directory
+scan limit16,384). A directory gate coordinates admission, lock acquisition and
+expiry cleanup. Rotation holds an exclusive per-handle lock; ordinary person
+observations release it across the provider call and revalidate state afterward.
+No successful-proof cache or failure fallback is introduced.
+
+Before sending a rotating token, a write-through/disk-flushed revision/complement
+journal fences that revision. Success atomically publishes a new encrypted
+revision; lost/invalid acknowledgement, cancellation/crash or older-ciphertext
+restoration cannot submit the old refresh again. Sign-out/provider denial writes
+a durable tombstone, so an in-flight rotation cannot resurrect credentials.
+Definitive rejection differs from transient unavailability. Fixed HTTPS refresh
+accepts only bounded Bearer/token/expiry/scope responses. Returned person proofs
+preserve their original monotonic origin and are further capped by access and
+absolute expiry. Refresh never extends that absolute deadline.
+
+Expired cleanup waits15 minutes, skips held locks and removes expired state,
+fence/tombstone/temporary publications and lock inode under the directory gate
+before returning capacity. The runbook documents filesystem/ownership, bounds,
+uncertain-refresh recovery and pending production registration requirements.
+It does not qualify distributed/NFS/SMB storage or multiple physical hosts.
+
+Fresh API/test builds passed with27/20 existing warnings.503 Windows checks
+passed/37 native opt-ins skipped (43 new credential/refresh cases alongside the
+existing460 checks). Linux storage/refresh/person-proof suite passed78 cases,
+zero skips. Separate holder/observer processes each passed: the observer skips
+the locked rotation, revokes without waiting for it, and the holder denies
+without observing a person or publishing credentials after sign-out.
+
+Independent audit verifies the persisted revision1 fence/complement and revoke
+marker, no unfinished publication in the process probe, no plaintext synthetic
+provider credentials in87 state files, and private modes for150 Linux entries
+(directories0700/files0600).35 independent dependency DLLs and586 test/151 API
+runtime files retain hashes/size/mtime. All three owned containers are stopped,
+use network none, publish no host ports and mount binaries/SDK/scripts read-only.
+
+Evidence: inspection/qualifications/operational-credentials-core-02,
+operational-credentials-linux-02 and
+operational-credentials-verification-02/verification.json. Build01 is retained:
+its test span comparison crossed await (CS4007); separating the awaited value
+fixes it, and property access removes two new primary-constructor capture
+warnings. No protected publication was overwritten.
+
+These tests use synthetic provider responses and a real shared Linux key ring/
+filesystem for the process probe. Actual Laravel refresh + store wire composition,
+callback/browser binding, authenticated per-person admission/rate limits, owned
+cleanup/monitoring and session recovery UX remain required before registration.
+Next: operational OAuth handoff and explicit module/action/branch grants,
+followed by revocable company sessions, route enforcement and browser acceptance.
+No classic local-authentication behavior is changed.
+
+No production deployment/schema/config/flag, external mail/payment, Perfex
+migration, DNS, frontend/Laravel runtime or main/UI-main/B1 change. Both PRs stay
+draft. Shared SaaS, dedicated/on-premise deployment/offline licensing/upgrades/
+backup restore, Lenco and hosting/domain/email integrations remain in scope and
+unqualified where recorded on the milestone board.
+
+# Licensed ERP admission person-proof contract —9 November2026
+
+Published Foundation75cc91ff5025a54f3803fc34c4d297b12dcd5a98 and
+Corece5bc76ff618d0eee98648b723100f248a3802d1 implement the first licensed ERP
+admission contract: current, email-free person observation under the exact
+`product:identity product:erp-session` scopes and `erp-session-v1` purpose.
+`PRODUCT_ERP_SESSION_ENABLED` defaults false. Only a confidential Kuubu identity
+client is eligible; public/foreign clients, ordinary identity/cookie proofs,
+mixed authorities, selectors and request bodies are rejected. Foundation
+rechecks verified personal enrollment/client/token state and caps observation
+to30 seconds and actual token-record expiry. It creates no customer, enrollment,
+company, membership, session or permission grant. A refresh token is not a
+current identity proof: real refresh followed by personal-enrollment revocation
+still denies the resource.
+
+The Core reader validates the exact field set, issuer/client/subject/product/
+purpose, true verification and false operational grant. Duplicate/missing/extra,
+wrongly typed, foreign/stale/oversized/non-JSON responses fail closed. Deadline
+includes transit and wall/monotonic caps; denial never reuses a previous proof;
+caller cancellation propagates. No email or provider token is retained in the
+observation. The reader is not yet registered for operational admission.
+
+Fresh API/test builds pass with27/20 existing warnings.460 focused Core tests
+passed/36 native opt-ins skipped, including35 new observation cases. Foundation
+PHP8.5.9/Linux full regression passed133 tests/1081 assertions, plus Pint18 files;
+PHP8.4.12/Windows focused compatibility passed11 tests/122 assertions, plus Pint.
+137 Foundation source files and35 independently copied Core dependency DLLs
+retain hashes. Linux runs with network none, no host ports and read-only archive/
+overlay/script inputs; its owned container is stopped. No production environment
+or credentials are copied into the fixture.
+
+Initial Windows/Linux attempts are retained with three failures: Laravel's
+getJson helper serializes an empty array into a GET body, so the strict new
+resource correctly returned422. The corrected test helper uses the same
+body-free GET as Core; the explicit malicious-body test still returns422.
+No production guard or assertion was removed to obtain the passing result.
+Evidence: inspection/qualifications/operational-subject-core-01,
+operational-subject-php-linux-02, operational-subject-foundation-02 and
+operational-subject-verification-01/verification.json. Failed01 attempts remain.
+
+This is a person-proof contract, not completed ERP access. Actual provider-to-Core
+wire composition for this resource and native MySQL qualification of this
+increment remain unproven. Protected operational OAuth/refresh state, explicit
+company/module selection, module/action/branch grants, revocable ERP sessions,
+route enforcement and browser acceptance remain to implement/qualify. Inspection
+confirms federated users cannot use legacy local sessions or role CSV, and empty
+legacy branch assignments mean organization-wide access; SaaS admission must
+use explicit grants without inheriting that fallback. Classic local mode remains
+unchanged for dedicated installations.
+
+No frontend change, operational session/role/branch grant, schema change,
+production activation, live setting, payment, Perfex migration, DNS or
+main/UI-main/B1 change. Existing operator/SMTP and browser evidence retains its
+original source scope. Lenco, hosting/domain/email products, SaaS deployment and
+dedicated/on-premise installation/offline licensing/upgrades/backup restore
+remain in the full programme; both PRs remain draft.
+
+# Full operator executable qualification —9 November2026
+
+Published executable fixture77ee21ba95cad69b464dfb5170413fe3c06bf0b6 now
+qualifies the unchanged application runtime925f6a1f through the actual operator
+CLI, actual Laravel Passport/machine licensing, deployment Data Protection keys
+and private STARTTLS/authenticated SMTP. Fresh test build passed with20 existing
+warnings;15 focused Windows checks passed/seven native opt-ins skipped. The
+separate Linux executable case passed in00:02:03.5185585 with zero skips.
+
+Two real SMTP recipient rejections produce retryable failures through the normal
+store/resolver. After ordinary backoff, the actual command sends once, replays
+its historical receipt without another send, and rejects changed retry arguments.
+Suspending the actual Laravel subscription then makes the second command record
+suppression without SMTP. All command exit/status/stderr checks pass. Three
+actual machine-token requests and seven licensing reads are observed; the
+original encryption key ring is unchanged. No HTTP/SMTP client is replaced.
+
+Independent read-only PostgreSQL verifies one company/binding/federated user/
+link/owner membership, two pending revision1 invitations/two receipts, nine
+audits/five events, four delivery attempts and two matching operator receipts.
+Six validated invitation foreign keys, two history guards and exact48-hour
+expiry hold. There are zero passwords/credential links, ERP sessions or module
+grants. Laravel SQLite independently confirms suspension, three machine tokens,
+one seeded owner payer membership, zero staff payer memberships and zero personal
+enrollments. Initial setup authority is explicitly synthetic; this case does not
+claim to requalify the separate user OAuth/browser setup journey.
+
+Actual reporting under a SELECT-only role returns accepted1/suppressed1 and
+leaves all104 HRM tables unchanged.49 independently copied dependency DLLs,
+585 test-runtime files,151 API runtime files and48 Foundation application
+sources retain their manifests. API/test/SDK/provider input mounts are read-only.
+Every owned qualification service is stopped; no host ports were published.
+
+Transport is explicit test infrastructure: a container-loopback TLS gateway for
+the fixed commercial origin forwards token/license requests to private Laravel
+HTTP on an internal network. Provider PHP8.5.9 and .NET10.0.14 are recorded. CA
+trust belongs only to the test process; no application certificate override or
+host trust change. A synthetic marker-protected fixture control owns subscription
+suspension. The runtime image adds the existing ERP Dockerfile's libgssapi-krb5-2
+prerequisite, not an application change or connection-negotiation bypass.
+
+Failure history is retained. Native01 reached the provider but failed licensing
+before any company, invitation, audit/event or token was created (independently
+audited). Native02 was stopped during slow Windows bind-mounted staging.
+Native03/04 reached a successful first operator command but failed strict stderr
+checks because the minimal fixture image omitted the existing GSS library.
+A separate no-op diagnostic reproduced that exact missing-library message.
+Native05 supplies the normal prerequisite and passes without relaxing the checks.
+The corrected fixture uses distinct recipients to preserve duplicate-pending
+invitation protection. The closed runtime archive is retained for fresh Linux
+staging; no old publication was overwritten.
+
+Evidence: inspection/qualifications/invitation-ops-executable-api-02,
+invitation-ops-executable-native-05/linux-evidence/results/executable.trx,
+invitation-ops-executable-audit-05/audit.json and
+invitation-ops-executable-verification-05/{verification,environment}.json.
+The runtime/package image record is in invitation-ops-executable-runtime-01.
+
+This closes private operator CLI/provider/key-ring/SMTP composition qualification.
+Production sender/inbox, monitoring/support ownership, deployed ingress/rate
+controls/path-only logging and recovery remain deployment gates. Next product
+work is licensed ERP sessions/revocation and company/branch/module isolation.
+Dedicated/on-premise installation/offline licensing/upgrades/backup restore,
+Lenco and hosting/domain/email integrations remain in scope and unqualified.
+No frontend or Laravel runtime change, production activation/schema/config,
+external mail/payment, Perfex migration, DNS or main/UI-main/B1 change. PRs stay
+draft; one maintained ERP codebase remains required for every deployment mode.
+
+# Invitation delivery operations —9 November2026
+
+Published API/Infrastructure925f6a1f5a75a4fe63c54de8366942bba518fad3 adds a
+separate default-off local invitation operations mode. Aggregate health reports
+use a PostgreSQL repeatable-read/read-only transaction and dedicated connection;
+they expose no recipient, link, raw error or SMTP settings. Retry needs separately
+enabled authority, a trusted configured operator, exact tenant/event, expected
+attempt count, allowlisted reason and scoped idempotency key. It selects only a
+due failed delivery, shares the normal attempt/authority path and row lock, and
+atomically records both the outcome and a separate operator audit receipt.
+It preserves original row/link/Message-ID, backoff and the eight-attempt cap.
+Accepted/suppressed/invalid/exhausted/revoked/expired targets cannot be revived.
+No public route, HTTP listener, migration, identity bootstrap or background worker
+runs in this mode, including Development/startup-migration configuration.
+
+Fresh Infrastructure/API/tests builds passed;425 focused Windows checks passed
+with36 native opt-ins skipped. The separate PostgreSQL/private SMTP run passed
+87 checks, no failures/skips, including six native operator cases and nine TLS
+wire cases. It covers due-only/idempotent replay/conflict, competing manual and
+automatic workers, cancellation rollback, current license denial, attempt
+exhaustion, foreign/revoked/expired targets and existing SMTP behavior.
+
+Independent read-only SQL audit of29 isolated databases verifies29 normal attempt
+audits, two matching operator receipts, six validated invitation foreign keys
+and two history guards per database, exact48-hour expiry, and no credentials,
+sessions or module grants. Actual CLI probes with network disabled passed its
+default-off, missing-connection and retry-disabled paths. Actual report mode ran
+under a SELECT-only role (no INSERT/UPDATE/schema CREATE), returned the expected
+accepted aggregate and left all104 HRM tables unchanged.32 copied dependencies,
+586 test-runtime files and151 API runtime files remain unchanged. All owned
+qualification containers are stopped; no host ports were published.
+
+Evidence: inspection/qualifications/invitation-ops-api-01/verification.json,
+invitation-ops-native-01/linux-evidence/results/operations.trx,
+invitation-ops-cli-01/verification.json and invitation-ops-audit-02/audit.json.
+Audit01 is retained as a harness failure: docker exec omitted stdin forwarding,
+so its SQL was not executed. Audit02 corrects that and qualifies the same test
+databases; it does not replace the failed evidence.
+
+The operator store/domain path uses actual Core authorization with a capture
+transport in its native cases; the existing worker separately passes actual
+private SMTP/TLS. The complete operator CLI-to-provider/key-ring/SMTP composition
+still needs qualification. Do not describe that composition or production
+monitoring/recovery as ready. No new frontend build was required; UI0e48bc5c and
+the prior74b29f02 browser journey remain historical evidence. PR201 stays draft.
+Production SMTP/sender/inbox qualification, deployed ingress/rate controls,
+licensed ERP company/branch/module admission, dedicated/on-premise installation,
+offline licensing/upgrade/backup recovery and Lenco remain release gates.
+No production activation, Perfex, DNS, payment or main/UI-main/B1 change.
+
+# Sender invitation delivery status —9 November2026
+
+Published API74b29f02bb949797069b8b9a8c40b5f5a64fa869 and UI0e48bc5c (byte-identical in74b29f02)
+add sender-visible, read-only email status separately from invitation acceptance.
+The current licensed owner/administrator must still pass company scope and the
+final authority reread. Status binds one original issue receipt and delivery
+intent by tenant/company/invitation/actor/correlation/version/payload. Missing,
+duplicate, legacy or inconsistent evidence is unavailable, never assumed sent.
+Pages contain at most20 invitations; metadata/receipt lookups take at most21
+records and overflow conservatively. Dedicated ID-only JSONB payloads are parsed
+and length-checked after the bounded read; raw errors/transports/links are not
+returned. Attempts are bounded to eight.
+
+The existing Kuubu card/theme now shows queued, retry scheduled, mail submitted,
+stopped/needs attention, no further mail needed or unavailable. Retry/acceptance
+timestamps and attempts are separate from the person's pending/accepted state.
+The secondary refresh is read-only and disabled during review/work. Mail-server
+acceptance explicitly leaves inbox delivery unconfirmed. An older API without
+delivery metadata safely renders unavailable; malformed observations fail closed.
+No resend, queue mutation, new schema or activation flag is introduced.
+
+API/test builds passed (27/20 existing warnings);384 focused Windows checks
+passed/30 native opt-ins skipped, including original-binding/counter/state and
+licensed HTTP boundaries plus two PostgreSQL-provider query compilation cases.
+Frontend96 contract checks, lint/build/typecheck,17 team and eight recipient
+browser cases passed. The mobile delivery screenshot was visually checked, with
+no horizontal scrolling. All490 new UI output files retained hash/size/mtime
+after browser consumers; the website25 outputs and136 Foundation source files
+remain unchanged.
+
+The fresh actual Laravel/Kuubu/Core/PostgreSQL/SMTP journey passed in00:01:13.0423296.
+The sender sees queued, processes one real private TLS/authenticated SMTP message,
+refreshes to Email submitted while still Awaiting acceptance, and sees the inbox
+qualification. The recipient then uses the URL parsed from received MIME, signs
+in/enrolls/consents explicitly and confirms joining. Response loss/exact retry,
+actual subscription suspension/replay denial and no operational grants remain
+covered. No preaccepted staff membership or direct decryption preview.
+
+Independent read-only PostgreSQL audit proves one company, two exact federated
+users/links/members, one accepted revision2 invitation/two receipts, five audits/
+five events and one SMTP-accepted attempt, with exact48-hour expiry, six validated
+foreign keys and two history guards. Refresh adds no persisted side effects.
+Foundation SQLite separately proves two personal enrollments and zero recipient
+payer memberships.35 copied dependencies and586 test-runtime files retain
+their manifests. All owned provider/SSR/SMTP/PostgreSQL services are stopped.
+Evidence: inspection/qualifications/delivery-status-api-02, delivery-status-ui-01,
+delivery-status-browser-02/verification.json and delivery-status-audit-02/audit.json.
+
+First native attempt01 failed before issuing/sending because the projection used
+a text expression/empty text branch on JSONB. Its build/browser/database evidence
+is retained. The fix selects JSONB directly and retains the reader's payload and
+binding checks; new provider-specific query compilation plus this actual native
+journey qualify it. No failed data, assertion or old publication was changed.
+
+This remains private qualification with an explicit test-only transport proxy,
+Linux.NET10.0.14 and loopback-only published ports; no deployed ingress or external
+inbox claim. Mail, issue-time capture and recipient acceptance source are unchanged
+fromcddedcf6. Owned retry/monitoring, production sender/DNS authentication, actual
+edge controls and licensed ERP admission/company/branch/module isolation remain.
+PR201/Foundation PR3 stay draft; no production config/schema/flag, real mail/
+payment, Perfex, DNS or main/UI-main/B1 change. Dedicated/on-premise installation,
+offline licensing, upgrades and recovery still require separate qualification.
+
+# Browser/SMTP invitation checkpoint —9 November2026
+
+Published runtimecddedcf696e8040fd32891fe215d8ff2d14ea371 passed the actual Laravel/Kuubu/Core
+browser journey in00:01:23.5172896, with a real PostgreSQL delivery store/resolver
+and Linux SMTP adapter. The browser creates the company/invitation; a protected
+test endpoint processes the durable intent, and the recipient link is parsed
+from the received TLS/authenticated MIME message. Direct decryption preview is
+disabled in this mode. Own Kuubu login, explicit personal enrollment, separate
+recipient consent, company/role confirmation, committed-response loss/exact retry
+and actual subscription suspension/replay denial all passed. No preaccepted
+staff membership was seeded.
+
+The test-only mail proxy crosses owned local loopback ports to the production
+SMTP adapter in a private Linux container. This is an explicit transport
+composition, not a new deployed production process or background-worker-loop
+qualification. The same portable managed test assembly runs on Windows/Linux;
+the Windows managed VSTest runner requires DOTNET_ReadyToRun=0 on Linux and the
+matching.NET/ASP.NET10.0.14 image. Certificates/keys live on a private Linux
+volume; no host trust-store changes or application validation callbacks. Actual
+loopback port mappings are recorded, including the additional owned host-facing
+bridge needed on this Docker29.6.1 installation.
+
+Independent read-only PostgreSQL audit proves one company, two exact federated
+users/links/members, one accepted revision2 invitation, two immutable command
+receipts, five audits/five events and one SMTP-accepted delivery attempt. Exact
+request hashes, actor/tenant/company bindings, six validated foreign keys and two
+history guards match. No credentials, operational ERP sessions or module grants.
+Independent Foundation SQLite audit proves two personal enrollments, one payer
+membership and zero recipient payer memberships; subscription suspension remains
+persisted. Frozen490 ERP/25 website outputs,136 Foundation sources,
+35 copied dependency files and586 test-runtime files retain
+their recorded hashes/size/mtime. All owned provider/SSR/mail/PostgreSQL services
+are stopped; synthetic databases and failed attempts remain retained.
+
+The first real-clock journey passed browser/SMTP but its strict SQL audit found
+one microsecond of expiry drift: issue read the clock twice. A new advancing-
+clock regression failed against the unchanged old API (48 hours plus1ms).
+The fix uses one recorded issue instant for CreatedAt/ExpiresAt;352 Windows
+checks passed/30 opt-in skips, and this new native browser/audit retains the
+exact48-hour check. No historical test row or assertion was changed to pass.
+The mail adapter is byte-identical to previously qualified2ff5726c (nine private
+wire cases); this increment changes issue-time capture and test infrastructure.
+
+Evidence: inspection/qualifications/browser-mail-browser-06/verification.json,
+browser-mail-audit-06/audit.json, browser-mail-local-native-06/linux-evidence,
+browser-mail-green-04 and clock-regression-red-proof-03.json. Earlier failed
+launch, marker/SSH, runtime/bootstrap and clock-audit attempts remain retained.
+Runtime metadata correction: the pinned SDK10.0.403 image contains.NET10.0.14;
+EF package10.0.11 is separate. Its earlier pinned digest/results are unchanged.
+
+Secure production sender/DNS authentication, external inbox delivery,
+sender-visible delivery status, owned retry/monitoring, deployed ingress and
+licensed ERP admission/company/branch/module isolation remain release gates.
+PR201 and Foundation PR3 stay draft. No live flag, production schema/config,
+real mail/payment, Perfex, DNS or main/UI-main/B1 change. Dedicated/on-premise
+installation, offline licensing, upgrades and backup/recovery remain separate
+qualification milestones. UI067362a0/Foundation15707bd9/website02f42d39 unchanged.
+
+# SMTP/TLS wire checkpoint —9 November2026
+
+Published runtime2ff5726c3636598f25e5991c1c8e2a071c3e5081 passed all nine
+actual SMTP/TLS wire cases, zero skips/failures, using the production adapter
+without a send override or certificate-validation callback. A private Linux
+loopback sink and process-only CA verify trusted STARTTLS/auth/MIME/link/Message-ID,
+missing STARTTLS, untrusted/conflicting-DNS-SAN certificates, rejected recipient,
+prompt cancellation, PostgreSQL worker acceptance, lost acknowledgement/retry and
+cancellation rollback with independent row/company-lock acquisition. DNS SMTP
+hostnames are required, including internal DNS for dedicated/on-premise relays.
+
+The pinned client's final acknowledgement read was not promptly interrupted by
+token cancellation alone. The adapter now aborts its active connection on cancel;
+the send task must terminate within five seconds, with no timeout counted as a
+rejection. A cancelled worker leaves its intent pending with zero attempts and no
+delivery-attempt audit, and both locks are independently acquirable.
+
+Focused Linux regression351 passed/29 opt-in skips. Independent read-only SQL
+three new databases proves three invitations/receipts/intents, three governance
+audits/six events and three delivery-attempt audits: two SMTP-accepted rows (one
+after lost acknowledgement/retry), one cancelled pending row. Exact scope/history
+bindings match; no recipient memberships, credentials, ERP sessions or module
+grants. All87 copied dependency files retain hash/size/nsmtime; SDK exited0 and
+test database is stopped. Source archive SHA256:65a3625acc95a74527d7aa1c4453bb06142d7aef9af13601b15bd5f8e0b59a70.
+Evidence: inspection/qualifications/smtp-wire-native-2ff5726c-05/verification.json
+and audit.json. Windows local03 passed351/28 skips on the abort fix before the
+ninth Linux-only fact was added; final native05 compiles and exercises that fact.
+
+Failed native01 (IP Common Name fallback) and02 (blocked cancellation) remain
+retained. Preflight03 and partial transfer04 never launched a remote test job;
+05 uses an independently uploaded source archive. No assertion was weakened.
+
+This proves private socket/TLS and worker behavior, not external inbox delivery,
+production sender configuration or a browser-to-email journey. Secure sender
+setup, joint browser/mail verification, sender-visible delivery status, owned
+operator retry/monitoring, deployed ingress and licensed ERP admission/isolation
+remain gates. Mail stays default off; PR201 remains draft. No production schema,
+live flag, real mail/payment, Perfex, DNS or main/UI-main/B1 change.
+UI067362a0/Foundation15707bd9/website02f42d39 remain unchanged.
+
+# Invitation delivery checkpoint —9 November2026
+
+Published runtime17d43750192c8f14d05489ff4cf73e416d3a1165 requires sender and
+recipient acceptance before activating its default-off dedicated mail worker.
+Core owns ID-only delivery intents and durable attempts/outcomes in the existing
+outbox. Generic publication/HRM retry cannot consume/acknowledge them. Exact
+receipt/actor/company/client/envelope binding, fresh license/inviter authority,
+bounded SMTP and company-lock serialization apply; no membership/session grant.
+Only API mode starts delivery; migration/publisher modes do not register SMTP.
+348 Windows passed/18 native skips; seven source inputs/35 dependency DLLs verified.
+
+Basecea03e8b passed37 native delivery/notification cases and focused Linux348/20
+opt-in skips. Four PostgreSQL worker facts prove contention, actual revocation
+lock waiting, cancellation rollback, durable outcomes/retry cap and publisher
+exclusion. Read-only SQL20 new databases:20 invitations/23 receipts/20 intents,
+23 governance audits/43 events,11 delivery-attempt audits, three capture-transport
+acceptances/one exhausted record.79 dependencies unchanged; SDK exited0/database
+stopped. Store/mail/publisher source is byte-identical in17d43750; its activation-
+only follow-up has the separate Windows proof. Evidence:
+inspection/qualifications/invitation-delivery-native-cea03e8b-01 and invitation-delivery-05.
+
+Actual SMTP/TLS/inbox delivery, secure sender configuration, joint browser/mail
+journey, delivery-status UI, owned operator retry/monitoring and deployed ingress
+remain gates. SMTP is at least once; a lost outcome commit can repeat the same
+email/link/Message-ID, without duplicating company access. No new queue/schema,
+production flag, real mail/payment, Perfex, DNS or main/UI-main/B1 change; PR201
+remains draft. UI067362a0/Foundation15707bd9/website02f42d39 unchanged.
+
+# Earlier invitation guest-control checkpoint —9 November2026
+
+Published runtime9abd460999131f1a922faadfaca2e8e863c92f34 adds bounded
+endpoint policies and retained directory admission. Address headers are ignored;
+case/trailing-slash variants cannot bypass the matched endpoint's limit. Busy/full
+state returns retryable503 without replacing the prior intent. Reservations
+survive callback/cancel/restart; shared lock/cleanup enforce conservative bounds.
+315 Windows passed/14 native skips; Linux315/16 opt-in skips. Native52 recipient,
+20 sender,97 invitation/team (169) and two cross-process barrier tests passed
+without skips/failures. Read-only SQL145 new databases:69 invitations/76 receipts/
+69 delivery intents/81 audits/150 events/five accepted; no credentials/sessions/
+module grants.87 dependencies unchanged; SDK exited0/test database stopped.
+Evidence: inspection/qualifications/invitation-guest-native-9abd4609-01.
+
+Final actual-provider browser73.895s passed with independent SQLite audit, no
+recipient payer membership/operational grants;490 ERP/25 website outputs,136
+Foundation sources and35 dependencies unchanged. Local services stopped. Evidence:
+inspection/qualifications/guest-recipient-browser-02/verification.json.
+UI067362a0/Foundation15707bd9/website02f42d39 remain unchanged. App controls are
+qualified; deployed edge per-client limits/path-only logging, delivery and licensed
+ERP admission remain next. Existing HRM SMTP skips unsupported templates and must
+not acknowledge invitation mail as delivered. No live flag/schema/payment/mail/
+Perfex/DNS/main/UI-main/B1 change; PR201 remains draft.
+
+# Earlier actual-provider invitation acceptance checkpoint —8 November2026
+
+The real Laravel/Core/Kuubu browser gate passed133.189s, zero skips. Qualified
+runtime remains Coreacc3ae39, UI067362a0, Foundation15707bd9, website02f42d39.
+New opt-in harness/driver exercises owner setup/invite, account switch, recipient
+login/explicit joining, separate recipient consent, company confirmation, commit
+response loss/exact retry and actual subscription suspension/replay denial.
+No preaccepted staff membership. Independent SQL: one company/two exact members,
+one accepted revision2 invitation/two receipts/four audits/five events; no
+passwords/credentials/ERP sessions/module grants or recipient billing membership.
+490 ERP outputs/25 website outputs unchanged,136 Foundation source files and49
+dependency DLLs unchanged; owned services stopped. Evidence:
+inspection/qualifications/real-recipient-browser-01/verification.json.
+Test-only delivery inspection does not qualify email; intercepted local transport
+does not qualify deployed TLS. Guest prepare controls, delivery and licensed ERP
+admission remain next. No production/Perfex/DNS/payment/main/UI-main/B1 change;
+PR201 remains draft.
+
+# Earlier ERP recipient page checkpoint —8 November2026
+
+Published UI067362a0e4cf1f42b4fb427c5fc06446e6023662 on existing Core branch.
+Early secret removal, explicit Kuubu handoff, company/role confirmation and
+exact-request retry use the protected API; previous grant cannot silently select
+the wrong invitation. Shared Kuubu theme and generated route registration saved.
+82 frontend contracts, lint/build/typecheck and eight recipient browser cases
+passed;14 existing team cases passed before wrapper-only visual fix.490 output
+files unchanged, owned services stopped. Evidence:
+inspection/qualifications/recipient-ui-04/verification.json. Browser uses synthetic
+responses; current new real-provider recipient acceptance remains next. No live
+activation, migration, payment, mail, DNS or Perfex change. Backend remainsacc3ae39
+and has native qualification below. Main/UI-main/B1 holds and PR201 draft remain.
+
+# Core recipient HTTP checkpoint —8 November2026
+
+Native gate now passed onacc3ae39:37 recipient/store +20 sender +97 invitation/
+team checks, zero skips/failures; focused Linux300/14 native skips. Read-only SQL
+audit141 new databases (140 current/one exact legacy rollback):69 invitations,
+76 receipts,69 delivery intents,81 audits,150 events/five accepted memberships;
+zero credentials/sessions/module grants. Dependencies unchanged; SDK/database
+stopped. Evidence: inspection/qualifications/recipient-native-acc3ae39-01.
+ERP recipient page is being connected; real recipient wire/browser acceptance,
+guest limits, actual mail and operational admission remain release gates.
+
+Published runtimeacc3ae39e7f4e42973f69f5d5bc05eb3cd0d7929 on the existing Core
+branch adds default-off protected invitation handoff, purpose-specific OAuth,
+fresh recipient/company review and explicit atomic acceptance. No provider token
+in browser state, company/actor overrides, credentials, ERP sessions or module
+grants.300 local checks/14 native skips passed, including13 store and24 HTTP cases
+and160 competing callbacks. Separate cookie purposes, original-intent revocation,
+late callbacks and held-file-reader behavior covered. Rename-based claim race
+in05 retained; final uses persistent exclusive CreateNew reservation and markers.
+Evidence: inspection/qualifications/recipient-core-07/verification.json.
+
+Actual normal login/setup/team/sender compatibility passed95.070s on API05 before
+the claim-only fix, website02f42d39, unchanged UI. Acceptance off; this is not new
+recipient acceptance qualification. SQL audit retains two members/five audits/six
+events, no credentials/sessions/module grants;485 SSR files unchanged; owned
+services stopped. New recipient real-provider wire, native filesystem/PostgreSQL,
+ERP acceptance page, guest prepare limits and real delivery remain next. No
+production activation. Main/UI-main/B1 unchanged; PR201 remains draft.
+
+# Earlier account-side recipient consent —8 November2026
+
+Kuubu website published02f42d39880e587b4ccaa4b0f650f1e6a2984219, draft website
+PR3, adds exact identity/recipient scope pair, unchecked distinct consent and
+independent client/relay checks. Mixed scopes and substituted/duplicate consent
+fail closed. Same-person email and account changes reset consent/review; own
+login/Google-off retained.42 account tests/two existing skips, API-mode builds,
+14 routes/252 links and seven synthetic browser scenarios passed.25 dist files
+unchanged; owned local service stopped. Seven blobs verified byte-exact; remote
+comparison confirms one fast-forward commit/seven files fromb01985ee, expected
+head lease used. Evidence: inspection/qualifications/recipient-consent-website-04.
+Core protected handoff, fresh real-provider proof, company review/acceptance and
+delivery remain next; no production activation. ERP runtime remains e1498286.
+
+# Sender invitation API/UI checkpoint —8 November2026
+
+Published runtime: e14982865b94b3d147ea7a019c4947ee6c22d02e on
+codex/kuubu-product-consumer-20261107. Main/UI-main/B1 remain unchanged.
+
+New default-off sender issue/list/revoke HTTP and company-team UI passed263
+focused checks/14 native skips,72 frontend contracts, lint/build/typecheck and14
+browser scenarios. Actual isolated website/Laravel/Core/SSR flow passed40.374s,
+including branded login/setup/team and invitation review/issue/list/revoke plus
+existing role/retry/license denial. Read-only SQL audit: one revoked invitation,
+two invitation receipts, unchanged two members, five audits/six events and zero
+credentials/sessions/module roles. All485 SSR output files unchanged; owned
+services stopped. Evidence: inspection/qualifications/invitation-sender-ui-02
+and invitation-sender-browser-01. Recipient wire/consent/acceptance UI and real
+delivery remain pending. Production unchanged;
+main/B1/release holds and PR201 draft remain.
+
+Sender PostgreSQL qualification now passed on that published runtime:20 sender
+HTTP cases plus97 invitation/team regressions, no skips/failures. Fresh API/test
+builds use87 independent unchanged dependency files, hash/size/mtime unchanged;
+no old restore/clean metadata. Attempt01's missing Procurement references are
+retained; attempt02 includes all unchanged projects without application/assertion
+changes. Read-only SQL audit verified118 new databases,117 current schemas and
+one exact legacy rollback fixture;47 invitations/53 receipts/47 delivery intents/
+57 audits/104 events, four accepted memberships and no credentials/sessions/
+module grants. The test database is stopped. Evidence:
+inspection/qualifications/invitation-sender-native-e1498286-02/verification.json.
+Private ERP readiness and Perfex login returned200. Recipient token handoff,
+separate scope/consent and explicit acceptance contract is recorded in the child
+feature document; it remains unimplemented. Earlier checkpoint follows.
+
+# Internal invitation lifecycle qualified —8 November2026
+
+Published runtime a419439942a77db22a968ef5d94bb2c10f53921e passed97 genuine
+PostgreSQL invitation/team and90 shared identity/session/schema checks, zero skips;
+focused Linux261/14 native skips and full Linux2,355/18 opt-in skips, zero failures.
+All14 native-only opt-ins ran separately. Four new native cases cover issue/accept
+and revoke/accept races, physical history guards and empty/populated rollback.
+
+Read-only audit:97 new company/team databases,96 current schemas with six validated
+FKs/two history triggers, one exact retained legacy team rollback signature.
+24 invitations/29 immutable receipts/24 delivery intents/33 audits/57 events;
+exact actor/tenant/company/subject, request hash, revisions and correlation checked.
+Four accepted memberships; no credentials, sessions or module roles. The older
+rollback fixture has no invitation history and retains its guarded team receipt;
+the audit did not migrate it. Multi-migration Down can commit an earlier empty
+rollback before a later history guard refuses another; reapply latest before
+current-runtime admission.
+
+Native01 retained:97 pass then shared-memory/recovery failures in23 shared cases.
+Native02 uses a new512MB-shm isolated database and586 independent byte-identical
+binary files from the exact published source; hashes/sizes/mtime unchanged.
+Both test clusters stopped. Audit02's missing-table assumption retained; audit03
+classifies the legacy rollback state read-only. No assertion or scope guard removed.
+
+Existing actual website/Laravel/Core/SSR browser compatibility passed47.167s with
+APIa4194399, unchanged UI661c30a0 and websiteb01985ee. Own Kuubu login/Google off,
+explicit enrollment/setup consent, create/retry, fresh team sign-in, licensed
+role/revoke, ambiguous retry and suspension/replay denial remain working. It uses
+a preaccepted member: new invitation UI/recipient wire/delivery is not qualified.
+Three older standalone actual provider/browser opt-ins remain unrefreshed.
+SQLite audit: no invitation records and no credentials/sessions/module grants;
+487 SSR output files unchanged; owned services stopped. Private ERP health and
+Perfex login returned200. No production application/configuration/DNS/payment change.
+
+Evidence: inspection/qualifications/company-invitations-native-a4194399-02,
+company-invitations-audit-a4194399-03 and invitation-browser-compat-01, verification.json.
+Archive909df1c6ba7a869b3258375527e410503ea9c6e88a1e517cf2c5608a86ccaf7c;
+auditb4a0a7f68da91196456a89974753048edf4ea4398cf0483114404827e700051f.
+PR201 remains draft; main/B1/release holds remain. Next: verified recipient wire,
+account consent/relay, protected invitation HTTP and UI, durable mail delivery,
+then licensed operational tenant admission. New commands remain unregistered.
+
+## Earlier internal lifecycle checkpoint (before native qualification)
+
+Published a419439942a77db22a968ef5d94bb2c10f53921e adds internal Core invitation
+issue/revoke/explicit acceptance, schema and PostgreSQL history guards, immutable
+receipts, protected48-hour delivery envelopes and ID-only durable delivery intent.
+Owner may invite administrators/members; admin may invite only members. Acceptance
+requires targeted secret plus fresh recipient proof, current inviter and license,
+and explicit confirmation. Active membership cannot be changed through acceptance;
+reactivation requires a new invitation and restores only its requested role.
+Retry cannot revive a later-revoked member. No credentials, sessions or module roles.
+
+Local exact-source gate:243 pass/14 native skips, including19 new lifecycle cases
+and four new native cases pending. EF10.0.11 design generation/model comparison
+passed without a DB connection. Evidence: inspection/qualifications/company-invitations-04/verification.json.
+Retained01 exposed scoped-link insertions;02 restored setup/team but broader
+identity tests still found five failures. Trusted tenant assignment through EF's
+property entry fixes generated composite key persistence.03/04 preserve and pass
+those identity constraints. Source also carries explicit scopes before tracking.
+
+Native source archive909df1c6ba7a869b3258375527e410503ea9c6e88a1e517cf2c5608a86ccaf7c
+is qualifying in exclusive /opt/kuubu-builds/company-invitations-a4194399-01,
+container kuubu-company-invitations-gate01. Fresh source/restore, read-only package
+cache, no reused project bin/obj; synthetic PostgreSQL only. Native results are
+not yet established here. No DI/public HTTP, delivery worker or UI activation.
+Existing main/B1/release holds and draft PR201 remain. Production applications,
+configuration, DNS, Perfex and payments unchanged. Next: finish native gates and
+read-only audit, then actual recipient wire/consent/HTTP/UI and delivery integration.
+
+## Earlier recipient proof contract checkpoint
+
+Published ERP57ee105877e963980ed593d737804a40bccbf3b6 adds a strict server-side
+recipient reader and41 new proof cases;191 focused checks passed, zero skips,
+API/test builds zero errors. The reader is not registered or exposed yet. It
+accepts only exact issuer/subject/client/product/purpose, canonical verified email,
+bounded wall/monotonic time and operational_access_granted=false. No token cache,
+company grant, payer role, module permission, credential or ERP session.
+
+Foundation15707bd9eb04ee813aedc3797e425e5548548223 adds the separate
+product:invitation-recipient scope/resource for confidential Kuubu clients only.
+Both existing identity and new default-off recipient switches are required.
+Ordinary subject responses remain email-free. Current verified personal enrollment
+is required; payer membership is not. Proof <=30 seconds and token record expiry.
+Full SQLite123 tests/980 assertions and genuine MySQL8.0.46 (123/981) passed, Pint
+passed. MySQL ran in an exclusive network-none/no-host-port test container with
+no host SQL/privilege changes; container stopped. Read-only production Perfex login
+and Laravel /up returned200. Production configuration/application/DNS/payment and
+existing release/main/B1 holds remain unchanged. PR201 remains draft.
+
+Evidence: inspection/qualifications/invitation-recipient-core-01/verification.json,
+invitation-recipient-foundation-03/verification.json and
+invitation-recipient-mysql-15707bd9-01/verification.json. See
+docs/engineering/CORE-COMPANY-INVITATIONS-20261108.md for boundaries and retained
+formatting/harness failures. Actual Laravel-to-Core wire proof, account consent/
+relay, invitation schema/commands/delivery/acceptance UI and licensed operational
+tenant admission remain unfinished. Do not enable staged proof as company access.
+
+## Earlier setup-to-team entry checkpoint
+
+Published implementation661c30a01220c431e808b5449e08df2db2f58f79 adds a
+configuration-derived team_management_available boolean to company create/retry,
+a fixed /team link only when true, fail-closed older API handling, and the
+generator's previously untracked21-line team route registration. No new records,
+permissions, feature activation or operational admission. Existing classic local
+authentication and dedicated-instance architecture remain unchanged.
+
+Fresh build zero errors;143 targeted backend tests passed/10 native opt-ins
+skipped;59 contracts,18 synthetic setup browser cases, production SSR, TypeScript
+and final lint passed. Actual website/Laravel/Core/SSR browser gate passed41.395s
+through the visible link, then fresh team sign-in/current license/role change/
+lost committed response/exact retry/revoke/last-owner/suspension/replay denial.
+Independent SQL audit: one binding/two exact members/two receipts/two matching
+team changes; zero credentials, operational sessions and module roles. Staff has
+zero payer memberships. The member is still an explicit preaccepted/enrolled
+fixture: invitations/acceptance/delivery remain unfinished.
+
+Evidence: inspection/qualifications/company-team-entry-01/source-verification.json,
+team-entry-browser-01/verification.json. All487 SSR output files unchanged after
+consumers; all owned services stopped. Runtime source matches the tested copy;
+final test-only formatting has an identical complete syntax tree. Failed initial
+typecheck, formatting lint and unsuitable emission-comparison evidence checks
+are retained. Native refresh and deployed TLS/DNS were not run for this metadata/
+navigation increment. No production, Perfex, payment or DNS change. PR201 stays
+draft; existing release/main/B1 holds remain. Next: website product entry links,
+invitations/acceptance/delivery and licensed operational tenant isolation.
+
+## Earlier actual Kuubu team sign-in and browser/Core checkpoint
+
+Published harness/runner `bb047f489b01c86ce8685b7bd1dffd1bf19be7d4` (test fixture
+first published86a75ee1) passed the actual branded website/Laravel/Core/SSR team
+journey in36.589s. API2607cd69/UIaaafdf25 runtime source is unchanged. Websiteb01985ee
+matched all92 published source blobs. Test-only bridge controls and explicit
+preaccepted-member/personal-enrollment fixtures are not invitation implementation.
+
+Verified: login/Google unavailable; explicit enrollment/setup consent; create and
+same-request retry; setup proof cannot authorize /team; fresh identity-only team
+sign-in; licensed member reads; role change; committed-response loss and same-key
+retry; current-team refresh; revocation; last-owner denial; subscription suspension
+and receipt replay denied403; default ERP protected probe401.
+
+Independent read-only audit: one binding, two exact membership/principal/link
+pairs, two receipts and two matching team audit/outbox changes (three total with
+company creation), owner active/revision1, member administrator/inactive/revision3.
+No Core credentials, sessions or module roles. Staff has no payer membership;
+personal enrollments remain separate. Fourteen runtime libraries and487 UI output
+files unchanged. Owned PHP/SSR/bridge stopped and8101/8121/3186 closed.
+
+Evidence: inspection/qualifications/real-team-browser-acceptance-03/verification.json,
+component-inputs.json, published-inputs.json; runner is now versioned under
+backend/hrm-api/tools/ProductTeamBrowser with preparation instructions. Earlier
+failure01 timed out before login;02 completed real role change but had a CP1252
+test assertion. Both retained;03 writes UTF-8 and keeps the same assertions.
+
+Next: capability-gated setup/website entry navigation and invitations/acceptance/
+delivery, then licensed ERP sessions and tenant/module isolation. This new case
+does not rerun all older standalone protocol opt-ins. No deployed TLS/DNS or
+production activation/payment/Perfex change; the full ecosystem remains unfinished.
+
+# Earlier company-team API native/full and isolated UI checkpoint —8 November2026
+
+API source `2607cd697bb0c959b39e7e2091d3fbfe8d5a2c03` passed74 genuine PostgreSQL
+team/API cases,89 shared native-cohort checks,326 Linux focused and2,294 full
+regressions, zero failures. Ten native opt-ins were exercised in the native
+cohorts; the three actual provider/browser refresh opt-ins remain pending.
+Independent read-only audit of74 new databases (previous31 excluded) verified165
+memberships,28 immutable receipts,23 audit/outbox changes and five no-op receipts.
+Four actor-loss fixtures deliberately remove the last owner outside commands;
+the audit records that scope instead of claiming an all-companies owner invariant.
+No credentials, operational sessions or module roles were introduced.
+
+Runner kuubu-company-team-api-gate02 exited0/OOMKilled=false. Controller/audit
+restored the labeled test PostgreSQL to stopped. Read-only private ERP readiness
+and Perfex sign-in both returned200. Evidence/hashes are recorded in
+CORE-COMPANY-TEAM-HTTP-20261108.md and local qualification roots
+company-team-api-linux-2607cd69-02 / company-team-api-audit-2607cd69-01.
+
+Published UI source `aaafdf25649b6fa8feca59be1c97452407004462` adds /team with shared
+ERP controls and its own Kuubu product shell, without operational admission.
+Backend source is byte-for-byte unchanged from2607cd69. UI02 independently passed
+18 contracts, TypeScript, ESLint, production SSR build and nine synthetic-API
+Chrome scenarios, including visible mobile actions. All487 output files retained
+hash/size/nanosecond mtime after consumers; SSR stopped and port3188 closed.
+Desktop/mobile/review previews inspected under company-team-ui-02. UI01 remains
+unchanged with its earlier offscreen mobile table actions. Frontend archive
+48dddf823abdfbe0b4d754d381f0177a4567e2f9ebaa317b51e38bd2d757ca43.
+
+Next: actual Laravel/Kuubu relay/Core team-sign-in/browser integration (the UI gate
+above uses a synthetic API), invitations/acceptance/delivery and qualified entry
+navigation. Licensed operational ERP sessions, tenant/module isolation, Lenco,
+other product adapters, recovery and dedicated deployment remain unfinished.
+No production activation or invitation workflow yet. See
+CORE-COMPANY-TEAM-UI-20261108.md and company-team-ui-02/verification.json.
+
+# Earlier company-team directory and mutation API checkpoint —8 November2026
+
+Published source `2607cd697bb0c959b39e7e2091d3fbfe8d5a2c03` connects company discovery,
+licensed member reads and strict confirmed role/revoke HTTP commands to the
+existing audited Core commands. Every member read/command resolves the enrollment
+from the immutable binding, fetches a current license and rechecks exact Core
+identity/company membership. No browser tenant/payer/subject grants authority.
+Owners alone assign roles; administrators may revoke ordinary members only.
+
+Windows API and test builds passed;331 focused tests passed, zero failures,
+including43 new HTTP-to-database cases. Twelve opt-ins skipped. Evidence:
+inspection/qualifications/company-team-api-tests-01/verification.json; source
+archive inputs under company-team-api-2607cd69-01. The initial ASP0016 route-mapping
+warning was corrected in a new independent API build before running the tests.
+Native/full qualification is running in systemd unit kuubu-company-team-api02,
+isolated Docker container kuubu-company-team-api-gate02, root
+/opt/kuubu-builds/company-team-api-2607cd69-02. Attempt01 exited125 before SDK
+creation because a two-CPU quota exceeded the one-CPU host; its source/receipt are
+retained and test PostgreSQL was restored to stopped. Attempt02 uses one CPU.
+Poll those live handles, not this
+note, before treating it as still running or terminal. The controller stops the
+labeled test PostgreSQL container in finally. Never restart a timed-out observation.
+
+Invitations/acceptance/delivery, /team UI and licensed operational admission remain
+unfinished. Current source still needs native/full results and actual provider/
+browser refresh; no production runtime/schema/feature flag/Perfex change.
+
+# Earlier company-team HTTP proof increment —8 November2026
+
+Published source `dfe69f81531546ba547adfde42d516f7f3ec1eb3` adds an explicit signed team-management OAuth purpose,
+a per-sign-in nonce and framework antiforgery-protected session/cancel endpoints.
+It does not yet expose role/revoke mutations, company/member reads, invitations,
+the /team screen or operational ERP admission. All new endpoints are opt-in.
+Windows full dependency build passed;263 focused tests passed with zero failures,
+including16 new team cases. Twelve environment-dependent opt-ins were skipped.
+Evidence is under inspection/qualifications/company-team-http-local-04,
+verification02.json and published-source.json. The first exact cache-header test
+assertion and a missing apphost in test-only preparation failed; all attempts are
+retained. Do not borrow the earlier3cc77532 native/full/browser results for this
+changed identity source. Those gates and real provider/browser refresh remain
+pending for the new source. The runtime dependency DLLs were copied independently
+from the full build and their API checksum matches; no old build was patched.
+See docs/engineering/CORE-COMPANY-TEAM-HTTP-20261108.md for the contract and remaining
+work. No production runtime, database, flag, ingress or Perfex change.
+
+# Internal company role/revoke commands qualified —8 November2026
+
+Source/runtime `3cc775323cbe89d434fde5dbdebf77b082b26516` passed31 genuine
+PostgreSQL team-command checks,89 shared native-cohort checks,267 Linux focused
+and2,235 full Linux regressions, zero failures. All13 full opt-ins ran separately:
+10 native cases plus actual browser36s, protected setup83s and ordinary product
+identity/licensing31s on Windows. Windows focused265 and EF no-model-drift passed.
+
+Independent read-only audit verified31 synthetic native team databases with62
+memberships,14 actor/key-bound immutable receipts,10 revisioned audit/outbox
+changes and four no-op receipts. Exact tenant/company/member/actor identity,
+validated FK/check/unique/trigger, historical snapshots and retained active-owner
+memberships passed. Real PostgreSQL governance queries/concurrent owner demotions/
+retries/rollback are now exercised, not just SQLite policy. Public command
+authentication/origin/CSRF, invitation delivery/acceptance and team UI remain next.
+
+Actual setup/browser SQL verified one/two company tenants with exact owner links,
+revision1 and zero team-command receipts, credentials, sessions or module roles.
+Staff still have zero billing memberships. This proves normal setup remains
+unchanged; no public team HTTP/API or licensed ERP admission is qualified yet.
+
+Exact hashes/bounds: CORE-COMPANY-TEAM-20261108.md. Evidence under
+inspection/qualifications/company-team-linux/browser/protocol-3cc77532-01
+(three separate directories); remote source/results
+/opt/kuubu-builds/company-team-commands-3cc77532-01 and independent audit root
+/opt/kuubu-builds/company-team-audit-3cc77532-01. Source archive
+`96aa59719eaf077101e1b450424597e04fc0dee3ccf4faa1853fe8e32b9501c8`;
+full log `ff0cf95ca20203a2476611f48037823a8af46df8020b909d86efd902cc930b91`.
+SDK/test DB stopped0/OOMfalse; local ports closed. Existing private ERP readiness
+and Perfex sign-in returned200. No production changes. Preserve on-premise/local
+authentication compatibility and all deployed release/ACL/ingress/recovery holds.
+
+Next API boundary must derive issuer/subject from verified product authentication,
+resolve the commercial lease from the exact Core binding, and reject client
+tenant/payer/subject grants. Require the reviewed app origin, JSON, anti-CSRF and
+explicit command confirmation; a setup grant is not a team-management grant.
+Keep billing-delegate UI separate from Core company governance. New membership
+writers must set trusted tenant before tracking composite principal keys.
+
+# Earlier company role/revoke local source checkpoint —8 November2026
+
+Published source `3cc775323cbe89d434fde5dbdebf77b082b26516` adds internal
+confirmed role-change/revoke commands, positive membership revisions, immutable
+actor/key-bound retry receipts and atomic audit/outbox. Owners alone assign
+roles; administrators can revoke ordinary members. Last-owner removal requires
+another locally usable owner. Replays recheck current action authority and cannot
+undo a newer change. No-op commands reserve their key. Reactivation, invitations,
+public command authentication/CSRF and team UI are not implemented in this increment.
+
+Local build/focused cohort265 passed, zero failures,13 opt-in skips; EF reports
+no model drift. Initial58 failures/10 passes exposed a tenant_id NOT NULL failure
+after adding the composite receipt key. Trusted tenant is now supplied before
+tracking the initial membership; the repaired company cohort69 and broader265
+passed. Failed logs retained. Company key retargeting is rejected before the
+ordinary ORM guard and the stored binding is verified unchanged.
+
+Native qualification was running at this checkpoint on kuubu-workloads under unit
+kuubu-company-team-commands01, SDK container kuubu-company-team-commands-gate01,
+root /opt/kuubu-builds/company-team-commands-3cc77532-01. It runs new native team
+commands first, then the shared native cohort, focused and full Linux suites.
+Check authoritative unit/container/log state; do not restart because a poll times
+out or because the container has not yet been created during cache preparation.
+The controller restores synthetic kuubu-session-native-db01 to stopped on exit.
+The internal network has no published test database ports or production credentials.
+
+Source archive SHA256 `96aa59719eaf077101e1b450424597e04fc0dee3ccf4faa1853fe8e32b9501c8`;
+local evidence root inspection/qualifications/company-team-commands-3cc77532-01;
+focused log `52b4a4c631617ed85ef1f68d980005c3d98349f081524da85243805a5ed5c028`.
+New migration20261108113644 preserves predecessor memberships and refuses to
+discard populated command history/changed revisions. Four new native cases cover
+real governance queries, concurrent owner demotions/retries, receipt FK/immutability
+and empty/populated rollback. Native/full and refreshed actual integration for
+this source remain pending. The older qualified49780a39 below does not qualify
+this new schema/workflow. No production change; do not enable public team actions.
+
+# Earlier company membership allocation qualification —8 November2026
+
+Runtime/source `49780a39a13c89cd496f92283c1f20ba6effb3c2` passed Linux
+focused237, native qualification89 and full regression2,208, zero failures.
+All nine full opt-ins ran separately: six native allocation/membership plus
+actual browser39s, protected setup32s and ordinary identity/license14s against
+real Laravel helperb71b29fe/published Kuubu websiteb01985ee. Owner-policy cases
+in the mixed native cohort use SQLite; actual PostgreSQL governance-query/command
+integration remains a gate before team endpoints are exposed.
+
+Read-only native audit verified21 synthetic databases/16 memberships, exact
+tenant/company/owner/link, validated FKs/check/unique/trigger, new-create audit/
+outbox and two explicit legacy owner backfills (one inactive). Classic local
+admin gains no membership and classic multi-company still works. Refreshed
+browser/protocol SQL verified membership creation and safe retries without
+credentials, sessions or module-role grants; staff retain no billing membership.
+
+Exact sources/hashes/bounds: CORE-COMPANY-TEAM-20261108.md. Local evidence roots
+company-membership-linux/browser/protocol-49780a39-01 under inspection/qualifications;
+remote /opt/kuubu-builds/company-membership-49780a39-01 and separate audit root.
+SDK runner and test PostgreSQL stopped0/OOMfalse; local ports closed. Perfex
+sign-in and existing private ERP readiness returned200. No production changes.
+Next: audited invitation/accept/revoke/role-change commands, last-owner/concurrency
+guards and team UI, then licensed operational admission. Dedicated/on-premise
+installer/licensing/upgrade/recovery and all deployed release holds remain.
+
+# Earlier company membership source checkpoint —8 November2026
+
+Draft PR201 source `49780a39a13c89cd496f92283c1f20ba6effb3c2` adds
+Core company membership, atomic initial-owner creation, exact verified-identity/
+licensed company-governance reader and migration20261108104749. Membership does
+not create module roles, local credentials or operational sessions. Historical
+allocation remains immutable; legacy backfill uses only explicit allocation
+owners and exact links, not local admin/billing/email inference. No team endpoint
+is exposed yet. Invitation/change/revoke commands and last-owner safeguards are
+still required before enabling team administration.
+
+Windows SDK10.0.403 build passed; focused identity/federation/workspace/company/
+local-auth cohort238 passed, zero failures, nine opt-in skips (six native,
+three actual-provider/browser). EF10.0.11 reports no pending model changes.
+Retained source/local evidence: inspection/qualifications/company-membership-49780a39-01.
+Archive SHA256 `0b336f22a1e5146a858f6b799556359e567160ff6fe303934efe5d0795d6b9b9`;
+test log `42690b1df85bdfc308bb7369686e4d6ad5b504e3aa6014111ca55238d1595320`.
+Next: genuine PostgreSQL migration/backfill/physical guards/concurrency, full
+Linux regression and refreshed actual integration for this changed transaction.
+The older full/browser qualification below does not qualify this new source.
+
+User confirmed shared SaaS plus dedicated/on-premise installations from the same
+maintained codebase. Preserve classic local login and multi-company behavior;
+SaaS enrollment/provisioning is not mandatory on-premise. Dedicated installer,
+licensing/renewal/offline policy, upgrades and backup/recovery remain acceptance
+work. See deployment/kuubu/DEPLOYMENT-MODES.md and CORE-COMPANY-TEAM-20261108.md.
+No production migration/image/flag/privilege, DNS, payment or Perfex change.
+
+# Earlier actual browser setup acceptance —8 November2026
+
+Draft PR201 published runner `aee65eebf468275997912e60b906c6c6e2a3a662`
+and compiled test source `ba98d8399a138dbc900dffc1c20b3e928f0ed8d7` passed
+the real browser→Kuubu login/enrollment/consent→Laravel→Core create/reload/retry
+case in48s. Browser DNS disabled, every redirect intercepted, real signed relay
+and API allocation, exact published website92 blobs verified. Independent SQL:
+one company/owner/link/audit/outbox, zero credentials/sessions/module roles,
+matching tenant/subject and clean FKs. Separate secure cookies and operational401
+verified. Actual production Core runtime remainsa8134a9a; no production changes.
+Setup UI035869f0 passed15 synthetic-API browser scenarios and35 contract checks,
+TypeScript/lint/build, including explicit capacity-denial correction with the
+same request key. Failed/partial attempts retained; all local fixture/SSR ports
+closed. Exact sources/hashes/bounds: CORE-PROTECTED-SETUP-20261108.md, evidence
+root inspection/qualifications/real-browser-setup-20261108-05. Next: explicit
+owner/team policy, invitations and licensed operational admission. Deployed
+TLS/DNS/PostgreSQL, runtime ACLs and release holds remain; do not enable live.
+
+# Earlier actual protected setup protocol —8 November2026
+
+Draft PR201 runtime `a8134a9a90bc604ff392daf06c49daf697887fec`, provider
+helper `b71b29fe4bfbc81e34610983ef61461e02e14845` and published website
+`b01985ee536978e11944b3d170595c83fc68b3f3` passed actual protected setup
+interoperability in45s and ordinary identity/licensing in12s using separate fresh
+fixtures. Real account-client consent/enrollment, signed relay, Laravel Passport
+confidential S256/RSA, ASP.NET OAuth/private encrypted grant, payer/authority/
+licensing and Core SQLite allocation all execute. Exact website runtime Git
+blobs were checked through the connected GitHub app; local CLI lacked access.
+
+Confirmed creates allocated two separate company tenants within purchased
+capacity; retry returned the same company, excess capacity denied, owner revoke
+and suspension denied fresh/retry requests, cancel invalidated the grant. No
+operational session, credentials or module-role grant was created. Read-only SQL
+audit verified exact owner/company/link tenant pairing, clean FKs, slots1/2 and
+one audit/outbox per company. Ordinary staff retained zero billing memberships.
+
+Windows213 focused, Linux213 focused,63 PostgreSQL and2,184 Linux regressions
+passed, zero failures. All six full-suite skips ran separately (four native,
+two actual provider cases). The real setup test exposed a Windows-only null
+UnixCreateMode setter failure; the fixed source sets that property only on Unix
+and preserves private0600 files. Failed inputs/tests/DBs remain retained. All
+fixture processes stopped; ports8101/8120 closed; native runner/PG stopped0.
+Exact sources, hashes and evidence are in CORE-PROTECTED-SETUP-20261108.md.
+
+This is protocol acceptance, not the complete browser/deployed journey. Next:
+actual browser→real provider/Core acceptance and definitive denial recovery,
+then owner/team invitations and licensed operational sessions/refresh/revocation.
+Runtime ACLs, shared-volume/key operations, branch/module scope, ingress/log
+redaction, controlled migration and deployed recovery remain gates. Production
+image/schema/flags/keys/DNS/payment/Google/Perfex remain unchanged.
+
+The older checkpoints below remain historical evidence.
+
+# Branded company setup UI checkpoint —8 November2026
+
+Draft PR201 UI source `43bc0aa1a5f9003399a052d2ae95236fb8d87107` now provides
+public `/setup`: own Kuubu brand, account selection, company details, review with
+unchecked confirmation, create/retry and honest non-operational success. It
+bypasses tenant branding and operational auth providers while reusing pinned
+shared controls. Portaled account options retain product branding. Responses are
+no-store/no-referrer; unavailable setup offers recheck rather than a broken login.
+
+The reviewed request/key is retained before sending in versioned sessionStorage,
+bound to the server-verified subject, without bearer/CSRF. Submitted values stay
+fixed across lost response/reload/fresh consent; another identity cannot resume
+them or see draft details. Storage failure prevents sending. Only acknowledged
+server success clears the retained request. Expiry/cancellation grant no ERP access.
+
+14 installed-Chrome synthetic-API browser cases and34 Node contract/recovery
+tests passed, plus full strict TypeScript, targeted lint and production build.
+Desktop/mobile screenshots inspected. Native backendc138aef39f26b16e0f46de99b758a627be4469e0
+adds the recovery subject and passed213 focused,63 PostgreSQL and2,184 full
+regressions. Four native skips exercised separately; existing real provider
+identity/licensing test not rerun. All qualification services stopped. Exact
+source/archive/log hashes are in CORE-PROTECTED-SETUP-20261108.md; prior attempts
+are retained. Deploy the qualified subject-returning backend before this UI.
+
+Next: real Laravel→Kuubu consent→Core create/browser acceptance, then owner/team
+invitations and licensed operational sessions/refresh/revocation. Company/branch/
+module scope, finite runtime ACLs, shared-volume/key operations, ingress/log
+redaction and deployed recovery remain gates. No production schema/image/flag,
+DNS, payment, Google or Perfex change. This is not a SaaS production release.
+
+The older checkpoints below remain historical evidence.
+
+# Protected company setup backend checkpoint —8 November2026
+
+Draft PR201 adds runtime `e8a1f38a269265c6a30c620e92b1b68e55780642`:
+separately consented setup OAuth, five-minute encrypted server-side grants,
+token-free opaque pending-cookie references, eligible payer choices, explicit
+CSRF-protected company creation and cancellation. Every create/retry obtains
+fresh payer authority and machine licensing before the existing atomic allocator.
+Normal sign-in remains identity-only; neither callback nor payer listing creates
+companies or operational sessions. Laravel PR3 runtime15adde50a5a401f06f42a60f80888b261465333d
+provides scoped paginated payer choices (112 native MySQL tests/874 assertions).
+
+Linux213 focused,63 native PostgreSQL and2,184 full regressions passed, zero
+failures. Four native opt-in skips passed separately; the existing real provider
+identity/licensing test was not rerun in this job. Earlier provider evidence is
+not genuine protected setup acceptance. Both failed earlier setup attempts are
+retained; the fixed route now executes its IResult rather than discarding it.
+Test runner and private synthetic PostgreSQL cluster stopped0. Source/archive/log
+hashes are in CORE-PROTECTED-SETUP-20261108.md.
+
+Source `d0de0c1a8838269bd76b96088917f7e918b0340d` adds only a typed browser
+setup client and19 passing Node contract tests, with strict TypeScript checking.
+No setup form is implemented yet. Next: public setup shell, account selection,
+company details, review/confirmation, retained retry/reload handling and result;
+then genuine Laravel→Kuubu consent→Core create/browser acceptance. Owner/team
+invites, licensed operational sessions/refresh/revocation, module/company/branch
+scope, runtime ACLs, shared-volume operations and public ingress remain gates.
+No production migration/image/flag/key/DNS/payment or Perfex change. Read-only
+Perfex sign-in and existing private ERP /health/ready both returned200.
+
+The older checkpoints below remain historical evidence.
+
+# Core capacity-controlled company transaction —8 November2026
+
+Draft PR201 runtime `3e967e965217800c0996b3d9c0bd23cc79e810af` now
+consumes bounded purchased capacity and provides an internal explicit company
+create transaction. A fresh separately scoped payer observation and independent
+machine lease must agree; Core serializes by enrollment, allocates a unique slot
+and persists a company/HQ, role-free credential-free Core owner, explicit link,
+immutable owner/payer/slot receipt and audit/outbox together. Exact retries return
+the committed IDs; changed payload conflicts. No public setup route, automatic
+signup provisioner or operational session is added. Module checks now require
+the allocated slot as well as the licensed module. Missing/zero/malformed
+capacity never becomes unlimited.
+
+Migration `20261107231550_CoreWorkspaceAllocations` adds same-tenant owner/company
+FKs, global slot/key constraints and immutable evidence/rollback guards. SaaS
+tenants cannot add another legal entity through the legacy company-admin path;
+classic multi-company installations remain supported. Native concurrency proves
+two allocations within a two-workspace allowance and twelve retries yielding one
+company/audit/outbox pair. Post-save expiry/failure/cancellation roll back all.
+
+Final Linux197 focused,47 native PostgreSQL and2,168 full regressions passed,
+zero failures. Five normal-suite skips were exercised separately: four in the
+native cohort, one actual Laravel/Kuubu relay/ASP.NET identity/licensing case on
+Windows. Windows146 focused cases also passed. A read-only audit of38 synthetic
+DBs/26 allocations verified constraints, scope, role-free owners and audit/outbox.
+Read CORE-WORKSPACE-PROVISIONING-20261108.md for exact source/log hashes and
+the retained first native attempt's stale migration-order test fix. No production
+code changed between Windows runtime dae2c340 and final3e967e96; only that test.
+
+Provider fixture source2ebee45 uses explicit synthetic purchased capacity and
+zero staff billing memberships; websiteb01985ee retains its own login/consent.
+Actual protected setup OAuth→company-create/UI acceptance still remains, along
+with invitations/owner policy, licensed operational sessions/refresh/revocation,
+branch/module/local-auth enforcement, finite runtime DB ACLs and public ingress.
+Do not deploy wholesale main or treat this internal transaction as a SaaS launch.
+All old source/image/financial release holds remain. Private API image3ff07382
+and /health/ready200 are unchanged; test containers and local fixture stopped.
+
+# Purchased capacity provider checkpoint —8 November2026
+
+Laravel foundation PR3 now publishes runtime
+`2449fe9509454283d22da0bf29db54e06270c299`: bounded plan allowance,
+immutable purchased subscription snapshot, audit/outbox evidence and
+workspace_limit in current setup/licensing resources. Old subscriptions remain
+unassigned; plan edits/retries do not expand a purchase.101 tests/740 assertions
+passed on genuine MySQL8.0.46 plus upgrade/rollback and denied-host-DDL probes.
+See foundation WORKSPACE-CAPACITY.md for exact source/logs and the privileged
+schema migration requirement (no production global trust/SUPER grant changed).
+
+Core73b4afbe has not yet consumed/enforced that allowance. Next: bounded capacity
+parsing and atomic slot/company allocation, protected setup OAuth grants,
+company/payer binding/idempotency/audit and invitations before operational
+sessions. Missing/zero/unassigned capacity must never mean unlimited creation.
+No ERP runtime source, production schema/image, public ingress or flag changed
+by this documentation checkpoint. Keep previous consumer qualification separate.
+
+# Core workspace setup authority consumer —7 November2026
+
+Stacked draft PR201 now includes runtime
+`73b4afbe620328410090b5e1ff89b559ba3807b4`: a separate default-off Core
+reader for Laravel's current payer owner/admin workspace-setup authority.
+It binds the exact verified subject, configured identity client and canonical
+customer/enrollment references; validates the creation action, schema, issuer,
+product and non-operational result; and caps observations using wall/monotonic
+time. It stores no token, caches no authority and returns no old result on outage.
+The fixed channel has bounded JSON/timeout, duplicate rejection, no redirects,
+cookies or request loggers. Setup requires identity and licensing prerequisites.
+
+Windows112 focused tests (including41 new cases), Linux163 focused tests and
+Linux2,134 full regressions passed, zero failures. The existing real provider
+opt-in case was skipped in the network-none full run; prior actual identity and
+license interoperability remains separately qualified. This new setup resource
+still needs actual Laravel→Core acceptance. Read
+`docs/engineering/CORE-WORKSPACE-SETUP-20261107.md` for exact source/archive/log
+hashes, runtime scope, architecture and remaining gates. Native launcher exited0.
+Hosted run42417243189 did not start because GitHub explicitly reports an account
+billing lock; no hosted pass is claimed.
+
+Laravel authority source db6921d and website explicit consent source b01985ee are
+published in their draft PR3s; neither new flow is production enabled. Next:
+subscription-snapshotted purchased capacity, protected setup PKCE grants, Core
+company/payer binding and idempotent create/invite/audit, then licensed sessions
+and company/branch/module scope. Initial SaaS companies use separate Core tenants
+within the shared app/database; one identity/payer can span explicit workspaces.
+No per-customer source/container. Existing tenant data is not rewritten.
+
+No production image, migration, flag, key/client, ingress, payment rail or Perfex
+state changed. The older qualified private image remains distinct from this
+source. Do not give employees billing memberships or infer grants from email.
+
+# Actual Laravel/Kuubu/Core interoperability —7 November2026
+
+The actual backend protocol now passes: published Kuubu signed relay/account
+client → genuine Laravel Passport PKCE/RSA resources → real ASP.NET OAuth/cookie
+handler, plus the Core machine licensing client. Exact implementation
+`3f5cd44bb280dd3770a9c4091f9b6289e9a9cc1b`, provider source8e96bef7, website
+source d3452e6c. The opt-in case passed in13s; Windows122 focused checks passed.
+Linux122 focused and all2,093 existing HRM regressions passed (only the new opt-in
+case skipped without a fixture). Read `docs/engineering/CORE-PROVIDER-INTEROP-20261107.md`
+for exact hashes, source/SDK/fixture scope, reproduction and retained failures.
+
+Real execution found a hidden contract mismatch: Laravel HasUlids emits lowercase
+enrollment IDs; the prior Core consumer required uppercase. Core and valid test
+fixtures now use the exact lowercase provider reference. Uppercase/transformed,
+trailing-newline and injected references remain denied before network traffic;
+no persisted ID was rewritten and no permission check was relaxed.
+
+Acceptance verifies explicit personal join, confidential S256 exchange, immutable
+verified subject, replay denial, a token-free/no-tenant/no-role pending cookie,
+no ERP operational session, machine licensing without staff billing membership,
+foreign-product denial, fresh denial after subscription suspension and bounded
+expiry. Provider counts stayed at the explicit seed baseline except one personal
+join; Core user/link/session tables stayed empty. All local fixture processes
+stopped and ports8101/8120 closed. The SDK test container also exited0.
+
+This does not enable licensed company access. Next: Core-owned company/payer
+binding and setup authority, invitations, fresh link-bound PKCE admission,
+encrypted grants/refresh/revocation and licensed operational sessions, plus
+company/branch/module enforcement and public SaaS local-auth/anonymous-intake
+policies. Public TLS/browser callback, UI, runtime ACL and existing financial/
+operational gates remain. Do not give staff billing membership or grant company
+access from matching email/domain or a commercial-access read alone.
+
+No production migration, image, clients/keys, flags or ingress changed; private
+ERP ready200 remains on image3ff07382. No SSH restriction was weakened. An early
+forwarding attempt stopped safely; the successful gate used local portable SDK,
+PHP and Node on loopback with fresh synthetic data and no mail/payment rail.
+
+# Federated Core principal prerequisite — 7 November 2026
+
+Stacked draft [PR201](https://github.com/georgemunganga/erp/pull/201) now adds
+explicit local/federated credential mode, a role-free federated principal factory,
+nullable credentials constrained by mode, immutable mode and populated rollback
+guards. Existing local accounts keep their credentials. Federated principals
+cannot use local sign-in/recovery/setup/change/admin reset or acquire a local
+session; account DTOs expose per-principal credential capabilities. It creates
+no workspace, identity link, billing membership or operational session by itself.
+
+Exact tested source `2c6f9085e029138ebdb0eb311c49a98ae81b9741`:122 focused,
+28 genuine PostgreSQL and2,093 full HRM regression cases passed, zero failures/
+zero skips. An independent read of13 synthetic databases confirmed actual
+migration/check/trigger/composite-FK state and null credentials for all five
+federated fixtures. The dedicated PG and SDK containers are stopped. Read
+`docs/engineering/CORE-FEDERATED-PRINCIPALS-20261107.md` for hashes, retained gates,
+upgrade/rollback evidence, reproduction and scope. The older design-only checkpoint
+below records the prior source state; this prerequisite is now implemented.
+
+Still not ERP admission: actual provider interoperability, explicit company/payer
+binding and setup authority, team invitations, fresh PKCE link admission, protected
+server-side grants/refresh/revocation, licensed sessions and complete company/
+branch/module enforcement remain. Public SaaS must disable anonymous local entry
+and reject local-session licensing bypass regardless of principal mode. Federated
+account UI must respect both deployment and per-principal capabilities. Existing
+public-intake, runtime ACL, financial and operational release holds remain.
+
+No production DB migration/image, public ingress, clients, flags, Google or Lenco
+changed. Private ERP readiness200 on unchanged image3ff07382. Re-read public
+main7b7e3fc7 and qualified release6b47bbeb are unchanged. No whole-main deployment.
+
+# Core commercial licensing channel — 7 November 2026
+
+Stacked draft [PR201](https://github.com/georgemunganga/erp/pull/201) now also
+contains a separate default-off confidential licensing client. Exact tested
+implementation `11879016777e077ec1adaa295aeaf7c149f753e9` passed105 focused
+checks and the complete2,076-case HRM suite, zero failures/zero skips. It uses
+only product:license machine credentials and exact Core-supplied enrollment
+references; it does not require staff billing membership, create principals or
+issue operational sessions. It validates bounded commercial leases, modules,
+issuer/product/reference and expiry, with monotonic time caps, bounded JSON,
+single-flight machine tokens, no redirects/cookies/logged credentials and no
+cached lease returned on failure. Licensing requires both product flags and a
+distinct machine client; no production configuration was changed.
+
+Read `docs/engineering/CORE-COMMERCIAL-LICENSE-20261107.md` for exact source,
+archive/log hashes, retained attempts and native qualification. The final gate
+ran with no network and no production database connection. Actual Laravel↔C#
+interoperability, company binding/admission and runtime permission enforcement
+are still required; no SaaS launch is claimed. Existing deployed image1f54ff04
+and public main/release baselines below are unchanged by this source increment.
+
+Discovery confirmed that current LocalUser requires email/password fields and
+LocalAuthenticationHandler emits email claims unconditionally. The next explicit
+principal model must not invent addresses or give federated users an independent
+local password recovery path. Design only:
+`docs/engineering/CORE-FEDERATED-PRINCIPALS-20261107.md`. It preserves local-mode
+deployments and requires explicit Core grants and exact external links. A billing
+access read alone is not setup/rebinding authority. Coalesce commercial reads per
+current company binding within the lease budget; always recheck Core grants.
+
+Private ERP ready200/image unchanged; both branded public logins and API health
+returned200. Perfex login rendered normally in browser after a scripted403.
+No credential, billing, Google, ingress, database or deployment change was made.
+
+# Kuubu owned authorization/provider follow-through — 7 November 2026
+
+The website relay/opt-in step is now implemented in [Kuubu PR3](https://github.com/Greenwebb/kuubuerp-website/pull/3),
+source `d3452e6c6ad652206169a7f298222197692e5edf`. All92 tracked blobs were
+verified byte-exact against its published Git tree.35 normal tests, API build,
+14-page/252-link checks and hosted CI run42400939282 passed. The separate actual
+client→signed relay→Laravel confidential PKCE/RSA/replay/session test passed,
+with a read-only audit confirming no payer/customer/subscription creation.
+Browser checks preserved Kuubu's own login, explicit enrollment, account switch,
+disabled Google and390px layout. No production frontend was deployed.
+
+Foundation source `62f8971de47d489bc95b6d489ad7a794b7bc7c1f` in itsPR3 adds
+the exact signed authorization path and replaces the shared30/minute backend-IP
+bottleneck with bounded edge and post-protocol actor/enrollment quotas.57 tests/
+482 assertions passed on Linux PHP8.4.27 and genuine isolated MySQL. Read
+foundation `docs/PRODUCT-IDENTITY-ADMISSION.md` and website
+`PRODUCT-AUTHORIZATION.md` for hashes, fixture boundaries and retained evidence.
+Foundation hosted run42400388410 failed at startup before jobs; cause unproven.
+
+These source gates do not qualify an actual browser→deployed ASP.NET callback or
+operational workspace admission. Core still needs explicit invitation/owner setup,
+workspace/payer binding, protected server-side operational sessions, runtime ACLs
+and company/branch/module enforcement. No real client/key was registered and no
+production product flag, database/image, ingress, Google or Lenco state changed.
+The older checkpoint below records its own source state; do not redo the relay/
+quota work as if it were still unimplemented.
+
+# Kuubu product identity consumer — 7 November 2026
+
+Stacked draft [PR201](https://github.com/georgemunganga/erp/pull/201), branch
+`codex/kuubu-product-consumer-20261107`, depends onPR200/PR199. Exact compiled
+source `7d67f6d16a414aacf3a8a6242dc94aa9576ff3b6` passed59 focused checks,
+15 genuine-PostgreSQL scenarios and the full2,030-case HRM suite/0fail/0skip.
+The default-off confidential OAuth/PKCE consumer uses a separate protected,
+short-lived product identity cookie, containing no provider tokens, ERP roles or
+tenant. It never creates an ERP operational session. Core reads only explicit
+active issuer/subject links and same-tenant active principals; no email join.
+
+The additive owning migration enforces tenant/user FK pairing and durable unique
+bindings, with raw-SQL binding and populated-rollback guards. A trusted scoped
+tenant key generator preserves existing local-user constructors while completing
+the composite key before EF tracking. The native audit verified all five new
+synthetic databases' actual migration/FK/trigger state. SDK and dedicated test
+PostgreSQL containers are stopped; prior attempts/evidence remain retained.
+
+Read `docs/engineering/CORE-PRODUCT-IDENTITY-20261107.md` for exact hashes,
+receipts, source limits and release gates. Hosted GitHub CI remains account
+billing-locked before its job starts; native results do not claim hosted success.
+No public ingress or production database/image change accompanied this step.
+Published main is still7b7e3fc7; qualified release6b47bbeb and deployed1f54ff04
+remain unchanged. Existing financial/tenant/module holds remain.
+
+Next: connect Kuubu's fixed own authorization/opt-in relay and allow only its
+registered Core callback; remove the provider's shared30/minute backend-IP quota
+bottleneck. Then implement explicit invitation/workspace admission, Core-owned
+workspace/payer licensing bindings, protected server-side operational sessions
+and company/branch/module enforcement. Never give ERP teammates billing
+membership to make company licensing pass. Anonymous speak-up organization
+selection and callback/query log redaction also gate shared public ingress.
+
 # Core session tenant repair — 6 November 2026
 
 Stacked draftPR200 (`codex/kuubu-session-tenant-20261106`, compiled source

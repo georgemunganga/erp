@@ -1,0 +1,77 @@
+# Core invitation delivery
+
+Core owns the invitation and ID-only delivery intent. Its dedicated worker owns
+delivery attempts/outcomes in the existing outbox; it creates no identity,
+enrollment, billing membership, company access or ERP session. There is no new
+queue or schema. HRM mail settings, generic publication and HRM notification retry
+do not own invitation delivery.
+
+Delivery defaults off. Only API mode starts the worker. Migration-owner and
+generic publisher modes neither register SMTP nor start it. Required flags:
+
+- `ERP:ProductIdentity:Enabled`
+- `ERP:ProductLicensing:Enabled`
+- `ERP:CompanyTeam:Enabled`
+- `ERP:CompanyInvitations:Enabled`
+- `ERP:CompanyInvitationAcceptance:Enabled`
+- `ERP:CompanyInvitationDelivery:Enabled`
+
+The existing identity/licensing/team/invitation/acceptance flags retain their
+reviewed client/database/key-ring/private-state prerequisites. Delivery uses its
+own `ERP:CompanyInvitationDelivery:Smtp:` settings:
+`Host`, `Port` (default587), `From`, and paired `Username`/`Password` if required.
+`Host` must be a DNS hostname, including an internal DNS name for an on-premise
+relay. IP literals/legacy numeric IP forms are rejected before connecting; this
+avoids the runtime's IP Common Name fallback when an IP SAN does not match.
+Use a verified Kuubu sender and securely supplied credentials. The adapter uses
+STARTTLS and ordinary certificate validation; it does not support an environment
+switch to plaintext or disabled certificate checks. Implicit-TLS-only SMTP is
+not the same protocol as STARTTLS. No settings are exposed to the browser.
+
+Before enabling, upgrade/pause every old generic publisher: the current publisher
+excludes delivery events and refuses their completion, but old binaries lack that
+protection. Qualify the actual SMTP/TLS endpoint, sender authentication,
+deliverability, monitoring, recovery and owned operator retry. The sender-facing
+UI now reads scoped delivery outcomes separately from joining and offers a
+read-only refresh. Creation is queued; only a bound SMTP acknowledgement is
+submitted, and it never confirms inbox receipt. No resend control is introduced.
+
+The separate default-off [local operations command](OPERATIONS.md) provides
+aggregate read-only health reporting and one explicitly selected due retry.
+It requires deployment-owned service authority and a dedicated connection;
+reporting needs no SMTP/product setup. Retry preserves the normal authority,
+backoff and eight-attempt cap and commits a separate operator receipt. This is
+not a new HTTP endpoint or customer control. It never runs migrations, identity
+bootstrap or the automatic worker.
+
+Each worker selects one due delivery row using PostgreSQL `FOR UPDATE SKIP LOCKED`.
+The row stays locked through outcome commit. Fresh license, exact company/client
+and original inviter authority are checked; a company advisory lock protects the
+final reread and bounded send from local governance changes. Envelope/target/token
+hashes and the original issue receipt/correlation must match. No address or link
+is copied into outbox/audit. Fixed error codes replace SMTP exception strings.
+
+`delivery-accepted` means SMTP returned acceptance, not inbox receipt or company
+membership. Suppressed/invalid/exhausted are distinct terminal outcomes. Transient
+failure retries the same row/link/Message-ID with exponential backoff, at most
+eight attempts. A crash after SMTP acceptance but before database commit can cause
+duplicate email; SMTP Message-ID is not an exactly-once guarantee. Invitation
+acceptance remains a separately idempotent, freshly authorized company command.
+
+Run `CoreCompanyInvitationMailTests`, `CoreOutboxPublisherTenantTests` and
+`M26NotificationOutboxTests` for delivery/notification compatibility. Native facts
+require the existing explicitly prepared private PostgreSQL fixture via
+`KUUBU_SESSION_TEST_POSTGRES`, control database `kuubu_session_test_control`.
+Tests create isolated `company_team_*` databases. Use new build/result/fixture
+directories and retain failed attempts. The current capture transport tests do
+not prove production SMTP/TLS, inbox delivery or live activation.
+
+The separate [private SMTP/TLS wire gate](SMTP-WIRE-QUALIFICATION.md) runs the
+production adapter against an isolated TLS sink, including cancellation and
+PostgreSQL lock release. It does not qualify production sender configuration or
+inbox delivery.
+
+The [private browser/SMTP composition](SMTP-BROWSER-QUALIFICATION.md) obtains the
+recipient link from received MIME and combines the real PostgreSQL delivery store,
+Laravel identity/consent and Kuubu browser acceptance. Its test-only transport
+proxy and local loopback bindings are explicit; it is not production activation.

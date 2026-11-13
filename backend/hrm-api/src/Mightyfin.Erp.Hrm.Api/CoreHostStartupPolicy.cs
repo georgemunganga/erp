@@ -1,6 +1,6 @@
 namespace Mightyfin.Erp.Hrm.Api;
 
-public enum CoreHostMode { Api, MigrationOwner, OutboxPublisher }
+public enum CoreHostMode { Api, MigrationOwner, OutboxPublisher, InvitationDeliveryOperations }
 
 /// <summary>Separates the ordinary host, schema owner and outbox process before database startup.</summary>
 public static class CoreHostStartupPolicy
@@ -15,19 +15,21 @@ public static class CoreHostStartupPolicy
             if ((option.StartsWith("--apply-", StringComparison.OrdinalIgnoreCase)
                     && !string.Equals(option, ownerFlag, StringComparison.Ordinal))
                 || (option.StartsWith("--run-", StringComparison.OrdinalIgnoreCase)
-                    && !string.Equals(option, publisherFlag, StringComparison.Ordinal)))
+                    && !string.Equals(option, publisherFlag, StringComparison.Ordinal)
+                    && !string.Equals(option, CoreCompanyInvitationOperations.Mode, StringComparison.Ordinal)))
                 throw new InvalidOperationException("A startup mode flag is invalid; use the exact supported option.");
         }
         var owner = options.Contains(ownerFlag, StringComparer.Ordinal);
         var publisher = options.Contains(publisherFlag, StringComparer.Ordinal);
-        if (owner && publisher)
-            throw new InvalidOperationException("Migration-only and outbox-publisher modes are mutually exclusive.");
-        return owner ? CoreHostMode.MigrationOwner : publisher ? CoreHostMode.OutboxPublisher : CoreHostMode.Api;
+        var operations=options.Contains(CoreCompanyInvitationOperations.Mode,StringComparer.Ordinal);
+        if ((owner?1:0)+(publisher?1:0)+(operations?1:0)>1)
+            throw new InvalidOperationException("Process authority modes are mutually exclusive.");
+        return owner ? CoreHostMode.MigrationOwner : publisher ? CoreHostMode.OutboxPublisher : operations?CoreHostMode.InvitationDeliveryOperations:CoreHostMode.Api;
     }
 
     public static bool MayApplyCoreMigrations(CoreHostMode mode, IConfiguration configuration,
         bool development, IEnumerable<string> arguments)
-        => mode != CoreHostMode.OutboxPublisher
+        => mode is CoreHostMode.Api or CoreHostMode.MigrationOwner
             && CoreSchemaStartup.MayApplyMigrations(configuration, development, arguments);
 
     public static bool MayBootstrapLocalIdentity(CoreHostMode mode) => mode == CoreHostMode.Api;

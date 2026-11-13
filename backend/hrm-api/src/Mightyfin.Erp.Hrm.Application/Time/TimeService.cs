@@ -722,6 +722,8 @@ public sealed class TimeServiceImpl(
         if (leaveTypes.Count == 0)
             throw new DomainException("accrual-no-types", "No monthly-accrual leave types are enabled for this period.");
         var workersToAccrue = await repo.ListAccrualWorkersAsync(periodDate, ct);
+        if (workersToAccrue.Count == 0)
+            throw new DomainException("accrual-no-workers", "No eligible employees exist for this month yet. Add employees before running accrual.");
         var run = new LeaveAccrualRun
         {
             Period = request.Period, Status = "processing", WorkerCount = workersToAccrue.Count,

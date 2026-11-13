@@ -71,7 +71,10 @@ public sealed class WorkerServiceImpl(IWorkerRepository repo, IAuthzService auth
         // The UI never asks HR to type an employee number; issue one when empty.
         var employeeNo = string.IsNullOrWhiteSpace(request.EmployeeNo)
             ? await IssueEmployeeNoAsync(repo, ct)
-            : request.EmployeeNo;
+            : request.EmployeeNo.Trim();
+        if (await repo.ExistsAsync(employeeNo, ct))
+            throw new DomainException("employee-number-exists",
+                "This employee number is already used in this company. Leave it blank to assign the next number.");
         var worker = new Worker
         {
             EmployeeNo = employeeNo,

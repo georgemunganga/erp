@@ -5,9 +5,9 @@ import { AreaOverview } from "@/platform/components/AreaOverview";
 export const Route = createFileRoute("/hrm/relations/")({
   head: () => ({
     meta: [
-      { title: "Relations and safety — Newworldcargo HRM" },
+      { title: "Relations and safety — Kuubu HRM" },
       { name: "description", content: "Cases, discipline, safety, ethics and protected disclosures." },
-      { property: "og:title", content: "Relations and safety — Newworldcargo HRM" },
+      { property: "og:title", content: "Relations and safety — Kuubu HRM" },
       { property: "og:description", content: "Cases, discipline, safety, ethics and protected disclosures." },
     ],
   }),

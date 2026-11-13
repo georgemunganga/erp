@@ -18,9 +18,9 @@ import { feedback } from "@/platform/feedback";
 export const Route = createFileRoute("/hrm/lifecycle/offboarding/$id")({
   head: () => ({
     meta: [
-      { title: "Separation case — Newworldcargo HRM" },
+      { title: "Separation case — Kuubu HRM" },
       { name: "description", content: "Clearance checklist, consolidated blockers and final separation sign-off." },
-      { property: "og:title", content: "Separation case — Newworldcargo HRM" },
+      { property: "og:title", content: "Separation case — Kuubu HRM" },
       { property: "og:description", content: "Clearance checklist, consolidated blockers and final separation sign-off." },
     ],
   }),

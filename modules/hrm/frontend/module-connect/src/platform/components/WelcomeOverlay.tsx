@@ -17,6 +17,8 @@ import {
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
 import { realApi, useApi } from "@/platform/use-api";
+import { FULL_PRODUCT_HRM } from "@/modules/core/product-hrm-session";
+import { useAuth } from "@/platform/auth";
 import {
   AlertCircle,
   ArrowLeft,
@@ -208,6 +210,7 @@ function SwitchGlyph() {
 }
 
 export function WelcomeOverlay({ pageMode = false }: { pageMode?: boolean } = {}) {
+  const { coreWorkspace } = useAuth();
   const api = useApi(async () => {
     const [state, steps] = await Promise.all([realApi.setupState(), realApi.setupSteps()]);
     return { state, steps: steps as StepDto[] };
@@ -227,7 +230,7 @@ export function WelcomeOverlay({ pageMode = false }: { pageMode?: boolean } = {}
   const routerRef = useRef(useRouter());
 
   const state = api.data?.state;
-  const steps = api.data?.steps ?? [];
+  const steps = useMemo(() => (api.data?.steps ?? []).filter(step => !FULL_PRODUCT_HRM || !["organisation", "roles"].includes(step.key)), [api.data?.steps]);
   const isComplete = state?.status === "complete";
 
   // Resume at the first incomplete mandatory step (or the backend's hint) so
@@ -309,14 +312,18 @@ export function WelcomeOverlay({ pageMode = false }: { pageMode?: boolean } = {}
       // Refetch the authoritative setup state (steps + overall status).
       const [freshState, freshSteps] = await Promise.all([realApi.setupState(), realApi.setupSteps()]);
       const done = new Set(freshState?.completedSteps ?? []);
-      const refreshedSteps = (freshSteps as StepDto[]).map((s) => ({ ...s, done: done.has(s.key) }));
+      const refreshedSteps = (freshSteps as StepDto[]).filter(step => !FULL_PRODUCT_HRM || !["organisation", "roles"].includes(step.key)).map((s) => ({ ...s, done: done.has(s.key) }));
       const mandatory = refreshedSteps.filter((s) => s.mandatory);
       const allMandatoryDone = mandatory.length > 0 && mandatory.every((s) => s.done);
+      await api.reload();
       // Advance to the next incomplete step when one exists.
       const idx = refreshedSteps.findIndex((s) => s.key === key);
-      const next = refreshedSteps.find((s, i) => i > idx && !s.done);
+      const next = refreshedSteps.find((s, i) => i > idx && (FULL_PRODUCT_HRM || !s.done));
       if (next) {
         setActive(next.key);
+      } else if (FULL_PRODUCT_HRM) {
+        setMessage({ text: "HR configuration saved. Review another section or return to HR.", kind: "info" });
+        api.reload();
       } else if (allMandatoryDone && freshState?.status !== "complete") {
         // The saved step closed the last mandatory gap — finish the setup so
         // the operator never lands on a success toast with nothing after it.
@@ -375,13 +382,13 @@ export function WelcomeOverlay({ pageMode = false }: { pageMode?: boolean } = {}
                 <CheckCircle2 className="size-9 text-primary" aria-hidden />
               </div>
               <Badge variant="default" className="mb-3 bg-emerald-600 text-white hover:bg-emerald-600">
-                You are all set up
+                {FULL_PRODUCT_HRM ? "HR configuration saved" : "You are all set up"}
               </Badge>
-              <CardTitle className="text-2xl">The HRM is ready to use</CardTitle>
+              <CardTitle className="text-2xl">{FULL_PRODUCT_HRM ? "Continue with your employees" : "The HRM is ready to use"}</CardTitle>
               <CardDescription className="max-w-lg">
-                Every step of the setup wizard has been completed. Your organisation
+                {FULL_PRODUCT_HRM ? "Add or import employees, assign their working location and salary profile, then review payroll readiness. Company and team access stay in Kuubu." : <>Every step of the setup wizard has been completed. Your organisation
                 is configured and the workspace is unlocked — head to the dashboard
-                to start working, or come back here any time to update information.
+                to start working, or come back here any time to update information.</>}
               </CardDescription>
             </CardHeader>
             <CardContent className="mx-auto w-full max-w-lg">
@@ -400,6 +407,7 @@ export function WelcomeOverlay({ pageMode = false }: { pageMode?: boolean } = {}
               </div>
             </CardContent>
             <CardFooter className="flex justify-center gap-3 pb-8">
+              {FULL_PRODUCT_HRM ? <Button size="lg" asChild><a href="/hrm/employees/new">Add employees</a></Button> : null}
               <Button size="lg" onClick={() => routerRef.current.navigate({ to: "/hrm" })}>
                 Go to home
               </Button>
@@ -411,7 +419,7 @@ export function WelcomeOverlay({ pageMode = false }: { pageMode?: boolean } = {}
                   setActive(null); // resume effect picks step 1 via the editing flag
                 }}
               >
-                Make changes
+                {FULL_PRODUCT_HRM ? "Review HR settings" : "Make changes"}
               </Button>
             </CardFooter>
           </Card>
@@ -460,9 +468,9 @@ export function WelcomeOverlay({ pageMode = false }: { pageMode?: boolean } = {}
         <div className="flex w-full items-center gap-4 pb-4">
           <SwitchGlyph />
           <div>
-            <h1 className="text-lg font-semibold text-foreground sm:text-xl">Set up your organisation</h1>
+            <h1 className="text-lg font-semibold text-foreground sm:text-xl">{FULL_PRODUCT_HRM ? "First-time HR setup" : "Set up your organisation"}</h1>
             <p className="text-sm text-muted-foreground">
-              {pageMode
+              {FULL_PRODUCT_HRM ? "Company and team access stay in Kuubu. Configure HR rules here; payroll checks its prerequisites separately." : pageMode
                 ? "Configure your organisation step by step — the HRM unlocks when setup is finished."
                 : "The HRM stays locked until first-time setup is finished."}
             </p>
@@ -477,7 +485,7 @@ export function WelcomeOverlay({ pageMode = false }: { pageMode?: boolean } = {}
           <CardContent className="space-y-3 pt-5">
             <div className="flex items-center gap-3 text-sm">
               <span className="font-semibold">Step {idx + 1} of {stepsByCompletion.length}</span>
-              <Badge variant="secondary" className="ml-auto">{state.completionPercent ?? 0}% done</Badge>
+              <Badge variant="secondary" className="ml-auto">{`${state.completionPercent ?? 0}% done`}</Badge>
             </div>
             <Progress value={state.completionPercent ?? 0} className="h-2" />
             <div className="flex flex-wrap gap-x-2 gap-y-1">
@@ -517,7 +525,14 @@ export function WelcomeOverlay({ pageMode = false }: { pageMode?: boolean } = {}
           className="w-full outline-none"
           style={pageMode ? undefined : { animation: "wizardModalIn 260ms ease-out both" }}
         >
-          <StepRenderer
+          {FULL_PRODUCT_HRM && active === "structure" ? <Card><CardHeader>
+            <CardTitle>Branches and departments</CardTitle>
+            <CardDescription>Your company already exists. Review your assigned locations and manage departments in the organisation structure.</CardDescription>
+          </CardHeader><CardContent className="space-y-4">
+            <p className="font-medium">{coreWorkspace?.companies[0]?.name}</p>
+            <div><h2 className="text-sm font-semibold">Assigned locations</h2><ul className="mt-2 space-y-1 text-sm">{coreWorkspace?.branches.map(branch => <li key={branch.id}>{branch.name}</li>)}</ul></div>
+            <div className="flex flex-wrap gap-3"><Button variant="outline" asChild><a href="/hrm/people/org">Manage departments</a></Button><Button variant="outline" asChild><a href="https://www.kuubuerp.com/account/#/team">Review access in Kuubu</a></Button></div>
+          </CardContent><CardFooter><Button onClick={() => setActive("employment")}>Continue to employment</Button></CardFooter></Card> : <StepRenderer
             key={active}
             stepKey={active}
             step={current}
@@ -532,7 +547,7 @@ export function WelcomeOverlay({ pageMode = false }: { pageMode?: boolean } = {}
                 setMessage({ text: setupErrorText(err), kind: "error" });
               }
             }}
-          />
+          />}
 
           {message && (
             <div
@@ -694,11 +709,11 @@ function OrganisationStep(props: { sending: boolean; onComplete: (p: Record<stri
         <div className="grid gap-4 sm:grid-cols-2">
           <div className="space-y-1.5">
             <Label htmlFor="org-name">Registered name *</Label>
-            <Input id="org-name" value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Newworldcargo" />
+            <Input id="org-name" value={name} onChange={(e) => setName(e.target.value)} placeholder="Company name" />
           </div>
           <div className="space-y-1.5">
             <Label htmlFor="org-trading">Trading name</Label>
-            <Input id="org-trading" value={trading} onChange={(e) => setTrading(e.target.value)} placeholder="e.g. Newworldcargo" />
+            <Input id="org-trading" value={trading} onChange={(e) => setTrading(e.target.value)} placeholder="Company name" />
           </div>
         </div>
         <div className="grid gap-4 sm:grid-cols-2">
@@ -953,35 +968,25 @@ function EmploymentStep(props: { sending: boolean; onComplete: (p: Record<string
             })
           }
         />
+        {!saved || (safeList(saved, "Grades").length === 0 && safeList(saved, "Positions").length === 0) ?
+          <Button variant="outline" disabled={props.sending} onClick={() => props.onComplete({ Grades: [], Positions: [] })}>
+            Continue without predefined grades or positions
+          </Button> : null}
       </div>
     </StepCard>
   );
 }
 
 /* Step 4 — Working time (optional) */
-// Zambian public holidays — name + month-day (MM-DD) that repeats every year.
-const ZAMBIAN_HOLIDAYS: { name: string; date: string }[] = [
-  { name: "New Year's Day", date: "01-01" },
-  { name: "Youth Day", date: "03-12" },
-  { name: "Women's Day", date: "03-13" },
-  { name: "Kenneth Kaunda Day", date: "04-28" },
-  { name: "Labour Day", date: "05-01" },
-  { name: "Africa Day", date: "05-25" },
-  { name: "Heroes' Day", date: "07-01" },
-  { name: "Unity Day", date: "07-02" },
-  { name: "Farmers' Day", date: "08-06" },
-  { name: "National Prayer Day", date: "10-18" },
-  { name: "Independence Day", date: "10-24" },
-  { name: "Christmas Day", date: "12-25" },
-];
+// Movable and specially declared holidays must not become fixed annual dates.
 function holidayRows(holidays: { name: string; date: string }[]) {
   return holidays.map((h) => ({ Name: h.name, Date: h.date, IsRecurring: true }));
 }
 function WorkingTimeStep(props: { sending: boolean; onComplete: (p: Record<string, unknown>) => Promise<void> }) {
   const [hours, setHours] = useState("45");
   const [weekends, setWeekends] = useState<string[]>(["sat", "sun"]);
-  const [useHolidays, setUseHolidays] = useState(true);
-  const [holidays, setHolidays] = useState<{ name: string; date: string }[]>(ZAMBIAN_HOLIDAYS);
+  const [useHolidays, setUseHolidays] = useState(false);
+  const [holidays, setHolidays] = useState<{ name: string; date: string }[]>([]);
   // M50.19: re-opens with the previously saved working-time configuration.
   const { data: saved } = useStepHydration("working-time");
   const appliedRef = useRef(false);
@@ -998,7 +1003,7 @@ function WorkingTimeStep(props: { sending: boolean; onComplete: (p: Record<strin
       setHolidays(hl.map((h) => ({ name: s(h.Name), date: s(h.Date) })));
     } else if (saved.PublicHolidays != null && Array.isArray(saved.PublicHolidays) && hl.length === 0) {
       setUseHolidays(false);
-      setHolidays(ZAMBIAN_HOLIDAYS);
+      setHolidays([]);
     }
   }, [saved]);
   const DAY_KEYS = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"] as const;
@@ -1049,9 +1054,10 @@ function WorkingTimeStep(props: { sending: boolean; onComplete: (p: Record<strin
               className="size-4 accent-primary"
             />
             <Label htmlFor="wt-holidays" className="cursor-pointer">
-              Use Zambia's public holidays ({holidays.length} days — repeats every year)
+              Add recurring holiday dates
             </Label>
           </div>
+          <p className="text-xs text-muted-foreground">Use Configuration → Public holidays for year-specific, movable and observed holiday dates.</p>
           {useHolidays && (
             <div className="space-y-1.5">
               {holidays.map((h, i) => (
@@ -1220,6 +1226,7 @@ function LeaveStep(props: { sending: boolean; onComplete: (p: Record<string, unk
 function PayrollStep(props: { sending: boolean; onComplete: (p: Record<string, unknown>) => Promise<void> }) {
   const [frequency, setFrequency] = useState("monthly");
   const [payday, setPayday] = useState("25");
+  const [paydayRule, setPaydayRule] = useState("calendar-day");
   const [basis, setBasis] = useState(false);
   const [confirm, setConfirm] = useState(false);
   // M50.19: re-opens with the previously chosen payroll configuration.
@@ -1232,6 +1239,7 @@ function PayrollStep(props: { sending: boolean; onComplete: (p: Record<string, u
     if (["monthly", "semimonthly", "biweekly", "weekly"].includes(f)) setFrequency(f);
     const day = Number(saved.PaydayDay);
     if (Number.isFinite(day)) setPayday(String(Math.max(1, Math.min(31, day))));
+    setPaydayRule(saved.PaydayRule === "last-working-day" ? "last-working-day" : "calendar-day");
     setBasis(saved.PayBasisTimesheet === true);
     setConfirm(saved.ConfirmStatutory === true);
   }, [saved]);
@@ -1245,7 +1253,7 @@ function PayrollStep(props: { sending: boolean; onComplete: (p: Record<string, u
         <div className="grid gap-4 sm:grid-cols-3">
           <div className="space-y-1.5">
             <Label htmlFor="py-freq">Pay frequency</Label>
-            <Select value={frequency} onValueChange={setFrequency}>
+            <Select value={frequency} onValueChange={(value) => { setFrequency(value); if (value !== "monthly") setPaydayRule("calendar-day"); }}>
               <SelectTrigger id="py-freq" className="w-full"><SelectValue /></SelectTrigger>
               <SelectContent position="popper" side="bottom" collisionPadding={8}>
                 <SelectItem value="monthly">Monthly</SelectItem>
@@ -1256,8 +1264,12 @@ function PayrollStep(props: { sending: boolean; onComplete: (p: Record<string, u
             </Select>
           </div>
           <div className="space-y-1.5">
-            <Label htmlFor="py-day">Payday (day of month)</Label>
-            <Input id="py-day" type="number" min={1} max={31} value={payday} onChange={(e) => setPayday(e.target.value)} />
+            <Label htmlFor="py-rule">Payday rule</Label>
+            <Select value={paydayRule} onValueChange={setPaydayRule}><SelectTrigger id="py-rule"><SelectValue /></SelectTrigger>
+              <SelectContent><SelectItem value="calendar-day">Calendar day</SelectItem><SelectItem value="last-working-day" disabled={frequency !== "monthly"}>Last working day of the month</SelectItem></SelectContent>
+            </Select>
+            {paydayRule === "calendar-day" ? <><Label htmlFor="py-day">Day of month</Label><Input id="py-day" type="number" min={1} max={31} value={payday} onChange={(e) => setPayday(e.target.value)} /></>
+              : <p className="text-xs text-muted-foreground">Uses your work calendar and configured public holidays.</p>}
           </div>
           <div className="space-y-1.5">
             <Label htmlFor="py-cur">Currency</Label>
@@ -1281,8 +1293,8 @@ function PayrollStep(props: { sending: boolean; onComplete: (p: Record<string, u
           </div>
           <div className="space-y-1 text-sm">
             <p><strong>ZRA PAYE (2026 monthly slabs):</strong> {PAYE_BANDS.map((b, i) => `${b.band} → ${b.rate}${i < PAYE_BANDS.length - 1 ? "; " : ""}`).join("")}</p>
-            <p><strong>NAPSA:</strong> 5% employee + 5% employer on basic salary, ceiling ZMW 1,221.80 contribution</p>
-            <p><strong>NHIMA:</strong> 1% employee (minimum ZMW 50) + 1% employer</p>
+            <p><strong>NAPSA (2026):</strong> 5% employee + 5% employer; ceiling ZMW 1,861.80 each.</p>
+            <p><strong>NHIMA:</strong> 1% employee + 1% employer on basic salary.</p>
           </div>
           <div className="mt-3 flex items-start gap-2">
             <Checkbox id="py-confirm" checked={confirm} onCheckedChange={(v) => setConfirm(v === true)} />
@@ -1300,6 +1312,7 @@ function PayrollStep(props: { sending: boolean; onComplete: (p: Record<string, u
             props.onComplete({
               Frequency: frequency,
               PaydayDay: Math.max(1, Math.min(31, Number(payday) || 25)),
+              PaydayRule: paydayRule,
               Currency: "ZMW",
               PayBasisTimesheet: basis,
               ConfirmStatutory: confirm,

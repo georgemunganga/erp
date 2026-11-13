@@ -19,7 +19,7 @@ import { StatusBadge } from "@/platform/components/StatusBadge";
 export const Route = createFileRoute("/hrm/offboarding/$id")({
   head: () => ({
     meta: [
-      { title: "Offboarding detail — Newworldcargo HRM" },
+      { title: "Offboarding detail — Kuubu HRM" },
       { name: "description", content: "Manage exit checklist and conduct exit interview." },
     ],
   }),

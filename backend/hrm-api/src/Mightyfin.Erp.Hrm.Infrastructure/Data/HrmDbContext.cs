@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.ChangeTracking;
 using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
+using Microsoft.EntityFrameworkCore.ValueGeneration;
 using Microsoft.Extensions.Configuration;
 using Mightyfin.Erp.Hrm.Application;
 using Mightyfin.Erp.Hrm.Application.ConfigAndExtras;
@@ -15,21 +16,25 @@ namespace Mightyfin.Erp.Hrm.Infrastructure.Data;
 /// as the rest of the ERP). A global query filter scopes every query to the
 /// current tenant from the OIDC token; audit entries record before/after JSON
 /// via the interceptor.</summary>
-public sealed class HrmDbContext(DbContextOptions<HrmDbContext> options, ITenantAccessor tenant) : DbContext(options)
+public sealed partial class HrmDbContext(DbContextOptions<HrmDbContext> options, ITenantAccessor tenant, Mightyfin.Erp.Hrm.Application.Workers.IWorkerDataScope? workerScope=null) : DbContext(options)
 {
+    private readonly Mightyfin.Erp.Hrm.Application.Workers.IWorkerDataScope? productWorkerScope=workerScope;
+    public HrmDbContext(DbContextOptions<HrmDbContext> options,ITenantAccessor tenant):this(options,tenant,null) {}
     /// <summary>Auto-populates <see cref="Entity.TenantId"/> on all newly added
     /// entities so every row is tenant-scoped from day one (both sync and async
     /// save paths).</summary>
     public override int SaveChanges()
     {
         FillTenantIds();
+        GuardProductWorkerWritesAsync(CancellationToken.None).GetAwaiter().GetResult();
         return base.SaveChanges();
     }
 
-    public override Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
+    public override async Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
     {
         FillTenantIds();
-        return base.SaveChangesAsync(cancellationToken);
+        await GuardProductWorkerWritesAsync(cancellationToken).ConfigureAwait(false);
+        return await base.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
     }
 
     private void FillTenantIds()
@@ -37,19 +42,69 @@ public sealed class HrmDbContext(DbContextOptions<HrmDbContext> options, ITenant
         var tenantId = tenant.GetTenantId();
         foreach (var entry in ChangeTracker.Entries<Entity>())
         {
+            if (entry.Entity is LocalUser account && entry.State is EntityState.Added or EntityState.Modified)
+            {
+                if (entry.State == EntityState.Modified && entry.Property(nameof(LocalUser.CredentialMode)).IsModified)
+                    throw new DomainException("credential-mode-immutable", "Credential mode cannot be changed through ordinary account updates.");
+                if (!LocalCredentialModes.IsValid(account))
+                    throw new DomainException("invalid-credential-state", "The account credential state is invalid.");
+            }
+            if (entry.Entity is CoreCompanyMembership membership && entry.State is EntityState.Added or EntityState.Modified
+                && !CoreCompanyRoles.IsValid(membership.Role))
+                throw new DomainException("invalid-company-role", "The company role is invalid.");
+            if (entry.Entity is CoreCompanyMembership versioned && entry.State is EntityState.Added or EntityState.Modified
+                && versioned.Revision < 1)
+                throw new DomainException("invalid-company-revision", "The company membership revision is invalid.");
+            if (entry.Entity is CoreProductSessionLocation selected && entry.State == EntityState.Added
+                && !ChangeTracker.Entries<CoreProductSession>().Any(parent => parent.State == EntityState.Added && parent.Entity.Id == selected.SessionId
+                    && parent.Entity.LegalEntityId == selected.LegalEntityId))
+                throw new DomainException("product-session-scope-sealed", "Session locations must be recorded in the original issue transaction.");
+            if(entry.Entity is CoreProductSession or CoreProductSessionLocation or CoreProductSessionRevocation
+                && entry.State is EntityState.Modified or EntityState.Deleted)
+                throw new DomainException("product-session-evidence-immutable", "Revoke the session instead of editing or deleting its evidence.");
+            if(entry.Entity is CoreModuleAccessVersion or CoreModuleAccessLocation or CoreModuleAccessReceipt
+                && entry.State is EntityState.Modified or EntityState.Deleted)
+                throw new DomainException("module-access-evidence-immutable","Append a new module access decision instead of editing evidence.");
             if (entry.State == EntityState.Added)
             {
                 // Never trust a tenant id supplied by a client or service. The
                 // authenticated request context is the only write authority.
-                entry.Entity.TenantId = tenantId;
+                // Assign through EF as well as the CLR value: a generated
+                // composite FK/key may otherwise retain a conceptual null.
+                entry.Property(nameof(Entity.TenantId)).CurrentValue = tenantId;
+                entry.Property(nameof(Entity.TenantId)).IsTemporary = false;
                 if (entry.Entity.CreatedAt == DateTimeOffset.MinValue)
                     entry.Entity.CreatedAt = DateTimeOffset.UtcNow;
             }
             if (entry.State is EntityState.Modified or EntityState.Deleted)
             {
+                if (entry.Entity is CoreCompanyInvitation)
+                {
+                    var mutable = new[] { nameof(CoreCompanyInvitation.State), nameof(CoreCompanyInvitation.Revision),
+                        nameof(CoreCompanyInvitation.AcceptedSubject), nameof(CoreCompanyInvitation.AcceptedMembershipId),
+                        nameof(Entity.UpdatedAt), nameof(Entity.UpdatedBy) };
+                    if (entry.State == EntityState.Deleted || entry.Properties.Any(p => p.IsModified && !mutable.Contains(p.Metadata.Name))
+                        || (string)entry.OriginalValues[nameof(CoreCompanyInvitation.State)]! != "pending"
+                        || (string)entry.CurrentValues[nameof(CoreCompanyInvitation.State)]! is not ("accepted" or "revoked")
+                        || (int)entry.CurrentValues[nameof(CoreCompanyInvitation.Revision)]! != (int)entry.OriginalValues[nameof(CoreCompanyInvitation.Revision)]!+1)
+                        throw new DomainException("company-invitation-immutable", "Only terminal invitation transitions are allowed.");
+                }
+                if (entry.Entity is CoreCompanyInvitationReceipt)
+                    throw new DomainException("company-invitation-receipt-immutable", "Invitation command evidence is append-only.");
+                if (entry.Entity is CoreWorkspaceBinding)
+                    throw new DomainException("workspace-binding-immutable", "Workspace allocation evidence cannot be changed or deleted.");
+                if (entry.Entity is CoreCompanyMembership && (entry.State == EntityState.Deleted
+                    || entry.Properties.Any(p => p.IsModified && p.Metadata.Name is
+                        (nameof(CoreCompanyMembership.LegalEntityId) or nameof(CoreCompanyMembership.LocalUserId) or nameof(Entity.TenantId)))))
+                    throw new DomainException("company-membership-binding-immutable", "Revoke company membership instead of changing or deleting its binding.");
                 if (!string.Equals(entry.Entity.TenantId, tenantId, StringComparison.Ordinal))
                     throw new DomainException("cross-tenant-write", "A record from another tenant cannot be changed.");
-                if (entry.Entity is AuditEntry or PrivilegedActionEvent or CoreCurrencyPrecisionCommandReceipt or Mightyfin.Erp.Hrm.Domain.Entities.ComplianceEvidence or GoLiveSignoff)
+                if (entry.Entity is ExternalIdentityLink && (entry.State == EntityState.Deleted
+                    || entry.Properties.Any(p => p.IsModified && p.Metadata.Name is
+                        (nameof(ExternalIdentityLink.Issuer) or nameof(ExternalIdentityLink.Subject)
+                         or nameof(ExternalIdentityLink.LocalUserId) or nameof(Entity.TenantId)))))
+                    throw new DomainException("identity-link-immutable", "Revoke the existing identity link instead of changing or deleting its binding.");
+                if (entry.Entity is AuditEntry or PrivilegedActionEvent or CoreCurrencyPrecisionCommandReceipt or CoreCompanyTeamCommandReceipt or Mightyfin.Erp.Hrm.Domain.Entities.ComplianceEvidence or GoLiveSignoff)
                     throw new DomainException("audit-immutable", "Compliance and audit evidence is append-only.");
                 if (entry.Entity is CoreCurrencyPrecisionVersion version)
                 {
@@ -74,6 +129,12 @@ public sealed class HrmDbContext(DbContextOptions<HrmDbContext> options, ITenant
     public DbSet<Job> Jobs => Set<Job>();
     public DbSet<TenantRoleAssignment> TenantRoleAssignments => Set<TenantRoleAssignment>();
     public DbSet<LocalUser> LocalUsers => Set<LocalUser>();
+    public DbSet<ExternalIdentityLink> ExternalIdentityLinks => Set<ExternalIdentityLink>();
+    public DbSet<CoreWorkspaceBinding> WorkspaceBindings => Set<CoreWorkspaceBinding>();
+    public DbSet<CoreCompanyMembership> CompanyMemberships => Set<CoreCompanyMembership>();
+    public DbSet<CoreCompanyInvitation> CompanyInvitations => Set<CoreCompanyInvitation>();
+    public DbSet<CoreCompanyInvitationReceipt> CompanyInvitationReceipts => Set<CoreCompanyInvitationReceipt>();
+    public DbSet<CoreCompanyTeamCommandReceipt> CompanyTeamCommandReceipts => Set<CoreCompanyTeamCommandReceipt>();
     public DbSet<LocalCredentialLink> LocalCredentialLinks => Set<LocalCredentialLink>();
     public DbSet<LocalSession> LocalSessions => Set<LocalSession>();
     public DbSet<HrUserBranchAssignment> UserBranchAssignments => Set<HrUserBranchAssignment>();
@@ -195,7 +256,107 @@ public sealed class HrmDbContext(DbContextOptions<HrmDbContext> options, ITenant
         {
             e.HasKey(x => x.Id);
             e.Property(x => x.TimeZoneId).HasMaxLength(100).HasDefaultValue("UTC");
+            e.Property(x => x.TenantId).ValueGeneratedOnAdd()
+                .HasValueGenerator((_, _) => new ScopedTenantKeyGenerator());
+            e.HasAlternateKey(x => new { x.TenantId, x.Id });
         });
+        ConfigureEntity<CoreWorkspaceBinding>(modelBuilder, "core_workspace_bindings", e =>
+        {
+            e.Property(x => x.Issuer).HasMaxLength(200);
+            e.Property(x => x.Subject).HasMaxLength(19);
+            e.Property(x => x.ClientId).HasMaxLength(36);
+            e.Property(x => x.CustomerId).HasMaxLength(26);
+            e.Property(x => x.EnrollmentId).HasMaxLength(26);
+            e.Property(x => x.IdempotencyHash).HasMaxLength(64);
+            e.Property(x => x.RequestHash).HasMaxLength(64);
+            e.HasIndex(x => x.TenantId).IsUnique();
+            e.HasIndex(x => new { x.Issuer, x.EnrollmentId, x.Slot }).IsUnique();
+            e.HasIndex(x => new { x.Issuer, x.Subject, x.IdempotencyHash }).IsUnique();
+            e.HasOne<LegalEntity>().WithMany().HasForeignKey(x => new { x.TenantId, x.LegalEntityId })
+                .HasPrincipalKey(x => new { x.TenantId, x.Id }).OnDelete(DeleteBehavior.Restrict);
+            e.HasOne<LocalUser>().WithMany().HasForeignKey(x => new { x.TenantId, x.OwnerLocalUserId })
+                .HasPrincipalKey(x => new { x.TenantId, x.Id }).OnDelete(DeleteBehavior.Restrict);
+            e.ToTable("core_workspace_bindings", "hrm", t => t.HasCheckConstraint("CK_workspace_capacity",
+                "slot >= 1 AND slot <= purchased_limit AND purchased_limit <= 10000"));
+        });
+        ConfigureEntity<CoreCompanyInvitation>(modelBuilder, "core_company_invitations", e =>
+        {
+            e.Property(x => x.TenantId).ValueGeneratedOnAdd().HasValueGenerator((_, _) => new ScopedTenantKeyGenerator());
+            e.Property(x => x.Issuer).HasMaxLength(200); e.Property(x => x.InviterSubject).HasMaxLength(19);
+            e.Property(x => x.RecipientHash).HasMaxLength(64); e.Property(x => x.TokenHash).HasMaxLength(64);
+            e.Property(x => x.ProtectedDelivery).HasMaxLength(8192); e.Property(x => x.Role).HasMaxLength(16);
+            e.Property(x => x.State).HasMaxLength(16); e.Property(x => x.AcceptedSubject).HasMaxLength(19);
+            e.Property(x => x.Revision).IsConcurrencyToken();
+            e.HasAlternateKey(x => new { x.TenantId, x.LegalEntityId, x.Id });
+            e.HasIndex(x => x.TokenHash).IsUnique();
+            e.HasIndex(x => new { x.TenantId, x.LegalEntityId, x.RecipientHash, x.State });
+            e.HasOne<LegalEntity>().WithMany().HasForeignKey(x => new { x.TenantId, x.LegalEntityId })
+                .HasPrincipalKey(x => new { x.TenantId, x.Id }).OnDelete(DeleteBehavior.Restrict);
+            e.HasOne<LocalUser>().WithMany().HasForeignKey(x => new { x.TenantId, x.InviterLocalUserId })
+                .HasPrincipalKey(x => new { x.TenantId, x.Id }).OnDelete(DeleteBehavior.Restrict);
+            e.HasOne<ExternalIdentityLink>().WithMany().HasForeignKey(x => new { x.TenantId, x.InviterLocalUserId, x.InviterLinkId })
+                .HasPrincipalKey(x => new { x.TenantId, x.LocalUserId, x.Id }).OnDelete(DeleteBehavior.Restrict);
+            e.HasOne<CoreCompanyMembership>().WithMany().HasForeignKey(x => new { x.TenantId, x.LegalEntityId, x.AcceptedMembershipId })
+                .HasPrincipalKey(x => new { x.TenantId, x.LegalEntityId, x.Id }).OnDelete(DeleteBehavior.Restrict);
+            e.ToTable("core_company_invitations", "hrm", t => t.HasCheckConstraint("CK_company_invitation",
+                "role IN ('administrator','member') AND length(recipient_hash)=64 AND length(token_hash)=64 " +
+                "AND expires_at > created_at AND ((state='pending' AND revision=1 AND accepted_subject IS NULL AND accepted_membership_id IS NULL) " +
+                "OR (state='revoked' AND revision=2 AND accepted_subject IS NULL AND accepted_membership_id IS NULL) " +
+                "OR (state='accepted' AND revision=2 AND accepted_subject IS NOT NULL AND accepted_membership_id IS NOT NULL))"));
+        });
+        ConfigureEntity<CoreCompanyInvitationReceipt>(modelBuilder, "core_company_invitation_receipts", e =>
+        {
+            e.Property(x => x.ActorIssuer).HasMaxLength(200); e.Property(x => x.ActorSubject).HasMaxLength(19);
+            e.Property(x => x.RequestHash).HasMaxLength(64); e.Property(x => x.Operation).HasMaxLength(16);
+            e.Property(x => x.ResultState).HasMaxLength(16);
+            e.HasIndex(x => new { x.ActorIssuer, x.ActorSubject, x.CommandKey }).IsUnique();
+            e.HasOne<CoreCompanyInvitation>().WithMany().HasForeignKey(x => new { x.TenantId, x.LegalEntityId, x.InvitationId })
+                .HasPrincipalKey(x => new { x.TenantId, x.LegalEntityId, x.Id }).OnDelete(DeleteBehavior.Restrict);
+            e.HasOne<CoreCompanyMembership>().WithMany().HasForeignKey(x => new { x.TenantId, x.LegalEntityId, x.ResultMembershipId })
+                .HasPrincipalKey(x => new { x.TenantId, x.LegalEntityId, x.Id }).OnDelete(DeleteBehavior.Restrict);
+            e.ToTable("core_company_invitation_receipts", "hrm", t => t.HasCheckConstraint("CK_company_invitation_receipt",
+                "length(request_hash)=64 AND ((operation='issue' AND result_state='pending' AND result_revision=1 AND result_membership_id IS NULL) " +
+                "OR (operation='revoke' AND result_state='revoked' AND result_revision=2 AND result_membership_id IS NULL) " +
+                "OR (operation='accept' AND result_state='accepted' AND result_revision=2 AND result_membership_id IS NOT NULL))"));
+        });
+        ConfigureEntity<CoreCompanyMembership>(modelBuilder, "core_company_memberships", e =>
+        {
+            e.Property(x => x.Role).HasMaxLength(16);
+            e.Property(x => x.Revision).HasDefaultValue(1).IsConcurrencyToken();
+            e.Property(x => x.TenantId).ValueGeneratedOnAdd()
+                .HasValueGenerator((_, _) => new ScopedTenantKeyGenerator());
+            e.HasAlternateKey(x => new { x.TenantId, x.LegalEntityId, x.Id });
+            e.HasIndex(x => new { x.TenantId, x.LegalEntityId, x.LocalUserId }).IsUnique();
+            e.HasOne<LegalEntity>().WithMany().HasForeignKey(x => new { x.TenantId, x.LegalEntityId })
+                .HasPrincipalKey(x => new { x.TenantId, x.Id }).OnDelete(DeleteBehavior.Restrict);
+            e.HasOne<LocalUser>().WithMany().HasForeignKey(x => new { x.TenantId, x.LocalUserId })
+                .HasPrincipalKey(x => new { x.TenantId, x.Id }).OnDelete(DeleteBehavior.Restrict);
+            e.ToTable("core_company_memberships", "hrm", t =>
+            {
+                t.HasCheckConstraint("CK_company_membership_role", "role IN ('owner','administrator','member')");
+                t.HasCheckConstraint("CK_company_membership_revision", "revision >= 1");
+            });
+        });
+        ConfigureEntity<CoreCompanyTeamCommandReceipt>(modelBuilder, "core_company_team_command_receipts", e =>
+        {
+            e.Property(x => x.ActorIssuer).HasMaxLength(200);
+            e.Property(x => x.ActorSubject).HasMaxLength(19);
+            e.Property(x => x.RequestHash).HasMaxLength(64);
+            e.Property(x => x.Operation).HasMaxLength(16);
+            e.Property(x => x.ResultRole).HasMaxLength(16);
+            e.HasIndex(x => new { x.ActorIssuer, x.ActorSubject, x.CommandKey }).IsUnique();
+            e.HasOne<LegalEntity>().WithMany().HasForeignKey(x => new { x.TenantId, x.LegalEntityId })
+                .HasPrincipalKey(x => new { x.TenantId, x.Id }).OnDelete(DeleteBehavior.Restrict);
+            e.HasOne<LocalUser>().WithMany().HasForeignKey(x => new { x.TenantId, x.ActorLocalUserId })
+                .HasPrincipalKey(x => new { x.TenantId, x.Id }).OnDelete(DeleteBehavior.Restrict);
+            e.HasOne<CoreCompanyMembership>().WithMany().HasForeignKey(x => new { x.TenantId, x.LegalEntityId, x.MembershipId })
+                .HasPrincipalKey(x => new { x.TenantId, x.LegalEntityId, x.Id }).OnDelete(DeleteBehavior.Restrict);
+            e.ToTable("core_company_team_command_receipts", "hrm", t => t.HasCheckConstraint("CK_company_team_receipt",
+                "result_revision >= 1 AND length(request_hash) = 64 AND operation IN ('role-change','revoke') " +
+                "AND result_role IN ('owner','administrator','member')"));
+        });
+        ConfigureModuleAccess(modelBuilder);
+        ConfigureProductSessions(modelBuilder);
         ConfigureEntity<CoreCurrencyPrecisionVersion>(modelBuilder, "currency_precision_versions", e =>
         {
             e.Property(x => x.CurrencyCode).HasMaxLength(3);
@@ -239,8 +400,32 @@ public sealed class HrmDbContext(DbContextOptions<HrmDbContext> options, ITenant
         ConfigureEntity<TenantRoleAssignment>(modelBuilder, "tenant_role_assignments", e => e.HasIndex(x => new { x.TenantId, x.RoleKey }).IsUnique());
         ConfigureEntity<LocalUser>(modelBuilder, "local_users", e =>
         {
+            e.Property(x => x.CredentialMode).HasMaxLength(16).HasDefaultValue(LocalCredentialModes.Local);
+            e.ToTable("local_users", "hrm", table => table.HasCheckConstraint("CK_local_users_credential_state",
+                "(credential_mode = 'local' AND email IS NOT NULL AND length(trim(email)) > 0 " +
+                "AND normalized_email IS NOT NULL AND length(trim(normalized_email)) > 0 " +
+                "AND password_hash IS NOT NULL AND length(trim(password_hash)) > 0) OR " +
+                "(credential_mode = 'federated' AND email IS NULL AND normalized_email IS NULL " +
+                "AND password_hash IS NULL AND must_change_password = FALSE AND password_changed_at IS NULL)"));
+            // Composite principal keys must be complete before tracking. Legacy
+            // callers omit TenantId and rely on SaveChanges stamping; generate
+            // that same trusted scope early without taking browser input.
+            e.Property(x => x.TenantId).ValueGeneratedOnAdd()
+                .HasValueGenerator((_, _) => new ScopedTenantKeyGenerator());
+            e.HasAlternateKey(x => new { x.TenantId, x.Id });
             e.HasIndex(x => new { x.TenantId, x.NormalizedEmail }).IsUnique();
             e.HasIndex(x => new { x.TenantId, x.WorkerId }).HasFilter("worker_id IS NOT NULL");
+        });
+        ConfigureEntity<ExternalIdentityLink>(modelBuilder, "external_identity_links", e =>
+        {
+            e.Property(x => x.TenantId).ValueGeneratedOnAdd().HasValueGenerator((_, _) => new ScopedTenantKeyGenerator());
+            e.Property(x => x.Issuer).HasMaxLength(200);
+            e.Property(x => x.Subject).HasMaxLength(200);
+            e.HasIndex(x => new { x.TenantId, x.Issuer, x.Subject }).IsUnique();
+            e.HasIndex(x => new { x.Issuer, x.Subject });
+            e.HasOne<LocalUser>().WithMany()
+                .HasForeignKey(x => new { x.TenantId, x.LocalUserId })
+                .HasPrincipalKey(x => new { x.TenantId, x.Id }).OnDelete(DeleteBehavior.Restrict);
         });
         ConfigureEntity<LocalSession>(modelBuilder, "local_sessions", e =>
         {
@@ -260,7 +445,8 @@ public sealed class HrmDbContext(DbContextOptions<HrmDbContext> options, ITenant
         ConfigureEntity<RetentionRule>(modelBuilder, "retention_rules", e => e.HasIndex(x => new { x.TenantId, x.RecordType }).IsUnique());
         ConfigureEntity<Worker>(modelBuilder, "workers", e =>
         {
-            e.HasIndex(x => x.EmployeeNo).IsUnique();
+            e.HasIndex(x => new { x.TenantId, x.EmployeeNo }).IsUnique()
+                .HasDatabaseName("ix_workers_tenant_id_employee_no");
             // One shared IdP identity may have records in several products,
             // but it may reference at most one worker inside an HRM tenant.
             e.HasIndex(x => new { x.TenantId, x.SubjectId })
@@ -501,6 +687,7 @@ public sealed class HrmDbContext(DbContextOptions<HrmDbContext> options, ITenant
         modelBuilder.Entity<ExitInterview>().HasOne(x => x.Request).WithOne().HasForeignKey<ExitInterview>(x => x.OffboardingRequestId);
         modelBuilder.Entity<ExitInterview>().HasOne(x => x.Worker).WithMany().HasForeignKey(x => x.WorkerId).OnDelete(DeleteBehavior.Restrict);
 
+        ConfigureProductWorkerScope(modelBuilder);
         base.OnModelCreating(modelBuilder);
     }
 
@@ -549,6 +736,12 @@ public sealed class HrmDbContext(DbContextOptions<HrmDbContext> options, ITenant
     /// rather than baked into the model cache (which is shared across contexts).</summary>
     private string CurrentTenantId() => tenant.GetTenantId();
 
+    private sealed class ScopedTenantKeyGenerator : ValueGenerator<string>
+    {
+        public override bool GeneratesTemporaryValues => false;
+        public override string Next(EntityEntry entry) => ((HrmDbContext)entry.Context).CurrentTenantId();
+    }
+
     private static System.Linq.Expressions.Expression<System.Func<T, bool>> MakeTenantFilter<T>(HrmDbContext self) where T : Entity
     {
         var param = System.Linq.Expressions.Expression.Parameter(typeof(T), "e");
@@ -593,6 +786,12 @@ public sealed class PrincipalTenantAccessor(Microsoft.AspNetCore.Http.IHttpConte
 
     public string GetTenantId()
     {
+        if((config["ERP:AuthMode"]??config["HRM:AuthMode"]??"local").Equals("product",StringComparison.OrdinalIgnoreCase)) {
+            var principal=http.HttpContext?.User;
+            var productTenant=principal?.FindFirst("tenant")?.Value;
+            return principal?.Identity is {IsAuthenticated:true,AuthenticationType:"kuubu-erp"} && !string.IsNullOrWhiteSpace(productTenant)
+                ?productTenant:"untrusted-product-request";
+        }
         if (http.HttpContext?.Items.TryGetValue(SessionTenantKey, out var resolved) == true
             && resolved is string sessionTenant)
             return sessionTenant;

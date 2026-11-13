@@ -23,9 +23,9 @@ import { realApi, useApi } from "@/platform/use-api";
 export const Route = createFileRoute("/hrm/recruitment/offers")({
   head: () => ({
     meta: [
-      { title: "Offers and referrals — Newworldcargo HRM" },
+      { title: "Offers and referrals — Kuubu HRM" },
       { name: "description", content: "Offers with their position against band, and referral rewards." },
-      { property: "og:title", content: "Offers and referrals — Newworldcargo HRM" },
+      { property: "og:title", content: "Offers and referrals — Kuubu HRM" },
       { property: "og:description", content: "Offers with their position against band, and referral rewards." },
     ],
   }),

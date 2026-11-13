@@ -52,7 +52,7 @@ export const hrmModule: ModuleDefinition = {
           items: [
             { label: "Onboarding", to: "/hrm/lifecycle/onboarding" },
             { label: "Movements and transfers", to: "/hrm/lifecycle/movements" },
-            { label: "Offboarding", to: "/hrm/lifecycle/offboarding" },
+            { label: "Offboarding", to: import.meta.env.VITE_USE_REAL_API === "true" ? "/hrm/offboarding" : "/hrm/lifecycle/offboarding" },
             { label: "Assets and access", to: "/hrm/lifecycle/assets" },
             { label: "Journeys", to: "/hrm/lifecycle/journeys" },
             { label: "Assignments", to: "/hrm/lifecycle/mobility" },
@@ -198,6 +198,7 @@ export const configurationGroups: {
     label: "Employment & pay",
     description: "Employee records, calendars, leave and payroll rules.",
     items: [
+      { label: "First-time HR setup", detail: "Employment, working time, leave and payroll", to: "/hrm/setup" },
       { label: "Jobs & designations", detail: "Create and maintain job titles", to: "/hrm/workspace/settings/business" },
       { label: "Public holidays", detail: "Dates used by working calendars", to: "/hrm/workspace/settings/holidays" },
       { label: "Leave types", detail: "Entitlements and carry-forward", to: "/hrm/workspace/settings/leave-types" },

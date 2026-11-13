@@ -34,7 +34,7 @@ import { realApi, useApi } from "@/platform/use-api";
 export const Route = createFileRoute("/hrm/payroll/salary-advances")({
   head: () => ({
     meta: [
-      { title: "Salary advances — Newworldcargo HRM" },
+      { title: "Salary advances — Kuubu HRM" },
       { name: "description", content: "Record salary advances and recover them through payroll deductions." },
     ],
   }),

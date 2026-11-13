@@ -205,8 +205,8 @@ function NewRun() {
     }
   }, [period, setup.data]);
 
-  const placementUnits = flattenEntityTree(setup.data?.tree ?? demoEntityTree);
-  const placementOptions = treeToSelectOptions(setup.data?.tree ?? demoEntityTree).map((o) => ({
+  const placementUnits = flattenEntityTree(setup.data?.tree ?? (USE_REAL ? [] : demoEntityTree));
+  const placementOptions = treeToSelectOptions(setup.data?.tree ?? (USE_REAL ? [] : demoEntityTree)).map((o) => ({
     ...o,
     entity: o.value.startsWith("entity:"),
   }));

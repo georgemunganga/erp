@@ -17,7 +17,7 @@ import { realApi, useApi } from "@/platform/use-api";
 export const Route = createFileRoute("/hrm/time/attendance/import")({
   head: () => ({
     meta: [
-      { title: "Import attendance — Newworldcargo HRM" },
+      { title: "Import attendance — Kuubu HRM" },
       { name: "description", content: "Import attendance from the shared spreadsheet workflow and review the results." },
     ],
   }),

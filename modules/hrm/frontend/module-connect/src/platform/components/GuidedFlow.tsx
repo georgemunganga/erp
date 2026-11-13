@@ -34,6 +34,8 @@ export function GuidedFlow({
   submitLabel = "Submit",
   submitted,
   allowSkip,
+  submitHint,
+  busyLabel = "Submitting…",
 }: {
   flowId: string;
   steps: FlowStep[];
@@ -41,9 +43,12 @@ export function GuidedFlow({
   submitLabel?: string;
   submitted?: ReactNode;
   allowSkip?: boolean;
+  submitHint?: string;
+  busyLabel?: string;
 }) {
   const [index, setIndex] = useState(0);
   const [busy, setBusy] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
   const [savedAt, setSavedAt] = useState<string | null>(null);
   // Which step is currently showing a blocking validation message. Keys are
   // step indices; the message is recomputed live as the user types.
@@ -142,12 +147,13 @@ export function GuidedFlow({
             <Button
               disabled={busy || Boolean(stepError)}
               onClick={async () => {
-                setBusy(true);
-                await onSubmit();
-                setBusy(false);
+                setSubmitError(null);setBusy(true);
+                try { await onSubmit(); }
+                catch (error) { setSubmitError(error instanceof Error ? error.message : "The save could not be confirmed. Check the list before trying again."); }
+                finally { setBusy(false); }
               }}
             >
-              {busy ? "Submitting…" : submitLabel}
+              {busy ? busyLabel : submitLabel}
             </Button>
           ) : (
             <Button disabled={Boolean(stepError)} onClick={() => setIndex((i) => i + 1)}>
@@ -161,9 +167,10 @@ export function GuidedFlow({
             </Button>
           ) : null}
           <span className="text-xs text-muted-foreground">
-            {last ? "Submitting sends this for review; you'll see what happens next." : "Nothing is submitted until the final step."}
+            {last ? submitHint ?? "Submitting sends this for review; you'll see what happens next." : "Nothing is submitted until the final step."}
           </span>
         </div>
+        {submitError ? <p role="alert" className="mt-3 text-sm text-destructive">{submitError}</p> : null}
       </div>
     </div>
   );

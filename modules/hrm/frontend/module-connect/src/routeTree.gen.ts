@@ -10,8 +10,12 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as AcceptInvitationRouteImport } from './routes/accept-invitation'
+import { Route as SetupRouteImport } from './routes/setup'
 import { Route as SignInRouteImport } from './routes/sign-in'
 import { Route as SpeakUpRouteImport } from './routes/speak-up'
+import { Route as TeamRouteImport } from './routes/team'
+import { Route as WorkspaceAccessRouteImport } from './routes/workspace-access'
 import { Route as CoreIndexRouteImport } from './routes/core.index'
 import { Route as CoreBranchAccessRouteImport } from './routes/core.branch-access'
 import { Route as CoreBrandingRouteImport } from './routes/core.branding'
@@ -156,6 +160,16 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AcceptInvitationRoute = AcceptInvitationRouteImport.update({
+  id: '/accept-invitation',
+  path: '/accept-invitation',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SetupRoute = SetupRouteImport.update({
+  id: '/setup',
+  path: '/setup',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const SignInRoute = SignInRouteImport.update({
   id: '/sign-in',
   path: '/sign-in',
@@ -164,6 +178,16 @@ const SignInRoute = SignInRouteImport.update({
 const SpeakUpRoute = SpeakUpRouteImport.update({
   id: '/speak-up',
   path: '/speak-up',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const TeamRoute = TeamRouteImport.update({
+  id: '/team',
+  path: '/team',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const WorkspaceAccessRoute = WorkspaceAccessRouteImport.update({
+  id: '/workspace-access',
+  path: '/workspace-access',
   getParentRoute: () => rootRouteImport,
 } as any)
 const CoreIndexRoute = CoreIndexRouteImport.update({
@@ -884,8 +908,12 @@ const HrmPayrollRunsIdEditRoute = HrmPayrollRunsIdEditRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/accept-invitation': typeof AcceptInvitationRoute
+  '/setup': typeof SetupRoute
   '/sign-in': typeof SignInRoute
   '/speak-up': typeof SpeakUpRoute
+  '/team': typeof TeamRoute
+  '/workspace-access': typeof WorkspaceAccessRoute
   '/core/branch-access': typeof CoreBranchAccessRoute
   '/core/branding': typeof CoreBrandingRoute
   '/core/organization': typeof CoreOrganizationRoute
@@ -1027,8 +1055,12 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/accept-invitation': typeof AcceptInvitationRoute
+  '/setup': typeof SetupRoute
   '/sign-in': typeof SignInRoute
   '/speak-up': typeof SpeakUpRoute
+  '/team': typeof TeamRoute
+  '/workspace-access': typeof WorkspaceAccessRoute
   '/core/branch-access': typeof CoreBranchAccessRoute
   '/core/branding': typeof CoreBrandingRoute
   '/core/organization': typeof CoreOrganizationRoute
@@ -1171,8 +1203,12 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/accept-invitation': typeof AcceptInvitationRoute
+  '/setup': typeof SetupRoute
   '/sign-in': typeof SignInRoute
   '/speak-up': typeof SpeakUpRoute
+  '/team': typeof TeamRoute
+  '/workspace-access': typeof WorkspaceAccessRoute
   '/core/branch-access': typeof CoreBranchAccessRoute
   '/core/branding': typeof CoreBrandingRoute
   '/core/organization': typeof CoreOrganizationRoute
@@ -1316,8 +1352,12 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/accept-invitation'
+    | '/setup'
     | '/sign-in'
     | '/speak-up'
+    | '/team'
+    | '/workspace-access'
     | '/core/branch-access'
     | '/core/branding'
     | '/core/organization'
@@ -1459,8 +1499,12 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/accept-invitation'
+    | '/setup'
     | '/sign-in'
     | '/speak-up'
+    | '/team'
+    | '/workspace-access'
     | '/core/branch-access'
     | '/core/branding'
     | '/core/organization'
@@ -1602,8 +1646,12 @@ export interface FileRouteTypes {
   id:
     | '__root__'
     | '/'
+    | '/accept-invitation'
+    | '/setup'
     | '/sign-in'
     | '/speak-up'
+    | '/team'
+    | '/workspace-access'
     | '/core/branch-access'
     | '/core/branding'
     | '/core/organization'
@@ -1746,8 +1794,12 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  AcceptInvitationRoute: typeof AcceptInvitationRoute
+  SetupRoute: typeof SetupRoute
   SignInRoute: typeof SignInRoute
   SpeakUpRoute: typeof SpeakUpRoute
+  TeamRoute: typeof TeamRoute
+  WorkspaceAccessRoute: typeof WorkspaceAccessRoute
   CoreBranchAccessRoute: typeof CoreBranchAccessRoute
   CoreBrandingRoute: typeof CoreBrandingRoute
   CoreOrganizationRoute: typeof CoreOrganizationRoute
@@ -1880,6 +1932,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/accept-invitation': {
+      id: '/accept-invitation'
+      path: '/accept-invitation'
+      fullPath: '/accept-invitation'
+      preLoaderRoute: typeof AcceptInvitationRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/setup': {
+      id: '/setup'
+      path: '/setup'
+      fullPath: '/setup'
+      preLoaderRoute: typeof SetupRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/sign-in': {
       id: '/sign-in'
       path: '/sign-in'
@@ -1892,6 +1958,20 @@ declare module '@tanstack/react-router' {
       path: '/speak-up'
       fullPath: '/speak-up'
       preLoaderRoute: typeof SpeakUpRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/team': {
+      id: '/team'
+      path: '/team'
+      fullPath: '/team'
+      preLoaderRoute: typeof TeamRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/workspace-access': {
+      id: '/workspace-access'
+      path: '/workspace-access'
+      fullPath: '/workspace-access'
+      preLoaderRoute: typeof WorkspaceAccessRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/core/': {
@@ -3055,8 +3135,12 @@ const HrmWorkspaceSettingsRouteWithChildren =
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  AcceptInvitationRoute: AcceptInvitationRoute,
+  SetupRoute: SetupRoute,
   SignInRoute: SignInRoute,
   SpeakUpRoute: SpeakUpRoute,
+  TeamRoute: TeamRoute,
+  WorkspaceAccessRoute: WorkspaceAccessRoute,
   CoreBranchAccessRoute: CoreBranchAccessRoute,
   CoreBrandingRoute: CoreBrandingRoute,
   CoreOrganizationRoute: CoreOrganizationRoute,

@@ -25,7 +25,7 @@ public sealed class ConfigServiceImpl(IConfigRepository repo, IAuthzService auth
             calendars.Select(c => new WorkCalendarDto(c.Id, c.Name, c.StandardWeeklyHours, c.WeekendDays, c.Holidays.Count)).ToList(),
             leaveTypes.Select(t => new LeaveTypeDto(t.Id, t.Code, t.Name, t.Category, t.DefaultDaysPerYear, t.IsActive)).ToList(),
             capabilities.Select(c => new CapabilityDto(c.FeatureKey, c.Tier, c.IsEnabled)).ToList(),
-            payGroups.Select(g => new PayGroupDto(g.Id, g.Code, g.Name, g.Frequency, g.Currency, g.CalendarDayOfMonth)).ToList());
+            payGroups.Select(g => new PayGroupDto(g.Id, g.Code, g.Name, g.Frequency, g.Currency, g.CalendarDayOfMonth, g.PaydayRule)).ToList());
     }
 
     public async Task<Paged<LeaveTypeDto>> ListLeaveTypesAsync(bool includeInactive, CancellationToken ct)

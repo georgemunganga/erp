@@ -1,3 +1,4 @@
+import { MaterialRequestShortcut } from "@/platform/components/MaterialRequestShortcut";
 import { createFileRoute } from "@tanstack/react-router";
 import { ArrowRight, Clock, Loader2, LogOut } from "lucide-react";
 import { modules } from "@/platform/modules";
@@ -21,34 +22,71 @@ export const Route = createFileRoute("/")({
 });
 
 function Entrance() {
-  const { loading, authenticated, erpAuthorized, coreAccessLoading, coreActions, user, signOut } = useAuth();
+  const {
+    loading,
+    authenticated,
+    erpAuthorized,
+    coreAccessLoading,
+    coreActions,
+    procurementAuthorized,
+    user,
+    signOut,
+  } = useAuth();
   const real = import.meta.env.VITE_USE_REAL_API === "true";
   const administrator = canManageCore(user?.roles ?? []);
   const roles = user?.roles ?? [];
 
-  if (real && (loading || authenticated && !administrator && coreAccessLoading)) return <div className="flex min-h-screen items-center justify-center gap-2 text-sm text-muted-foreground"><Loader2 className="size-4 animate-spin" /> Checking your session…</div>;
+  if (real && (loading || (authenticated && !administrator && coreAccessLoading)))
+    return (
+      <div className="flex min-h-screen items-center justify-center gap-2 text-sm text-muted-foreground">
+        <Loader2 className="size-4 animate-spin" /> Checking your session…
+      </div>
+    );
   if (real && !authenticated) return <SignIn />;
-  if (real && !erpAuthorized) return <AuthGate module="erp"><span /></AuthGate>;
+  if (real && !erpAuthorized)
+    return (
+      <AuthGate module="erp">
+        <span />
+      </AuthGate>
+    );
 
   return (
     <div className="min-h-screen bg-background">
       <header className="border-b border-primary/40 bg-primary text-primary-foreground shadow-sm">
         <div className="mx-auto flex h-14 max-w-5xl items-center justify-between gap-2 px-4">
           <BrandIdentity onDark />
-          {real ? <Button variant="ghost" size="sm" className="shrink-0 text-primary-foreground hover:bg-white/10 hover:text-primary-foreground" onClick={() => signOut()}>
-            <LogOut className="size-4" aria-hidden />
-            Switch account
-          </Button> : null}
+          {real ? (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="shrink-0 text-primary-foreground hover:bg-white/10 hover:text-primary-foreground"
+              onClick={() => signOut()}
+            >
+              <LogOut className="size-4" aria-hidden />
+              Switch account
+            </Button>
+          ) : null}
         </div>
       </header>
 
       <main className="mx-auto max-w-5xl px-4 py-12">
         <h1 className="text-2xl font-semibold text-foreground">Choose a module</h1>
-        <p className="mt-1 text-sm text-muted-foreground">Choose the workspace you want to manage.</p>
+        <p className="mt-1 text-sm text-muted-foreground">
+          Choose the workspace you want to manage.
+        </p>
+
+        <MaterialRequestShortcut />
 
         <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {modules.map((m) =>
-            m.available && (m.id === "core" ? administrator || coreActions.includes("core-currency-precision-read") : m.id === "hrm" ? hasHrmStaffRole(roles) : m.id === "procurement" ? canAccessProcurement(roles) : true) ? (
+            m.available &&
+            (m.id === "core"
+              ? administrator || coreActions.includes("core-currency-precision-read")
+              : m.id === "hrm"
+                ? hasHrmStaffRole(roles)
+                : m.id === "procurement"
+                  ? procurementAuthorized || canAccessProcurement(roles)
+                  : true) ? (
               <a
                 key={m.id}
                 href={m.to}

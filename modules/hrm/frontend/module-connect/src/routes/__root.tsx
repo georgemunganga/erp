@@ -1,9 +1,11 @@
+import { FULL_PRODUCT_HRM } from "@/modules/core/product-hrm-session";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import {
   Outlet,
   Link,
   createRootRouteWithContext,
   useRouter,
+  useRouterState,
   HeadContent,
   Scripts,
 } from "@tanstack/react-router";
@@ -16,6 +18,11 @@ import { TimesheetBoundary } from "../platform/components/TimesheetWorkspace";
 import { AppProvider } from "../platform/app-context";
 import { AuthProvider, useAuth } from "../platform/auth";
 import { BrandingProvider, useBranding } from "@/platform/branding";
+import { PRODUCT_ERP } from "@/modules/core/product-worker-api";
+import { Button } from "@/components/ui/button";
+import { KuubuIdentity } from "@/platform/components/KuubuIdentity";
+
+const productIdentityPaths = ["/setup", "/team", "/accept-invitation", "/workspace-access"];
 
 function PreloaderController() {
   const { loading } = useAuth();
@@ -122,7 +129,10 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { title: "HR workspace" },
       { name: "description", content: "HR workspace for leave, attendance, requests and pay." },
       { property: "og:title", content: "HR workspace" },
-      { property: "og:description", content: "HR operations workspace for leave, attendance, requests and pay." },
+      {
+        property: "og:description",
+        content: "HR operations workspace for leave, attendance, requests and pay.",
+      },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
     ],
@@ -131,12 +141,20 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
         rel: "stylesheet",
         href: appCss,
       },
-      { rel: "preconnect", href: "https://fonts.googleapis.com" },
-      { rel: "preconnect", href: "https://fonts.gstatic.com", crossOrigin: "anonymous" },
-      {
-        rel: "stylesheet",
-        href: "https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Montserrat:wght@400;500;600;700&family=Poppins:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap",
-      },
+      ...(!PRODUCT_ERP
+        ? [
+            { rel: "preconnect", href: "https://fonts.googleapis.com" },
+            {
+              rel: "preconnect",
+              href: "https://fonts.gstatic.com",
+              crossOrigin: "anonymous" as const,
+            },
+            {
+              rel: "stylesheet",
+              href: "https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Montserrat:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap",
+            },
+          ]
+        : []),
       { rel: "icon", href: "/favicon.svg", type: "image/svg+xml" },
     ],
   }),
@@ -147,17 +165,27 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
 });
 
 function RootShell({ children }: { children: ReactNode }) {
+  const path = useRouterState({ select: (state) => state.location.pathname.replace(/\/$/, "") });
+  const productIdentityPage = productIdentityPaths.includes(path);
   return (
-    <html lang="en">
+    <html lang="en" className={productIdentityPage || PRODUCT_ERP ? "kuubu-document" : undefined}>
       <head>
+        {path === "/accept-invitation" && <script src="/invitation-bootstrap.js" />}
         <HeadContent />
       </head>
-      <body>
-        <div id="erp-global-preloader" className="erp-global-preloader" role="status" aria-label="Loading ERP">
-          <div className="erp-preloader-orbit" aria-hidden="true">
-            <img id="erp-preloader-logo" className="erp-preloader-logo" alt="" hidden />
+      <body className={productIdentityPage || PRODUCT_ERP ? "kuubu-product-shell" : undefined}>
+        {!productIdentityPage && !PRODUCT_ERP ? (
+          <div
+            id="erp-global-preloader"
+            className="erp-global-preloader"
+            role="status"
+            aria-label="Loading ERP"
+          >
+            <div className="erp-preloader-orbit" aria-hidden="true">
+              <img id="erp-preloader-logo" className="erp-preloader-logo" alt="" hidden />
+            </div>
           </div>
-        </div>
+        ) : null}
         {children}
         <Toaster position="bottom-right" closeButton richColors />
         <Scripts />
@@ -168,18 +196,34 @@ function RootShell({ children }: { children: ReactNode }) {
 
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
+  const path = useRouterState({ select: (state) => state.location.pathname.replace(/\/$/, "") });
+  const productIdentityPage = productIdentityPaths.includes(path);
 
   return (
     <QueryClientProvider client={queryClient}>
-      <AuthProvider>
-        <BrandingProvider>
-          <PreloaderController />
-          <AppProvider>
-            {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
-            <TimesheetBoundary><Outlet /></TimesheetBoundary>
-          </AppProvider>
-        </BrandingProvider>
-      </AuthProvider>
+      {productIdentityPage || (PRODUCT_ERP && !FULL_PRODUCT_HRM && path === "/hrm/employees") ? (
+        <Outlet />
+      ) : PRODUCT_ERP && (!FULL_PRODUCT_HRM || !path.startsWith("/hrm")) ? (
+        <main className="mx-auto min-h-dvh max-w-6xl space-y-6 px-5 py-8">
+          <KuubuIdentity />
+          <h1 className="text-2xl font-semibold">Kuubu ERP</h1>
+          <Button asChild>
+            <a href="/workspace-access">Continue to your companies</a>
+          </Button>
+        </main>
+      ) : (
+        <AuthProvider>
+          <BrandingProvider>
+            <PreloaderController />
+            <AppProvider>
+              {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
+              <TimesheetBoundary>
+                <Outlet />
+              </TimesheetBoundary>
+            </AppProvider>
+          </BrandingProvider>
+        </AuthProvider>
+      )}
     </QueryClientProvider>
   );
 }
