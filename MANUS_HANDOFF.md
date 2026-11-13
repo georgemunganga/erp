@@ -1,3 +1,43 @@
+## HR/payroll workflow qualification — 13 November 2026
+
+This supersedes the API/proxy pins below. The qualified API source is
+`fc139b3786e593da4fb39eb24260183da21b8827`, image
+`sha256:0f0c060bc9565ccf25d215105b78f600bf0634f2a8bfdbda0671e54d77d0a399`.
+Active API: `kuubu-hrm-payroll-release02-api01`, HTTPS loopback28983;
+proxy: `kuubu-hrm-payroll-release02-proxy01`. HR SSR remains `36374eca`,
+`kuubu-full-hrm-release03-web01` on28973. Website and Laravel are unchanged.
+
+Migration `20261113001500_CompanyScopedEmployeeNumbers` replaces global employee
+number uniqueness with tenant+number uniqueness. EF idempotent SQL applied twice
+on an isolated production restore; counts stayed unchanged, cross-company reuse
+passed and same-company duplicates failed. An explicit duplicate now returns
+employee-number-exists validation rather than500. Sixty focused tests passed.
+
+Private native website-BFF/real-PKCE acceptance completed two employee records,
+company/location assignments, salary profiles, monthly leave accrual and paid leave
+approval, payroll preflight, input locking, calculation and payslip-preview metadata.
+Gross15,000/50,000 produced independently checked net10,924/31,512.20. Insufficient
+leave, repeat accrual, duplicate employee and unapproved release were rejected.
+No bank payment, approved payslip PDF or real production employee was created.
+Evidence: local `inspection/qualifications/hrm-payroll-native-05`, `-11`,
+`payroll-fix-build02`, `payroll-migration-rehearsal01`, `payroll-production-release02`.
+See [feature record](docs/engineering/HRM-COMPANY-EMPLOYEE-NUMBERS-20261113.md).
+
+Live company hours, leave entitlement, contract policy and payday remain pending
+confirmed business inputs; employer registration numbers must not be invented.
+This is a completed technical qualification, not completed live company payroll
+setup. No fresh visual acceptance: this session exposed no Codex browser and the
+selected Chrome window could not be acquired while minimized.
+
+Fresh backup: `/opt/kuubu-production/backups/hrm-payroll-deploy02`, database SHA256
+`c99d8f9135f43a2bfc4cad56af20526331aa2d397ca14e9e20fdd0cf55e1e54d`.
+Daily backup now uses release02/backup-production-hrm05.py and includes the current
+API environment/proxy configuration plus existing protected state/documents; run
+passed. Recovery remains same-host. Prior API/proxy release01 is retained stopped;
+start its API on28982 before restoring its paired proxy. Retain the forward index
+on application rollback; down migration fails safely after companies reuse numbers.
+Public readiness and HR/Procurement route delivery passed; Perfex returned200.
+
 ## Deployed full HR workspace — 12 November 2026
 
 This supersedes the historical deployment pins below. Original HRM navigation,
