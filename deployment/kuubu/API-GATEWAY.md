@@ -6,6 +6,22 @@ publishes discovery/readiness and reserves the versioned attendance contract, bu
 holds employee operations until native OAuth and worker admission are qualified.
 `mobile_ready:false` is intentional and must not be changed just to unlock a UI.
 
+The qualified native profile can now be rendered explicitly with `--native`.
+It proxies discovery from the running API configuration and only the reviewed
+GET company/self-attendance and POST clock-in/out routes. The upstream must enable
+`ERP:MobileAttendance:Enabled`, use the registered public client ID and exact
+`ERP:MobileAttendance:PublicOrigin`; Laravel must register and allow that same
+client/origin pair. Website authorization pins the separate native client. Native
+requests carry bearer authority and explicit company/link headers, never browser
+cookies or a caller-selected employee ID. Unknown modules remain closed.
+
+Default rendering and existing on-premises deployments stay held. Pulling source
+does not enable native access, register a client, link employees or change DNS.
+Qualify the actual proxy and upstream before changing traffic. The 15 November
+fixture acceptance used real PKCE, current Core grants, PostgreSQL attendance,
+retry convergence, scope-substitution rejection and revocation; native APK launch
+smoke is a separate check from signed-in employee acceptance.
+
 Generate the site beside the existing app site:
 
 ```sh
