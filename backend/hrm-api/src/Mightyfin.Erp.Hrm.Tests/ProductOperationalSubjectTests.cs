@@ -8,6 +8,15 @@ namespace Mightyfin.Erp.Hrm.Tests;
 public sealed class ProductOperationalSubjectTests
 {
     [Fact]
+    public async Task Native_reader_pins_the_public_client_purpose_and_registered_API_origin()
+    {
+        using var f=new Fixture(native:true);
+        Assert.Equal(OperationalSubjectStatus.Verified,(await f.Read()).Status);
+        f.Fault="api_origin";Assert.Equal(OperationalSubjectStatus.Unavailable,(await f.Read()).Status);
+        f.Fault="purpose";Assert.Equal(OperationalSubjectStatus.Unavailable,(await f.Read()).Status);
+        f.Fault=null;f.Status=401;Assert.Equal(OperationalSubjectStatus.Denied,(await f.Read()).Status);
+    }
+    [Fact]
     public async Task Callback_discovers_only_a_canonical_subject_from_the_current_scoped_resource()
     {
         using var f=new Fixture();
@@ -115,12 +124,13 @@ public sealed class ProductOperationalSubjectTests
         internal TimeSpan Transit;
         internal bool Wait;
         internal readonly TaskCompletionSource Started = new(TaskCreationOptions.RunContinuationsAsynchronously);
-        internal Fixture() { http = new HttpClient(this, disposeHandler: false); Client = new(http, Clock, ProductOperationalSubjectTests.Client); }
+        private readonly bool native;
+        internal Fixture(bool native=false) { this.native=native;http = new HttpClient(this, disposeHandler: false); Client = new(http, Clock, ProductOperationalSubjectTests.Client,native); }
         internal Task<OperationalSubjectResult> Read(CancellationToken ct = default) => Client.ReadAsync("42", "person.token", ct);
         protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellation)
         {
             Calls++;
-            Assert.Equal(ProductOperationalSubject.Endpoint, request.RequestUri!.AbsoluteUri);
+            Assert.Equal(native?ProductCommercialLicense.Issuer+"/api/v1/product-identity/mobile-subject":ProductOperationalSubject.Endpoint, request.RequestUri!.AbsoluteUri);
             Assert.Equal(HttpMethod.Get, request.Method); Assert.Empty(request.RequestUri.Query);
             Assert.Equal("Bearer", request.Headers.Authorization!.Scheme);
             Assert.Equal("person.token", request.Headers.Authorization.Parameter);
@@ -132,12 +142,13 @@ public sealed class ProductOperationalSubjectTests
             var data = new Dictionary<string, object?> {
                 ["schema_version"] = 1, ["issuer"] = ProductCommercialLicense.Issuer, ["subject"] = "42",
                 ["client_id"] = ProductOperationalSubjectTests.Client, ["product_code"] = "kuubu",
-                ["purpose"] = "erp-session-v1",
+                ["purpose"] = native?"mobile-attendance-v1":"erp-session-v1",
                 ["verified"] = true, ["operational_access_granted"] = false,
                 ["observed_at"] = Clock.Now.ToString("O"), ["proof_until"] = Clock.Now.AddSeconds(Lifetime).ToString("O") };
+            if(native)data["api_origin"]="https://api.kuubuerp.com";
             switch (Fault)
             {
-                case "issuer": case "subject": case "client_id": case "product_code": case "purpose": data[Fault] = "foreign"; break;
+                case "issuer": case "subject": case "client_id": case "product_code": case "purpose": case "api_origin": data[Fault] = "foreign"; break;
                 case "schema_version": data[Fault] = 2; break;
                 case "verified": data[Fault] = false; break;
                 case "operational_access_granted": data[Fault] = true; break;

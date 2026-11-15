@@ -26,7 +26,7 @@ internal sealed class OperationalSubjectObservation(string subject,string client
 }
 
 /// <summary>Uses a server-held, separately scoped person token; never a cached or browser-asserted identity.</summary>
-internal sealed class ProductOperationalSubject(HttpClient http,TimeProvider clock,string client)
+internal sealed class ProductOperationalSubject(HttpClient http,TimeProvider clock,string client,bool nativeAttendance=false,string nativeOrigin="https://api.kuubuerp.com")
 {
     internal const string Endpoint=ProductCommercialLicense.Issuer+"/api/v1/product-identity/operational-subject";
     private static readonly HashSet<string> Fields=["schema_version","issuer","subject","client_id","product_code","purpose","verified","observed_at","proof_until","operational_access_granted"];
@@ -45,7 +45,8 @@ internal sealed class ProductOperationalSubject(HttpClient http,TimeProvider clo
         try {
             var start=clock.GetUtcNow();var timestamp=clock.GetTimestamp();
             using var budget=CancellationTokenSource.CreateLinkedTokenSource(cancellation);budget.CancelAfter(TimeSpan.FromSeconds(10));
-            using var request=new HttpRequestMessage(HttpMethod.Get,Endpoint);
+            using var request=new HttpRequestMessage(HttpMethod.Get,nativeAttendance
+                ? ProductCommercialLicense.Issuer+"/api/v1/product-identity/mobile-subject" : Endpoint);
             request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));request.Headers.Authorization=new AuthenticationHeaderValue("Bearer",token);
             using var response=await http.SendAsync(request,HttpCompletionOption.ResponseHeadersRead,budget.Token);
             if(response.StatusCode is HttpStatusCode.Unauthorized or HttpStatusCode.Forbidden or HttpStatusCode.NotFound)return new(OperationalSubjectStatus.Denied);
@@ -55,12 +56,13 @@ internal sealed class ProductOperationalSubject(HttpClient http,TimeProvider clo
             ProductWorkspaceSetupAuthority.RejectDuplicates(json.RootElement);
             if(json.RootElement.EnumerateObject().Count()!=1)return new(OperationalSubjectStatus.Unavailable);
             var data=json.RootElement.GetProperty("data");var fields=data.EnumerateObject().Select(x=>x.Name).ToArray();
-            if(fields.Length!=Fields.Count || fields.Any(x=>!Fields.Contains(x))
+            if(fields.Length!=Fields.Count+(nativeAttendance?1:0) || fields.Any(x=>!Fields.Contains(x) && !(nativeAttendance && x=="api_origin"))
+                || nativeAttendance && data.GetProperty("api_origin").GetString()!=nativeOrigin
                 || data.GetProperty("schema_version").GetInt32()!=1 || data.GetProperty("issuer").GetString()!=ProductCommercialLicense.Issuer
                 || data.GetProperty("subject").GetString() is not { } observedSubject
                 || !Regex.IsMatch(observedSubject,@"\A[1-9][0-9]{0,18}\z",RegexOptions.CultureInvariant)
                 || subject is not null && observedSubject!=subject || data.GetProperty("client_id").GetString()!=client
-                || data.GetProperty("product_code").GetString()!="kuubu" || data.GetProperty("purpose").GetString()!="erp-session-v1"
+                || data.GetProperty("product_code").GetString()!="kuubu" || data.GetProperty("purpose").GetString()!=(nativeAttendance?"mobile-attendance-v1":"erp-session-v1")
                 || !data.GetProperty("verified").GetBoolean() || data.GetProperty("operational_access_granted").GetBoolean())return new(OperationalSubjectStatus.Unavailable);
             var observed=Date(data.GetProperty("observed_at"));var deadline=Date(data.GetProperty("proof_until"));
             var now=clock.GetUtcNow();var elapsed=clock.GetElapsedTime(timestamp);

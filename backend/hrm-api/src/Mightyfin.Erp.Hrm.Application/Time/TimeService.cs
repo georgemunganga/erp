@@ -90,7 +90,7 @@ public sealed class TimeServiceImpl(
     Application.ShellContext? scope = null,
     IPayrollRepository? payroll = null,
     IOutboxWriter? outbox = null,
-    IUnitOfWork? unitOfWork = null) : ITimeService
+    IUnitOfWork? unitOfWork = null) : ITimeService, IMobileAttendanceService
 {
     private bool IsEmployeeOnly =>
         authz.IsRole("employee") && !authz.IsRole("hr_ops", "hr_admin", "manager", "payroll");
@@ -1021,6 +1021,68 @@ public sealed class TimeServiceImpl(
             await unitOfWork.ExecuteAsync(DecideAndEnqueue, ct);
         return Map(decided);
     }
+
+    public async Task<PunchResultDto> PunchMobileAsync(Guid workerId, bool clockIn, DateTimeOffset serverTime,
+        string timeZone, string? expectedDate, Guid? expectedRecord, CancellationToken ct)
+    {
+        authz.RequireAnyRole("employee");
+        await RequireWorkerScopeAsync(workerId, ct);
+        var (today, now) = MobileAttendanceTime.Local(serverTime, timeZone);
+        if (repo is not IMobileAttendanceRepository mobile)
+            throw new DomainException("mobile-attendance-unavailable", "Mobile attendance is unavailable.");
+        // Search every open shift, including old/future bad data, rather than hiding
+        // it behind the legacy bounded history list. The repository returns at most2.
+        var open = (await mobile.OpenMobilePunchesAsync(workerId, ct)).ToArray();
+        if (open.Length > 1) throw new DomainException("mobile-attendance-conflict", "HR must review the open attendance records.");
+        AttendanceRecord? rec;
+        if (clockIn)
+        {
+            if (expectedDate != today.ToString("yyyy-MM-dd"))
+                throw new DomainException("mobile-workday-changed", "Refresh attendance before checking in.");
+            if (open.Length != 0 && open[0].WorkDate != today)
+                throw new DomainException("mobile-attendance-open", "Check out of the open shift before checking in.");
+            rec = await repo.GetAttendanceAsync(workerId, today, ct);
+            if (rec?.ClockIn is not null) return MobilePunch(rec); // Converge retries, including another device's checkout.
+            if (rec is not null && (rec.ClockOut.HasValue || rec.OvertimePayrollRunId.HasValue || rec.Source != "mobile"))
+                throw new DomainException("mobile-attendance-managed", "HR must review this attendance record.");
+            rec ??= await repo.CreateAttendanceAsync(new AttendanceRecord {
+                WorkerId = workerId, WorkDate = today, LocationId = scope?.LocationId, Source = "mobile"
+            }, ct);
+            rec.ClockIn = now;
+        }
+        else
+        {
+            rec = open.SingleOrDefault(x => x.Id == expectedRecord);
+            if (rec is null) {
+                // Replayed checkout can converge only to that exact persisted record.
+                var closed = await repo.GetAttendanceAsync(workerId, today, ct);
+                if (closed?.Id == expectedRecord) rec = closed;
+                else {
+                    closed = await repo.GetAttendanceAsync(workerId, today.AddDays(-1), ct);
+                    if (closed?.Id == expectedRecord) rec = closed;
+                }
+            }
+            if (rec?.ClockIn is null) throw new DomainException("mobile-check-in-required", "Refresh attendance and check in first.");
+            if (rec.Source != "mobile" || rec.OvertimePayrollRunId.HasValue)
+                throw new DomainException("mobile-attendance-managed", "HR must review this attendance record.");
+            if (rec.ClockOut.HasValue) return MobilePunch(rec); // Lost-response retry cannot change its time or audit twice.
+            var started = MobileAttendanceTime.Instant(rec, false, timeZone)!.Value;
+            if (serverTime < started || serverTime - started > TimeSpan.FromHours(24))
+                throw new DomainException("mobile-attendance-aged", "HR must review this shift before it can be closed.");
+            rec.ClockOut = now;
+        }
+        await ApplyHoursAsync(rec, ct);
+        rec = await repo.UpdateAttendanceAsync(rec, ct);
+        await WriteTimeAuditAsync("time.attendance", rec.Id.ToString("D"), rec.WorkerId,
+            clockIn ? "mobile-clock-in" : "mobile-clock-out", authz.CurrentSubjectId ?? "unknown", null, AttendanceSnapshot(rec), ct);
+        await RecalculateWeeklyOvertimeAsync(rec.WorkerId, rec.WorkDate, ct);
+        rec = await repo.GetAttendanceAsync(workerId, rec.WorkDate, ct) ?? rec;
+        return MobilePunch(rec);
+    }
+
+    private static PunchResultDto MobilePunch(AttendanceRecord r) => new(r.Id, r.WorkerId, r.WorkDate.ToString("yyyy-MM-dd"),
+        r.ClockIn?.ToString() ?? "", r.ClockOut?.ToString() ?? "", r.Source, r.DerivedStatus, r.TotalHours,
+        r.ClockIn is null ? "out" : r.ClockOut is null ? "in" : "done");
 
     private async Task<PunchResultDto> GetOrCreatePunchAsync(Guid workerId, DateOnly date, bool? clockIn, CancellationToken ct)
     {

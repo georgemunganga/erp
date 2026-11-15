@@ -356,7 +356,7 @@ public sealed class WorkerRepository(HrmDbContext db) : IWorkerRepository
 }
 
 // ===================== Time =====================
-public sealed class TimeRepository(HrmDbContext db) : ITimeRepository
+public sealed class TimeRepository(HrmDbContext db) : ITimeRepository, IMobileAttendanceRepository
 {
     public async Task<(List<LeaveRequest> Items, int Total)> ListLeaveRequestsAsync(Guid? workerId, string? status, CancellationToken ct)
     {
@@ -431,6 +431,9 @@ public sealed class TimeRepository(HrmDbContext db) : ITimeRepository
     }
 
     // ----- M3 attendance, roster, decisions -----
+    public Task<List<AttendanceRecord>> OpenMobilePunchesAsync(Guid workerId, CancellationToken ct)
+        => db.AttendanceRecords.Where(x => x.WorkerId == workerId && x.ClockIn != null && x.ClockOut == null)
+            .OrderBy(x => x.WorkDate).Take(2).ToListAsync(ct);
     public async Task<AttendanceRecord?> GetAttendanceAsync(Guid workerId, DateOnly workDate, CancellationToken ct)
         => await db.AttendanceRecords.FirstOrDefaultAsync(a => a.WorkerId == workerId && a.WorkDate == workDate, ct);
 

@@ -53,6 +53,10 @@ builder.Services.AddHealthChecks();
 builder.Services.AddRateLimiter(options =>
 {
     options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+    options.AddPolicy("native-attendance", http => RateLimitPartition.GetFixedWindowLimiter(
+        http.Connection.RemoteIpAddress?.ToString() ?? "unknown", _ => new FixedWindowRateLimiterOptions {
+            PermitLimit=300, Window=TimeSpan.FromMinutes(1), QueueLimit=0, AutoReplenishment=true
+        }));
     options.AddPolicy("password-reset-request", http => RateLimitPartition.GetFixedWindowLimiter(
         // Nginx overwrites X-Real-IP with the connected client address. The API
         // port is bound to loopback, so direct internet callers cannot set it.
@@ -81,6 +85,7 @@ builder.Services.AddDbContext<HrmDbContext>((services, options) =>
 {
     options.UseNpgsql(connStr, npgsql => npgsql.MigrationsHistoryTable("__hrm_migrations", "hrm"));
     options.AddInterceptors(services.GetRequiredService<AuditInterceptor>(), services.GetRequiredService<ProductHrmCommitGuard>(), services.GetRequiredService<ProductHrmWriteGuard>());
+    if (NativeAttendanceApi.Enabled(builder.Configuration)) options.AddInterceptors(services.GetRequiredService<NativeAttendanceSaveGuard>());
 });
 // Company business date belongs to Core organisation and is available even without Procurement.
 builder.Services.AddCoreCompanyBusinessDate();
@@ -260,6 +265,7 @@ else
 }
 builder.Services.AddProductIdentity(builder.Configuration);
 builder.Services.AddProductCommercialLicense(builder.Configuration);
+NativeAttendanceApi.Register(builder.Services,builder.Configuration,connStr);
 CoreOperationalCompanies.Register(builder.Services,builder.Configuration);
 ProductModuleAccessFlow.Register(builder.Services,builder.Configuration,connStr);
 ProductErpSessionFlow.Register(builder.Services,builder.Configuration,connStr);
@@ -390,6 +396,7 @@ LocalIdentityRoutes.Map(app);
 app.MapProductIdentity();
 app.MapProductCompanyTeam();
 app.MapProductSetup();
+NativeAttendanceApi.Map(app);
 
 // Global error handler: DomainException -> structured ApiError
 app.Use(async (ctx, next) =>
