@@ -71,3 +71,11 @@ timestamps and replay-safe attendance writes. Then test two companies, another
 employee's record, revoked membership, expired license/token, repeated clock writes
 and actual app restart/reconnection before changing readiness to true. Payslip
 downloads are a later explicit capability, only after payroll release permission.
+
+Additional attendance contract findings: the existing self-service GetToday method
+initializes/updates attendance and audit rows, and ClockIn/ClockOut select the current
+UTC day. A native adapter must not blindly turn background reads into writes or
+assume those methods implement local-business-day/overnight behavior. Qualify a
+read-only status contract and explicit server-owned clock/overnight/retry rules
+inside the HR module before opening the held gateway routes. Do not reproduce HR
+calculation logic in the gateway or trust the mobile device clock as authoritative.
