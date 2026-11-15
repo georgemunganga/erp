@@ -1,3 +1,68 @@
+## Native attendance preparation and George trial - 15 November 2026 evening
+
+**Mobile source is published, but native public attendance is still held.** Do not
+claim the George check-in/out acceptance completed. The user requested a separate
+trial under George Munganga, and explicitly selected georgemunganga@gmail.com (ID1),
+not George Webgreen/theegreenweb (ID3).
+
+Production changes in this continuation are confined to an audited, backed-up
+commercial trial operation. Evidence on central:
+`/opt/greenwebb-qualifications/george-mobile-trial-20261115-03/result.json`.
+Customer `01m7ge4ncgrez8sysfpbmnrtsc`, explicit personal Kuubu enrollment, owner ID1.
+- Vcron Attendance Test A enrollment `01m7ge4ncwgyjp2hphfqytqs1q`, subscription
+  `01m7ge4ndam00t485a5ry3fqbe`, workspace key `594eb65f-0f6a-4422-8996-c3d806292d94`.
+- Vcron Attendance Test B enrollment `01m7ge4njkyrhm37hnkfp1ybtd`, subscription
+  `01m7ge4njq0mfv0129gkkzy370`, workspace key `98b5d1a2-7e46-455a-b022-ea5afb4d76bc`.
+Both HR-only, five requested seats, 14-day Trial active, paid K0, expire
+2026-11-29T20:24:51Z (22:24:51 Lusaka). **No company workspace, employee, permission
+or attendance has yet been provisioned for these trials.** No login identity,
+platform admin, payment or invoice was created. Trial helper attempts01 (Windows
+stdin encoding) and02 (non-null enrolled_by) failed inside transactions; retained
+attempts are not reusable.03 succeeded and result was parsed/verified. Do not rerun.
+
+George's Google sign-in was exercised through the real browser. Google returned
+link_required: ID1 is verified, password configured, and has no social_identities
+Google binding. Later attempts showed rate_limited. No email-based merge or
+operator-issued impersonation token was created. User has been asked to sign in
+with the existing password and connect Google through My account. Browser tab3
+is left on Kuubu login; do not submit any user-entered password without observing
+current state and authorization. No credentials belong in this handoff.
+
+Published code (feature flags remain OFF in production):
+- ERP feature source `55b287c5`, branch codex/kuubu-product-consumer-20261107.
+- Laravel source `b9c88bc`, branch codex/product-oauth-20261106.
+- Vcron source `2902ce9`, branch codex/kuubu-attendance-integration-20261115.
+- Website source `a40b9b815e67815f5d9962be47fee0516cad65ac`, branch
+  codex/native-attendance-20261115, built on the deployed4586a9e source, not oldmain.
+  Local mutable working source: apps/native-attendance-website-01. Three original
+  protocol/relay files were verified by Git blob SHA before copying. Original hub
+  and retained deployment copies unchanged. No Vercel deployment yet.
+
+Qualification evidence:
+- build03: API publication output/publish15, 150 passed/3 skipped; native-provider04:
+  93 passed/1009 assertions. Sources frozen before feature commits above.
+- native-mobile-postgres02: seven passed (two Core grant PostgreSQL cases and five
+  HR commit guard cases).01 used wrong control-database profile and failed the
+  fixture's protective database-name assertion; no production DB was connected.
+  All attempts retained. Existing private PostgreSQL synthetic fixture only.
+- Vcron TypeScript and 11 tests passed, Android JS/Hermes export succeeded to
+  android-native-export-20261115-01. Native React screens reviewed. Website tests
+  68 passed/2 skipped; API-mode build and check:connected passed. First connected
+  check omitted API-mode env and correctly failed its guard; rerun with mode passed.
+- Android standalone APK/emulator run started:
+  https://github.com/Greenwebb/vcron-attendance-mobile/actions/runs/43758624886
+  CHECK its latest conclusion before reporting any APK/native smoke result.
+
+Outstanding: current real isolated HTTP PKCE/provider/Core attendance acceptance;
+register native public client and exact allowed origin; versioned provider/API
+releases, website mobile client env/deployment, qualified edge route renderer and
+backup08; actual George password/Google link, provision test companies and explicitly
+link synthetic workers to Core identities/HR grants; native sign-in/check-in/out,
+company-switch/revocation/reconnect acceptance; verify old browser/on-prem routes.
+Gateway still advertises mobile_ready:false and prior production pins below remain
+live. No schema migration is required by the native attendance feature. The root
+ERP disk was about1.7GB free: retain existing outputs, avoid unnecessary copies.
+
 ## Shared API edge — 15 November 2026
 
 Gateway infrastructure is live; **native mobile attendance is not yet connected**.
