@@ -132,11 +132,13 @@ internal static class NativeAttendanceApi
             catch (System.Data.Common.DbException) { return Results.StatusCode(503); }
             catch (ProductProcurementAuthorityException e) { return Results.StatusCode(e.Status); }
         });
-        group.MapGet("/hrm/me", (HttpContext h) => Execute(h, false, false, true));
-        group.MapGet("/hrm/me/attendance", (HttpContext h) => Execute(h, false, false, false));
-        group.MapGet("/hrm/me/attendance/today", (HttpContext h) => Execute(h, false, false, false));
-        group.MapPost("/hrm/me/attendance/clock-in", (HttpContext h) => Execute(h, true, true, false));
-        group.MapPost("/hrm/me/attendance/clock-out", (HttpContext h) => Execute(h, true, false, false));
+        // Pin the result-bearing handler overload. A bare HttpContext lambda can
+        // bind as RequestDelegate and discard Task<IResult>, producing empty200s.
+        group.MapGet("/hrm/me", (Func<HttpContext,Task<IResult>>)(h => Execute(h, false, false, true)));
+        group.MapGet("/hrm/me/attendance", (Func<HttpContext,Task<IResult>>)(h => Execute(h, false, false, false)));
+        group.MapGet("/hrm/me/attendance/today", (Func<HttpContext,Task<IResult>>)(h => Execute(h, false, false, false)));
+        group.MapPost("/hrm/me/attendance/clock-in", (Func<HttpContext,Task<IResult>>)(h => Execute(h, true, true, false)));
+        group.MapPost("/hrm/me/attendance/clock-out", (Func<HttpContext,Task<IResult>>)(h => Execute(h, true, false, false)));
     }
 
     private static bool Canonical(string value, out Guid id) => Guid.TryParseExact(value,"D",out id) && id != Guid.Empty && id.ToString("D") == value;
