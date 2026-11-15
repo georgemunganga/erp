@@ -1,3 +1,101 @@
+## LIVE native release and workflow fixes - 15 November 2026 late session
+
+The native attendance infrastructure is NOW LIVE, superseding the held-gateway notes
+below. Actual George mobile acceptance is still pending authentication/employee
+setup; do not conflate the isolated acceptance with his live check-in/out.
+
+- API source9b30c21872230c28f80c2ea2634d34bdc648c5cc, image
+  sha256:74173dd614abcd1da0886d6847e9eb4485957f034055eacb56dd25432617a896,
+  kuubu-native-attendance-release01-api01 at verifiedTLS loopback28985,
+  /opt/kuubu-production/releases/native-attendance-9b30c218-deploy01.
+  NativeEnabled=true, registered public client01a1e123-8e72-7177-85a8-2de8eb11d85c,
+  PublicOrigin=https://api.kuubuerp.com. Same production DB/runtime role, keyring,
+  documents and old browser flows; no schema changes. Old HRM API28984 is retained
+  RUNNING until browser acceptance confirms no old web dependency; stop it afterward.
+- Gateway source1ebba684, kuubu-native-attendance-release01-proxy01, release
+  /opt/kuubu-production/releases/native-gateway-20261115-01, configSHA256
+  bc6cc34c278cc2ac45f917e007f42478a0cc36b4e18691d06948bfbbfd21e8dd.
+  Discovery proxies the registered profile and advertises mobile_ready:true.
+  13 inactive actual-Caddy checks passed; 10 client-PC public checks passed,
+  including native401s, cookie403, scope400, unknown404, appready and Perfex200.
+  Prior kuubu-api-gateway-release04-proxy01 is stopped/retained. Backup08 and timer
+  succeeded, include the new API private env and proxy config; same-host copy.
+- Laravel source8e6c3a9bbcc50fb275d35ba74ca754560ebf5ceb pushed, runtime
+  /opt/greenwebb-foundation/releases/native-identity-8e6c3a9-deploy02.
+  Native provider enabled for the exact public client/origin above. Backups passed.
+  CRITICAL: copied Laravel bootstrap/cache/routes-v7.php was stale; config:clear
+  alone did not load new routes. Deploy02 rebuilt route:cache before cutover.
+  Future deployments MUST rebuild routes as well as config in an exclusive release.
+  Private helper inspection/enable-vcron-provider-20261115-01 failed404 and restored
+  env; -02 succeeded after the route-cache repair. No OAuth impersonation performed.
+  Dedicated safe daily logs/google-auth-YYYY-MM-DD.log channel records outcome codes
+  only; no emails/codes/state/tokens/passwords/exceptions.93 provider tests passed.
+- Website Greenwebb/kuubuerp-website source
+  e6b7693551d3c8c0b99219a28bf0abb1d017ce7c, branchcodex/native-attendance-20261115,
+  VercelREADYproduction dpl_6H9KJ6TMrKbRVuRphhN1FsmCWwxe. Public mobile client env
+  KUUBU_MOBILE_IDENTITY_CLIENT_ID configured. Current mutable source remains
+  apps/native-attendance-website-01. Git-based Vercel connector deployments now work;
+  no CLI source-upload fallback needed. GitHub still must use connector access.
+
+Live browser findings and fixes:
+- George completed password recovery/sign-in himself; existing ID1 verified.
+  His browser session subsequently dropped while the HR launch picker was open.
+  A deterministic regression reproduces how a delayed me/authorization read could
+  overwrite a newer sign-in cookie. The deployed relay now accepts cookie updates
+  only from explicit identity transitions and csrf bootstrap.72 website tests pass,
+  two isolated interop tests skipped; API-mode build/check:connected pass.
+  This is a proven race the previous relay allowed, not yet proof that it explains
+  every observed session drop. Repeat the actual live workflow after fresh sign-in.
+- Auth feedback is deployed/reused in login and Google settings: link_required,
+  rate limit, cancellation, expiry, conflict, unverified, unavailable, success.
+  Live Google attempt for George correctly produced the explanatory link_required
+  dialog; primary button focuses email. Google is NOT yet connected. Pending user
+  question asks him to confirm his current password in My account and connect Google.
+  Browser's saved login password was attempted once after the session drop and was
+  rejected; no further guesses. Use the new reset password, never expose credentials.
+- Vcron Attendance Test A was CREATED through the actual Kuubu trial review flow.
+  Its company owner membership was then granted employee + hr_admin roles,
+  hrm-access + hrm-admin actions, Head office ONLY via the actual permission UI.
+  Saved state showed1assigned/5 places. No employee record seeded yet.
+  Test B is not yet provisioned. Earlier statement that a collapsed module picker
+  was empty was corrected: it contains HR when expanded. Do not repeat that claim.
+- Confirmed UX bug: create-company authorization returned to Review and required
+  a second create click. Deployed setup-return.js binds a single continuation to
+  subject/workspace/exact reviewed retry command, expires5min, auto-resumes once,
+  and refuses repeated reconnect loops. The authorization checkbox is skipped only
+  for that same already-reviewed local continuation; server consent/PKCE remain.
+  Need requalify this with a fresh real setup connection (A used old flow, then
+  manually retried; B can test normal creation but existing setup proof may persist).
+- Permissions page no longer says Only owner before a company is selected. Launch
+  has actionable no-module-access guidance where applicable, and exact roles,
+  actions and locations now appear in permission confirmation. User requested full
+  live workflow testing; do not stop at these textual fixes.
+
+Native acceptance/build evidence:
+- API publication16 fixed a REAL mapped-handler bug: bare HttpContext lambdas bound
+  as RequestDelegate and discarded Task<IResult>, returning empty200s. Explicit
+  Func<HttpContext,Task<IResult>> mappings plus six real TestHost route tests added.
+  Build04:156passed/3skipped; earlier separate PostgreSQL checks7passed.
+- Isolated HTTP flow05 passed real public PKCE/provider/Core lookup,2companies,
+  explicitly linked synthetic employee, check-in, repeated check-in convergence,
+  check-out, persisted refresh, cross-company/link substitution403 and revocation401.
+  Result inspection/qualifications/native-attendance-http-flow05/result.json.
+  Provider working-directory repair02 and API publication16 repair02 retained.
+  Private API02/provider02/DB and native TLS unit were STOPPED after qualification.
+- Android source2902ce9 remains current, GitHub run43758624886 SUCCEEDED: standalone
+  APK and Android11 native emulator launch/callback/no-demo/crash smoke. Downloads:
+  inspection/qualifications/vcron-android-2902ce9-01/vcron-workplace-preview.apk
+  (44,120,935bytes), evidence/TEST-RESULTS.txt and screenshots. This does NOT prove
+  signed-in native UI attendance. Local Android SDK/adb/emulator exists, no running
+  device; existing AVD MF_Tablet. Preserve it and other apps/data if using it.
+
+Next: user fresh password sign-in and Google link; stabilize/retest actual browser
+company creation/HR launch and company switching; provision B and seed clearly
+synthetic attendance employees with explicit Core subject links, no real payroll/bank
+identifiers. Install/qualify native APK with the authorized George sign-in, check-in/
+out for both companies, logout/refresh/revocation and legacy app health. Final CUA
+completion_summary has NOT been sent in this continuation; browser handoff pending.
+
 ## Native attendance preparation and George trial - 15 November 2026 evening
 
 **Mobile source is published, but native public attendance is still held.** Do not
