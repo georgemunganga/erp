@@ -1,3 +1,56 @@
+## Shared API edge — 15 November 2026
+
+Gateway infrastructure is live; **native mobile attendance is not yet connected**.
+Source `aec6e9881cac0f1aec3c41f96bb1c1ec13e9d2a7` adds the reusable renderer and
+installation/runbook contract under deployment/kuubu. Current proxy:
+`kuubu-api-gateway-release04-proxy01`, release
+`/opt/kuubu-production/releases/api-gateway-aec6e988-deploy04`, config SHA256
+`6d1c992e7e8ba07058e94d31493e64b7460cc1ac3a848ee20e287eed059c9e83`.
+Previous `kuubu-hrm-web-setup01-proxy01` is stopped and retained. The existing app
+site block, API28984, web28975 and Procurement mounts are unchanged. No database,
+identity grant, ERP feature flag, Laravel runtime or DNS record was changed.
+
+api.kuubuerp.com already had Cloudflare DNS but no matching origin TLS site. Caddy
+obtained a public Let's Encrypt certificate using the existing persistent certificate
+volume; the public Cloudflare route now serves discovery and upstream readiness.
+`/.well-known/kuubu-api` explicitly publishes mobile_ready:false. Protected versioned
+attendance routes return401 without bearer and503 while native admission is held;
+they do not create attendance. Browser cookies are rejected; unknown/admin/module
+routes return404. These checks are not signed-in staff attendance acceptance.
+
+Real inactive Caddy qualification passed nine cases before cutover. Ten public HTTPS
+checks passed with a native-style okhttp user agent, including readiness and rejected
+unauthorized/forged/unknown routes. A generic Python-urllib user agent received an
+edge403 under existing Cloudflare policy; that policy was not changed. This is not
+an actual Android/iOS app-flow test. Public verification and current app/Procurement,
+Laravel and Perfex probes are recorded in
+local `inspection/qualifications/api-gateway-20261115-04`. Failed/rolled-back attempts
+01–03 and their publications are retained. The server's own hostname maps
+api.kuubuerp.com to127.0.1.1 in /etc/hosts; earlier server-side public checks hit that
+alias. Final checks independently exercised origin TLS and actual Cloudflare ingress;
+do not globally change hostname resolution to make an operator check pass.
+
+Daily backup now selects release04/backup-production-hrm07.py, includes the current
+gateway configuration plus existing API environment/keys/documents and completed
+successfully. The timer remains active. Same-host backup is not off-host disaster
+recovery. Rollback stops the new proxy and starts the retained previous proxy;
+restore the prior backup-service ExecStart only if rolling back configuration.
+Certificate storage must remain mounted and preserved in either direction.
+
+The supplied mobile repo `Greenwebb/vcron-attendance-mobile` at0941bf29 is a native
+UI-only prototype. Android/iOS preview IDcom.greenwebb.vcron.preview and schemevcron
+exist; production OAuth/ERP HTTP adapters do not. No changes were pushed to that
+app and no OAuth client or staff access was invented. Before advertising attendance
+readiness, implement/qualify public native OAuth, explicit company/worker admission,
+own-record scope and replay-safe clock operations, then connect its asynchronous
+service adapter. See deployment/kuubu/API-GATEWAY.md and
+docs/engineering/SHARED-API-GATEWAY-20261115.md.
+
+Dedicated installations inherit source/contracts through a compatible release;
+TLS/origins, identity clients/callbacks, grants, employee links and required migrations
+remain per-install configuration. erp.newworldcargo.com was not modified or qualified.
+Git pull by itself does not enable this mobile workflow on that installation.
+
 ## HR continuity and Levant configuration — 13 November 2026
 
 This supersedes the release pins and pending-policy status below. Published API

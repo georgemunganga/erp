@@ -51,3 +51,23 @@ Git updates deliver source only. Build/publish the compatible release, back up a
 apply required migrations, configure TLS/proxy and identity/callback registration,
 then test against the customer's records/permissions. Existing local credentials
 must remain supported; do not enable SaaS product mode to imitate mobile support.
+
+## Inspected mobile consumer
+
+`Greenwebb/vcron-attendance-mobile` at
+`0941bf29a651c105e5116047f4012f839f20ec8e` is Expo/React Native. Both preview package
+IDs are `com.greenwebb.vcron.preview`, with URL scheme `vcron`. No native OAuth
+callback handler, production sign-in or HTTP ERP adapter currently exists.
+`src/services.ts` implements synchronous sample employee/schedule reads and local
+attendance mutations; those interfaces need asynchronous server reads, secure
+credential storage and explicit errors before a production adapter can replace it.
+Do not silently fall back to sample attendance when the server returns401/403/503.
+The existing preview identifiers are not evidence of production app registration.
+
+The staff mobile release gate is broader than DNS: add public-client code+PKCE,
+employee-only HR admission (the SaaS adapter currently requires HR administrator
+coverage), company discovery/selection, exact employee linking, authoritative
+timestamps and replay-safe attendance writes. Then test two companies, another
+employee's record, revoked membership, expired license/token, repeated clock writes
+and actual app restart/reconnection before changing readiness to true. Payslip
+downloads are a later explicit capability, only after payroll release permission.
