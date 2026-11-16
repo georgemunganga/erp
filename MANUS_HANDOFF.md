@@ -1,3 +1,57 @@
+## Live browser workflow audit - 16 November 2026
+
+This entry supersedes the website and browser-acceptance status immediately below.
+The reported unpredictable account behaviour is NOT fully resolved or qualified.
+
+- Website source `5091664701c5e7d53f08fa7fdb8c643ed4d95af0`, branch
+  `codex/native-attendance-20261115`, is READY production deployment
+  `dpl_9Zn8AJqH5RmEZi55CjY4TdK77Acb`, aliased to both Kuubu public domains.
+  Prior source `3a98bd697a642cbc3c94a42eba9749526ea20e22` added validated,
+  expiring, one-use Google PKCE return preservation after URL query cleanup.
+- Actual browser: ERP root -> Continue to your companies -> signed-in George
+  account -> Test A Open workspace -> HR & Payroll -> Open workspace succeeded.
+  Full HR Employees navigation loaded, no employees yet. An ERP page refresh
+  succeeded. Organisation menu -> Choose company in Kuubu returned to the same
+  signed-in company list. These are real browser checks, not simulated results.
+- Actual second-company test: Subscriptions -> Test B Continue trial setup ->
+  reviewed details (five HR places, K0 trial) -> Create company redirected to
+  setup authorization, then failed with "Confirm workspace setup checks before
+  continuing." The reviewed continuation hid the extra checkbox but the action
+  still checked only that checkbox. Fixed by using one freshly validated consent
+  decision for both the action guard and relay payload. Altered commands still
+  require new review. Current tests: 75 passed, 2 skipped; API-mode build and
+  connected-entry check pass. The first local check used the wrong environment
+  variable, then was rerun successfully with VITE_KUUBU_DATA_MODE=api.
+- Test B has NOT been created yet. After deployment the live account returned to
+  sign-in again before the retry. Do not claim the cookie fence solves every
+  logout. A fresh sign-in is required to qualify setup continuation and switching
+  between two companies. Existing draft/request is retained; reuse its retry key.
+  No additional credential guesses. Latest async handoff asks George to sign in
+  using his new recovery password directly in the open Codex tab, not in chat.
+- Read-only central session configuration: database driver, lifetime120 minutes,
+  secure host-only cookie, SameSite=Lax. At 04:29 UTC no authenticated user1
+  sessions remained; recent rows were anonymous. Cause of this later loss is not
+  proven. Server clocks agree with current UTC and central NTP is synchronized.
+  George Google connection remains absent in My account. Do not merge by email.
+- UX finding still open: subscription Test A offers Continue trial setup even
+  though its company exists. Resolve the existing workspace before restarting a
+  setup draft; do not imply this is already fixed.
+- Signed-in isolated HTTP edge acceptance now PASSED using the real Caddy
+  native profile: real PKCE, two companies, own employee, check-in and repeat
+  convergence, checkout, persisted attendance, caller-selected employee body400,
+  cross-company403, revocation401. Proof:
+  inspection/qualifications/native-attendance-http-edge-flow01/result.json.
+  Edge fixture, private API02/provider02/DB and native TLS02 are stopped/retained.
+  This is not George production Android acceptance.
+- Old production HR API28984 is now STOPPED/retained. Public app readiness,
+  HR setup, central health and native discovery all returned200 afterward.
+- Local read-only Android AVD MF_Tablet is running with the preview APK. An old
+  restored clock initially broke HTTPS; cold boot without loading/saving snapshot
+  corrected it. Native discovery succeeded and Continue with Kuubu launched the
+  Android Chrome first-use Terms screen. No acceptance was clicked. Native
+  signed-in tests need that human first-use step and George authentication.
+  No emulator data wipe or production mobile attendance writes occurred.
+
 ## LIVE native release and workflow fixes - 15 November 2026 late session
 
 The native attendance infrastructure is NOW LIVE, superseding the held-gateway notes
