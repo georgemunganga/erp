@@ -1,3 +1,49 @@
+## Verified live company continuation and reconnect recovery - 16 November 2026
+
+Supersedes the Test B and pending reconnect status below. Website current source
+`3c9ea1caaeb43b76bbe33fadb8b369145743b875`, READY production deployment
+`dpl_BVzzk1WtvjjfosP4GerJtcJG3P3V`, both Kuubu domain aliases. Source remains
+on `codex/native-attendance-20261115`; no ERP API/on-prem configuration changed
+in this follow-up. Functional reconnect source was bb7fa001, UTF-8 punctuation
+repair 0c0b8ce0, and company loading-state correction 3c9ea1ca.
+
+- User completed fresh password sign-in. Retried the retained exact Test B
+  company command. Setup authorization continued automatically, resumed the same
+  command once and returned to Companies with A and B. No second Create click.
+- User explicitly confirmed Test B HR permission change at action time. Saved
+  employee + hr_admin, hrm-access + hrm-admin, Head office ONLY to its existing
+  owner. Live UI showed1assigned/5places and persisted the exact checkboxes.
+- Test B opened full HR Employees UI from Kuubu. Organisation menu confirmed B.
+  Company team loaded its active Workspace owner. No third-party invitation sent.
+- Reproduced another dead end: completing Team management in another tab revoked
+  the operational connection, then WorkspaceLaunch showed401 text without a
+  reconnect action. Root code: ProductIdentity.OnCreatingTicket explicitly calls
+  ProductOperationalFlow.RevokeAsync. This is distinct from central sign-out.
+- Website now handles401 inside WorkspaceLaunch with existing bounded automatic
+  connection recovery. A5minute, same-subject company/link/module intent survives
+  the handoff and restores ONLY against the freshly authorized company directory.
+  It grants nothing and never auto-replays a selection POST. Changed/revoked
+  memberships, foreign subjects/IDs, future/expired intent fail closed. After
+  recovery the same company/module review is restored; current server permissions
+  and user confirmation still govern final ERP launch.
+- Actual failing cross-tab sequence requalified: Test A review -> Team connection
+  in other tab -> select HR -> automatic recovery -> Test A HR preselected -> Open
+  workspace -> full HR loaded, organisation menu confirmed A. Central sign-in
+  remained valid throughout this sequence. Current source also avoids showing
+  Add your first company before directory discovery finishes.
+-76tests passed,2integration tests skipped; API-mode build/check:connected passed.
+  Evidence folder inspection/qualifications/kuubu-live-workflow-20261116-01;
+  switched-to-test-a.png records actual ERP company context. Permission screenshots
+  in inspection/qualifications/google-george-diagnostics-20261115-01.
+- Google is still NOT linked: live My account and safe central boolean query both
+  confirm this. Do not treat ambiguous "done" messages as proof of linking.
+  User must complete the existing My account password + Google choice once.
+  Do not merge by email or mint impersonation tokens. Production native attendance
+  acceptance/employee seeding and Android Chrome first-use handoff remain pending.
+- Earlier central session loss is not proven fully solved by this browser test.
+  No sign-out recurred during the new tested company/setup/team/reconnect sequence.
+  Keep that distinction in user-facing reports; no blanket fully-tested claim.
+
 ## Live browser workflow audit - 16 November 2026
 
 This entry supersedes the website and browser-acceptance status immediately below.
