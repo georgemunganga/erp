@@ -44,6 +44,10 @@ repair 0c0b8ce0, and company loading-state correction 3c9ea1ca.
   No sign-out recurred during the new tested company/setup/team/reconnect sequence.
   Keep that distinction in user-facing reports; no blanket fully-tested claim.
 
+- Reverse switch A -> Kuubu -> B also PASSED. Refreshed Test B HR, full Employees
+  UI returned; organisation menu confirmed Test B / Head office. Proof:
+  inspection/qualifications/kuubu-live-workflow-20261116-01/switched-back-to-test-b-refreshed.png.
+
 ## Live browser workflow audit - 16 November 2026
 
 This entry supersedes the website and browser-acceptance status immediately below.
