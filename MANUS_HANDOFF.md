@@ -57,11 +57,21 @@ Separate classic API/data evidence at inspection/qualifications/classic-mobile-n
 Temporary modern/classic public qualification listeners were stopped; their databases/
 evidence/publications retained. New World Cargo production mobile remains enabled.
 
-Outstanding: New World Cargo's three accounts had no employee associations. User
-selected the existing George Munganga login; no matching employee exists, so asked
-whether to create his record or use an explicit employee number. Do not link another
-person or manufacture an association by email. Real customer employee login/punch is
-not yet qualified; isolated tests are explicitly separate. Current Kuubu VPS free
+New World Cargo staff-access follow-up: after initially selecting an account with
+no employee record, the user selected an existing staff login/employee and explicitly
+chose Create Head office. A separate backed-up transaction linked that selected
+existing pair, created/assigned Head office, and appended three operator audit
+entries. No new staff, compensation, role, legacy subject or password was changed;
+the initial-password requirement remains enforced. Private evidence is
+/opt/kuubu-mobile-qualification/rose-access-20261117-01 and local
+inspection/qualifications/newworld-rose-access-20261117-01. Before auth handoff the
+selected worker had no recent/open attendance. Codex browser is on the installed
+ERP's ordinary HR sign-in form; Android is on that installation's mobile login.
+The account email is filled in both; the user must complete initial password setup
+and sign into Android. Do not read/password-fill/reset on their behalf or bypass
+the setup flag. Do not fabricate a real staff punch before sign-in. Real customer
+employee login/punch is not yet qualified; isolated tests are explicitly separate.
+Current Kuubu VPS free
 storage remains about442MB; expansion/retention work is still needed for growth.
 Laravel/Perfex, financial settings, real staff compensation and unrelated ERP
 deployments were untouched by this release. Operations SSH key is preauthenticated

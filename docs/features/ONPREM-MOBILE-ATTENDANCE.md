@@ -135,8 +135,8 @@ reloaded; its bind-mounted config inode was preserved. No ERP process was restar
 Public HTTPS checks confirmed manifest/company search, denied anonymous/cookie/
 unknown-account mobile access, and existing HTML, health and browser-auth endpoints.
 The installed APK searched Newworld and reached that server's existing ERP login.
-No customer employee punch, login-to-employee association, new staff account or
-compensation was created. Existing local administrators have no branch restrictions;
+The adapter deployment created no customer employee punch, login-to-employee
+association, new staff account or compensation. Existing local administrators have no branch restrictions;
 hr_admin's configured permissions expand to the existing local administration roles.
 
 Operations, original proxy bytes, release receipts and private backup/restore are
@@ -144,6 +144,15 @@ on the owning server at /opt/kuubu-mobile-qualification/20261117-01. Runtime-onl
 configuration is /opt/erp-hrm/mobile/20261117-01/runtime.private.env. Rollback restores
 the recorded original Nginx bytes in place, validates/reloads Nginx, then stops only
 the mobile container. Retain session/attendance/audit evidence and the original ERP.
-The three inspected local accounts had no employee links. George's account was
-selected by the user for the final live test; an actual George employee record or
-explicit employee number remains required. Never associate other staff by email.
+The three inspected local accounts had no employee links at adapter rollout.
+The user subsequently selected an existing staff login and employee, reviewed the
+different account/employee name spellings, and explicitly requested a new Head
+office for that employee. A separate backed-up operator transaction created that
+location, linked the selected existing account/employee and assigned the location,
+with three audit entries. No new staff, pay, role, legacy subject or password change
+was made. Private evidence is /opt/kuubu-mobile-qualification/rose-access-20261117-01
+and local inspection/qualifications/newworld-rose-access-20261117-01. The employee
+had no recent/open attendance records. First-time password setup is still required;
+the user was handed the existing ERP/Android login forms. The required password
+completion is not bypassed. Actual customer sign-in/punch qualification remains
+pending that handoff; no real staff attendance has been fabricated.
