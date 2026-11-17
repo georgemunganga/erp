@@ -1,4 +1,4 @@
-import { normalizeWorkerImportType } from "./worker-import-values";
+import { cleanWorkerImportValue as cleanImportValue } from "./worker-import-values";
 import { Textarea } from "@/components/ui/textarea";
 import { RecordTable } from "@/platform/components/RecordTable";
 /**
@@ -177,28 +177,6 @@ const SKIP = "__skip__";
 const USE_REAL_API = import.meta.env.VITE_USE_REAL_API === "true";
 const IMPORT_PAGE_SIZE = 25;
 
-/** Keep the editable preview clean without changing meaningful identifiers. */
-function cleanImportValue(fieldKey: string, rawValue: unknown) {
-  const value = String(rawValue ?? "").trim();
-  if (!value) return "";
-  if (fieldKey === "workerType") return normalizeWorkerImportType(value);
-
-  if (["firstName", "middleName", "lastName"].includes(fieldKey))
-    return value.replace(/[^\p{L}\p{M}\s.'-]/gu, "").replace(/\s+/g, " ").trim();
-  if (fieldKey === "tpin" || fieldKey === "nhimaNumber" || fieldKey === "napsaNumber")
-    return value.replace(/\D/g, "");
-  if (fieldKey === "nrc")
-    return value.replace(/[^\d/]/g, "").replace(/\/{2,}/g, "/");
-  if (fieldKey === "phone")
-    return `${value.startsWith("+") ? "+" : ""}${value.replace(/\D/g, "")}`;
-  if (["basicSalary", "costOfLivingAllowance", "overtime.hours", "overtime.multiplier"].includes(fieldKey)) {
-    const digits = value.replace(/[^\d.]/g, "");
-    const [whole, ...decimal] = digits.split(".");
-    return decimal.length ? `${whole}.${decimal.join("")}` : whole;
-  }
-  return value;
-}
-
 function validateCleanWorkerRows(rows: Array<Record<string, string>>, mode: "insert" | "update" | "fill-missing") {
   const errors: string[] = [];
   rows.forEach((row, index) => {
@@ -210,8 +188,6 @@ function validateCleanWorkerRows(rows: Array<Record<string, string>>, mode: "ins
     if (mode === "insert" && !(row.firstName ?? "")) errors.push(`${rowLabel}: First name has no letters after cleanup.`);
     if (mode === "insert" && !(row.lastName ?? "")) errors.push(`${rowLabel}: Last name has no letters after cleanup.`);
     if (row.tpin && !/^\d{10}$/.test(row.tpin)) errors.push(`${rowLabel}: TPIN must contain exactly 10 digits.`);
-    if (row.nhimaNumber && !/^\d+$/.test(row.nhimaNumber)) errors.push(`${rowLabel}: NHIMA number must contain digits only.`);
-    if (row.napsaNumber && !/^\d+$/.test(row.napsaNumber)) errors.push(`${rowLabel}: NAPSA number must contain digits only.`);
     if (row.nrc && !/^\d{6}\/\d{2}\/\d$/.test(row.nrc)) errors.push(`${rowLabel}: NRC must use the format 123456/78/1.`);
   });
   return errors;

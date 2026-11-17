@@ -11,3 +11,17 @@ export function normalizeWorkerImportType(value: string): string {
   };
   return Object.hasOwn(labels, key) ? labels[key] : value.trim();
 }
+
+/** Only unambiguous formatting is removed. Keep signs and identifier letters
+ * so invalid values are reported rather than silently changed into valid ones.
+ */
+export function cleanWorkerImportValue(fieldKey: string, rawValue: unknown): string {
+  const value = String(rawValue ?? "").trim();
+  if (fieldKey === "workerType") return normalizeWorkerImportType(value);
+  if (["firstName", "middleName", "lastName"].includes(fieldKey))
+    return value.replace(/\s+/g, " ");
+  if (fieldKey === "phone") return value.replace(/[\s()-]/g, "");
+  if (["basicSalary", "costOfLivingAllowance", "overtime.hours", "overtime.multiplier"].includes(fieldKey))
+    return /^[+-]?\d{1,3}(,\d{3})+(\.\d+)?$/.test(value) ? value.replaceAll(",", "") : value;
+  return value;
+}

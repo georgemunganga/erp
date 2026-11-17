@@ -103,3 +103,11 @@ unknown/ambiguous branch names require correction, never creation. Contract term
 and identity enrollment remain separate. Test raw labels through preview -> apply
 -> persisted worker category, invalid important fields, duplicate NAPSA, branch
 name/ID and scoped denial. No real employee spreadsheet is applied by this work.
+
+Final follow-up collects required/basic format errors together per row, rejects
+archived/unknown/ambiguous branch references and preserves meaningful spreadsheet
+input. Browser cleanup no longer removes minus signs or identifier letters to turn
+invalid data into valid data. Standard phone separators/clearly grouped numbers
+normalize; malformed values remain visible to validation. Alphanumeric NAPSA/NHIMA
+identifiers remain compatible with the existing server schema. No arbitrary enum,
+contract policy, branch or identity is provisioned by this validation feature.
