@@ -70,3 +70,20 @@ and legacy regressions, public protocol and current app/Perfex health. Do not in
 production staff or claim an unperformed physical-device test.
 ## 28. Release evidence
 Maintain exact source/image/config/native-build pins, proof and residual holds in handoff.
+
+## 17 November live Android qualification
+Actual George/user1 native PKCE and Test A/B selection/switching passed against
+production. Explicitly authorized test employees were seeded/linked with scoped
+operator audit; no role/membership inference. Agent checked in both; user checked
+out B and confirmed it. APK a906b26 update retained secure session, B completed
+and A open; agent checked out A on updated APK. Refresh/history/logout/re-sign-in
+passed. SQL confirms two distinct mobile shifts and four correct-actor audits.
+
+Website a3a2bc46 corrects native callback destination rejection with exact app URI
+pinning plus unchanged code/state/key validation; ordinary web callback rules stay.
+Live native Home/History/Profile no longer show demo storage/sample workplace or
+sample profile/schedule claims. Source/runtime/artifact hashes in MANUS_HANDOFF.
+
+General SaaS HR administrator account-linking UX is not qualified by the manual
+trial seed. Existing worker mutation guards stay unchanged. iOS, physical-device,
+production signing/store publication and other mobile modules are not claimed.

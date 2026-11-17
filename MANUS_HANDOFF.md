@@ -1,3 +1,61 @@
+## 2026-11-17 — Vcron Android live attendance acceptance COMPLETED
+
+Supersedes prior George/native acceptance holds, within the scope below.
+
+- Mobile code **a906b2604c88d3ee11dbfa0e969c3f89244eb5c5**, published branch
+  codex/kuubu-attendance-integration-20261115 in Greenwebb/vcron-attendance-mobile.
+  GitHub run44050132594 passed standalone build and Android11 native smoke.
+  Artifact14313782480; APK SHA256
+  `86854312901b54336c26adb4d23412cd76e203f08e5ecd708245b768b3f542e0`.
+  Retained locally inspection/qualifications/vcron-android-a906b26-01/extracted.
+  Preview certificate/package com.greenwebb.vcron.preview; no iOS/store claim.
+- Website **a3a2bc467cf9944ec9f519f0f3f650d4f790eca1** published on
+  codex/native-attendance-20261115, READY production
+  `dpl_AFjaZZGHsnndsh8s9qBN4r46JKHg`, both public Kuubu aliases.
+  Diagnostic215b50fc proved destination validation failure after server relay
+  acceptance. Native callback now pins exact vcron://oauth/callback prefix;
+  exact keys, state and bounded code are independently checked. No web callback
+  relaxation.78website tests pass/2opt-in skips, focused authorization23pass;
+  API-mode build passed. Safe feedback has reason codes only, no protocol secrets.
+- Actual Android15 MF_Tablet, George/user1 signed in himself. Real PKCE returned
+  to native selector with Test A/B. Agent checked in A10:50:33 and B10:51:56
+  Africa/Lusaka. User independently checked out B10:53:16 and explicitly confirmed
+  his interaction; do not attribute this action to agent or an automatic bug.
+  Cold restart restored legitimate session/company. Logout remained logged out
+  across restart; sign-in again reused Kuubu browser SSO and returned to native.
+- New APK installed over2902ce9 without clearing secure storage/data. B remained
+  completed; A retained the same open shift. Agent checked out A11:06:39 from
+  the new APK. Refresh/History showed persisted10:50–11:06 and disabled punch
+  actions. New-build sign-out/sign-in and both-company access passed afterward.
+  Replaced leftover demo location/storage/profile labels/sample schedule in live
+  Home/History/Profile with assigned workplace/timezone and connected wording.
+- SQL readback: exactly2mobile attendance records,1per company, original IDs
+  retained, each closed;4mobile-clock-in/out audit entries attributed to the
+  correct company-local George principal. API alone supplies timestamps/worker.
+- Test employee QA-MOBILE-GEORGE-001 exists in each named trial company. A created
+  through live import. User-authorized transactional operator seed created B and
+  explicitly linked each existing verified issuer/subject1 owner principal after
+  checking exact trial bindings, active owner/membership, owned Head office and
+  no conflicting worker link.2operator audit entries recorded. No roles, login
+  identities, membership, billing, payroll or other-company data changed. Original
+ 20import-test employees remain unlinked. This is explicit seeding, not automatic
+  email-based linking or an impersonation token.
+- General SaaS HR account-linking UI remains separately unqualified: legacy dialog
+  lacks an identity input and still references Keycloak; ordinary product worker
+  writes intentionally reject identity reassignment. Do not claim this release
+  delivers reusable customer self-service staff provisioning. Test operator links
+  were authorized specifically for these two trials.
+- Existing d41303dd API image09fe3bcca3303e137ee894f2bb61c8a6b9e3f199a2556997ba45b2556d0eb89f,
+  web/proxy08, backup17, central Laravel8e6c3a9 and on-prem settings unchanged.
+  No DB migration/DNS change. Public app readiness, HR UI, Procurement UI, central
+  health, Perfex login and erp.newworldcargo.com returned200; anonymous native
+  companies401. Existing-instance check is public availability, not a new full
+  on-prem authenticated UAT. Mobile remains opt-in/registered per installation.
+- Native TypeScript/11tests/dependency audit/bundle/APK signature/source checks pass.
+  Detailed native repo docs/LIVE-ACCEPTANCE-20261117.md; browser/Android/SQL evidence
+  inspection/qualifications/vcron-live-george-20261117-01. No credentials/tokens
+  stored in repo/evidence. Attendance only; other mobile services stay disabled.
+
 ## 2026-11-17 — Employee import missing references and full browser acceptance LIVE
 
 Supersedes earlier first-entry04/05/06/07 web entries. API remains unchanged.
