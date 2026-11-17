@@ -348,6 +348,7 @@ export function ImportDialog({ typeKey, onDone, demoSample, presentation = "dial
   const [step, setStep] = useState<"upload" | "map" | "preview" | "result">("upload");
   const [completion, setCompletion] = useState<ImportCompletion | null>(null);
   const submittedPreview = useRef<string | null>(null);
+  const initializedEmbeddedType = useRef<string | null>(null);
   const [entryMode, setEntryMode] = useState<"upload" | "manual">("upload");
   const [mode, setMode] = useState<"insert" | "update" | "fill-missing">("insert");
   const [manualPage, setManualPage] = useState(1);
@@ -403,7 +404,11 @@ export function ImportDialog({ typeKey, onDone, demoSample, presentation = "dial
   }
 
   useEffect(() => {
-    if (!embedded) return;
+    if (!embedded) { initializedEmbeddedType.current = null; return; }
+    // React Activity replays effects after access recovery. A reconnect must
+    // not initialize over the retained file, corrections or completion result.
+    if (initializedEmbeddedType.current === typeKey) return;
+    initializedEmbeddedType.current = typeKey;
     setStep("upload");
     setFileColumns([]);
     setFileRows([]);
@@ -816,7 +821,7 @@ export function ImportDialog({ typeKey, onDone, demoSample, presentation = "dial
     </div>
   ) : null;
 
-  const actionBar = schema ? (
+  const actionBar = schema && step !== "result" ? (
     <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t bg-card pt-4">
       <div className="text-xs text-muted-foreground">
         {step === "upload" && entryMode === "manual" && `${filledManualRows.length} manual rows ready for preview`}

@@ -96,3 +96,13 @@ never shown as successful or auto-replayed. View employees and Import another fi
 provide explicit next actions. Modal imports retain their existing close behavior.
 The next live acceptance must prove duplicate insert preview rejection and an
 explicit match/update on the same20 synthetic records, with no extra employees.
+
+## Access-recovery state retention
+After the completion card was observed, it reverted to upload while the agent
+performed read-only database verification. The user confirmed no manual refresh
+or navigation. Product HR temporarily hides/restores children with React Activity;
+its effect replay could re-run the embedded importer initialization and clear the
+retained file/result. Initialization is now guarded once per embedded import type.
+An actual company/session unmount still creates fresh state; a type change resets
+normally. Explicit Import another file resets normally. Verify completion survives
+a background-check interval in an isolated Codex browser tab before View employees.
