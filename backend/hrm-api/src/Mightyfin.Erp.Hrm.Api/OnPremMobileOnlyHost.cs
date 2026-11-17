@@ -13,7 +13,8 @@ internal static class OnPremMobileOnlyHost
             throw new InvalidOperationException("Mobile-only hosting requires its explicit standalone profile and no operation flags.");
         // Keep the framework web host; scheduled business jobs belong to the existing ERP process.
         foreach(var descriptor in builder.Services.Where(x=>x.ServiceType==typeof(IHostedService)
-            && x.ImplementationType?.Namespace?.StartsWith("Mightyfin.",StringComparison.Ordinal)==true).ToArray())builder.Services.Remove(descriptor);
+            && (x.ImplementationType?.Name=="MonthlyLeaveAccrualWorker"
+                || x.ImplementationType?.Namespace?.StartsWith("Mightyfin.",StringComparison.Ordinal)==true)).ToArray())builder.Services.Remove(descriptor);
         var app=builder.Build();var options=app.Services.GetRequiredService<OnPremMobileOptions>();
         var contexts=app.Services.GetRequiredService<Func<string,HrmDbContext>>();
         foreach(var company in options.Companies) {

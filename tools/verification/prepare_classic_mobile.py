@@ -75,6 +75,7 @@ repo=replace(repo,'    public async Task<AttendanceRecord?> GetAttendanceAsync',
 write(infra+'Repositories.cs',repo)
 
 program=read(api+'Program.cs')
+program=replace(program,'builder.Services.AddHostedService<MonthlyLeaveAccrualWorker>();','if(!OnPremMobileOnlyHost.Enabled(builder.Configuration))builder.Services.AddHostedService<MonthlyLeaveAccrualWorker>();')
 rate='''builder.Services.AddRateLimiter(options => {
     options.RejectionStatusCode=429;
     options.AddPolicy("onprem-mobile-read",h=>RateLimitPartition.GetFixedWindowLimiter(OnPremMobileApi.RateKey(h),_=>new FixedWindowRateLimiterOptions{PermitLimit=120,Window=TimeSpan.FromMinutes(1),QueueLimit=0,AutoReplenishment=true}));
@@ -90,7 +91,6 @@ http_tests=replace(http_tests,',TimeZoneId="Africa/Lusaka"','')
 http_tests=replace(http_tests,'["ERP:OnPremMobile:PublicOrigin"]=Origin,','["ERP:OnPremMobile:PublicOrigin"]=Origin,["ERP:OnPremMobile:Companies:0:TimeZoneId"]="Africa/Lusaka",["ERP:OnPremMobile:Companies:1:TimeZoneId"]="Africa/Lusaka",')
 write(tests+'OnPremMobileHttpTests.cs',http_tests)
 modern_tests=shared_file(tests+'TimeServiceTests.cs')
-start=modern_tests.index('    [Fact]\n    public async Task MobilePunch_');end=modern_tests.index('    [Fact]',modern_tests.index('MobilePunch_ClosesAnOvernightShiftWithoutCreatingTheNextDay'))
 # Include all contiguous mobile attendance cases, stopping at the first existing unrelated test.
 import re
 blocks=re.findall(r'    \[Fact\]\n    public async Task MobilePunch_[\s\S]*?(?=    \[Fact\]|\Z)',modern_tests)
