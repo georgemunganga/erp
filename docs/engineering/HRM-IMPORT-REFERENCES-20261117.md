@@ -106,3 +106,8 @@ retained file/result. Initialization is now guarded once per embedded import typ
 An actual company/session unmount still creates fresh state; a type change resets
 normally. Explicit Import another file resets normally. Verify completion survives
 a background-check interval in an isolated Codex browser tab before View employees.
+
+## Initial schema loading
+Live reopen exposed a file selection before the server schema finished loading.
+Upload/drop/paste and template actions now wait for the authoritative schema;
+no file is mapped to an empty field list or false unavailable warning.

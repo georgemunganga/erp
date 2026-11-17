@@ -1002,12 +1002,13 @@ export function ImportDialog({ typeKey, onDone, demoSample, presentation = "dial
               <>
             <div
               className="border-2 border-dashed rounded-lg p-10 text-center cursor-pointer hover:border-primary/60 transition-colors"
-              onClick={() => inputRef.current?.click()}
+              aria-disabled={!schema}
+              onClick={() => { if (schema) inputRef.current?.click(); }}
               onDragOver={(e) => e.preventDefault()}
               onDrop={(e) => {
                 e.preventDefault();
                 const f = e.dataTransfer.files[0];
-                if (f) void handleFile(f);
+                if (f && schema) void handleFile(f);
               }}
             >
               <ArrowUpFromLine className="h-8 w-8 mx-auto text-muted-foreground" />
@@ -1024,6 +1025,7 @@ export function ImportDialog({ typeKey, onDone, demoSample, presentation = "dial
                 placeholder={"Employee No,First Name,Last Name,Email,Department\nEMP-001,Jane,Mwansa,jane@company.co.zm,Finance"}
                 onChange={(event) => handlePastedText(event.target.value)}
                 aria-label="Paste spreadsheet contents"
+                disabled={!schema}
               />
               {pasteError && <p className="text-xs text-destructive">{pasteError}</p>}
             </div>
@@ -1031,6 +1033,7 @@ export function ImportDialog({ typeKey, onDone, demoSample, presentation = "dial
               variant="ghost"
               size="sm"
               className="w-full justify-start gap-2"
+              disabled={!schema}
               onClick={async () => {
                 // Download a blank template (CSV) for the mapped type.
                 try {
@@ -1340,11 +1343,12 @@ export function ImportDialog({ typeKey, onDone, demoSample, presentation = "dial
         ref={inputRef}
         type="file"
         accept=".csv,.xlsx,.xls"
+        disabled={!schema}
         className="hidden"
         onChange={(e) => {
           const f = e.target.files?.[0];
           e.target.value = "";
-          if (f) void handleFile(f);
+          if (f && schema) void handleFile(f);
         }}
       />
       {embedded ? (
