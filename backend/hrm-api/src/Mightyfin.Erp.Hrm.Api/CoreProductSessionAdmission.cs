@@ -50,6 +50,12 @@ internal sealed class CoreProductSessionAdmission(Func<string,HrmDbContext> cont
             if(!Current(identity))return new(ModuleAccessStatus.Denied);
             if(license.Status!=CommercialLicenseStatus.Authorized || license.Lease is null)
                 return new(license.Status==CommercialLicenseStatus.Denied?ModuleAccessStatus.Denied:ModuleAccessStatus.Unavailable);
+            // Opening a workspace establishes the current owner's company-wide
+            // defaults through Core's normal audited grant command, before review.
+            var defaults=await new CoreOwnerModuleAccess(contexts,clock).EnsureAsync(person,
+                new(ProductCommercialLicense.Issuer,person.Subject,link),company,module,license.Lease,ct);
+            if(defaults is not (ModuleAccessStatus.Changed or ModuleAccessStatus.Unchanged or ModuleAccessStatus.Existing))
+                return new(defaults);
             var result=await new CoreModuleAccessReader(db,clock).ReadAsync(person,link,company,module,license.Lease,ct);
             if(result.Status!=ModuleAccessStatus.Authorized || result.Decision is not {} grant)return new(result.Status);
             // Validate the complete offered scope again; this preview issues no
