@@ -646,7 +646,7 @@ function FullAppShell({ children }: { children: ReactNode }) {
       // branch assignments can only switch inside those branches; operators
       // WITHOUT assignments (top-level HR) keep the full tree.
       assignedLocationIds: shellScope?.assignedLocationIds ?? [],
-      confined: Boolean(shellScope?.confined),
+      confined: shellScope ? Boolean(shellScope.confined) : undefined,
       // M49: first-time setup gate — pending orgs see the welcome overlay on
       // every HRM page until the wizard finishes. Confined branch HR are
       // excluded: they can never run the wizard (the backend refuses it).
