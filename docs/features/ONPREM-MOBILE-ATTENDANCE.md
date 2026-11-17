@@ -56,8 +56,14 @@ roll back; do not delete or rewrite employee/attendance history.
 3. Route only `/mobile/v1/*` through the existing HTTPS proxy to the new API, with
    the exact configured Host, a4KB body limit, no credential/query logging and no
    redirects to another authority. Keep legacy ERP locations unchanged. Limit
-   login/refresh by caller at the trusted ingress; the app also enforces a bounded
-   API-process limiter. Never trust arbitrary forwarded IP/scope headers.
+   login/refresh by caller at the trusted ingress; the API also enforces bounded
+   process limits. For a loopback proxy that overwrites X-Real-IP, explicitly set
+   `ERP__OnPremMobile__TrustedProxyAddress=127.0.0.1`; other connected addresses
+   cannot select their limiter partition through a forwarded header. Mobile
+   sign-in additionally has its own5-attempt/15-minute company/identifier budget,
+   including unknown identifiers. It never changes ERP account lockout counters.
+   Never trust arbitrary forwarded IP/scope headers. Multiple replicas require
+   coordinated ingress limits; process-local budgets are not a distributed limiter.
 4. Existing eligible local account needs employee role, active employment, a current
    company-owned location, explicit LocalUser.WorkerId and matching Worker.SubjectId
    equal to that principal's UUID. Both links are verified; absence is denied. An
@@ -77,7 +83,7 @@ roll back; do not delete or rewrite employee/attendance history.
 
 ## Pre-deployment checks
 
-35 focused HTTP/domain tests passed: standalone eligibility/search/sessions/punches,
+36 focused HTTP/domain tests passed: standalone eligibility/search/sessions/punches,
 cookie/company isolation, web-session row preservation, existing native admission,
 local role fallback and retry/timezone/overnight attendance rules. A Windows locale
 test exposed culture-dependent mobile result formatting; only the mobile DTO's

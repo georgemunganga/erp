@@ -54,12 +54,12 @@ builder.Services.AddRateLimiter(options =>
 {
     options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
     options.AddPolicy("onprem-mobile-read", http => RateLimitPartition.GetFixedWindowLimiter(
-        http.Connection.RemoteIpAddress?.ToString() ?? "unknown", _ => new FixedWindowRateLimiterOptions {
+        OnPremMobileApi.RateKey(http), _ => new FixedWindowRateLimiterOptions {
             PermitLimit=120, Window=TimeSpan.FromMinutes(1), QueueLimit=0, AutoReplenishment=true
         }));
     options.AddPolicy("onprem-mobile-login", http => RateLimitPartition.GetFixedWindowLimiter(
-        http.Connection.RemoteIpAddress?.ToString() ?? "unknown", _ => new FixedWindowRateLimiterOptions {
-            PermitLimit=10, Window=TimeSpan.FromMinutes(15), QueueLimit=0, AutoReplenishment=true
+        OnPremMobileApi.RateKey(http), _ => new FixedWindowRateLimiterOptions {
+            PermitLimit=60, Window=TimeSpan.FromMinutes(1), QueueLimit=0, AutoReplenishment=true
         }));
     options.AddPolicy("native-attendance", http => RateLimitPartition.GetFixedWindowLimiter(
         http.Connection.RemoteIpAddress?.ToString() ?? "unknown", _ => new FixedWindowRateLimiterOptions {

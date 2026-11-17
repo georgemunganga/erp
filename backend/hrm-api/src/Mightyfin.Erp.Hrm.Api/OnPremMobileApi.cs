@@ -2,6 +2,8 @@ using System.Data;
 using System.Security.Claims;
 using System.Text.Json;
 using System.Text.RegularExpressions;
+using System.Net;
+using System.Threading.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 using Mightyfin.Erp.Hrm.Application;
 using Mightyfin.Erp.Hrm.Application.Time;
@@ -12,7 +14,7 @@ using Mightyfin.Erp.Hrm.Infrastructure.Data;
 namespace Mightyfin.Erp.Hrm.Api;
 
 internal sealed record OnPremMobileCompany(Guid Id, string Tenant, bool Searchable);
-internal sealed record OnPremMobileOptions(string Origin, OnPremMobileCompany[] Companies)
+internal sealed record OnPremMobileOptions(string Origin, OnPremMobileCompany[] Companies, string? TrustedProxy = null)
 {
     internal static bool Enabled(IConfiguration c) => c.GetValue<bool>("ERP:OnPremMobile:Enabled");
     internal static OnPremMobileOptions Read(IConfiguration c)
@@ -27,8 +29,21 @@ internal sealed record OnPremMobileOptions(string Origin, OnPremMobileCompany[] 
         if (rows.Length is < 1 or > 20 || rows.Any(x => x.Id == Guid.Empty || string.IsNullOrWhiteSpace(x.Tenant) || x.Tenant.Length > 100)
             || rows.Select(x => x.Id).Distinct().Count() != rows.Length)
             throw new InvalidOperationException("On-prem mobile requires an explicit company/tenant allowlist.");
-        return new(origin, rows);
+        var proxy=c["ERP:OnPremMobile:TrustedProxyAddress"];
+        if(proxy is not null && !IPAddress.TryParse(proxy,out _))throw new InvalidOperationException("An exact trusted proxy IP is required.");
+        return new(origin, rows,proxy);
     }
+}
+
+/// <summary>Separate mobile-only budget; failed mobile logins cannot lock browser ERP accounts.</summary>
+internal sealed class OnPremMobileLoginBudget : IDisposable
+{
+    private readonly PartitionedRateLimiter<string> limiter=PartitionedRateLimiter.Create<string,string>(key=>
+        RateLimitPartition.GetFixedWindowLimiter(key,_=>new FixedWindowRateLimiterOptions {
+            PermitLimit=5,Window=TimeSpan.FromMinutes(15),QueueLimit=0,AutoReplenishment=true
+        }));
+    internal bool Admit(Guid company,string identifier){using var lease=limiter.AttemptAcquire(company.ToString("D")+":"+LocalSessionTokens.Hash(identifier));return lease.IsAcquired;}
+    public void Dispose()=>limiter.Dispose();
 }
 
 /// <summary>Standalone-only adapter. It never registers central identities or changes browser authentication.</summary>
@@ -45,9 +60,19 @@ internal static class OnPremMobileApi
     {
         if (!OnPremMobileOptions.Enabled(c)) return;
         services.AddSingleton(OnPremMobileOptions.Read(c));
+        services.AddSingleton<OnPremMobileLoginBudget>();
         services.AddSingleton<Func<string, HrmDbContext>>(_ => tenant => new HrmDbContext(
             new DbContextOptionsBuilder<HrmDbContext>().UseNpgsql(connection,
                 pg => pg.MigrationsHistoryTable("__hrm_migrations", "hrm")).Options, new Tenant(tenant)));
+    }
+    internal static string RateKey(HttpContext h)
+    {
+        var connected=h.Connection.RemoteIpAddress;
+        var proxy=h.RequestServices.GetService<OnPremMobileOptions>()?.TrustedProxy;
+        var value=h.Request.Headers["X-Real-IP"];
+        if(proxy is not null && connected is not null && IPAddress.Parse(proxy).MapToIPv6().Equals(connected.MapToIPv6())
+            && value.Count==1 && IPAddress.TryParse(value[0],out var caller))return caller.ToString();
+        return connected?.ToString()??"unknown";
     }
     internal static void Map(WebApplication app)
     {
@@ -161,6 +186,7 @@ internal static class OnPremMobileApi
             || r.Password is null || r.Password.Length is < 1 or > 256 || h.Request.Headers.ContainsKey("Authorization")) return Error(401, "invalid_credentials");
         await using var db = Contexts(h)(allowed.Tenant);
         var identifier = r.Identifier.Trim().ToUpperInvariant();
+        if(!h.RequestServices.GetRequiredService<OnPremMobileLoginBudget>().Admit(r.CompanyId,identifier))return Error(429,"mobile_login_limited");
         // An identifier looks up an already linked principal, never links matching contact details.
         var users = await db.LocalUsers.AsNoTracking().Where(x => x.CredentialMode == LocalCredentialModes.Local
             && x.NormalizedEmail == identifier && !x.IsArchived).Take(2).ToArrayAsync(h.RequestAborted);

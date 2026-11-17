@@ -136,9 +136,11 @@ public sealed class OnPremMobileHttpTests
     public async Task Wrong_mobile_password_cannot_lock_out_or_change_an_existing_ERP_account()
     {
         await using var f=await Fixture.Start();
-        for(var n=0;n<6;n++)Assert.Equal(HttpStatusCode.Unauthorized,(await f.Client.PostAsJsonAsync("/mobile/v1/auth/sign-in",new{companyId=f.A,identifier="qa-a@example.invalid",password="wrong-isolated-password"})).StatusCode);
+        for(var n=0;n<5;n++)Assert.Equal(HttpStatusCode.Unauthorized,(await f.Client.PostAsJsonAsync("/mobile/v1/auth/sign-in",new{companyId=f.A,identifier="qa-a@example.invalid",password="wrong-isolated-password"})).StatusCode);
+        Assert.Equal(HttpStatusCode.TooManyRequests,(await f.Client.PostAsJsonAsync("/mobile/v1/auth/sign-in",new{companyId=f.A,identifier="qa-a@example.invalid",password=Password})).StatusCode);
         await using var db=f.Db("tenant-a");var user=await db.LocalUsers.SingleAsync();Assert.Equal(0,user.FailedLoginCount);Assert.Null(user.LockedUntil);
-        Assert.True(LocalPasswordHash.Verify(Password,user.PasswordHash));await f.Login();
+        Assert.True(LocalPasswordHash.Verify(Password,user.PasswordHash));
+        Assert.Equal(HttpStatusCode.OK,(await f.Client.PostAsJsonAsync("/api/hrm/auth/login",new{email="qa-a@example.invalid",password=Password})).StatusCode);
     }
     [Theory]
     [InlineData("product")][InlineData("hybrid")][InlineData("oidc")]
@@ -146,6 +148,16 @@ public sealed class OnPremMobileHttpTests
     {
         var c=new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string,string?>{["ERP:AuthMode"]=mode,["ERP:OnPremMobile:PublicOrigin"]=Origin}).Build();
         Assert.Throws<InvalidOperationException>(()=>OnPremMobileOptions.Read(c));
+    }
+    [Fact]
+    public void Spoofed_forwarded_IP_does_not_change_rate_limit_authority()
+    {
+        var services=new ServiceCollection().AddSingleton(new OnPremMobileOptions(Origin,[],"127.0.0.1")).BuildServiceProvider();
+        var h=new Microsoft.AspNetCore.Http.DefaultHttpContext{RequestServices=services};
+        h.Connection.RemoteIpAddress=IPAddress.Parse("192.0.2.10");h.Request.Headers["X-Real-IP"]="192.0.2.99";
+        Assert.Equal("192.0.2.10",OnPremMobileApi.RateKey(h));
+        h.Connection.RemoteIpAddress=IPAddress.Loopback;Assert.Equal("192.0.2.99",OnPremMobileApi.RateKey(h));
+        h.Request.Headers["X-Real-IP"]="not-an-ip";Assert.Equal("127.0.0.1",OnPremMobileApi.RateKey(h));
     }
     public class UnusedWorkflow : DispatchProxy { protected override object? Invoke(MethodInfo? targetMethod,object?[]? args)=>throw new InvalidOperationException("Attendance must not invoke workflow commands."); }
     private sealed record Tenant(string Value):ITenantAccessor {public string GetTenantId()=>Value;}
@@ -176,6 +188,7 @@ public sealed class OnPremMobileHttpTests
             });
             b.Services.AddHttpContextAccessor();b.Services.AddSingleton<TimeProvider>(f.Clock);
             b.Services.AddSingleton<Func<string,HrmDbContext>>(f.Db);b.Services.AddSingleton(OnPremMobileOptions.Read(b.Configuration));
+            b.Services.AddSingleton<OnPremMobileLoginBudget>();
             b.Services.AddScoped<ITenantAccessor,PrincipalTenantAccessor>();b.Services.AddScoped(sp=>new HrmDbContext(f.DbOptions,sp.GetRequiredService<ITenantAccessor>()));
             b.Services.AddAuthentication(LocalAuthenticationHandler.Scheme).AddScheme<LocalAuthOptions,LocalAuthenticationHandler>(LocalAuthenticationHandler.Scheme,_=>{});b.Services.AddAuthorization();
             b.Services.AddSingleton(DispatchProxy.Create<IWorkflowService,UnusedWorkflow>());
