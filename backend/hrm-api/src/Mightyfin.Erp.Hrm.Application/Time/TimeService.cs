@@ -1081,7 +1081,7 @@ public sealed class TimeServiceImpl(
     }
 
     private static PunchResultDto MobilePunch(AttendanceRecord r) => new(r.Id, r.WorkerId, r.WorkDate.ToString("yyyy-MM-dd"),
-        r.ClockIn?.ToString() ?? "", r.ClockOut?.ToString() ?? "", r.Source, r.DerivedStatus, r.TotalHours,
+        r.ClockIn?.ToString("HH:mm",System.Globalization.CultureInfo.InvariantCulture) ?? "", r.ClockOut?.ToString("HH:mm",System.Globalization.CultureInfo.InvariantCulture) ?? "", r.Source, r.DerivedStatus, r.TotalHours,
         r.ClockIn is null ? "out" : r.ClockOut is null ? "in" : "done");
 
     private async Task<PunchResultDto> GetOrCreatePunchAsync(Guid workerId, DateOnly date, bool? clockIn, CancellationToken ct)

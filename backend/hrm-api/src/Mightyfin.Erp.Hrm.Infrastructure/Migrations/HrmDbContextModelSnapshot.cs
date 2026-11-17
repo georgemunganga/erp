@@ -5332,6 +5332,100 @@ namespace Mightyfin.Erp.Hrm.Infrastructure.Migrations
                     b.ToTable("local_credential_links", "hrm");
                 });
 
+            modelBuilder.Entity("Mightyfin.Erp.Hrm.Domain.Entities.LocalMobileSession", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<DateTimeOffset>("AccessExpiresAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("access_expires_at");
+
+                    b.Property<string>("AccessHash")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("access_hash");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("CreatedBy")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("created_by");
+
+                    b.Property<DateTimeOffset>("ExpiresAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("expires_at");
+
+                    b.Property<bool>("IsArchived")
+                        .HasColumnType("boolean")
+                        .HasColumnName("is_archived");
+
+                    b.Property<Guid>("LegalEntityId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("legal_entity_id");
+
+                    b.Property<Guid>("LocalUserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("local_user_id");
+
+                    b.Property<string>("Origin")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("origin");
+
+                    b.Property<string>("PasswordVersion")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("password_version");
+
+                    b.Property<string>("RefreshHash")
+                        .IsConcurrencyToken()
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("refresh_hash");
+
+                    b.Property<DateTimeOffset?>("RevokedAt")
+                        .IsConcurrencyToken()
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("revoked_at");
+
+                    b.Property<string>("TenantId")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("tenant_id");
+
+                    b.Property<DateTimeOffset?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasColumnType("text")
+                        .HasColumnName("updated_by");
+
+                    b.Property<Guid>("WorkerId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("worker_id");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AccessHash")
+                        .IsUnique();
+
+                    b.HasIndex("RefreshHash")
+                        .IsUnique();
+
+                    b.HasIndex("TenantId", "LegalEntityId");
+
+                    b.HasIndex("TenantId", "LocalUserId", "ExpiresAt");
+
+                    b.ToTable("local_mobile_sessions", "hrm");
+                });
+
             modelBuilder.Entity("Mightyfin.Erp.Hrm.Domain.Entities.LocalSession", b =>
                 {
                     b.Property<Guid>("Id")
@@ -6097,11 +6191,6 @@ namespace Mightyfin.Erp.Hrm.Infrastructure.Migrations
                         .HasColumnType("integer")
                         .HasColumnName("calendar_day_of_month");
 
-                    b.Property<string>("PaydayRule")
-                        .IsRequired()
-                        .HasColumnType("text")
-                        .HasColumnName("payday_rule");
-
                     b.Property<string>("Code")
                         .IsRequired()
                         .HasColumnType("text")
@@ -6142,6 +6231,11 @@ namespace Mightyfin.Erp.Hrm.Infrastructure.Migrations
                         .IsRequired()
                         .HasColumnType("text")
                         .HasColumnName("name");
+
+                    b.Property<string>("PaydayRule")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("payday_rule");
 
                     b.Property<string>("TenantId")
                         .IsRequired()
@@ -8596,15 +8690,15 @@ namespace Mightyfin.Erp.Hrm.Infrastructure.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("TenantId", "EmployeeNo")
-                        .IsUnique()
-                        .HasDatabaseName("ix_workers_tenant_id_employee_no");
-
                     b.HasIndex("LocationId");
 
                     b.HasIndex("ManagerId");
 
                     b.HasIndex("OrgUnitId");
+
+                    b.HasIndex("TenantId", "EmployeeNo")
+                        .IsUnique()
+                        .HasDatabaseName("ix_workers_tenant_id_employee_no");
 
                     b.HasIndex("TenantId", "SubjectId")
                         .IsUnique()
@@ -9849,6 +9943,23 @@ namespace Mightyfin.Erp.Hrm.Infrastructure.Migrations
                         .IsRequired();
 
                     b.Navigation("Worker");
+                });
+
+            modelBuilder.Entity("Mightyfin.Erp.Hrm.Domain.Entities.LocalMobileSession", b =>
+                {
+                    b.HasOne("Mightyfin.Erp.Hrm.Domain.Entities.LegalEntity", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId", "LegalEntityId")
+                        .HasPrincipalKey("TenantId", "Id")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Mightyfin.Erp.Hrm.Domain.Entities.LocalUser", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId", "LocalUserId")
+                        .HasPrincipalKey("TenantId", "Id")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
                 });
 
             modelBuilder.Entity("Mightyfin.Erp.Hrm.Domain.Entities.Movement", b =>

@@ -53,6 +53,14 @@ builder.Services.AddHealthChecks();
 builder.Services.AddRateLimiter(options =>
 {
     options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+    options.AddPolicy("onprem-mobile-read", http => RateLimitPartition.GetFixedWindowLimiter(
+        http.Connection.RemoteIpAddress?.ToString() ?? "unknown", _ => new FixedWindowRateLimiterOptions {
+            PermitLimit=120, Window=TimeSpan.FromMinutes(1), QueueLimit=0, AutoReplenishment=true
+        }));
+    options.AddPolicy("onprem-mobile-login", http => RateLimitPartition.GetFixedWindowLimiter(
+        http.Connection.RemoteIpAddress?.ToString() ?? "unknown", _ => new FixedWindowRateLimiterOptions {
+            PermitLimit=10, Window=TimeSpan.FromMinutes(15), QueueLimit=0, AutoReplenishment=true
+        }));
     options.AddPolicy("native-attendance", http => RateLimitPartition.GetFixedWindowLimiter(
         http.Connection.RemoteIpAddress?.ToString() ?? "unknown", _ => new FixedWindowRateLimiterOptions {
             PermitLimit=300, Window=TimeSpan.FromMinutes(1), QueueLimit=0, AutoReplenishment=true
@@ -266,6 +274,7 @@ else
 builder.Services.AddProductIdentity(builder.Configuration);
 builder.Services.AddProductCommercialLicense(builder.Configuration);
 NativeAttendanceApi.Register(builder.Services,builder.Configuration,connStr);
+OnPremMobileApi.Register(builder.Services,builder.Configuration,connStr);
 CoreOperationalCompanies.Register(builder.Services,builder.Configuration);
 ProductModuleAccessFlow.Register(builder.Services,builder.Configuration,connStr);
 ProductErpSessionFlow.Register(builder.Services,builder.Configuration,connStr);
@@ -397,6 +406,7 @@ app.MapProductIdentity();
 app.MapProductCompanyTeam();
 app.MapProductSetup();
 NativeAttendanceApi.Map(app);
+OnPremMobileApi.Map(app);
 
 // Global error handler: DomainException -> structured ApiError
 app.Use(async (ctx, next) =>
@@ -422,6 +432,7 @@ app.Use(async (ctx, next) =>
 });
 
 app.UseRouting();
+OnPremMobileApi.UseBoundary(app);
 app.UseRateLimiter();
 app.UseProductIdentityOriginGuard();
 app.UseProductRequestBoundary();

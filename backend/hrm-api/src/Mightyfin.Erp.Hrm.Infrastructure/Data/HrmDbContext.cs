@@ -137,6 +137,7 @@ public sealed partial class HrmDbContext(DbContextOptions<HrmDbContext> options,
     public DbSet<CoreCompanyTeamCommandReceipt> CompanyTeamCommandReceipts => Set<CoreCompanyTeamCommandReceipt>();
     public DbSet<LocalCredentialLink> LocalCredentialLinks => Set<LocalCredentialLink>();
     public DbSet<LocalSession> LocalSessions => Set<LocalSession>();
+    public DbSet<LocalMobileSession> LocalMobileSessions => Set<LocalMobileSession>();
     public DbSet<HrUserBranchAssignment> UserBranchAssignments => Set<HrUserBranchAssignment>();
     public DbSet<RetentionRule> RetentionRules => Set<RetentionRule>();
 
@@ -431,6 +432,18 @@ public sealed partial class HrmDbContext(DbContextOptions<HrmDbContext> options,
         {
             e.HasIndex(x => x.TokenHash).IsUnique();
             e.HasIndex(x => new { x.TenantId, x.LocalUserId, x.ExpiresAt });
+        });
+        ConfigureEntity<LocalMobileSession>(modelBuilder, "local_mobile_sessions", e =>
+        {
+            e.HasIndex(x => x.AccessHash).IsUnique();
+            e.HasIndex(x => x.RefreshHash).IsUnique();
+            e.Property(x => x.RefreshHash).IsConcurrencyToken();
+            e.Property(x => x.RevokedAt).IsConcurrencyToken();
+            e.HasIndex(x => new { x.TenantId, x.LocalUserId, x.ExpiresAt });
+            e.HasOne<LocalUser>().WithMany().HasForeignKey(x => new { x.TenantId, x.LocalUserId })
+                .HasPrincipalKey(x => new { x.TenantId, x.Id }).OnDelete(DeleteBehavior.Restrict);
+            e.HasOne<LegalEntity>().WithMany().HasForeignKey(x => new { x.TenantId, x.LegalEntityId })
+                .HasPrincipalKey(x => new { x.TenantId, x.Id }).OnDelete(DeleteBehavior.Restrict);
         });
         ConfigureEntity<LocalCredentialLink>(modelBuilder, "local_credential_links", e =>
         {
