@@ -1,3 +1,22 @@
+## 2026-11-17 — Levant owner company-wide HR access correction
+
+User reported gbanda could not create missing import branches and explicitly asked
+to correct his administrator access. Verified central user2 is the verified
+gbanda@greenwebb.tech identity and its active federated link points to Levant's sole
+active owner membership01a1d080-fe3d-73e2-84a5-2db0ca815335. Existing HR revision1
+was hr_admin/hrm-access/hrm-admin with selected-location scope, explaining the
+company-wide creation warning. An authorized operator transaction appended HR
+revision2 **852e0a0c-4211-4d3f-bc6b-3b02179ebc0c**, scope company (all current/future
+Levant locations), preserving roles/actions and immutable prior evidence. Matching
+audit and outbox event committed atomically. Actor is explicitly operator:codex,
+not an impersonated user. No other company/module grant, subscription, employee,
+browser credential or business record changed. First SQL attempt rolled back in
+full because an outbox JSON type needed correction; second operation committed
+once. Retained before/result evidence: /opt/kuubu-qualifications/gbanda-company-hr-20261117-02
+and local inspection/qualifications/gbanda-company-hr-20261117-02. SQL readback
+confirmed new company scope; the user must reopen Levant from Kuubu to obtain
+new scope. No gbanda browser session or branch creation was exercised by agent.
+
 ## 2026-11-17 — Vcron Android live attendance acceptance COMPLETED
 
 Supersedes prior George/native acceptance holds, within the scope below.
