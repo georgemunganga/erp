@@ -1,0 +1,86 @@
+# Employee import reference workflow
+
+## 1. Outcome
+Reviewed missing-branch creation in the existing employee import, with safe CSV header mapping and live trial acceptance.
+
+## 2. Tier
+Tier3 HR/tenant boundaries. No server authority or schema change.
+
+## 3. Ownership
+Core owns company/work locations/access; HR owns employee configuration. Reuse existing guarded location create API.
+
+## 4. Entry
+Kuubu company HR workspace -> Employees -> Import -> Preview -> Check missing data.
+
+## 5. Actors
+Authorized HR administrator; branch creation in SaaS requires explicitly selected company-wide HR access.
+
+## 6. Permission boundary
+No automatic grant expansion. Backend Core company/commit guards remain unchanged. Restricted branch grants see clear review-access guidance.
+
+## 7. Company selection
+Verified product company or server shell entity; ambiguous multi-company contexts stop. No first-row company inference.
+
+## 8. Branch discovery
+Trim/case-insensitive active name comparison within the selected company. Unknown IDs remain errors rather than proposed names.
+
+## 9. Creation review
+Show company and missing branches/departments/grades before Create and recheck.
+
+## 10. Execution
+Fresh read before writes; reject changed company/new unreviewed values. Sequential shared-service creates, followed by server preview.
+
+## 11. Retries
+Created values retained after partial success; explicit recheck recomputes remaining names. No automatic POST retry.
+
+## 12. Read failures
+Configuration/network/authorization failures block planning rather than becoming empty existing-data lists.
+
+## 13. Grades
+Existing employment positions are preserved. Malformed saved configuration fails closed.
+
+## 14. Header mapping
+Normalized exact keys/labels and explicit employee aliases. Unknown/ambiguous/duplicate source columns remain unmapped.
+
+## 15. CSV sample
+User CSV has32 headers/20 rows; branches Lusaka HQ/Kitwe/Ndola and employment labels Permanent/Contract/Part-time. Read references only; do not expose personal rows.
+
+## 16. Ignored columns
+Explicit list at mapping/preview. Only mapped supported fields are saved; legal entity never establishes company authority.
+
+## 17. Employment semantics
+Known labels map to canonical worker categories. Ambiguous Contract/Part-time require explicit category correction; no inferred contractor classification.
+
+## 18. Data safety
+Use clearly marked synthetic employees for trial persistence. No copied bank/government/person data or automatic login creation.
+
+## 19. UI states
+Loading/checking, missing-data review, no missing refs, access denied, partial creation, refreshed preview and import outcomes.
+
+## 20. Persistence
+Existing Core WorkLocations/OrgUnits, HR employment setup and Workers; no new tables.
+
+## 21. Audit
+Existing shared configuration services and product request/commit boundaries retained; evidence records synthetic run IDs and outcomes.
+
+## 22. Concurrency
+Re-read immediately before mutation. Shared unique location codes prevent same deterministic code duplication; error prompts fresh review.
+
+## 23. Tests
+Mapping aliases/unsupported headings, branch case/company filtering, unknown IDs, existing setup checks, TypeScript/build; live Codex browser full workflow.
+
+## 24. Release
+Fresh immutable web build/publication and proxy clone; retain API image and all other routes/mounts.
+
+## 25. Rollback
+Retain previous web/proxy. No database rollback; reviewed setup/test records are retained.
+
+## 26. Acceptance
+Test A owner access reviewed before any grant change; mixed case/errors/missing references/import persisted verification required.
+
+## 27. Limitations
+Do not claim arbitrary fields supported. Branch creation requires company-wide company-specific scope; field aliases never infer backend contract meaning.
+
+## 28. Evidence
+Record final commits/containers/ports/backup script and browser screenshots in MANUS_HANDOFF after acceptance.
+

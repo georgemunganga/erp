@@ -1,3 +1,6 @@
+import { autoMapImportColumns, missingImportBranches } from "./worker-import-references";
+import { FULL_PRODUCT_HRM, productHrmImportCompany } from "@/modules/core/product-hrm-session";
+import { ApiError } from "@/platform/api-client";
 import { cleanWorkerImportValue as cleanImportValue } from "./worker-import-values";
 import { Textarea } from "@/components/ui/textarea";
 import { RecordTable } from "@/platform/components/RecordTable";
@@ -66,6 +69,8 @@ export interface ImportDialogProps {
 
 interface FileColumn { name: string; sample: string }
 interface MissingReferencePlan {
+  branches: string[];
+  canCreateBranches: boolean;
   departments: string[];
   grades: string[];
   legalEntityId: string;
@@ -140,38 +145,8 @@ function splitHeadersAndRows(rows: string[][]): { headers: string[]; rows: strin
   return { headers: Array.from({ length: width }, (_, index) => `Column ${index + 1}`), rows };
 }
 
-/* ---------------------------------------------------------------- fuzzy map */
-/** Loose label→field matching so most Excel headers map without clicks. */
-function autoMap(fileColumns: string[], fields: ImportSchemaField[]): Record<string, string> {
-  const map: Record<string, string> = {};
-  const claimedFields = new Set<string>();
-  for (const col of fileColumns) {
-    const lc = col.toLowerCase();
-    const score = (key: string, label: string) => {
-      const lk = key.toLowerCase();
-      const ll = label.toLowerCase();
-      if (lk === lc || ll === lc) return 3;
-      if (lk.includes(lc) || lc.includes(lk) || ll.includes(lc) || lc.includes(ll)) return 2;
-      const abbr = lk.replace(/[^a-z0-9]/g, "");
-      const lab = ll.replace(/[^a-z0-9]/g, "");
-      if (abbr && (lab.includes(abbr) || abbr.includes(lab))) return 1;
-      return 0;
-    };
-    let bestKey = "";
-    let bestScore = 0;
-    for (const f of fields) {
-      if (claimedFields.has(f.key)) continue;
-      const s = score(f.key, f.label);
-      if (s > bestScore) { bestScore = s; bestKey = f.key; }
-    }
-    if (bestScore > 0) {
-      map[col] = bestKey;
-      claimedFields.add(bestKey);
-    }
-    else map[col] = "__skip__";
-  }
-  return map;
-}
+/** Worker aliases match common spreadsheet headings without guessing unrelated fields. */
+const autoMap = autoMapImportColumns;
 
 const SKIP = "__skip__";
 const USE_REAL_API = import.meta.env.VITE_USE_REAL_API === "true";
@@ -237,7 +212,15 @@ function parseSetupEmployment(value: unknown) {
       positions: parsed.positions ?? [],
     };
   } catch {
-    return { grades: [] as Array<{ name: string }>, positions: [] as unknown[] };
+    throw new Error("Employment setup could not be read safely. Try again before creating grades.");
+  }
+}
+
+async function readEmploymentForImport() {
+  try { return await realApi.setupStepData("employment"); }
+  catch (error) {
+    if (error instanceof ApiError && error.code === "setup-step-not-complete") return null;
+    throw error;
   }
 }
 
@@ -595,41 +578,31 @@ export function ImportDialog({ typeKey, onDone, demoSample, presentation = "dial
   async function buildMissingReferencePlan() {
     if (typeKey !== "workers") return null;
     const rows = (preview?.rows as Array<Record<string, unknown>> | undefined) ?? [];
-    const [orgUnitsRaw, legalEntitiesRaw, employmentRaw] = await Promise.all([
-      realApi.orgUnits().catch(() => []),
-      realApi.legalEntities().catch(() => []),
-      realApi.setupStepData("employment").catch(() => null),
+    const [orgUnitsRaw, legalEntitiesRaw, employmentRaw, locationsRaw, shell] = await Promise.all([
+      realApi.orgUnits(), realApi.legalEntities(), readEmploymentForImport(), realApi.locations(), realApi.shell(),
     ]);
-
-    const orgUnits = readItems(orgUnitsRaw);
     const legalEntities = readItems(legalEntitiesRaw);
-    const existingDepartments = new Set(
-      orgUnits
-        .filter((unit) => !readString(unit, "unitType") || readString(unit, "unitType").toLowerCase() === "department")
-        .map((unit) => readString(unit, "name").toLowerCase())
-        .filter(Boolean),
-    );
-    const departmentsFromErrors = extractMissingDepartmentNames(rows);
-    const departmentsFromRows = uniqueClean(mappedRows.map((row) => row.orgUnitName))
-      .filter((name) => !existingDepartments.has(name.toLowerCase()));
-    const departments = uniqueClean([...departmentsFromErrors, ...departmentsFromRows]);
-
+    const productCompany = FULL_PRODUCT_HRM ? productHrmImportCompany() : null;
+    if (FULL_PRODUCT_HRM && !productCompany) throw new Error("Reconnect your selected company before checking missing data.");
+    const legalEntityId = productCompany?.companyId || shell.entityId || (legalEntities.length === 1 ? readString(legalEntities[0], "id") : "");
+    const entity = legalEntities.find(row => readString(row, "id") === legalEntityId);
+    if (!entity) throw new Error("Choose the company for this import before creating reference data.");
+    const legalEntityName = readString(entity, "registeredName") || readString(entity, "tradingName");
+    const orgUnits = readItems(orgUnitsRaw);
+    const existingDepartments = new Set(orgUnits
+      .filter(unit => !readString(unit, "unitType") || readString(unit, "unitType").toLowerCase() === "department")
+      .filter(unit => !readString(unit, "legalEntityId") || readString(unit, "legalEntityId") === legalEntityId)
+      .map(unit => readString(unit, "name").trim().toLowerCase()).filter(Boolean));
+    const departments = uniqueClean([...extractMissingDepartmentNames(rows), ...mappedRows.map(row => row.orgUnitName)])
+      .filter(name => !existingDepartments.has(name.toLowerCase()));
     const employment = parseSetupEmployment(employmentRaw);
-    const existingGrades = new Set(employment.grades.map((grade) => grade.name.toLowerCase()));
-    const grades = uniqueClean(mappedRows.map((row) => row.grade))
-      .filter((grade) => !existingGrades.has(grade.toLowerCase()));
-
-    const legalEntityId =
-      readString(orgUnits[0], "legalEntityId") ||
-      readString(legalEntities[0], "id");
-    const legalEntityName =
-      readString(orgUnits[0], "legalEntityName") ||
-      readString(legalEntities[0], "registeredName") ||
-      readString(legalEntities[0], "tradingName") ||
-      "default entity";
-
-    if (!departments.length && !grades.length) return null;
-    return { departments, grades, legalEntityId, legalEntityName };
+    const existingGrades = new Set(employment.grades.map(grade => grade.name.toLowerCase()));
+    const grades = uniqueClean(mappedRows.map(row => row.grade)).filter(grade => !existingGrades.has(grade.toLowerCase()));
+    const locations = readItems(locationsRaw).map(row => ({id:readString(row,"id"),name:readString(row,"name"),legalEntityId:readString(row,"legalEntityId"),isArchived:(row as {isArchived?:boolean}).isArchived}));
+    const branches = missingImportBranches(mappedRows, locations, legalEntityId);
+    const canCreateBranches = !FULL_PRODUCT_HRM || productCompany?.allCompanyLocations === true;
+    if (!departments.length && !grades.length && !branches.length) return null;
+    return { departments, grades, branches, canCreateBranches, legalEntityId, legalEntityName };
   }
 
   async function openMissingReferencesDialog() {
@@ -637,7 +610,7 @@ export function ImportDialog({ typeKey, onDone, demoSample, presentation = "dial
     try {
       const plan = await buildMissingReferencePlan();
       if (!plan) {
-        toast.info("No missing departments or grades were found in this preview.");
+        toast.info("No missing branches, departments or grades were found. Other validation errors must be corrected in the rows.");
         return;
       }
       setMissingReferences(plan);
@@ -653,41 +626,33 @@ export function ImportDialog({ typeKey, onDone, demoSample, presentation = "dial
     if (!missingReferences) return;
     setReferencesBusy(true);
     try {
-      if (missingReferences.departments.length && !missingReferences.legalEntityId) {
-        throw new Error("Create a legal entity first, then create missing departments from this import.");
+      // Re-read under the current company before any write, including retries after partial success.
+      const fresh = await buildMissingReferencePlan();
+      if (!fresh) { setReferencesOpen(false); await runPreview(); return; }
+      if (fresh.legalEntityId !== missingReferences.legalEntityId) throw new Error("The selected company changed. Check missing data again.");
+      const added = fresh.branches.some(name => !missingReferences.branches.some(old => old.toLowerCase() === name.toLowerCase()))
+        || fresh.departments.some(name => !missingReferences.departments.some(old => old.toLowerCase() === name.toLowerCase()))
+        || fresh.grades.some(name => !missingReferences.grades.some(old => old.toLowerCase() === name.toLowerCase()));
+      if (added) throw new Error("The import values changed. Check missing data and review the new values first.");
+      if (fresh.branches.length && !fresh.canCreateBranches) throw new Error("Creating branches requires company-wide HR administrator access. Review module permissions in Kuubu first.");
+      for (const branch of fresh.branches) await realApi.createLocation({
+        code: `branch-${slugifyCode(branch)}`.slice(0,40), name:branch, legalEntityId:fresh.legalEntityId, type:"branch",
+      });
+      for (const department of fresh.departments) await realApi.createOrgUnit({
+        code:slugifyCode(department), name:department, legalEntityId:fresh.legalEntityId,
+        unitType:"department", effectiveFrom:new Date().toISOString().slice(0,10),
+      });
+      if (fresh.grades.length) {
+        const employment = parseSetupEmployment(await readEmploymentForImport());
+        const existing = new Set(employment.grades.map(grade => grade.name.toLowerCase()));
+        const grades = [...employment.grades,...fresh.grades.filter(grade=>!existing.has(grade.toLowerCase())).map(name=>({name}))];
+        await realApi.completeSetupStep("employment",JSON.stringify({grades,positions:employment.positions}));
       }
-      for (const department of missingReferences.departments) {
-        await realApi.createOrgUnit({
-          code: slugifyCode(department),
-          name: department,
-          legalEntityId: missingReferences.legalEntityId,
-          unitType: "department",
-          effectiveFrom: new Date().toISOString().slice(0, 10),
-        });
-      }
-
-      if (missingReferences.grades.length) {
-        const employmentRaw = await realApi.setupStepData("employment").catch(() => null);
-        const employment = parseSetupEmployment(employmentRaw);
-        const existing = new Set(employment.grades.map((grade) => grade.name.toLowerCase()));
-        const grades = [
-          ...employment.grades,
-          ...missingReferences.grades
-            .filter((grade) => !existing.has(grade.toLowerCase()))
-            .map((name) => ({ name })),
-        ];
-        await realApi.completeSetupStep("employment", JSON.stringify({ grades, positions: employment.positions }));
-      }
-
       toast.success("Missing reference data created. Preview is being refreshed.");
-      setReferencesOpen(false);
-      setMissingReferences(null);
-      await runPreview();
+      setReferencesOpen(false); setMissingReferences(null); await runPreview();
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Missing reference data was not created.");
-    } finally {
-      setReferencesBusy(false);
-    }
+      toast.error(`${error instanceof Error ? error.message : "Creation stopped."} Check missing data again before retrying; values already created are kept.`);
+    } finally { setReferencesBusy(false); }
   }
 
   async function runPreview() {
@@ -922,6 +887,9 @@ export function ImportDialog({ typeKey, onDone, demoSample, presentation = "dial
 
       <div className={cn("min-w-0", embedded ? "w-full overflow-visible" : "flex-1 min-h-0 overflow-y-auto pr-2")}>
         {modeTabs ? <div className="p-1 pb-3">{modeTabs}</div> : null}
+        {fileColumns.some(col => !mapping[col.name] || mapping[col.name] === SKIP) && step !== "upload" ? <div role="status" className="mx-1 mb-3 rounded-lg border p-3 text-sm">
+          <p className="font-medium">Columns not imported</p><p className="mt-1 text-xs text-muted-foreground">{fileColumns.filter(col => !mapping[col.name] || mapping[col.name] === SKIP).map(col => col.name).join(", ")}. Only mapped fields will be saved.</p>
+        </div> : null}
         {typeKey === "workers" ? <p className="mx-1 mb-3 text-sm text-muted-foreground">Employment type: Permanent is imported as Employee; Contractor as Contingent. Intern and Volunteer are also supported. Contract terms are configured separately in the employee record. Review the mapped values before confirming.</p> : null}
         {clientValidationErrors.length > 0 && step !== "preview" ? (
           <div role="alert" className="mx-1 mb-3 rounded-lg border border-destructive/35 bg-destructive/5 p-3 text-sm text-destructive">
@@ -1224,7 +1192,7 @@ export function ImportDialog({ typeKey, onDone, demoSample, presentation = "dial
                 <div>
                   <p className="text-sm font-medium text-warning-foreground">Check reference data</p>
                   <p className="text-xs text-muted-foreground">
-                    If the file contains new departments or grade names, create them here and preview again.
+                    If the file contains new branches, departments or grades, review and create them here, then preview again.
                   </p>
                 </div>
                 <Button
@@ -1370,6 +1338,12 @@ export function ImportDialog({ typeKey, onDone, demoSample, presentation = "dial
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
+            {missingReferences?.branches.length ? <div className="rounded-lg border p-3">
+              <p className="text-sm font-medium">Branches</p>
+              <p className="mt-1 text-xs text-muted-foreground">Create under {missingReferences.legalEntityName}. Team permissions are managed separately in Kuubu.</p>
+              <div className="mt-3 flex flex-wrap gap-1.5">{missingReferences.branches.map(branch=><Badge key={branch} variant="secondary">{branch}</Badge>)}</div>
+              {!missingReferences.canCreateBranches ? <p role="alert" className="mt-3 text-sm text-destructive">Company-wide HR administrator access is required to create branches. Review module permissions in Kuubu.</p> : null}
+            </div> : null}
             {missingReferences?.departments.length ? (
               <div className="rounded-lg border p-3">
                 <div className="flex items-start justify-between gap-3">
@@ -1418,7 +1392,7 @@ export function ImportDialog({ typeKey, onDone, demoSample, presentation = "dial
               <Button
                 type="button"
                 onClick={() => void createMissingReferences()}
-                disabled={referencesBusy || !missingReferences || (!missingReferences.departments.length && !missingReferences.grades.length)}
+                disabled={referencesBusy || !missingReferences || (!missingReferences.departments.length && !missingReferences.grades.length && !missingReferences.branches.length) || Boolean(missingReferences?.branches.length && !missingReferences.canCreateBranches)}
               >
                 {referencesBusy ? <Loader2 className="size-4 animate-spin" aria-hidden /> : <Check className="size-4" aria-hidden />}
                 Create and recheck

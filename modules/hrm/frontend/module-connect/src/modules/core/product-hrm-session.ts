@@ -17,13 +17,18 @@ export const FULL_PRODUCT_HRM = import.meta.env.VITE_ERP_PRODUCT_MODE === "true"
   && import.meta.env.VITE_ERP_FULL_HRM === "true";
 type HrmSession = {
   marker: string; csrf: string; principal: string; roles: string[];
-  choices: ReturnType<typeof parseCoreWorkspaceChoices>; fullWorkspace: boolean;
+  choices: ReturnType<typeof parseCoreWorkspaceChoices>; fullWorkspace: boolean; allCompanyLocations: boolean;
 };
 // No eager initializer: a late-loaded API chunk must not reset an already
 // verified session during the bundler's cyclic-module initialization.
 let current: HrmSession | null | undefined;
 export const PRODUCT_HRM_RECHECK_EVENT = "kuubu-hrm-session-recheck";
 export function clearProductHrmSession() { current = null; }
+/** UI capability only; every create still passes the server's Core/company guards. */
+export function productHrmImportCompany() {
+  return current ? {companyId:current.choices.companies[0]?.id ?? "", allCompanyLocations:current.allCompanyLocations} : null;
+}
+
 export async function logoutProductHrmSession() {
   const csrf = current?.csrf;
   clearProductHrmSession();
@@ -65,7 +70,7 @@ export async function loadProductHrmSession(signal: AbortSignal, expected?: stri
     || !operational.csrf)
     throw new Error("This HR workflow requires verified HR administrator and company location access. Review your permissions in Kuubu.");
   const result = { choices, principal: data.principalId as string, roles: data.moduleRoles as string[],
-    marker: data.sessionContext as string, csrf: operational.csrf, fullWorkspace: data.hrmWorkspace as boolean };
+    marker: data.sessionContext as string, csrf: operational.csrf, fullWorkspace: data.hrmWorkspace as boolean, allCompanyLocations: data.organisationWide === true };
   if (signal.aborted) throw new Error("Workspace check cancelled.");
   current = result;
   return result;
