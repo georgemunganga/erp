@@ -1,3 +1,49 @@
+## 2026-11-17 — Automatic first-time HR/payroll entry deployed
+
+User requested automatic setup after Kuubu launch for new companies and reported
+Excel Employment type Permanent rejected. Google linking remains deferred by user.
+
+- Published web source **56da1e496314188d2b36b575968aa3bd9b9bc157** on
+  `codex/kuubu-product-consumer-20261107`; preceding feature commit c7f23ccc.
+- LIVE web `kuubu-hrm-first-entry03-web01`, loopback28978, proxy
+  `kuubu-hrm-first-entry03-proxy01`, release
+  `/opt/kuubu-production/releases/hrm-first-entry-review03`.
+  Previous first-entry01/02 and setup01 consumers are stopped/retained. API remains
+  native-attendance9b30c218/28985. Proxy comparison proves only HR web port changed;
+  native gateway, TLS and Procurement mounts preserved. No schema migration.
+- New SaaS HR admin/ops with server-confirmed non-confined scope and pending setup
+  is redirected with replace to `/hrm/setup`. Completed/legacy-complete companies
+  retain the requested destination. Unknown scope/state and employee/branch-only
+  roles do not infer configuration permission. Existing server authority unchanged.
+- Pending wizard now offers Back to Kuubu account rather than a dashboard link that
+  would immediately return to setup. Product header profile offers Back to Kuubu
+  account and Log out of ERP (existing protected operational logout; central identity
+  stays signed in). Back link tested; logout label visible, logout action not retested.
+- Import shared mapped rows translate Permanent/Employee to employee,
+  Contractor/Contingent to contingent, and normalize Intern/Volunteer. Unknown or
+  ambiguous types remain server-rejected. Contract terms remain separate and are
+  explained in UI; this does not create a Permanent contract assignment.
+  Existing Check missing data workflow for departments/grades is preserved.
+- Live authorized Test A: automatic setup entry, Employment continuation,40h Mon–Fri
+  calendar, built-in leave configuration, test-only monthly ZMW payroll defaults,
+  Finish saved; completed company then retained `/hrm/employees/import`. Optional
+  contract policies/employees skipped. No real employee import, pay run or payment.
+  Synthetic Permanent CSV preview returned willCreate1/problems0; import not applied.
+- Live Test B: Kuubu Companies -> HR & Payroll -> Open workspace automatically
+  reached first-time wizard. Final release refresh preserved pending setup; new Back
+  to Kuubu account returned to signed-in Companies. Test B remains pending.
+- Levant setup status read directly remains complete; no Levant data was changed.
+  Completed-route browser test used Test A, not a fresh gbanda sign-in.
+- Four focused behavior tests, TypeScript and production build passed. Public HR
+  setup/import, readiness and Procurement returned200. Scheduled backup now invokes
+  fresh `backup-production-hrm11.py` with current Caddyfile; no protected publication
+  modified. Proof folders: `inspection/qualifications/hrm-first-entry-production01`
+  (wizard/import),02(scope check),03(final deployment/operations/setup screenshot).
+- Vcron native George check-in/out and employee-link acceptance remain outstanding;
+  do not conflate these HR setup checks with native mobile acceptance. Browser
+  automation became unavailable after final signed-in Companies return; no logout
+  or additional final-release company launch claimed.
+
 ## Verified live company continuation and reconnect recovery - 16 November 2026
 
 Supersedes the Test B and pending reconnect status below. Website current source

@@ -22,7 +22,7 @@ No grant changes. Existing API and scope middleware remain authoritative.
 Use current server setup state and explicit non-confined shell result. Unknown scope never triggers setup.
 
 ## 8. State machine
-Pending -> setup route; complete -> original destination. Loading/unknown -> no inferred completion or write.
+Pending -> setup route; complete -> original destination. Loading/unknown -> no inferred completion or write. Pending SaaS wizard offers Back to Kuubu account to avoid a dashboard redirect loop.
 
 ## 9. Routing
 Replace navigation prevents Back looping into the intercepted destination.
@@ -82,5 +82,5 @@ Fresh immutable web publication and container; preserve native API/gateway route
 Retain preceding web/proxy; restart preceding proxy if cutover health fails.
 
 ## 28. Acceptance
-Record actual live pending entry and completed-state check after deployment; do not infer production browser completion from unit checks.
+Live Test A pending entry and wizard through payroll/finish passed; completed A retained import route. Synthetic Permanent row preview: willCreate1/problems0, not applied. Test B Kuubu launch auto-opened setup; final release setup return to Companies passed. Levant server status remains complete. Four focused tests, TypeScript and production build passed. Source56da1e49, web28978/proxy first-entry03, backup11. No real employee import or pay run. Proof: inspection/qualifications/hrm-first-entry-production01 and03. Logout action and George native attendance remain separate outstanding checks.
 
