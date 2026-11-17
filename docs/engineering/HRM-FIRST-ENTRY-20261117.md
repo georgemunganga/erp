@@ -111,3 +111,14 @@ invalid data into valid data. Standard phone separators/clearly grouped numbers
 normalize; malformed values remain visible to validation. Alphanumeric NAPSA/NHIMA
 identifiers remain compatible with the existing server schema. No arbitrary enum,
 contract policy, branch or identity is provisioned by this validation feature.
+
+Release acceptance: API d41303dd on28986; web1bee5302 on28979, first-entry04
+proxy; backup13. Publish18 suite192pass/3 opt-in PostgreSQL skips, HTTP import
+handlers3pass with isolated SQLite persistence, frontend5pass/TypeScript/build.
+Current runtime App DLL matches publish18. Protected import/mobile routes401;
+setup/import/Procurement/readiness200. No production employee sheet applied.
+Browser automation unavailable for this follow-up; no new authenticated production
+browser claim. No migration/identity/grant change. Unknown values remain errors;
+Check missing data retains reviewed department/grade creation. This does not claim
+a whole-import transactional/replay redesign. Full operational evidence is recorded
+in the latest MANUS_HANDOFF entry and inspection/qualifications release folders.

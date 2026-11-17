@@ -1,3 +1,63 @@
+## 2026-11-17 — Employee import server validation follow-up LIVE
+
+User continued to see raw Permanent rejected and asked to validate important fields,
+not just one field. Earlier web-only normalization was incomplete for stale clients.
+This entry supersedes API9b30c218 and web first-entry03 as the active release.
+
+- API source **d41303dd56ec0196e040044fbc55d0ae5faddbe7**, image
+  `sha256:09fe3bcca3303e137ee894f2bb61c8a6b9e3f199a2556997ba45b2556d0eb89f`,
+  `kuubu-employee-import-release01-api01`, HTTPS loopback28986, release
+  `/opt/kuubu-production/releases/employee-import-d41303dd-deploy01`.
+  Application DLLsha256 `dedbe92c62cec3597f53b692a01f1bc6839baf150bd19ebe0aa8722bcd0f3086`
+  matches immutable publish18 and the running image. API DLL747a035138b8ed9438fc758dacce5612b283e5e4697271172ca5c5db85119dd5.
+- Web source **1bee5302831bded5ca38fc5791ad65bfedca16d1** (frontend tree same
+  as e5334907;1bee adds HTTP test only), `kuubu-hrm-first-entry04-web01` on28979,
+  active `kuubu-hrm-first-entry04-proxy01`, release
+  `/opt/kuubu-production/releases/hrm-first-entry-review04`.
+- Server preview resolves Permanent/Employee, Contractor/Contingent, Intern and
+  Volunteer regardless of case/outer whitespace, saves canonical worker category
+  into resolved preview, and normalizes again on apply. Unknown types are rejected
+  rather than falling back to employee. Permanent is not a new enum or a contract
+  assignment; no arbitrary reference/identity is auto-created.
+- Required/basic format issues aggregate per row: required fields, email, phone,
+  known worker type, TPIN, start date, name text, NRC and branch resolution. Existing
+  identity conflict/duplicate, department and payroll/allowance/overtime checks stay.
+  Added case-insensitive in-file NAPSA duplicate prevention. Existing branch name/ID
+  resolution checks company/confinement and archived/unknown/ambiguous branches.
+  Missing departments/grades remain explicit Check missing data review/create.
+- Browser normalization now preserves meaningful signs/identifier letters. It
+  normalizes ordinary phone separators and unambiguous grouped amounts, but no
+  longer changes negative salary into positive or strips letters from identifiers.
+  Existing NAPSA/NHIMA string compatibility retained. Invalid values stay visible.
+- Publish18 focused suite:192pass/3 opt-in native PostgreSQL skips. Extra HTTP tests
+  at1bee:3pass, actual mapped import endpoints -> raw Permanent/permanent/PERMANENT
+  -> preview -> apply -> SQLite persisted employee category. These use a test-only
+  authenticated principal; separate ProductHrm authority/guard tests are in192.
+  Frontend5checks, TypeScript and real API/product/full-HR build passed.
+- HTTP-test qualification source1bee has no Application/API changes from d413.
+  No authenticated production employee import was applied. Browser automation was
+  unavailable for this follow-up, so do not call these fresh production browser tests.
+  Previous first-time wizard/company return acceptance remains recorded below.
+- Public setup/import/Procurement/readiness200, import schemas401 and native profile401
+  without auth. Native discovery remains ready. Environment comparison: only HTTPS
+  listen port changed; durable mounts identical. No migration, identity or grant change.
+  First-time setup behavior unchanged; Levant server setup still complete.
+- Backup service points to fresh hrm-first-entry-review04/backup-production-hrm13.py,
+  includes current runtime.private.env and Caddyfile. Old native API and preceding
+  proxies/webs stopped/retained. Disk about845MB free after candidate build; do not
+  delete retained publications as routine cleanup.
+- Evidence: inspection/qualifications/employee-import-build02 (publish18 suite),
+  employee-import-http-tests01, employee-import-production-candidate02,
+  employee-import-production02, employee-import-release-proof01 and
+  hrm-first-entry-production04. Source/test commits6d6496fa/4338d650/d41303dd/
+  e5334907/1bee5302 are pushed together on codex/kuubu-product-consumer-20261107.
+  Earlier build01/publish17 passed189 remotely with container exit0 but local SSH
+  coordinator timed out; retain it as superseded attempt, not deployment evidence.
+- Existing import architecture still keeps preview/apply caches and individual-row
+  outcomes. This change is not a full redesign of import transaction/replay semantics.
+  Vcron native George check-in/out and employee-link acceptance remain outstanding;
+  Google linking remains deferred by user.
+
 ## 2026-11-17 — Automatic first-time HR/payroll entry deployed
 
 User requested automatic setup after Kuubu launch for new companies and reported
