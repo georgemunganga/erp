@@ -9,7 +9,7 @@ import argparse,hashlib,json,subprocess,tarfile
 
 BASE='6079337e7a17107ad0b33fca59a267f6efc6927a'
 root=Path(__file__).resolve().parents[2]
-parser=argparse.ArgumentParser();parser.add_argument('--output',required=True);args=parser.parse_args()
+parser=argparse.ArgumentParser();parser.add_argument('--output',required=True);parser.add_argument('--workday',action='store_true');args=parser.parse_args()
 out=Path(args.output).resolve();out.mkdir();src=out/'source';src.mkdir()
 with (out/'baseline.tar').open('xb') as f:subprocess.run(['git','-C',str(root),'archive','--format=tar',BASE],stdout=f,check=True)
 with tarfile.open(out/'baseline.tar') as t:
@@ -33,7 +33,10 @@ shared={}
 def shared_file(path):
  b=(root/path).read_bytes();shared[path]=hashlib.sha256(b).hexdigest();return b.decode('utf-8-sig')
 for path in [api+'OnPremMobileOnlyHost.cs',domain+'Entities/LocalMobileSession.cs',app+'Time/MobileAttendance.cs']:
- write(path,shared_file(path))
+ content=shared_file(path)
+ if not args.workday and path.endswith('OnPremMobileOnlyHost.cs'):
+  content='\n'.join(line for line in content.split('\n') if 'MobileWorkdayApi.Enabled' not in line)
+ write(path,content)
 boundary=shared_file(api+'OnPremMobileApi.cs')
 boundary=replace(boundary,'record OnPremMobileCompany(Guid Id, string Tenant, bool Searchable);','record OnPremMobileCompany(Guid Id, string Tenant, bool Searchable, string TimeZoneId);')
 boundary=replace(boundary,'x.GetValue<bool>("Searchable"))).ToArray();','x.GetValue<bool>("Searchable"), x["TimeZoneId"] ?? "")).ToArray();')
@@ -45,8 +48,24 @@ for old,new in [('c.TimeZoneId','CompanyZone(h,c.Id)'),('grant.Company.TimeZoneI
  boundary=boundary.replace(old,new)
 boundary=replace(boundary,'private static DateTimeOffset Now(HttpContext h)', 'private static string CompanyZone(HttpContext h,Guid id)=>Options(h).Companies.Single(x=>x.Id==id).TimeZoneId;\n    private static DateTimeOffset Now(HttpContext h)')
 write(api+'OnPremMobileApi.cs',boundary)
+if args.workday:
+ for path in [domain+'Entities/MobileWorkdayEvent.cs',app+'Time/MobileWorkdayRules.cs',infra+'MobileWorkdayStore.cs',
+              infra+'Data/HrmDbContext.MobileWorkday.cs',infra+'Data/MobileWorkdaySchema.cs',api+'MobileWorkdayApi.cs']:
+  write(path,shared_file(path))
+ workday=shared_file(api+'OnPremMobileWorkday.cs')
+ write(api+'OnPremMobileWorkday.cs',replace(workday,'grant.Company.TimeZoneId','CompanyZone(h,grant.Company.Id)'))
+else:
+ # Current boundary only references workday code in its optional capability/routes.
+ boundary=replace(boundary,'workday_ready=MobileWorkdayApi.Enabled(app.Configuration)','workday_ready=false')
+ start=boundary.index('        if(MobileWorkdayApi.Enabled(app.Configuration)){')
+ end=boundary.index('\n        }',start)+len('\n        }')
+ write(api+'OnPremMobileApi.cs',boundary[:start]+boundary[end:])
 
 db=read(infra+'Data/HrmDbContext.cs')
+if args.workday:
+ db=replace(db,'public sealed class HrmDbContext','public sealed partial class HrmDbContext')
+ db=replace(db,'    private void FillTenantIds()\n    {','    private void FillTenantIds()\n    {\n        if(ChangeTracker.Entries<MobileWorkdayEvent>().Any(e=>e.State is EntityState.Modified or EntityState.Deleted))\n            throw new Mightyfin.Erp.Hrm.Application.DomainException("workday-evidence-immutable","Append a new workday action instead of changing its history.");')
+ db=replace(db,'    protected override void OnModelCreating(ModelBuilder modelBuilder)\n    {','    protected override void OnModelCreating(ModelBuilder modelBuilder)\n    {\n        ConfigureMobileWorkday(modelBuilder);')
 db=replace(db,'public DbSet<LocalSession> LocalSessions => Set<LocalSession>();','public DbSet<LocalSession> LocalSessions => Set<LocalSession>();\n    public DbSet<LocalMobileSession> LocalMobileSessions => Set<LocalMobileSession>();')
 mapping='''        ConfigureEntity<LocalMobileSession>(modelBuilder, "local_mobile_sessions", e =>
         {
@@ -90,6 +109,13 @@ http_tests=shared_file(tests+'OnPremMobileHttpTests.cs')
 http_tests=replace(http_tests,',TimeZoneId="Africa/Lusaka"','')
 http_tests=replace(http_tests,'["ERP:OnPremMobile:PublicOrigin"]=Origin,','["ERP:OnPremMobile:PublicOrigin"]=Origin,["ERP:OnPremMobile:Companies:0:TimeZoneId"]="Africa/Lusaka",["ERP:OnPremMobile:Companies:1:TimeZoneId"]="Africa/Lusaka",')
 write(tests+'OnPremMobileHttpTests.cs',http_tests)
+if args.workday:
+ for path in [tests+'MobileWorkdayRulesTests.cs',tests+'MobileWorkdayStoreTests.cs',tests+'MobileWorkdayHttpTests.cs']:
+  content=shared_file(path)
+  if path.endswith('MobileWorkdayStoreTests.cs'):
+   content=replace(content,'[Fact]\n    public void Compiled_PostgreSQL_model_matches_the_owning_migration_snapshot()',
+                   '[Fact(Skip="The classic mobile-only sidecar uses a qualified additive extension, never full-model ERP migrations.")]\n    public void Compiled_PostgreSQL_model_matches_the_owning_migration_snapshot()')
+  write(path,content)
 modern_tests=shared_file(tests+'TimeServiceTests.cs')
 # Include all contiguous mobile attendance cases, stopping at the first existing unrelated test.
 import re
@@ -101,7 +127,7 @@ write(tests+'TimeServiceTests.cs',old_tests)
 if not any('InternalsVisibleTo("Mightyfin.Erp.Hrm.Tests")' in p.read_text(encoding='utf-8-sig') for p in (src/api).rglob('*.cs')):
  write(api+'ClassicMobileTestAccess.cs','[assembly:System.Runtime.CompilerServices.InternalsVisibleTo("Mightyfin.Erp.Hrm.Tests")]\n')
 manifest={'baseline':BASE,'shared_source':subprocess.check_output(['git','-C',str(root),'rev-parse','HEAD'],text=True).strip(),
- 'shared_inputs':shared,'changes':changes,'profile':'classic-local-mobile-only','existing_customer_checkout_changed':False,
+ 'shared_inputs':shared,'changes':changes,'profile':'classic-local-mobile-workday-v1' if args.workday else 'classic-local-mobile-only','existing_customer_checkout_changed':False,
  'model_adapters':['local-only account schema (no federated fields)','explicit company timezone, no legal entity rewrite','new session table references existing primary keys only']}
 with (out/'source-manifest.json').open('x') as f:json.dump(manifest,f,indent=2)
 print(json.dumps({'source':str(src),'baseline':BASE,'shared_source':manifest['shared_source'],'changed_files':len(changes)}))

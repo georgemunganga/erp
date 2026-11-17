@@ -1,3 +1,76 @@
+## 2026-11-17 — Vcron manual workday foundation IMPLEMENTED; live rollout held
+
+New optional ERP:MobileWorkday:Enabled (defaultfalse) adds employee-owned breaks,
+departures with reason, returns and self-reported work reports to existing mobile
+attendance. Append-only HRM ledger, revision/idempotency checks, owning-company/
+worker/location association, fresh SaaS/Core or standalone admission, shared
+attendance-worker locks and atomic audit. Reports remain possible after checkout.
+No attendance totals, payroll rules, automatic checkout, background GPS or device
+management changes. Metrics explicitly not_connected.16KB bounded workday JSON
+allows Unicode reports; old punch/login limits remain4KB. Native gateway adds
+only the GET workday and POST commands routes; backend GUID/auth checks still own
+admission. Production feature remains OFF and new schema is NOT live yet.
+
+Current full-source targeted suite53passed. Classic focused baseline6079337e
+plus feature suite44passed/1 explicitly inapplicable full-model snapshot case
+skipped (mobile-only sidecar uses the narrow extension, never full ERP startup).
+PostgreSQL17 isolated New World schema-only rehearsal applied the new extension
+twice; original columns and attendance unchanged, UPDATE/DELETE and wrong-company
+ledger writes rejected. No customer rows copied into that fixture. Evidence:
+inspection/qualifications/mobile-workday-schema-20261117-01 and
+/opt/kuubu-mobile-qualification/workday-schema-20261117-01. Modern feature spec:
+docs/features/MOBILE-WORKDAY.md.
+
+prepare_classic_mobile.py --workday and prepare_hosted_workday.py generate focused
+profiles over exact deployed baselines, preserving customer-specific code. The
+hosted profile extends its OWN deployed migration snapshot with just the new
+canonical entity metadata; startup model parity must pass before release. Do not
+copy the full current snapshot/model into the old hosted baseline. Canonical
+migration20261117202222_MobileWorkdayEvents creates only the ledger/guard; the
+classic extension generator reuses the canonical guard and an independent receipt.
+Hosted compatibility/model parity, PostgreSQL HTTP concurrency, installed Android
+workday UI, runtime backup/rollback and native monitoring stage still require
+qualification. Do not claim this milestone is deployed or background monitoring
+works. Existing live API/proxy/APK pins below remain unchanged.
+
+## 2026-11-17 — gbanda fresh-account reset; renewed14-day HR trial ACTIVE
+
+The user explicitly selected removing the Kuubu account and trial companies,
+rather than retaining the old sign-in. After root-private scoped backups on both
+owning servers, central identity2 was retired (email released, inaccessible
+reserved-domain tombstone, random unrecoverable password, verification cleared),
+its OAuth/refresh/browser sessions revoked, Kuubu identity enrollment revoked,
+commercial enrollment01m772vmgdenmk7e2qy6z83bjc revoked, and the old HR trial
+01m772vn5141hbpyge33dddk75 cancelled through SubscriptionService. The cancelled
+invoice, failed payment attempt, billing customer and immutable audit history
+remain. There was no other product identity enrollment or billing customer.
+No credentials or verification codes were disclosed or sent.
+
+Levant tenant01a1d080-fd43-79e8-b506-86899d368a80, company
+01a1d080-fd80-760c-a91c-c0843145c0d5 is archived; its sole local principal and
+external identity link are disabled, membership revision incremented/inactive,
+and terminal revocations appended for existing ERP sessions. Its21 employee
+records and original setup/audit evidence are retained privately for recovery;
+they were not moved to another identity. Other company rows were fingerprinted
+unchanged. No tenant table was truncated and no immutable history deleted.
+
+Root-private recovery/operation receipts:
+central /opt/greenwebb-qualifications/gbanda-reset-20261117-01;
+ERP /opt/kuubu-qualifications/gbanda-reset-20261117-01.
+The user completed fresh registration and verification: new central identity5.
+Using the explicit reset/reissue authorization, the owning customer/enrollment
+controllers, SubscriptionService and root trial command established a NEW Levant
+billing customer01m7nmxp679g96n5ygv0s1tpe1, NEW enrollment
+01m7nmxp6n7fax4qgva5qyhvxh and subscription01m7nmxp6z2s92kqy64fgcvb0j.
+HR, one requested seat, trial fee0ZMW, paid0ZMW, expires
+2026-12-01T22:59:35+02:00. SubscriptionController readback asserts trial_active
+and trial_fee_minor0. No invoice/payment or ERP company was created. No old
+membership was inherited by email. New ERP tenant/company and first-time
+company/HR/payroll setup remain deliberately NOT STARTED for the user's test;
+do not copy old setup flags. User directed to refresh Kuubu account and continue
+the new Levant trial setup. Private receipt fresh-trial-issued.json is in the
+central operation folder above. Vcron work resumed.
+
 ## 2026-11-17 — Selected on-prem staff live Vcron flow PASSED
 
 Supersedes the initial-password/customer-staff hold below. The user explicitly

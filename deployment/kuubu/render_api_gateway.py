@@ -112,7 +112,7 @@ def render_native(host, upstream, canonical_host, trust_file):
         X-Kuubu-API-Version "1"
     }}
     request_body {{
-        max_size 8KB
+        max_size 16KB
     }}
     @discovery {{
         method GET
@@ -131,11 +131,11 @@ def render_native(host, upstream, canonical_host, trust_file):
     }}
     @nativeRead {{
         method GET
-        path /v1/companies /v1/hrm/me /v1/hrm/me/attendance /v1/hrm/me/attendance/today
+        path /v1/companies /v1/hrm/me /v1/hrm/me/attendance /v1/hrm/me/attendance/today /v1/hrm/me/workdays/*
     }}
     @nativeWrite {{
         method POST
-        path /v1/hrm/me/attendance/clock-in /v1/hrm/me/attendance/clock-out
+        path /v1/hrm/me/attendance/clock-in /v1/hrm/me/attendance/clock-out /v1/hrm/me/workdays/*/commands
     }}
     handle @nativeRead {{
         route {{

@@ -22,6 +22,7 @@ internal static class OnPremMobileOnlyHost
             // Verify the additive session table and the explicitly configured company.
             // The sidecar must never run the full ERP migration or initial-admin bootstrap.
             await db.LocalMobileSessions.AsNoTracking().Take(1).ToArrayAsync();
+            if(MobileWorkdayApi.Enabled(builder.Configuration))await db.MobileWorkdayEvents.AsNoTracking().Take(1).ToArrayAsync();
             if(!await db.LegalEntities.AnyAsync(x=>x.Id==company.Id && !x.IsArchived))
                 throw new InvalidOperationException("An enabled mobile company is not present in its configured tenant.");
         }
@@ -31,6 +32,7 @@ internal static class OnPremMobileOnlyHost
             try {
                 await using var db=contexts(options.Companies[0].Tenant);
                 await db.LocalMobileSessions.AsNoTracking().AnyAsync();
+                if(MobileWorkdayApi.Enabled(builder.Configuration))await db.MobileWorkdayEvents.AsNoTracking().AnyAsync();
                 return Results.Json(new{status="ready",profile="local-mobile-only"});
             }catch(System.Data.Common.DbException){return Results.Json(new{status="unavailable"},statusCode:503);}
         });

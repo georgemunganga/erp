@@ -171,14 +171,14 @@ public sealed class OnPremMobileHttpTests
     }
     public class UnusedWorkflow : DispatchProxy { protected override object? Invoke(MethodInfo? targetMethod,object?[]? args)=>throw new InvalidOperationException("Attendance must not invoke workflow commands."); }
     private sealed record Tenant(string Value):ITenantAccessor {public string GetTenantId()=>Value;}
-    private sealed class Clock : TimeProvider { public DateTimeOffset Value=DateTimeOffset.Parse("2026-11-17T08:00:00Z");public override DateTimeOffset GetUtcNow()=>Value; }
-    private sealed class Fixture : IAsyncDisposable
+    internal sealed class Clock : TimeProvider { public DateTimeOffset Value=DateTimeOffset.Parse("2026-11-17T08:00:00Z");public override DateTimeOffset GetUtcNow()=>Value; }
+    internal sealed class Fixture : IAsyncDisposable
     {
         internal Guid A=Guid.NewGuid(),B=Guid.NewGuid(),WorkerA=Guid.NewGuid(),WorkerB=Guid.NewGuid();
         internal Clock Clock=new(); internal HttpClient Client=null!;private WebApplication App=null!;
         private SqliteConnection Connection=new("Data Source=:memory:");private DbContextOptions<HrmDbContext> DbOptions=null!;
         internal HrmDbContext Db(string tenant)=>new(DbOptions,new Tenant(tenant));
-        internal static async Task<Fixture> Start(bool enabled=true)
+        internal static async Task<Fixture> Start(bool enabled=true,bool workday=false)
         {
             var f=new Fixture();await f.Connection.OpenAsync();f.DbOptions=new DbContextOptionsBuilder<HrmDbContext>().UseSqlite(f.Connection).Options;
             await using(var db=f.Db("tenant-a")){await db.Database.EnsureCreatedAsync();}
@@ -192,7 +192,7 @@ public sealed class OnPremMobileHttpTests
             }
             var b=WebApplication.CreateBuilder();b.WebHost.UseTestServer();
             b.Configuration.AddInMemoryCollection(new Dictionary<string,string?> {
-                ["ERP:AuthMode"]="local",["HRM:DefaultTenantId"]="tenant-a",["ERP:OnPremMobile:Enabled"]=enabled.ToString(),
+                ["ERP:AuthMode"]="local",["HRM:DefaultTenantId"]="tenant-a",["ERP:OnPremMobile:Enabled"]=enabled.ToString(),["ERP:MobileWorkday:Enabled"]=workday.ToString(),
                 ["ERP:OnPremMobile:PublicOrigin"]=Origin,["ERP:OnPremMobile:Companies:0:Id"]=f.A.ToString("D"),["ERP:OnPremMobile:Companies:0:Tenant"]="tenant-a",["ERP:OnPremMobile:Companies:0:Searchable"]="true",
                 ["ERP:OnPremMobile:Companies:1:Id"]=f.B.ToString("D"),["ERP:OnPremMobile:Companies:1:Tenant"]="tenant-b",["ERP:OnPremMobile:Companies:1:Searchable"]="false",
             });

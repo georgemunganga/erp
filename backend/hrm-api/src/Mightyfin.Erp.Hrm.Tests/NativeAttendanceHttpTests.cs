@@ -41,12 +41,25 @@ public sealed class NativeAttendanceHttpTests
         Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
     }
 
-    private static async Task<WebApplication> Start(bool enabled)
+    [Theory]
+    [InlineData("GET",false)][InlineData("GET",true)][InlineData("POST",true)]
+    public async Task Workday_capability_is_optional_and_never_accepts_a_browser_cookie(string method,bool workday)
+    {
+        await using var app=await Start(true,workday);using var client=app.GetTestClient();
+        using var request=new HttpRequestMessage(new HttpMethod(method),NativeAttendanceApi.Prefix+"/hrm/me/workdays/"+Guid.NewGuid()+(method=="POST"?"/commands":""));
+        request.Headers.Add("Cookie","synthetic-browser-session=not-native-authority");
+        request.Headers.Add("X-Kuubu-Company",Guid.NewGuid().ToString("D"));request.Headers.Add("X-Kuubu-Link",Guid.NewGuid().ToString("D"));
+        using var response=await client.SendAsync(request);
+        Assert.Equal(workday?HttpStatusCode.Unauthorized:HttpStatusCode.NotFound,response.StatusCode);
+    }
+
+    private static async Task<WebApplication> Start(bool enabled,bool workday=false)
     {
         var builder = WebApplication.CreateBuilder();
         builder.WebHost.UseTestServer();
         builder.Configuration.AddInMemoryCollection(new Dictionary<string,string?> {
             ["ERP:MobileAttendance:Enabled"] = enabled.ToString(),
+            ["ERP:MobileWorkday:Enabled"] = workday.ToString(),
         });
         builder.Services.AddRateLimiter(options => options.AddFixedWindowLimiter("native-attendance", policy => {
             policy.PermitLimit = 100; policy.Window = TimeSpan.FromMinutes(1); policy.QueueLimit = 0;

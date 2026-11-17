@@ -67,7 +67,7 @@ internal sealed class NativeEmployeeAdmission(Func<string,HrmDbContext> contexts
     }
 }
 
-internal static class NativeAttendanceApi
+internal static partial class NativeAttendanceApi
 {
     private static readonly object ProofKey = new();
     internal const string Prefix = "/api/mobile/v1";
@@ -116,7 +116,7 @@ internal static class NativeAttendanceApi
         var group = app.MapGroup(Prefix).WithMetadata(new ProductIdentityRequestBoundary()).AllowAnonymous().RequireRateLimiting("native-attendance");
         group.MapGet("/config", () => Results.Ok(new {
             schema_version=1, api_base_url=Origin(app.Configuration)+"/v1", identity_origin=ProductCommercialLicense.Issuer,
-            mobile_ready=true, client_id=app.Configuration["ERP:MobileAttendance:ClientId"],
+            mobile_ready=true, workday_ready=MobileWorkdayApi.Enabled(app.Configuration),client_id=app.Configuration["ERP:MobileAttendance:ClientId"],
             authorization_endpoint="https://www.kuubuerp.com/account/authorize/",
             token_endpoint=ProductCommercialLicense.Issuer+"/api/v1/product-identity/token",
             revoke_endpoint=ProductCommercialLicense.Issuer+"/api/v1/product-identity/mobile-revoke",
@@ -139,6 +139,10 @@ internal static class NativeAttendanceApi
         group.MapGet("/hrm/me/attendance/today", (Func<HttpContext,Task<IResult>>)(h => Execute(h, false, false, false)));
         group.MapPost("/hrm/me/attendance/clock-in", (Func<HttpContext,Task<IResult>>)(h => Execute(h, true, true, false)));
         group.MapPost("/hrm/me/attendance/clock-out", (Func<HttpContext,Task<IResult>>)(h => Execute(h, true, false, false)));
+        if(MobileWorkdayApi.Enabled(app.Configuration)){
+            group.MapGet("/hrm/me/workdays/{attendance:guid}",(HttpContext h,Guid attendance)=>Workday(h,attendance,false));
+            group.MapPost("/hrm/me/workdays/{attendance:guid}/commands",(HttpContext h,Guid attendance)=>Workday(h,attendance,true));
+        }
     }
 
     private static bool Canonical(string value, out Guid id) => Guid.TryParseExact(value,"D",out id) && id != Guid.Empty && id.ToString("D") == value;

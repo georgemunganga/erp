@@ -65,6 +65,8 @@ public sealed partial class HrmDbContext(DbContextOptions<HrmDbContext> options,
             if(entry.Entity is CoreModuleAccessVersion or CoreModuleAccessLocation or CoreModuleAccessReceipt
                 && entry.State is EntityState.Modified or EntityState.Deleted)
                 throw new DomainException("module-access-evidence-immutable","Append a new module access decision instead of editing evidence.");
+            if(entry.Entity is MobileWorkdayEvent && entry.State is EntityState.Modified or EntityState.Deleted)
+                throw new DomainException("workday-evidence-immutable","Append a new workday action instead of changing its history.");
             if (entry.State == EntityState.Added)
             {
                 // Never trust a tenant id supplied by a client or service. The
@@ -700,6 +702,7 @@ public sealed partial class HrmDbContext(DbContextOptions<HrmDbContext> options,
         modelBuilder.Entity<ExitInterview>().HasOne(x => x.Request).WithOne().HasForeignKey<ExitInterview>(x => x.OffboardingRequestId);
         modelBuilder.Entity<ExitInterview>().HasOne(x => x.Worker).WithMany().HasForeignKey(x => x.WorkerId).OnDelete(DeleteBehavior.Restrict);
 
+        ConfigureMobileWorkday(modelBuilder);
         ConfigureProductWorkerScope(modelBuilder);
         base.OnModelCreating(modelBuilder);
     }

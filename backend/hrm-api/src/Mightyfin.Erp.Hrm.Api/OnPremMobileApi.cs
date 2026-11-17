@@ -47,7 +47,7 @@ internal sealed class OnPremMobileLoginBudget : IDisposable
 }
 
 /// <summary>Standalone-only adapter. It never registers central identities or changes browser authentication.</summary>
-internal static class OnPremMobileApi
+internal static partial class OnPremMobileApi
 {
     internal const string Prefix = "/mobile/v1";
     internal sealed record Login(Guid CompanyId, string Identifier, string Password);
@@ -88,7 +88,7 @@ internal static class OnPremMobileApi
             var h = context.HttpContext;
             h.Response.Headers.CacheControl = "no-store";
             h.Response.Headers["Pragma"] = "no-cache";
-            if (h.Request.Headers.ContentLength > 4096) return Error(413, "request_too_large");
+            if (h.Request.Headers.ContentLength > BodyLimit(h)) return Error(413, "request_too_large");
             string[] forbidden = ["Cookie", "X-Tenant", "X-Tenant-Id", "X-Shell-Entity", "X-Shell-Location", "X-Branch-Id", "X-All-Branches"];
             if (forbidden.Any(h.Request.Headers.ContainsKey) || h.Request.Query.Keys.Any(x => x != "query")) return Error(400, "invalid_request");
             h.User = new ClaimsPrincipal(new ClaimsIdentity());
@@ -98,7 +98,12 @@ internal static class OnPremMobileApi
             catch (TimeoutException) { return Error(503, "service_unavailable"); }
         });
         g.MapGet("/profile", () => Results.Ok(new { schema_version = 1, authentication = "local-employee-v1",
-            api_origin = options.Origin, api_path = Prefix, attendance_mode = "server-online", central_registration = false }));
+            api_origin = options.Origin, api_path = Prefix, attendance_mode = "server-online", central_registration = false,
+            workday_ready=MobileWorkdayApi.Enabled(app.Configuration) }));
+        if(MobileWorkdayApi.Enabled(app.Configuration)){
+            g.MapGet("/workdays/{attendance:guid}",(HttpContext h,Guid attendance)=>Workday(h,attendance,false));
+            g.MapPost("/workdays/{attendance:guid}/commands",(HttpContext h,Guid attendance)=>Workday(h,attendance,true));
+        }
         g.MapGet("/companies", (Func<HttpContext,Task<IResult>>)Search);
         g.MapPost("/auth/sign-in", SignIn).RequireRateLimiting("onprem-mobile-login");
         g.MapPost("/auth/refresh", Rotate).RequireRateLimiting("onprem-mobile-login");
@@ -120,11 +125,12 @@ internal static class OnPremMobileApi
                 await Error(400,"invalid_request").ExecuteAsync(h);return;
             }
             var size=h.Features.Get<Microsoft.AspNetCore.Http.Features.IHttpMaxRequestBodySizeFeature>();
-            if(size is {IsReadOnly:false})size.MaxRequestBodySize=4096;
+            if(size is {IsReadOnly:false})size.MaxRequestBodySize=BodyLimit(h);
             await next(h);
         });
     }
     private static IResult Error(int status, string code) => Results.Json(new { error = new { code } }, statusCode: status);
+    private static int BodyLimit(HttpContext h)=>h.Request.Path.StartsWithSegments(Prefix+"/workdays")?16384:4096;
     private static Func<string,HrmDbContext> Contexts(HttpContext h) => h.RequestServices.GetRequiredService<Func<string,HrmDbContext>>();
     private static OnPremMobileOptions Options(HttpContext h) => h.RequestServices.GetRequiredService<OnPremMobileOptions>();
     private static DateTimeOffset Now(HttpContext h) => (h.RequestServices.GetService<TimeProvider>() ?? TimeProvider.System).GetUtcNow();
