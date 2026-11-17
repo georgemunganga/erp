@@ -101,3 +101,49 @@ full ERP migrations, initial-admin bootstrap, browser authentication endpoints o
 scheduled business jobs. Do not blindly run the current full ERP model against an
 older database: use the version-qualified compatibility build and its narrow
 migration, preserving existing customizations and the running ERP host.
+
+## Qualified deployment: New World Cargo, 17 November 2026
+
+The live instance https://erp.newworldcargo.com now serves /mobile/v1 through a
+separate mobile-only container, erp-hrm-mobile-api-20261117-01. Its source profile
+pins the inspected classic baseline6079337e7a17107ad0b33fca59a267f6efc6927a and
+shared mobile implementationb633b831f4840182faa6d957c2679bcda771938c. Prepare it
+with tools/verification/prepare_classic_mobile.py from that shared implementation.
+Archive SHA2569fb633da6367b90be8295927520c7b7702ab35327a9a20f8b0bcec41120a4be8.
+The immutable manifest/publication is /opt/kuubu-builds/newworld-classic-mobile-b633b831-01.
+The underlying container image supplies the existing runtime; the read-only mounted
+publication and its manifest identify the executing mobile code, not that base image's label.
+
+Apply only tools/verification/classic-mobile-schema-v1.sql. Before production it
+was rehearsed twice on a private database restored from the real instance's backup:
+all existing row fingerprints across96 tables remained identical. The full ERP
+migration history was untouched. A second qualification copied schema only to an
+isolated database, seeded two synthetic companies, preserved different legacy IdP
+subjects, and passed the classic HTTP/domain suite23 cases plus real PostgreSQL
+admission/isolation/refresh/revocation and the installed Android app's complete
+two-company check-in/out/switch/restart flow. Modern-schema qualification also
+completed both companies. Synthetic attendance is not real customer staff testing.
+
+The production adapter uses a separate SQL role: SELECT, and INSERT/UPDATE only
+for mobile sessions, attendance and audit. It has no account/payroll mutation
+privileges. Its new loopback listener28915 and Docker alias kuubu-mobile-api are
+used by the sole added Nginx /mobile/v1/ location. Existing API/web/proxy/database/
+outbox container IDs and images, three local source customizations and account
+fingerprints were preserved. The existing proxy was validated and gracefully
+reloaded; its bind-mounted config inode was preserved. No ERP process was restarted.
+
+Public HTTPS checks confirmed manifest/company search, denied anonymous/cookie/
+unknown-account mobile access, and existing HTML, health and browser-auth endpoints.
+The installed APK searched Newworld and reached that server's existing ERP login.
+No customer employee punch, login-to-employee association, new staff account or
+compensation was created. Existing local administrators have no branch restrictions;
+hr_admin's configured permissions expand to the existing local administration roles.
+
+Operations, original proxy bytes, release receipts and private backup/restore are
+on the owning server at /opt/kuubu-mobile-qualification/20261117-01. Runtime-only
+configuration is /opt/erp-hrm/mobile/20261117-01/runtime.private.env. Rollback restores
+the recorded original Nginx bytes in place, validates/reloads Nginx, then stops only
+the mobile container. Retain session/attendance/audit evidence and the original ERP.
+The three inspected local accounts had no employee links. George's account was
+selected by the user for the final live test; an actual George employee record or
+explicit employee number remains required. Never associate other staff by email.

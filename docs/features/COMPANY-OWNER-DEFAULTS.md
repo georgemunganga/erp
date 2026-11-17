@@ -39,3 +39,10 @@ Procurement, branch-scope supersession/history, preserving explicit employee rol
 no elevation for delegated users, denying unlicensed/unrelated identities and
 immediate loss after ownership removal. Fifty existing registry/HR/module HTTP
 cases passed; four PostgreSQL-only registry cases were skipped locally.
+
+The SaaS release is built with tools/verification/prepare_owner_policy.py from
+the deployed API baseline d41303dd56ec0196e040044fbc55d0ae5faddbe7 plus the three
+owner-policy code/test paths from f081d5a34e4ed0e0c1ecf6604e62ba81938bf90d.
+This avoids introducing the independent mobile-session model/migration into a
+hosted ERP that does not need it. The exclusive snapshot has its own path/hash
+manifest. Its focused suite passed57 cases, with4 native-only cases skipped.

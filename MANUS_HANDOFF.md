@@ -1,3 +1,72 @@
+## 2026-11-17 — Company owner defaults LIVE; on-prem mobile adapter LIVE
+
+SaaS owner policy source **f081d5a34e4ed0e0c1ecf6604e62ba81938bf90d** is live
+as an explicitly documented three-path owner-policy build over the running API
+baseline **d41303dd56ec0196e040044fbc55d0ae5faddbe7**. Reproduce with
+tools/verification/prepare_owner_policy.py. Build manifest/archive SHA256
+**616f2188d62daea134a29ab4e1841d808d9015634db7b17c3a6b83dec49c7038**;
+immutable publication /opt/kuubu-builds/owner-policy-f081d5a3-publish01.
+No model/migration change. Focused baseline suite57 passed/4 native-only skipped;
+the new seven owner cases also passed on the full branch. An owner opening an
+enabled module gets a normal audited/versioned company-wide grant, all current/
+future branches, through existing Core commands and seat checks. Other members
+retain their delegated grants. No global erp_admin, employee creation, product
+enrollment or other-company access is inferred. See COMPANY-OWNER-DEFAULTS.md.
+
+Current shared SaaS API **kuubu-owner-policy-release01-api01**, loopback TLS28999;
+proxy **kuubu-owner-policy-release01-proxy01**, unchanged webfirst-entry08 and
+native gateway. Old API/proxy retained stopped for rollback. Readiness, HR setup,
+employee import, Procurement workspace and api.kuubuerp.com discovery/readiness
+passed. Browser session/document mounts were preserved. Backup succeeded before
+release; backup timer remains active, now script18 at
+/opt/kuubu-production/releases/owner-policy-f081d5a3-deploy01/backup-production-hrm18.py.
+An initial post-cutover backup assertion used an absolute rather than the stored
+relative path and stopped; guarded operation02 corrected it and recorded activation.
+Production evidence: same release folder/activation.json and local
+inspection/qualifications/owner-policy-production-20261117-01. Browser was signed
+out, so no real owner browser session or delegated permission change was claimed.
+Existing directory audit: Levant and George trialA HR owners already company-wide;
+trialB's old selected-location grant will be superseded on its owner's next open.
+
+New World Cargo **root@147.93.120.147**, https://erp.newworldcargo.com, now has
+the separate optional **erp-hrm-mobile-api-20261117-01** on the existing network,
+loopback28915, public /mobile/v1 only. Existing ERP checkout/main remains
+**6079337e7a17107ad0b33fca59a267f6efc6927a**, with all three customer modifications
+unchanged. Existing API/web/proxy/PG/outbox containers were not recreated/restarted.
+The existing proxy received only the mobile location, nginx -t then graceful reload.
+Mobile publication pins shared source **b633b831f4840182faa6d957c2679bcda771938c**
+over that baseline; archive SHA256
+**9fb633da6367b90be8295927520c7b7702ab35327a9a20f8b0bcec41120a4be8**.
+Only the independently versioned mobile-session SQL extension was applied. Backup/
+restore rehearsal twice preserved all96 original table fingerprints. A separate
+schema-only qualification with two synthetic companies passed23 focused cases,
+real PostgreSQL protocol tests and installed Android sign-in/company switch/in/out/
+cold restart. Two completed rows/four punch audits were read back, distinct workers.
+The public production profile/search and original web/health/browser auth passed.
+See ONPREM-MOBILE-ATTENDANCE.md and tools/verification/CLASSIC-MOBILE.md for exact
+ownership, build compatibility, runtime permission boundaries and rollback.
+
+Mobile runtime **3102b71e68379be27c960edd31ee08e13f0e859d**, docs tip0c1d466,
+Greenwebb/vcron-attendance-mobile branchcodex/kuubu-attendance-integration-20261115.
+Run44105688869 all jobs passed (TypeScript,59 transport/security cases, browser audit,
+standalone Android build, Android11 native smoke). Artifact14338828938, APK SHA256
+**91837c0e759faa6581e37a2c8daf204c0e4bb736e1fb61699228b0e8ad51319a**.
+Installed locally without clearing app data; Android15 live evidence under
+inspection/qualifications/onprem-mobile-native-20261117-01/android/classic-*.
+Separate classic API/data evidence at inspection/qualifications/classic-mobile-native-20261117-01.
+Temporary modern/classic public qualification listeners were stopped; their databases/
+evidence/publications retained. New World Cargo production mobile remains enabled.
+
+Outstanding: New World Cargo's three accounts had no employee associations. User
+selected the existing George Munganga login; no matching employee exists, so asked
+whether to create his record or use an explicit employee number. Do not link another
+person or manufacture an association by email. Real customer employee login/punch is
+not yet qualified; isolated tests are explicitly separate. Current Kuubu VPS free
+storage remains about442MB; expansion/retention work is still needed for growth.
+Laravel/Perfex, financial settings, real staff compensation and unrelated ERP
+deployments were untouched by this release. Operations SSH key is preauthenticated
+under prior user authorization; no passwords or API keys belong in repository/evidence.
+
 ## 2026-11-17 — Levant owner company-wide HR access correction
 
 User reported gbanda could not create missing import branches and explicitly asked
