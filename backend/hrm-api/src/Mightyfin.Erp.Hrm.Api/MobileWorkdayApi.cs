@@ -16,13 +16,6 @@ internal sealed class MobileWorkdayAccessException(int status):Exception
 internal static class MobileWorkdayApi
 {
     internal static bool Enabled(IConfiguration c)=>c.GetValue<bool>("ERP:MobileWorkday:Enabled");
-    private sealed record Tenant(string Value):ITenantAccessor{public string GetTenantId()=>Value;}
-    internal static Func<string,HrmDbContext> Contexts(IConfiguration c)
-    {
-        var options=new DbContextOptionsBuilder<HrmDbContext>().UseNpgsql(c.GetConnectionString("Hrm"),
-            pg=>pg.MigrationsHistoryTable("__hrm_migrations","hrm")).Options;
-        return tenant=>new(options,new Tenant(tenant));
-    }
     private static IResult Error(int status,string code)=>Results.Json(new{error=new{code}},statusCode:status);
     internal static async Task<IResult> Execute(HttpContext h,Guid attendance,bool write,Func<string,HrmDbContext> contexts,
         Func<HrmDbContext?,CancellationToken,Task<MobileWorkdayScope?>> authority)

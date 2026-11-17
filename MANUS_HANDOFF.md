@@ -1,5 +1,42 @@
 ## 2026-11-17 — Vcron manual workday foundation IMPLEMENTED; live rollout held
 
+Further qualification: real PostgreSQL HTTPS commands passed for two isolated
+employees/companies. Duplicate commands replayed once; altered nonce payloads and
+simultaneous departures conflict; checkout/break races exercised BOTH orderings
+(break accepted before checkout and break rejected after checkout), ending closed.
+Unicode reports after checkout preserve attendance totals. Runtime can SELECT/
+INSERT ledger, cannot UPDATE/DELETE. Android-specific employees remain unpunched.
+QA source12a2c1c94ca25d3b51017355236cde389b1314ba, publication/archive SHA
+73d2cb2b22bc3a0da5724b301f4a54a0949821581267e2ac4534b67ad469d387;
+/opt/kuubu-builds/classic-workday-12a2c1c9-publish01. Local evidence
+inspection/qualifications/workday-classic-native-20261117-01/http03.private.log;
+remote /opt/kuubu-onprem-qualification/workday-20261117-01/http-acceptance02.json.
+QA-only API kuubu-workday-classic-qa01-api01, proxy03, public28996; old proxy01
+stopped/retained, failed proxy02 retained. Two prior fixture attempts are retained;
+one assertion conflated invalid input400 with nonce conflict409; corrected input
+and NEW HTTP2 workers passed. No real company rows copied or production ingress/
+schema changed. Stop the QA endpoint after installed-Android acceptance.
+
+SaaS native workday now reuses the exact database factory of NativeEmployeeAdmission
+rather than constructing a second factory from configuration. A positive mapped
+HTTP test goes through strict native subject resource parsing, Core company/module/
+employee/location admission, licensed persistence, retries, reports and revocation.
+Identity or licensing unavailable returns503; denied identity401 vs license403;
+cross-company and removed employee links fail closed. Targeted suite16passed,
+including owning snapshot parity. Original focused hosted profile35passed; repeat
+positive HTTP qualification on the updated focused source before any live rollout.
+
+Mobile source de8a077 implemented manual workday controls;4b5f332 preserves a
+separate failing dependency release gate while compiling a marked qualification
+preview. Both pushed to Greenwebb/vcron-attendance-mobile branch
+codex/kuubu-attendance-integration-20261115. Actual shared React UI browser audit
+passed,62transport/domain/preview tests pass, Poppins card inspected. APK workflow
+44178833064 is building a TEST-ONLY artifact; dependency audit is RED due unpatched
+picomatch GHSA-fc5q-39xc-vjpf (latest4.0.7 affected as checked17November). No force
+SDK downgrade or advisory waiver. Staff release stays held; do not equate a green
+compile job with overall release success. Native runtime source-map check excludes
+the build matching packages, which does not resolve the Node build-tool advisory.
+
 New optional ERP:MobileWorkday:Enabled (defaultfalse) adds employee-owned breaks,
 departures with reason, returns and self-reported work reports to existing mobile
 attendance. Append-only HRM ledger, revision/idempotency checks, owning-company/

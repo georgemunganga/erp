@@ -12,7 +12,7 @@ paths=['Domain/Entities/MobileWorkdayEvent.cs','Application/Time/MobileWorkdayRu
        'Infrastructure/MobileWorkdayStore.cs','Infrastructure/Data/HrmDbContext.MobileWorkday.cs',
        'Infrastructure/Data/MobileWorkdaySchema.cs','Api/MobileWorkdayApi.cs','Api/NativeMobileWorkday.cs',
        'Api/NativeAttendanceApi.cs','Tests/MobileWorkdayRulesTests.cs','Tests/MobileWorkdayStoreTests.cs',
-       'Tests/NativeAttendanceHttpTests.cs']
+       'Tests/NativeAttendanceHttpTests.cs','Tests/NativeWorkdayHttpTests.cs']
 for name in paths:
  path=prefix+name;target=source/path;old=target.read_bytes() if target.exists() else b''
  target.write_bytes((root/path).read_bytes())

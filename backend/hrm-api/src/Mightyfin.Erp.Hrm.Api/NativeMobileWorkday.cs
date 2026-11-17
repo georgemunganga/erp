@@ -19,6 +19,7 @@ internal static partial class NativeAttendanceApi
             if(result.Status!=200 || result.Grant is not {} grant)throw new MobileWorkdayAccessException(result.Status==503?503:403);
             return new(grant.Scope.TenantId,company,grant.Worker.Id,grant.Scope.PrincipalId,grant.TimeZone);
         }
-        return MobileWorkdayApi.Execute(h,attendance,write,MobileWorkdayApi.Contexts(h.RequestServices.GetRequiredService<IConfiguration>()),Authority);
+        return MobileWorkdayApi.Execute(h,attendance,write,
+            tenant=>h.RequestServices.GetRequiredService<NativeEmployeeAdmission>().WorkdayContexts(tenant),Authority);
     }
 }

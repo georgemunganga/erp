@@ -19,6 +19,9 @@ internal sealed record NativeGrantResult(int Status, NativeEmployeeGrant? Grant 
 internal sealed class NativeEmployeeAdmission(Func<string,HrmDbContext> contexts,
     Func<string,CancellationToken,Task<CommercialLicenseResult>> license, TimeProvider clock)
 {
+    // Workday persistence uses the same configured database factory as admission.
+    // This is a server dependency, never a request-selected connection or tenant.
+    internal Func<string,HrmDbContext> WorkdayContexts=>contexts;
     internal async Task<NativeGrantResult> ReadAsync(OperationalSubjectObservation person, Guid company, Guid link, CancellationToken ct)
     {
         try { return await ReadCoreAsync(person,company,link,ct); }
