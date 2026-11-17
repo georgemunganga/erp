@@ -1,3 +1,4 @@
+import { FULL_PRODUCT_HRM } from "@/modules/core/product-hrm-session";
 import { LogOut, UserRound } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
@@ -11,7 +12,8 @@ export function ErpAccountMenu({ settingsHref }: { settingsHref?: string }) {
       <DropdownMenuLabel className="flex flex-col"><span>ERP account</span><span className="truncate text-xs font-normal text-muted-foreground">{user?.preferredUsername ?? user?.email ?? "Organisation account"}</span></DropdownMenuLabel>
       {settingsHref ? <><DropdownMenuSeparator /><DropdownMenuItem asChild><a href={settingsHref}>Settings</a></DropdownMenuItem></> : null}
       <DropdownMenuSeparator />
-      <DropdownMenuItem onSelect={() => signOut()}><LogOut className="size-4" aria-hidden />Sign out</DropdownMenuItem>
+      {FULL_PRODUCT_HRM ? <DropdownMenuItem asChild><a href="https://www.kuubuerp.com/account/">Back to Kuubu account</a></DropdownMenuItem> : null}
+      <DropdownMenuItem onSelect={() => signOut()}><LogOut className="size-4" aria-hidden />{FULL_PRODUCT_HRM ? "Log out of ERP" : "Sign out"}</DropdownMenuItem>
     </DropdownMenuContent>
   </DropdownMenu>;
 }

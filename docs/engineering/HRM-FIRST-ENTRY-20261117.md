@@ -1,0 +1,86 @@
+# Automatic HR/payroll entry and import labels
+
+## 1. Outcome
+A pending company opens HR/payroll configuration after Kuubu launch; complete companies retain their requested page.
+
+## 2. Classification
+Tier 3 HR/payroll; navigation and input translation only.
+
+## 3. Ownership
+Kuubu owns identity, enrollment, company/team grants. HR owns configuration and employee data.
+
+## 4. Actors
+Existing authorized HR administrators and HR operations users.
+
+## 5. Entry
+Existing Kuubu company/module selection and verified ERP session.
+
+## 6. Authority
+No grant changes. Existing API and scope middleware remain authoritative.
+
+## 7. Company boundary
+Use current server setup state and explicit non-confined shell result. Unknown scope never triggers setup.
+
+## 8. State machine
+Pending -> setup route; complete -> original destination. Loading/unknown -> no inferred completion or write.
+
+## 9. Routing
+Replace navigation prevents Back looping into the intercepted destination.
+
+## 10. Legacy
+Existing on-premise pending behavior retained; legacy complete state remains complete.
+
+## 11. Branch users
+Confined users and SaaS employees cannot be forced into organization-wide setup.
+
+## 12. Configuration
+Existing wizard retains employment, calendar, leave, statutory/pay-group rules and employee readiness steps.
+
+## 13. Persistence
+No schema, database, setup-status or entitlement mutation in this release.
+
+## 14. Completion
+Server Finish transition controls completion; revisiting settings does not restart completed companies.
+
+## 15. Import problem
+UI employment labels differed from workers import API categories.
+
+## 16. Import mapping
+Permanent/Employee -> employee; Contractor/Contingent -> contingent; Intern/Volunteer -> canonical codes, case-insensitive.
+
+## 17. Contract semantics
+Worker category differs from contract terms. UI explicitly states terms are configured separately; no permanent/fixed-term contract inferred or written.
+
+## 18. Unknown input
+Unknown and ambiguous types remain unchanged for server preview rejection; no blanket employee default.
+
+## 19. Preview/apply
+Normalize shared mapped rows before both preview and apply, including manually edited values.
+
+## 20. User feedback
+Show translation explanation and normalized preview before confirmation.
+
+## 21. Profile menu
+Add Back to Kuubu account and Log out of ERP in SaaS menus, reusing existing CSRF-protected logout. Central identity remains signed in.
+
+## 22. Privacy
+Use synthetic preview records only. Do not apply user spreadsheet or expose employee data in release evidence.
+
+## 23. Failure recovery
+Unknown/denied setup does not redirect; existing API error feedback and company reconnection retained.
+
+## 24. Tests
+Decision tests cover pending/complete, employee, confined/unknown scope, legacy and HR operations. Mapping tests cover known/unknown labels.
+
+## 25. Build
+Real API, ERP product mode, full HR enabled; TypeScript and production build required.
+
+## 26. Deployment
+Fresh immutable web publication and container; preserve native API/gateway routes and proxy mounts. No backend migration.
+
+## 27. Rollback
+Retain preceding web/proxy; restart preceding proxy if cutover health fails.
+
+## 28. Acceptance
+Record actual live pending entry and completed-state check after deployment; do not infer production browser completion from unit checks.
+

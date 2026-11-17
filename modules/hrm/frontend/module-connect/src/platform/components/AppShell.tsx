@@ -1,3 +1,4 @@
+import { shouldOpenHrmSetup } from "@/modules/hrm/setup-entry";
 import { FULL_PRODUCT_HRM } from "@/modules/core/product-hrm-session";
 import { Link, useRouter, useRouterState } from "@tanstack/react-router";
 import {
@@ -563,7 +564,7 @@ function RealSignOut() {
   if (USE_REAL) {
     return (
       <button type="button" className="flex w-full items-center gap-2 px-2 py-1.5 text-sm" onClick={() => signOut()}>
-        <LogOut className="size-4" aria-hidden /> Sign out
+        <LogOut className="size-4" aria-hidden /> {FULL_PRODUCT_HRM ? "Log out of ERP" : "Sign out"}
       </button>
     );
   }
@@ -708,7 +709,11 @@ function FullAppShell({ children }: { children: ReactNode }) {
   // route so first-time operators land on the wizard; an already-complete
   // org is passed straight through by the backend's "complete" status.
   const setupPending =
-    USE_REAL && !FULL_PRODUCT_HRM && !shellState.data?.confined && Boolean(shellState.data?.setupState) && (shellState.data?.setupState as { status?: string } | null)?.status === "pending";
+    shouldOpenHrmSetup({
+      real: USE_REAL, product: FULL_PRODUCT_HRM, roles: user?.roles ?? [],
+      confined: shellState.data?.confined,
+      status: shellState.data?.setupState?.status,
+    });
 
   const switchTargetLabel = (() => {
     try {
@@ -778,7 +783,7 @@ function FullAppShell({ children }: { children: ReactNode }) {
   // overlay). Avoids rendering side-effects during render by using an effect.
   useEffect(() => {
     if (setupPending && pathname !== "/hrm/setup") {
-      router.navigate({ to: "/hrm/setup" });
+      router.navigate({ to: "/hrm/setup", replace: true });
     }
   }, [setupPending, pathname, router]);
 
@@ -960,6 +965,7 @@ function FullAppShell({ children }: { children: ReactNode }) {
                 <DropdownMenuItem className="xl:hidden" asChild><Link to="/hrm/help">Help</Link></DropdownMenuItem>
                 <DropdownMenuItem className="xl:hidden" onSelect={toggleTheme}>Switch to {theme === "light" ? "dark" : "light"} mode</DropdownMenuItem>
                 <DropdownMenuSeparator />
+                {FULL_PRODUCT_HRM ? <DropdownMenuItem asChild><a href="https://www.kuubuerp.com/account/">Back to Kuubu account</a></DropdownMenuItem> : null}
                 <DropdownMenuItem asChild>
                   <RealSignOut />
                 </DropdownMenuItem>

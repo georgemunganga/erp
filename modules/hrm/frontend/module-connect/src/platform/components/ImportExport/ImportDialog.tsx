@@ -1,3 +1,4 @@
+import { normalizeWorkerImportType } from "./worker-import-values";
 import { Textarea } from "@/components/ui/textarea";
 import { RecordTable } from "@/platform/components/RecordTable";
 /**
@@ -180,6 +181,7 @@ const IMPORT_PAGE_SIZE = 25;
 function cleanImportValue(fieldKey: string, rawValue: unknown) {
   const value = String(rawValue ?? "").trim();
   if (!value) return "";
+  if (fieldKey === "workerType") return normalizeWorkerImportType(value);
 
   if (["firstName", "middleName", "lastName"].includes(fieldKey))
     return value.replace(/[^\p{L}\p{M}\s.'-]/gu, "").replace(/\s+/g, " ").trim();
@@ -944,6 +946,7 @@ export function ImportDialog({ typeKey, onDone, demoSample, presentation = "dial
 
       <div className={cn("min-w-0", embedded ? "w-full overflow-visible" : "flex-1 min-h-0 overflow-y-auto pr-2")}>
         {modeTabs ? <div className="p-1 pb-3">{modeTabs}</div> : null}
+        {typeKey === "workers" ? <p className="mx-1 mb-3 text-sm text-muted-foreground">Employment type: Permanent is imported as Employee; Contractor as Contingent. Intern and Volunteer are also supported. Contract terms are configured separately in the employee record. Review the mapped values before confirming.</p> : null}
         {clientValidationErrors.length > 0 && step !== "preview" ? (
           <div role="alert" className="mx-1 mb-3 rounded-lg border border-destructive/35 bg-destructive/5 p-3 text-sm text-destructive">
             <p className="font-medium">Some cleaned values still need correction</p>
