@@ -34,3 +34,26 @@ export function missingImportBranches(rows:Record<string,string>[], locations:Im
  }
  return result;
 }
+
+export type ImportCompletion = {
+ confirmed:boolean; created:number; updated:number; skipped:number; message?:string;
+ remainingRows:Record<string,string>[];
+ issues:{row:number;status:string;message?:string}[];
+};
+/** Reconcile server outcomes with the reviewed rows; never reuse an applied preview. */
+export function importCompletion(previewRows:Record<string,unknown>[], inputRows:Record<string,string>[], response:unknown):ImportCompletion {
+ if(!response || typeof response!=="object") throw new Error("Import response was incomplete.");
+ const value=response as {created?:unknown;updated?:unknown;skipped?:unknown;rowOutcomes?:unknown};
+ for(const key of ["created","updated","skipped"] as const)
+  if(!Number.isInteger(value[key]) || (value[key] as number)<0) throw new Error("Import response was incomplete.");
+ if(!Array.isArray(value.rowOutcomes)) throw new Error("Import outcomes were unavailable.");
+ const remaining=new Set<number>();
+ previewRows.forEach((row,index)=>{if(String(row.status).toLowerCase()==="error") remaining.add(index);});
+ const issues:{row:number;status:string;message?:string}[]=[];
+ for(const item of value.rowOutcomes) {
+  if(!item || typeof item!=="object" || !Number.isInteger(item.row) || typeof item.status!=="string") throw new Error("Import outcomes were incomplete.");
+  if(item.status!=="ok") { remaining.add(item.row-2); issues.push({row:item.row,status:item.status,message:typeof item.message==="string"?item.message:undefined}); }
+ }
+ return {confirmed:true,created:value.created as number,updated:value.updated as number,skipped:value.skipped as number,
+  remainingRows:[...remaining].sort((a,b)=>a-b).map(index=>inputRows[index]).filter(Boolean),issues};
+}

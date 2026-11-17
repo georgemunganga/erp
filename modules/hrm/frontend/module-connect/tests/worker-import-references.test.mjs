@@ -1,6 +1,6 @@
 import {test} from "node:test";
 import assert from "node:assert/strict";
-import {autoMapImportColumns,missingImportBranches} from "../src/platform/components/ImportExport/worker-import-references.ts";
+import {autoMapImportColumns,missingImportBranches,importCompletion} from "../src/platform/components/ImportExport/worker-import-references.ts";
 const fields=[{key:"employeeNo",label:"Employee number"},{key:"firstName",label:"First name"},{key:"lastName",label:"Last name"},{key:"email",label:"Work email"},{key:"workerType",label:"Employment type"},{key:"orgUnitName",label:"Department"},{key:"locationId",label:"Branch"},{key:"nrc",label:"NRC"},{key:"startDate",label:"Start date"},{key:"basicSalary",label:"Basic salary"}];
 test("the user's underscore headings map only to supported, intended fields",()=>{
  const map=autoMapImportColumns(["employee_id","first_name","last_name","email","nrc_number","branch","department","employment_type","hire_date","basic_salary","gender","date_of_birth","legal_entity","bank_account_number","contract_end_date"],fields);
@@ -16,4 +16,17 @@ test("missing branches compare company-owned names regardless of case and whites
 test("unknown IDs, blanks and archived names cannot become inferred branch duplicates",()=>{
  const rows=[{locationId:"00000000-0000-0000-0000-000000000000"},{locationId:""},{locationId:"Ndola"}];
  assert.deepEqual(missingImportBranches(rows,[{id:"1",name:"Ndola",legalEntityId:"A",isArchived:true}],"A"),["Ndola"]);
+});
+
+test("completed import has no remaining ready rows to replay",()=>{
+ const result=importCompletion([{status:"create"},{status:"update"}],[{employeeNo:"A"},{employeeNo:"B"}],{created:1,updated:1,skipped:0,rowOutcomes:[{row:2,status:"ok"},{row:3,status:"ok"}]});
+ assert.equal(result.confirmed,true); assert.deepEqual(result.remainingRows,[]);
+});
+test("partial import retains only validation errors and failed writes for a fresh review",()=>{
+ const result=importCompletion([{status:"create"},{status:"error"},{status:"create"}],[{employeeNo:"A"},{employeeNo:"B"},{employeeNo:"C"}],{created:1,updated:0,skipped:1,rowOutcomes:[{row:2,status:"ok"},{row:4,status:"error",message:"Changed branch"}]});
+ assert.deepEqual(result.remainingRows,[{employeeNo:"B"},{employeeNo:"C"}]);
+ assert.equal(result.issues[0].message,"Changed branch");
+});
+test("an incomplete apply response cannot be presented as successful",()=>{
+ assert.throws(()=>importCompletion([],[],{created:0}),/incomplete/);
 });

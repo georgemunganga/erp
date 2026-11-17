@@ -84,3 +84,15 @@ Do not claim arbitrary fields supported. Branch creation requires company-wide c
 ## 28. Evidence
 Record final commits/containers/ports/backup script and browser screenshots in MANUS_HANDOFF after acceptance.
 
+
+## Live acceptance follow-up: persistent completion
+The first live20-row create succeeded and read back20 unique synthetic employees,
+18employee/2contingent; branches15LusakaHQ/2Kitwe/3Ndola,12departments. However the
+embedded tool only emitted a transient toast and left the applied preview active.
+Follow-up discards that preview after any apply attempt, blocks reusing its ID,
+and shows a persistent confirmed/unconfirmed result. Confirmed partial results
+keep only failed/unsubmitted rows for a fresh review. An uncertain response is
+never shown as successful or auto-replayed. View employees and Import another file
+provide explicit next actions. Modal imports retain their existing close behavior.
+The next live acceptance must prove duplicate insert preview rejection and an
+explicit match/update on the same20 synthetic records, with no extra employees.

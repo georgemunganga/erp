@@ -1,4 +1,4 @@
-import { autoMapImportColumns, missingImportBranches } from "./worker-import-references";
+import { autoMapImportColumns, missingImportBranches, importCompletion, type ImportCompletion } from "./worker-import-references";
 import { FULL_PRODUCT_HRM, productHrmImportCompany } from "@/modules/core/product-hrm-session";
 import { ApiError } from "@/platform/api-client";
 import { cleanWorkerImportValue as cleanImportValue } from "./worker-import-values";
@@ -345,7 +345,9 @@ export function ImportDialog({ typeKey, onDone, demoSample, presentation = "dial
   const [mapping, setMapping] = useState<Record<string, string>>({});
   const [manualRows, setManualRows] = useState<Array<Record<string, string>>>([]);
   const [preview, setPreview] = useState<Record<string, unknown> | null>(null);
-  const [step, setStep] = useState<"upload" | "map" | "preview">("upload");
+  const [step, setStep] = useState<"upload" | "map" | "preview" | "result">("upload");
+  const [completion, setCompletion] = useState<ImportCompletion | null>(null);
+  const submittedPreview = useRef<string | null>(null);
   const [entryMode, setEntryMode] = useState<"upload" | "manual">("upload");
   const [mode, setMode] = useState<"insert" | "update" | "fill-missing">("insert");
   const [manualPage, setManualPage] = useState(1);
@@ -385,6 +387,7 @@ export function ImportDialog({ typeKey, onDone, demoSample, presentation = "dial
     setFileColumns([]);
     setFileRows([]);
     setPreview(null);
+    setCompletion(null);
     setMapping({});
     setManualRows([]);
     setEntryMode("upload");
@@ -405,6 +408,7 @@ export function ImportDialog({ typeKey, onDone, demoSample, presentation = "dial
     setFileColumns([]);
     setFileRows([]);
     setPreview(null);
+    setCompletion(null);
     setMapping({});
     setManualRows([]);
     setEntryMode("upload");
@@ -429,6 +433,7 @@ export function ImportDialog({ typeKey, onDone, demoSample, presentation = "dial
     setFileColumns(headersClean.map((name, index) => ({ name, sample: String(rows[0]?.[index] ?? "") })));
     setFileRows(rows);
     setPreview(null);
+    setCompletion(null);
     setPasteError(null);
     setClientValidationErrors([]);
     setManualPage(1);
@@ -454,6 +459,7 @@ export function ImportDialog({ typeKey, onDone, demoSample, presentation = "dial
     setSheetName(null);
     setMapping({});
     setPreview(null);
+    setCompletion(null);
     setPasteError(null);
     setMissingReferences(null);
     setReferencesOpen(false);
@@ -514,6 +520,7 @@ export function ImportDialog({ typeKey, onDone, demoSample, presentation = "dial
   function switchEntryMode(next: "upload" | "manual") {
     setEntryMode(next);
     setPreview(null);
+    setCompletion(null);
     setManualPage(1);
     if (next === "manual" && manualRows.length === 0) {
       const seeded = mappedRows;
@@ -524,6 +531,7 @@ export function ImportDialog({ typeKey, onDone, demoSample, presentation = "dial
   function showUploadEntry() {
     setEntryMode("upload");
     setPreview(null);
+    setCompletion(null);
     setStep(fileRows.length > 0 ? "map" : "upload");
   }
 
@@ -562,6 +570,7 @@ export function ImportDialog({ typeKey, onDone, demoSample, presentation = "dial
     }
     setEntryMode("manual");
     setPreview(null);
+    setCompletion(null);
     setManualPage(1);
     setPreviewPage(1);
     setStep("upload");
@@ -693,28 +702,27 @@ export function ImportDialog({ typeKey, onDone, demoSample, presentation = "dial
   }
 
   async function applyAccepted() {
-    if (!preview || !schema) return;
+    if (busy || !preview || !schema || submittedPreview.current === String(preview.id)) return;
     const rows = preview.rows as Array<Record<string, unknown>>;
-    const idxs = rows
-      .map((r, i) => (previewRowStatus(r) === "create" || previewRowStatus(r) === "update") ? i : -1)
-      .filter((i) => i >= 0);
-    if (idxs.length === 0) { toast.info("No rows are ready to import."); return; }
+    const idxs = rows.map((r,i)=>(previewRowStatus(r)==="create" || previewRowStatus(r)==="update")?i:-1).filter(i=>i>=0);
+    if (!idxs.length) { toast.info("No rows are ready to import."); return; }
+    submittedPreview.current = String(preview.id);
     setBusy(true);
     try {
-      const res = await realApi.importApply(typeKey, String(preview.id), idxs);
-      const counts = res as { created?: number; updated?: number; skipped?: number; rowOutcomes?: Array<{ row: number; status: string }> };
-      toast.success(`Import done — ${counts.created ?? 0} created, ${counts.updated ?? 0} updated${counts.skipped ? `, ${counts.skipped} skipped` : ""}`);
-      if (embedded) {
-        setPreviewPage(1);
-      } else {
-        setOpen(false);
-      }
+      const response = await realApi.importApply(typeKey, String(preview.id), idxs);
+      const result = importCompletion(rows,mappedRows,response);
+      setCompletion(result);
+      setPreview(null);
+      if (embedded) setStep("result"); else setOpen(false);
+      toast.success(`Import done — ${result.created} created, ${result.updated} updated${result.skipped?`, ${result.skipped} skipped`:""}`);
       onDone?.();
-    } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Apply failed");
-    } finally {
-      setBusy(false);
-    }
+    } catch (error) {
+      const message=error instanceof Error?error.message:"The import response was not received.";
+      setCompletion({confirmed:false,created:0,updated:0,skipped:0,message,remainingRows:mappedRows,issues:[]});
+      setPreview(null);
+      if (embedded) setStep("result");
+      toast.error(`${message} Check saved records before previewing again.`);
+    } finally { setBusy(false); }
   }
 
   const accepted = preview
@@ -772,7 +780,7 @@ export function ImportDialog({ typeKey, onDone, demoSample, presentation = "dial
     setPreviewPage((page) => clampPage(page, previewRows?.length ?? 0));
   }, [previewRows?.length]);
 
-  const modeTabs = step !== "preview" ? (
+  const modeTabs = step !== "preview" && step !== "result" ? (
     <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border bg-surface-muted/40 p-2">
       <div className="flex flex-wrap gap-2 text-sm">
         <button
@@ -869,6 +877,7 @@ export function ImportDialog({ typeKey, onDone, demoSample, presentation = "dial
             {step === "upload" && "Drop an Excel or CSV file from your records. Every column can be mapped to a system field next."}
             {step === "map" && "Match each column in your file to a system field. Fields you skip are left blank."}
             {step === "preview" && "The server checked every row. Review the preview, then confirm to import."}
+            {step === "result" && "Review the import outcome and open the saved records below."}
           </p>
         </div>
       ) : (
@@ -881,6 +890,7 @@ export function ImportDialog({ typeKey, onDone, demoSample, presentation = "dial
             {step === "upload" && "Drop an Excel or CSV file from your records. Every column can be mapped to a system field next."}
             {step === "map" && "Match each column in your file to a system field. Fields you skip are left blank."}
             {step === "preview" && "The server checked every row. Review the preview, then confirm to import."}
+            {step === "result" && "Review the import outcome and open the saved records below."}
           </DialogDescription>
         </DialogHeader>
       )}
@@ -900,6 +910,22 @@ export function ImportDialog({ typeKey, onDone, demoSample, presentation = "dial
             </ul>
           </div>
         ) : null}
+        {step === "result" && completion ? <section className="space-y-4 rounded-lg border p-5" aria-label="Import outcome">
+          <h3 className="text-xl font-semibold">{completion.confirmed ? "Import complete" : "Import status not confirmed"}</h3>
+          {completion.confirmed ? <>
+            <p>{completion.created} created · {completion.updated} updated · {completion.skipped} skipped</p>
+            <p className="text-sm text-muted-foreground">The completed preview cannot be submitted again. Open the saved records to verify the result.</p>
+          </> : <p role="alert">{completion.message} Some rows may have been saved. Check the saved records before running a fresh preview; this request will not be repeated automatically.</p>}
+          {completion.remainingRows.length ? <p>{completion.remainingRows.length} rows need a fresh review before another import.</p> : null}
+          {completion.issues.length ? <ul className="list-disc pl-5 text-sm">{completion.issues.slice(0,10).map((issue,index)=><li key={`${issue.row}-${index}`}>Row {issue.row}: {issue.message || issue.status}</li>)}</ul> : null}
+          <div className="flex flex-wrap gap-2">
+            {typeKey === "workers" ? <Button asChild><a href="/hrm/employees">View employees</a></Button> : null}
+            {completion.remainingRows.length ? <Button variant="outline" onClick={()=>{
+              setManualRows(completion.remainingRows); setEntryMode("manual"); setPreview(null); setCompletion(null); setStep("upload");
+            }}>Review remaining rows</Button> : null}
+            <Button variant="outline" onClick={()=>void openDialog()}>Import another file</Button>
+          </div>
+        </section> : null}
         {step === "upload" && (
           <div className="space-y-4 p-1">
             {entryMode === "manual" && schema ? (
@@ -1180,7 +1206,8 @@ export function ImportDialog({ typeKey, onDone, demoSample, presentation = "dial
                     type="button"
                     variant="outline"
                     size="sm"
-                    onClick={() => { setMode("fill-missing"); setPreview(null); setStep("map"); }}
+                    onClick={() => { setMode("fill-missing"); setPreview(null);
+    setCompletion(null); setStep("map"); }}
                   >
                     Update current data
                   </Button>
