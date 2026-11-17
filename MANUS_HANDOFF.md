@@ -35,6 +35,20 @@ works. Existing live API/proxy/APK pins below remain unchanged.
 
 ## 2026-11-17 — gbanda fresh-account reset; renewed14-day HR trial ACTIVE
 
+**Superseding company selection:** the user subsequently created G Limited and
+explicitly chose HR ONLY for its trial. The new Levant trial below is now
+CANCELLED. Active trial is G Limited customer01m7nn3q3dmkv0bav7mr55v4mc,
+enrollment01m7nn3r4f34tcghwe19wkcres, HR subscription01m7nn3rmyhqhe449ttde6b0g6,
+identity5, one requested seat,0ZMW, same expiry2026-12-01T22:59:35+02:00.
+G Limited's combined1000ZMW unpaid invoice01m7nn3vjee47e1prcexg2gx7b had NO
+payment attempts; cancelled through CommerceBilling.cancelUncollectedForTrial.
+Procurement subscription01m7nn3s5s8cegwy1g38w1vya7 remains PENDING/inactive,
+not silently trial-authorized. CommercialEntitlements readback asserts exactly
+hrm. The operator did NOT complete or reset G Limited's ERP setup. User directed
+to refresh Kuubu, select G Limited and continue setup. Atomic transfer receipt:
+central operation folder/g-limited-trial-transferred.json. Keep this distinction
+when testing first entry; the following new-Levant issuance is historical.
+
 The user explicitly selected removing the Kuubu account and trial companies,
 rather than retaining the old sign-in. After root-private scoped backups on both
 owning servers, central identity2 was retired (email released, inaccessible
