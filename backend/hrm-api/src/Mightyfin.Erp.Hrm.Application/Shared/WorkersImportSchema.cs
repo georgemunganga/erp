@@ -128,6 +128,7 @@ public sealed class WorkersImportSchema : IImportSchemaWithExport
                 : "employee number, NRC or NAPSA number";
             return new ImportRowOutcome("error", $"No existing employee matches {key}. Check the identifier or switch to Insert mode.");
         }
+        var formatErrors = new List<string>();
         if (target is null)
         {
             var missing = new List<string>();
@@ -135,8 +136,7 @@ public sealed class WorkersImportSchema : IImportSchemaWithExport
                 if (field.Required && string.IsNullOrWhiteSpace(row.Get(field.Key)))
                     missing.Add(field.Label);
             if (missing.Count > 0)
-                return new ImportRowOutcome("error",
-                    $"Missing required { (missing.Count == 1 ? "field" : "fields") }: {string.Join(", ", missing)}. The row cannot be imported until they are filled in.");
+                formatErrors.Add($"Missing required { (missing.Count == 1 ? "field" : "fields") }: {string.Join(", ", missing)}. The row cannot be imported until they are filled in.");
         }
 
         var firstName = row.Get("firstName");
@@ -149,22 +149,21 @@ public sealed class WorkersImportSchema : IImportSchemaWithExport
         // In Update mode a blank value means "leave the record's existing
         // value untouched", so only non-blank values are checked. ----
         if (EmailInvalid(email))
-            return new ImportRowOutcome("error", $"Work email '{email}' is not a valid email address.");
+            formatErrors.Add($"Work email '{email}' is not a valid email address.");
         if (isUpdate && string.IsNullOrWhiteSpace(phone))
             phone = null; // blank in Update mode means "keep the existing phone"
         if (!string.IsNullOrWhiteSpace(phone) && !PhoneValid(phone))
-            return new ImportRowOutcome("error", $"Phone '{phone}' is not valid — use 9–15 digits, e.g. 0971234567.");
+            formatErrors.Add($"Phone '{phone}' is not valid — use 9–15 digits, e.g. 0971234567.");
         if (!string.IsNullOrWhiteSpace(workerType) &&
             workerType is not ("employee" or "contingent" or "intern" or "volunteer"))
-            return new ImportRowOutcome("error", $"Employment type '{row.Get("workerType")}' is not valid — use Permanent / Employee, Contractor / Contingent, Intern or Volunteer (any letter case).");
+            formatErrors.Add($"Employment type '{row.Get("workerType")}' is not valid — use Permanent / Employee, Contractor / Contingent, Intern or Volunteer (any letter case).");
         var tpin = row.Get("tpin").Trim();
         if (!string.IsNullOrWhiteSpace(tpin) && !TpinValid(tpin))
-            return new ImportRowOutcome("error", $"TPIN '{tpin}' is not valid — use exactly 10 digits.");
+            formatErrors.Add($"TPIN '{tpin}' is not valid — use exactly 10 digits.");
         var startDate = row.Get("startDate").Trim();
         if (!string.IsNullOrWhiteSpace(startDate) && !TryParseImportDate(startDate, out _))
-            return new ImportRowOutcome("error", $"Start date '{startDate}' is not valid — use DD-MM-YYYY, e.g. 02-01-2026.");
+            formatErrors.Add($"Start date '{startDate}' is not valid — use DD-MM-YYYY, e.g. 02-01-2026.");
 
-        var formatErrors = new List<string>();
         foreach (var (key, label) in new[] { ("firstName", "First name"), ("middleName", "Middle name"), ("lastName", "Last name") })
             if (!string.IsNullOrWhiteSpace(row.Get(key)) && !System.Text.RegularExpressions.Regex.IsMatch(row.Get(key), @"\p{L}"))
                 formatErrors.Add($"{label} must contain letters.");
@@ -175,7 +174,7 @@ public sealed class WorkersImportSchema : IImportSchemaWithExport
         if (!string.IsNullOrWhiteSpace(branch))
         {
             var locations = await repo.ListAllLocationsAsync(ct);
-            var matches = locations.Where(location => Guid.TryParse(branch, out var id)
+            var matches = locations.Where(location => !location.IsArchived).Where(location => Guid.TryParse(branch, out var id)
                 ? location.Id == id : string.Equals(location.Name, branch, StringComparison.OrdinalIgnoreCase)).ToArray();
             if (matches.Length != 1)
                 formatErrors.Add(matches.Length == 0 ? $"Branch '{branch}' does not exist in your company access. Choose an existing branch." : $"Branch '{branch}' is ambiguous. Use its branch ID.");

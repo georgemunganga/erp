@@ -357,6 +357,18 @@ public class ImportExportServiceTests
     }
 
     [Fact]
+    public async Task Import_ShowsAllBasicFieldProblemsInOnePreview()
+    {
+        var preview = await BuildService().PreviewAsync("workers", "invalid.csv", "insert",
+            [new() { ["firstName"]="123", ["email"]="not-email", ["phone"]="abc", ["workerType"]="permanant",
+                ["tpin"]="123", ["nrc"]="123", ["startDate"]="not-date", ["locationId"]="missing" }], CancellationToken.None);
+        Assert.Equal(1, preview.WillError);
+        var message=preview.Rows.Single().Message;
+        foreach(var field in new[] {"Last name", "First name", "Work email", "Phone", "Employment type", "TPIN", "NRC", "Start date", "Branch"})
+            Assert.Contains(field,message);
+    }
+
+    [Fact]
     public async Task Import_DuplicateNapsaInFileIsFlaggedBeforeApply()
     {
         var svc = BuildService();
