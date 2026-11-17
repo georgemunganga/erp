@@ -476,7 +476,7 @@ export function WelcomeOverlay({ pageMode = false }: { pageMode?: boolean } = {}
             </p>
           </div>
           <Button variant="ghost" className="ml-auto" asChild>
-            <a href="/hrm">Skip to dashboard</a>
+            <a href={FULL_PRODUCT_HRM ? "https://www.kuubuerp.com/account/#/companies" : "/hrm"}>{FULL_PRODUCT_HRM ? "Back to Kuubu account" : "Skip to dashboard"}</a>
           </Button>
         </div>
 
