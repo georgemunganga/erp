@@ -111,3 +111,10 @@ a background-check interval in an isolated Codex browser tab before View employe
 Live reopen exposed a file selection before the server schema finished loading.
 Upload/drop/paste and template actions now wait for the authoritative schema;
 no file is mapped to an empty field list or false unavailable warning.
+
+## Final live release acceptance
+Web07 aa363c65 completion survived34seconds (>30-second access poll); View employees
+opened20records. SQL confirmed all20primary IDs unchanged and no employee login
+links. Final web08 ead9f04d verified disabled inputs while schema loaded, then
+16intended field mappings from20synthetic rows, and return to20saved employees.
+Release/backup/API details and CSV limitations recorded in MANUS_HANDOFF.md.

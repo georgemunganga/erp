@@ -1,3 +1,48 @@
+## 2026-11-17 — Employee import missing references and full browser acceptance LIVE
+
+Supersedes earlier first-entry04/05/06/07 web entries. API remains unchanged.
+
+- Active frontend source **ead9f04d** (includes a80c0649 mapping/reference review,
+  5fbd840c persistent outcomes, aa363c65 access-recovery state retention).
+  `kuubu-hrm-first-entry08-web01` on28983, proxy
+  `kuubu-hrm-first-entry08-proxy01`; immutable release
+  `/opt/kuubu-production/releases/hrm-first-entry-review08`.
+  Backup service uses `backup-production-hrm17.py` in that release.
+- API remains d41303dd, `kuubu-employee-import-release01-api01` on28986.
+  No migration; native gateway, Procurement routes and durable mounts retained.
+- User explicitly approved George's Test A company-wide current/future location
+  scope; saved through Kuubu Team & access review. Roles/actions unchanged.
+  Test B and Levant grants untouched. Do not infer company access from email.
+- Live Codex in-app browser, George / Vcron Attendance Test A: synthetic20 rows
+  using supplied CSV layout/reference names. Original personal CSV untouched.
+  Check missing data explicitly reviewed/created3branches (Lusaka HQ,Kitwe,Ndola),
+  12departments and QA Grade. Recheck17ready/3ambiguous types; corrected Contract
+  and Part-time explicitly. Mixed-case Permanent/Contractor accepted. Deliberate
+  bad phone gave19ready/1error; corrected to20ready, confirmed create20.
+- Insert re-preview rejected20 existing employee numbers. Explicit Match & update
+  yielded0create/20update. Repeat reference check found nothing missing. Read-only
+  SQL verified20same primary IDs,18employee/2contingent, branches15/2/3, no employee
+  login links or payroll/bank records, no test-prefix rows in Test B.
+- Old embedded completion left a reusable preview; now discards applied preview,
+  shows lasting completion/partial/unconfirmed outcome and explicit next actions.
+  User confirmed an automatic return to upload with no manual interaction. Embedded
+  initialization now survives React Activity effect replay during access recovery.
+  Web07 live result survived34seconds (>30s background interval), then View employees
+  opened20records. Web08 additionally blocks upload/drop/paste/template until the
+  authoritative live schema loads, preventing initial empty mapping/false warning.
+- Checks: focused reference/outcome tests7pass (prior combined suite12pass), tsc and
+  production builds pass. Final web08 browser confirmed disabled inputs during schema
+  loading, then16 intended field mappings from20rows and return to the saved list.
+  Public setup/import/Procurement/readiness200; Levant setup
+  remains complete. Retained browser/SQL evidence:
+  `inspection/qualifications/employee-import-live-20261117-01` (outside repository).
+- Limitations: original32-column CSV includes17 unsupported columns (bank details,
+  next of kin, contract hours/status and others); mapping explicitly lists ignored
+  fields. Salary import requires pay_group; original file has none. Synthetic run
+  did not import salary/bank data. Worker category Employee is separate from a
+  Permanent contract assignment; ambiguous Contract/Part-time require review.
+  This acceptance concerns employee import, not native mobile attendance acceptance.
+
 ## 2026-11-17 — Employee import server validation follow-up LIVE
 
 User continued to see raw Permanent rejected and asked to validate important fields,
