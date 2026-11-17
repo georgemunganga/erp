@@ -155,4 +155,20 @@ and local inspection/qualifications/newworld-rose-access-20261117-01. The employ
 had no recent/open attendance records. First-time password setup is still required;
 the user was handed the existing ERP/Android login forms. The required password
 completion is not bypassed. Actual customer sign-in/punch qualification remains
-pending that handoff; no real staff attendance has been fabricated.
+pending that initial handoff at that stage.
+
+The user subsequently explicitly authorized a private hash backup and temporary
+credential for the selected existing account. Setup then completed through the
+normal HTTPS login/change-password endpoints, not by clearing a password flag in
+SQL. The installed app passed real staff sign-in, Head office scope, check-in,
+check-out, attendance history and cold-restart recovery. Readback confirmed one
+completed mobile attendance record and both correct account-authored clock audits.
+The short test shift's qualification purpose is recorded in a separate operator
+audit for HR review before payroll. No payroll run or compensation was changed.
+Credentials/hash backups remain root-only on the owning server, never in source
+or chat. The original hash was not restored. The temporary credential must be
+replaced before staff handover. Detailed private acceptance is at
+/opt/kuubu-mobile-qualification/rose-password-test-20261117-01; local summary at
+inspection/qualifications/newworld-rose-live-20261117-01. Native screenshots were
+stale emulator frames; fresh accessibility state and persisted database/audit
+records are the functional evidence. No visual screenshot qualification is claimed.

@@ -1,3 +1,39 @@
+## 2026-11-17 — Selected on-prem staff live Vcron flow PASSED
+
+Supersedes the initial-password/customer-staff hold below. The user explicitly
+requested backing up the selected staff account's existing hash and using a
+temporary credential to complete setup and test. The original hash/flags were
+saved root-only0400 on the owning server. A guarded, audited reset installed a
+random temporary hash with MustChangePassword stilltrue and revoked only this
+account's prior local/mobile sessions. The existing HTTPS /auth/login and
+/auth/change-password endpoints completed the normal first-password flow; the
+flag was never cleared in SQL. The final random temporary credential is stored
+root-only0600, never printed, committed or put in the host command line/clipboard.
+The temporary web test session was logged out. Original hash was not restored.
+
+Installed Android runtime3102b71 authenticated the selected existing employee
+against New World Cargo, showed Head office and empty attendance, and successfully
+checked in and out. History showed one recorded day. Cold restart restored the
+authenticated employee and completed shift without another punch. PostgreSQL
+readback confirmed one mobile attendance record, correct employee/location, both
+clock times, and two clock audit events authored by the linked account. A separate
+operator audit marks the short shift as live qualification requiring HR review
+before payroll. No payroll run, pay settings, other roles or employee records were
+changed; total staff records remain30 (27 unarchived). Existing web/mobile health
+passed. These are real customer staff acceptance checks, distinct from earlier
+two-company synthetic qualification.
+
+Private evidence and credential/hash files: owning-server
+/opt/kuubu-mobile-qualification/rose-password-test-20261117-01; local
+inspection/qualifications/newworld-rose-live-20261117-01. Fresh Android accessibility
+captures are under the existing onprem-mobile-native qualification's android/rose-live-*.
+The emulator screenshot renderer produced stale frames; screenshots are not visual
+acceptance evidence. App had been on secondary display2; it was moved to main0 for
+reliable input, then restored to its original secondary display. No app data was
+cleared. Do not confuse display/rendering problems with a lost authenticated session.
+No APK/backend code change was needed. Replace the temporary credential before
+staff handover; keep the backed-up hash private and do not restore it automatically.
+
 ## 2026-11-17 — Company owner defaults LIVE; on-prem mobile adapter LIVE
 
 SaaS owner policy source **f081d5a34e4ed0e0c1ecf6604e62ba81938bf90d** is live
