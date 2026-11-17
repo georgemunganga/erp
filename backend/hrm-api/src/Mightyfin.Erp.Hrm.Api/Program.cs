@@ -325,6 +325,10 @@ builder.Services.AddScoped<ICoreCurrencyPrecisionSchemaReadiness, CoreCurrencyPr
 // Admission checks the actual caller transaction; registration does not enable new writes.
 builder.Services.AddScoped<IProcurementInvoiceReplacementSchemaReadiness, ProcurementInvoiceReplacementSchemaReadiness>();
 
+if(OnPremMobileOnlyHost.Enabled(builder.Configuration)) {
+    await OnPremMobileOnlyHost.RunAsync(builder,args);
+    return;
+}
 var app = builder.Build();
 
 // ---------- Verify the owning Core/HRM schema before startup ----------

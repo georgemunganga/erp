@@ -54,6 +54,10 @@ internal static class OnPremMobileApi
     internal sealed record Refresh(Guid CompanyId, string RefreshToken);
     private sealed record Tenant(string Value) : ITenantAccessor { public string GetTenantId() => Value; }
     private sealed record Grant(LocalMobileSession Session, LocalUser User, Worker Worker, LegalEntity Company, WorkLocation Location);
+    private sealed class LocalAttendanceProof(Guid worker, Guid user) : IMobileAttendanceEmployeeAuthority
+    {
+        public bool Allows(Guid candidate,string subject)=>candidate==worker && subject==user.ToString("D");
+    }
     private static readonly string DummyHash = LocalPasswordHash.Hash("unusable-mobile-password-" + Guid.NewGuid());
 
     internal static void Register(IServiceCollection services, IConfiguration c, string connection)
@@ -168,7 +172,7 @@ internal static class OnPremMobileApi
         if (!roles.Contains("employee", StringComparer.OrdinalIgnoreCase)) return null;
         var c = await db.LegalEntities.AsNoTracking().SingleOrDefaultAsync(x => x.Id == allowed.Id && !x.IsArchived, ct);
         var w = await db.Workers.AsNoTracking().SingleOrDefaultAsync(x => x.Id == session.WorkerId && !x.IsArchived, ct);
-        if (c is null || w?.LocationId is not {} location || w.SubjectId != u.Id.ToString("D")
+        if (c is null || w?.LocationId is not {} location
             || w.Status is not ("active" or "on-leave" or "notice")) return null;
         DateOnly today;
         try { today = MobileAttendanceTime.Local(now, c.TimeZoneId).Date; }
@@ -274,7 +278,7 @@ internal static class OnPremMobileApi
         var shell = new ShellContext {EntityId = company,LocationId = grant.Location.Id}; shell.AllowedLocationIds.Add(grant.Location.Id);
         var service = new TimeServiceImpl(new TimeRepository(db), new AuthzServiceImpl(new HttpContextAccessor{HttpContext=h},h.RequestServices.GetRequiredService<IConfiguration>()),
             h.RequestServices.GetRequiredService<IWorkflowService>(), new WorkerRepository(db), shell,
-            new PayrollRepository(db),unitOfWork:new EfUnitOfWork(db));
+            new PayrollRepository(db),unitOfWork:new EfUnitOfWork(db),mobileAuthority:new LocalAttendanceProof(grant.Worker.Id,grant.User.Id));
         try {
             await service.PunchMobileAsync(grant.Worker.Id,clockIn.Value,Now(h),grant.Company.TimeZoneId,date,record,h.RequestAborted);
             if (await Admit(db,allowed,s,h) is null) return Error(401,"session_expired");

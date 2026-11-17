@@ -125,7 +125,7 @@ public sealed class OnPremMobileHttpTests
             case "archived-worker":worker.IsArchived=true;break;
             case "future-employment":worker.StartDate=new(2027,1,1);break;
             case "expired-employment":worker.EndDate=new(2026,1,1);break;
-            case "different-worker-link":worker.SubjectId=Guid.NewGuid().ToString("D");break;
+            case "different-worker-link":user.WorkerId=f.WorkerB;break;
             case "missing-employee-role":user.RolesCsv="hr_admin";break;
         }
         await db.SaveChangesAsync();
@@ -141,6 +141,16 @@ public sealed class OnPremMobileHttpTests
         await using var db=f.Db("tenant-a");var user=await db.LocalUsers.SingleAsync();Assert.Equal(0,user.FailedLoginCount);Assert.Null(user.LockedUntil);
         Assert.True(LocalPasswordHash.Verify(Password,user.PasswordHash));
         Assert.Equal(HttpStatusCode.OK,(await f.Client.PostAsJsonAsync("/api/hrm/auth/login",new{email="qa-a@example.invalid",password=Password})).StatusCode);
+    }
+    [Fact]
+    public async Task Explicit_local_account_link_does_not_rewrite_or_depend_on_a_legacy_IdP_subject()
+    {
+        await using var f=await Fixture.Start();await using var db=f.Db("tenant-a");var w=await db.Workers.SingleAsync();
+        var legacySubject="existing-identity-provider-subject";w.SubjectId=legacySubject;await db.SaveChangesAsync();
+        var token=await f.Login();var p=await f.Send("GET","/me",token);
+        await f.Send("POST","/attendance/clock-in",token,new{expected_work_date=p.GetProperty("attendance").GetProperty("work_date").GetString()});
+        db.ChangeTracker.Clear();Assert.Equal(legacySubject,(await db.Workers.SingleAsync()).SubjectId);
+        Assert.Equal(f.WorkerA,(await db.LocalUsers.SingleAsync()).WorkerId);
     }
     [Theory]
     [InlineData("product")][InlineData("hybrid")][InlineData("oidc")]

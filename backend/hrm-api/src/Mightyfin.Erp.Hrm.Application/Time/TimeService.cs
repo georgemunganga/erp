@@ -90,7 +90,8 @@ public sealed class TimeServiceImpl(
     Application.ShellContext? scope = null,
     IPayrollRepository? payroll = null,
     IOutboxWriter? outbox = null,
-    IUnitOfWork? unitOfWork = null) : ITimeService, IMobileAttendanceService
+    IUnitOfWork? unitOfWork = null,
+    IMobileAttendanceEmployeeAuthority? mobileAuthority = null) : ITimeService, IMobileAttendanceService
 {
     private bool IsEmployeeOnly =>
         authz.IsRole("employee") && !authz.IsRole("hr_ops", "hr_admin", "manager", "payroll");
@@ -1026,7 +1027,10 @@ public sealed class TimeServiceImpl(
         string timeZone, string? expectedDate, Guid? expectedRecord, CancellationToken ct)
     {
         authz.RequireAnyRole("employee");
-        await RequireWorkerScopeAsync(workerId, ct);
+        // LocalUser.WorkerId is a distinct explicit account link. A legacy IdP
+        // subject on Worker must not be rewritten to make mobile attendance work.
+        if (mobileAuthority?.Allows(workerId, authz.CurrentSubjectId ?? "") != true)
+            await RequireWorkerScopeAsync(workerId, ct);
         var (today, now) = MobileAttendanceTime.Local(serverTime, timeZone);
         if (repo is not IMobileAttendanceRepository mobile)
             throw new DomainException("mobile-attendance-unavailable", "Mobile attendance is unavailable.");

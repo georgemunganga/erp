@@ -65,8 +65,10 @@ roll back; do not delete or rewrite employee/attendance history.
    Never trust arbitrary forwarded IP/scope headers. Multiple replicas require
    coordinated ingress limits; process-local budgets are not a distributed limiter.
 4. Existing eligible local account needs employee role, active employment, a current
-   company-owned location, explicit LocalUser.WorkerId and matching Worker.SubjectId
-   equal to that principal's UUID. Both links are verified; absence is denied. An
+   company-owned location and explicit LocalUser.WorkerId. This local account link
+   is checked independently of any legacy IdP subject on Worker. The private
+   server-created mobile attendance proof covers only that exact worker and local
+   principal; it never grants another role or changes the legacy subject. An
    administrator must establish a missing link through a separately reviewed
    account operation. No mobile endpoint creates or repairs links or resets passwords.
 5. Verify manifest/search, existing-account login, in/out/history, retries,
@@ -83,7 +85,7 @@ roll back; do not delete or rewrite employee/attendance history.
 
 ## Pre-deployment checks
 
-36 focused HTTP/domain tests passed: standalone eligibility/search/sessions/punches,
+The focused HTTP/domain suite covers standalone eligibility/search/sessions/punches,
 cookie/company isolation, web-session row preservation, existing native admission,
 local role fallback and retry/timezone/overnight attendance rules. A Windows locale
 test exposed culture-dependent mobile result formatting; only the mobile DTO's
@@ -91,3 +93,11 @@ clock strings now use invariant HH:mm. Server mobile payload timestamps remain
 explicit ISO instants. Separate PostgreSQL/actual APK acceptance is recorded with
 the installed source and artifact pins; mock/SQLite checks are not described as
 customer rollout.
+
+For a sidecar alongside an older ERP host, set `ERP__OnPremMobile__Only=true` only
+after applying its additive owning migration. That mode checks the session table
+and configured company, and serves only mobile/health routes. It does not run
+full ERP migrations, initial-admin bootstrap, browser authentication endpoints or
+scheduled business jobs. Do not blindly run the current full ERP model against an
+older database: use the version-qualified compatibility build and its narrow
+migration, preserving existing customizations and the running ERP host.

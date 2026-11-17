@@ -14,6 +14,12 @@ public interface IMobileAttendanceRepository
     Task<List<AttendanceRecord>> OpenMobilePunchesAsync(Guid workerId, CancellationToken ct);
 }
 
+/// <summary>Server-created local principal/employee proof, never a role or payload selector.</summary>
+public interface IMobileAttendanceEmployeeAuthority
+{
+    bool Allows(Guid workerId, string subjectId);
+}
+
 public static class MobileAttendanceTime
 {
     public static (DateOnly Date, TimeOnly Time) Local(DateTimeOffset instant, string timeZone)
