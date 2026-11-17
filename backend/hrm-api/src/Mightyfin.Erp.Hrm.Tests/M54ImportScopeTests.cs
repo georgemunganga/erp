@@ -13,15 +13,18 @@ namespace Mightyfin.Erp.Hrm.Tests;
 
 public class M54ImportScopeTests
 {
-    [Fact]
-    public async Task Apply_Insert_HonorsLocationIdColumn()
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task Apply_Insert_HonorsLocationIdColumn(bool useName)
     {
         var svc = BuildServiceWithLocation(out var locationId);
         var preview = await svc.PreviewAsync("workers", "t.csv", "insert",
             [new() { ["firstName"] = "E", ["lastName"] = "F", ["email"] = "e@example.com",
-                ["phone"] = "0971234567", ["workerType"] = "employee", ["locationId"] = locationId.ToString() }],
+                ["phone"] = "0971234567", ["workerType"] = "employee", ["locationId"] = useName ? "  tEsT bRaNcH  " : locationId.ToString() }],
             CancellationToken.None);
         Assert.Equal("create", preview.Rows[0].Status);
+        Assert.Equal(locationId.ToString(), preview.Rows[0].Resolved!["locationId"]);
         var applied = await svc.ApplyAsync(preview.Id, [0], CancellationToken.None);
         Assert.True(applied.Created == 1,
             string.Join(" | ", applied.RowOutcomes.Select(r => $"[{r.Status}] {r.Message}"))

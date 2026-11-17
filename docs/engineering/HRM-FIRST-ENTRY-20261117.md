@@ -84,3 +84,22 @@ Retain preceding web/proxy; restart preceding proxy if cutover health fails.
 ## 28. Acceptance
 Live Test A pending entry and wizard through payroll/finish passed; completed A retained import route. Synthetic Permanent row preview: willCreate1/problems0, not applied. Test B Kuubu launch auto-opened setup; final release setup return to Companies passed. Levant server status remains complete. Four focused tests, TypeScript and production build passed. Source56da1e49, web28978/proxy first-entry03, backup11. No real employee import or pay run. Proof: inspection/qualifications/hrm-first-entry-production01 and03. Logout action and George native attendance remain separate outstanding checks.
 
+
+## Import validation follow-up — 17 November
+User still observed raw Permanent rejection from the API. Earlier web normalization
+did not make the server contract tolerant of old open clients. Backend preview and
+apply now share case-insensitive known-label normalization and persist canonical
+worker categories; unknown categories never silently default to employee. Server
+schema metadata lists accepted labels. No enum entries or contract policies are
+auto-created from arbitrary input.
+
+Important-field audit: existing required names/email/phone/type, email/phone/TPIN,
+start date, child-history dates, in-file/existing identity conflicts, department,
+pay-group/salary-effective-date/allowance/overtime checks remain. Follow-up adds
+server name-text/NRC format checks, existing branch GUID/name resolution with
+company/confinement guards, branch update/fill-missing handling and in-file NAPSA
+duplicate protection. Branch/dept matches ignore case and surrounding whitespace;
+unknown/ambiguous branch names require correction, never creation. Contract terms
+and identity enrollment remain separate. Test raw labels through preview -> apply
+-> persisted worker category, invalid important fields, duplicate NAPSA, branch
+name/ID and scoped denial. No real employee spreadsheet is applied by this work.

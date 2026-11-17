@@ -106,7 +106,7 @@ public class ImportExportServiceTests
         Assert.Equal("error", preview.Rows[0].Status);
         Assert.Contains("Phone", preview.Rows[0].Message);
 
-        rows = [new() { ["firstName"] = "A", ["lastName"] = "B", ["email"] = "a@b.com", ["phone"] = "0971234567", ["workerType"] = "contractor" }];
+        rows = [new() { ["firstName"] = "A", ["lastName"] = "B", ["email"] = "a@b.com", ["phone"] = "0971234567", ["workerType"] = "unknown-category" }];
         preview = await svc.PreviewAsync("workers", "t.csv", "insert", rows, CancellationToken.None);
         Assert.Equal("error", preview.Rows[0].Status);
         Assert.Contains("Employment type", preview.Rows[0].Message);
@@ -309,6 +309,65 @@ public class ImportExportServiceTests
         Assert.Equal("error", preview.Rows[0].Status);
         Assert.Contains("exceeds", preview.Rows[0].Message);
         Assert.Empty(db.WorkerBenefitAllowances);
+    }
+
+    [Theory]
+    [InlineData("Permanent", "employee")]
+    [InlineData(" permanent ", "employee")]
+    [InlineData("PERMANENT", "employee")]
+    [InlineData("EmPlOyEe", "employee")]
+    [InlineData("CONTRACTOR", "contingent")]
+    [InlineData("Contingent", "contingent")]
+    [InlineData("INTERN", "intern")]
+    [InlineData("Volunteer", "volunteer")]
+    public async Task Import_LabelsAreResolvedOnServer_AndPersistCanonicalCategory(string label, string expected)
+    {
+        var db = TestDbContextFactory.Create($"labels-{Guid.NewGuid():N}");
+        var repo = new WorkerRepository(db);
+        var svc = new ImportExportServiceImpl([new WorkersImportSchema(repo,
+            new WorkerServiceImpl(repo, new PermissiveAuthz(), new UlidIdProvider()),
+            new PermissiveAuthz(), new Application.ShellContext())]);
+        var preview = await svc.PreviewAsync("workers", "labels.csv", "insert",
+            [new() { ["firstName"] = "Import", ["lastName"] = "Test", ["email"] = "preview@example.invalid",
+                ["phone"] = "0971234567", ["workerType"] = label }], CancellationToken.None);
+        Assert.Equal(0, preview.WillError);
+        Assert.Equal(expected, preview.Rows.Single().Resolved!["workerType"]);
+        var applied = await svc.ApplyAsync(preview.Id, [0], CancellationToken.None);
+        Assert.Equal(1, applied.Created);
+        Assert.Equal(expected, (await db.Workers.SingleAsync()).WorkerType);
+    }
+
+    [Theory]
+    [InlineData("firstName", "123", "First name")]
+    [InlineData("nrc", "123", "NRC")]
+    [InlineData("locationId", "Unknown Branch", "Branch")]
+    [InlineData("locationId", "00000000-0000-0000-0000-000000000000", "Branch")]
+    [InlineData("workerType", "permanant", "Employment type")]
+    public async Task Import_ImportantFieldsCannotBypassBrowserValidation(string field, string value, string message)
+    {
+        var svc = BuildService();
+        var row = new Dictionary<string, string> { ["firstName"] = "Import", ["lastName"] = "Test",
+            ["email"] = "preview@example.invalid", ["phone"] = "0971234567", ["workerType"] = "Permanent" };
+        row[field] = value;
+        var preview = await svc.PreviewAsync("workers", "invalid.csv", "insert", [row], CancellationToken.None);
+        Assert.Equal(1, preview.WillError);
+        Assert.Contains(message, preview.Rows.Single().Message);
+        var result = await svc.ApplyAsync(preview.Id, [0], CancellationToken.None);
+        Assert.Equal(0, result.Created);
+    }
+
+    [Fact]
+    public async Task Import_DuplicateNapsaInFileIsFlaggedBeforeApply()
+    {
+        var svc = BuildService();
+        var rows = new List<Dictionary<string,string>> {
+            new() { ["firstName"]="First", ["lastName"]="Test", ["email"]="first@example.invalid", ["phone"]="0971234567", ["workerType"]="Permanent", ["napsaNumber"]="TEST-123" },
+            new() { ["firstName"]="Second", ["lastName"]="Test", ["email"]="second@example.invalid", ["phone"]="0971234568", ["workerType"]="Permanent", ["napsaNumber"]="test-123" },
+        };
+        var preview = await svc.PreviewAsync("workers", "duplicate.csv", "insert", rows, CancellationToken.None);
+        Assert.Equal(1, preview.WillCreate);
+        Assert.Equal(1, preview.WillError);
+        Assert.Contains("NAPSA", preview.Rows[1].Message);
     }
 
     private static ImportExportServiceImpl BuildService()
