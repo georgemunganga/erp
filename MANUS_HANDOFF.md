@@ -23,8 +23,8 @@ HTTP test goes through strict native subject resource parsing, Core company/modu
 employee/location admission, licensed persistence, retries, reports and revocation.
 Identity or licensing unavailable returns503; denied identity401 vs license403;
 cross-company and removed employee links fail closed. Targeted suite16passed,
-including owning snapshot parity. Original focused hosted profile35passed; repeat
-positive HTTP qualification on the updated focused source before any live rollout.
+including owning snapshot parity. Updated focused hosted profile36passed, including
+the positive SaaS HTTP workflow; live rollout remains held.
 
 Mobile source de8a077 implemented manual workday controls;4b5f332 preserves a
 separate failing dependency release gate while compiling a marked qualification
@@ -70,57 +70,18 @@ workday UI, runtime backup/rollback and native monitoring stage still require
 qualification. Do not claim this milestone is deployed or background monitoring
 works. Existing live API/proxy/APK pins below remain unchanged.
 
-## 2026-11-17 — gbanda fresh-account reset; renewed14-day HR trial ACTIVE
+## 2026-11-18 — Operator test-account reset completed
 
-**Superseding company selection:** the user subsequently created G Limited and
-explicitly chose HR ONLY for its trial. The new Levant trial below is now
-CANCELLED. Active trial is G Limited customer01m7nn3q3dmkv0bav7mr55v4mc,
-enrollment01m7nn3r4f34tcghwe19wkcres, HR subscription01m7nn3rmyhqhe449ttde6b0g6,
-identity5, one requested seat,0ZMW, same expiry2026-12-01T22:59:35+02:00.
-G Limited's combined1000ZMW unpaid invoice01m7nn3vjee47e1prcexg2gx7b had NO
-payment attempts; cancelled through CommerceBilling.cancelUncollectedForTrial.
-Procurement subscription01m7nn3s5s8cegwy1g38w1vya7 remains PENDING/inactive,
-not silently trial-authorized. CommercialEntitlements readback asserts exactly
-hrm. The operator did NOT complete or reset G Limited's ERP setup. User directed
-to refresh Kuubu, select G Limited and continue setup. Atomic transfer receipt:
-central operation folder/g-limited-trial-transferred.json. Keep this distinction
-when testing first entry; the following new-Levant issuance is historical.
-
-The user explicitly selected removing the Kuubu account and trial companies,
-rather than retaining the old sign-in. After root-private scoped backups on both
-owning servers, central identity2 was retired (email released, inaccessible
-reserved-domain tombstone, random unrecoverable password, verification cleared),
-its OAuth/refresh/browser sessions revoked, Kuubu identity enrollment revoked,
-commercial enrollment01m772vmgdenmk7e2qy6z83bjc revoked, and the old HR trial
-01m772vn5141hbpyge33dddk75 cancelled through SubscriptionService. The cancelled
-invoice, failed payment attempt, billing customer and immutable audit history
-remain. There was no other product identity enrollment or billing customer.
-No credentials or verification codes were disclosed or sent.
-
-Levant tenant01a1d080-fd43-79e8-b506-86899d368a80, company
-01a1d080-fd80-760c-a91c-c0843145c0d5 is archived; its sole local principal and
-external identity link are disabled, membership revision incremented/inactive,
-and terminal revocations appended for existing ERP sessions. Its21 employee
-records and original setup/audit evidence are retained privately for recovery;
-they were not moved to another identity. Other company rows were fingerprinted
-unchanged. No tenant table was truncated and no immutable history deleted.
-
-Root-private recovery/operation receipts:
-central /opt/greenwebb-qualifications/gbanda-reset-20261117-01;
-ERP /opt/kuubu-qualifications/gbanda-reset-20261117-01.
-The user completed fresh registration and verification: new central identity5.
-Using the explicit reset/reissue authorization, the owning customer/enrollment
-controllers, SubscriptionService and root trial command established a NEW Levant
-billing customer01m7nmxp679g96n5ygv0s1tpe1, NEW enrollment
-01m7nmxp6n7fax4qgva5qyhvxh and subscription01m7nmxp6z2s92kqy64fgcvb0j.
-HR, one requested seat, trial fee0ZMW, paid0ZMW, expires
-2026-12-01T22:59:35+02:00. SubscriptionController readback asserts trial_active
-and trial_fee_minor0. No invoice/payment or ERP company was created. No old
-membership was inherited by email. New ERP tenant/company and first-time
-company/HR/payroll setup remain deliberately NOT STARTED for the user's test;
-do not copy old setup flags. User directed to refresh Kuubu account and continue
-the new Levant trial setup. Private receipt fresh-trial-issued.json is in the
-central operation folder above. Vcron work resumed.
+An explicitly approved Kuubu test-account reset was completed with private,
+scoped backups on both owning servers. The prior identity was retired, its
+sessions/enrollments revoked, trial cancelled and ERP company archived while
+billing and immutable audit history remained intact. A fresh verified identity
+received a separately approved HR-only trial through the owning services; no
+old organisation access was inherited by matching email. The account owner
+subsequently provisioned the new company and completed its HR/payroll wizard.
+Customer-specific identities, company labels, IDs and receipts belong in the
+private owning-server operational records, not source-controlled release notes.
+Do not reset this completed company again or infer consent for another module.
 
 ## 2026-11-17 — Selected on-prem staff live Vcron flow PASSED
 
