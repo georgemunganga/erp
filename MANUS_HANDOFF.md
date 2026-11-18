@@ -1,3 +1,47 @@
+## 2026-11-18 — Vcron manual workday Android acceptance passed; release held
+
+Supersedes the in-progress Android/QA statements in the 17 November checkpoint
+below. Actual Android run44269504759 passed against the isolated PostgreSQL ERP
+for two synthetic companies: password sign-in, break/end, restart restoring a
+break, reason-required departure/return, Home/History draft navigation, checkout,
+report after checkout, company switching and switch-back loading its own report.
+Server read-back confirmed exactly one closed attendance and five workday events
+per company. The overnight record retained its correct work date and report access.
+No real employee punches, automatic checkout or payroll changes were introduced.
+
+Tested APK runtime source: mobile bdb36f9590f44fd64ed2a22978f454d669c7291d,
+built by44259013078. Later mobile commits through1869188 change only acceptance
+scripts/workflows; runtime-file diff is empty. Native build, browser UI and native
+smoke passed, but the build workflow is NOT green: its required dependency audit
+still fails GHSA-fc5q-39xc-vjpf, with no patched npm release verified18November.
+Runtime source-map exclusion of build-tool packages does not clear that finding.
+No staff distribution or production workday enablement is approved by these tests.
+
+Local evidence: inspection/qualifications/workday-classic-native-20261117-01/ci03/
+(workday-result.json and native screenshots). Mobile TypeScript/63 tests and actual
+shared React UI audit passed. Backend layers: earlier full-source targeted53;
+subsequent targeted16; focused hosted36; classic44 with one explicitly inapplicable
+full-model case skipped. SaaS mapped HTTP admission/persistence was tested; the
+actual Android end-to-end flow used the isolated standalone compatibility profile,
+not a production SaaS deployment, physical device or iOS installation.
+
+Cleanup completed: temporary CI credential deleted and absence checked; all mobile
+sessions in the two synthetic QA tenants revoked; QA API/proxy stopped and public
+port28996 verified closed. Publications, databases and failed attempts are retained.
+Private cleanup receipt: /opt/kuubu-onprem-qualification/workday-20261117-01/
+cleanup-20261118-01.json. Live SaaS readiness and existing on-prem mobile profile
+remain healthy; production application code/schema/proxy were unchanged.
+
+The shared local emulator retains test-only APK4b5f332, not the newer tested APK.
+It is logged out at the on-prem server search on its original secondary display.
+Emulator DNS remains unresolved; do not attribute that to an ERP outage or count
+its unfinished checkout as acceptance. Clean CI Android supplied the complete flow.
+
+Remaining: resolve dependency release gate; qualify backup/rollback and live rollout;
+manager review/historical report UI; then separately implement transparent optional
+native site monitoring and authoritative module metrics. Automatic departures,
+automatic checkout and background location remain off/unimplemented.
+
 ## 2026-11-17 — Vcron manual workday foundation IMPLEMENTED; live rollout held
 
 Further qualification: real PostgreSQL HTTPS commands passed for two isolated

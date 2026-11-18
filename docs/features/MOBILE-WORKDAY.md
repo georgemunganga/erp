@@ -136,8 +136,12 @@ old API/proxy and immutable publications. Back up and rehearse schema first;
 verify old browser/native entry and on-prem customizations after any rollout.
 
 ## 27. Release status
-Implementation in progress. No live enablement or migration claimed by this file.
-Exact commits, retained evidence, holds and installed versions go in MANUS_HANDOFF.
+Manual first-stage implementation passed isolated PostgreSQL concurrency and
+Android two-company acceptance on 18 November 2026. SaaS mapped HTTP admission and
+persistence passed separately; native end-to-end used the standalone compatibility
+profile. Production capability/schema remain unchanged. Staff release is held by
+the required dependency audit, and native location monitoring is not implemented.
+Exact commits, retained evidence, cleanup and installed versions are in MANUS_HANDOFF.
 
 ## 28. Further decisions
 Employer break policy, approved off-site work, site coordinates/radii, monitoring
