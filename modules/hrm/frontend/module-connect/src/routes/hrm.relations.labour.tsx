@@ -13,9 +13,9 @@ import { useMock } from "@/platform/use-mock";
 export const Route = createFileRoute("/hrm/relations/labour")({
   head: () => ({
     meta: [
-      { title: "Agreements and roll call — Newworldcargo HRM" },
+      { title: "Agreements and roll call — Kuubu HRM" },
       { name: "description", content: "Collective agreements and their terms, plus emergency roll call." },
-      { property: "og:title", content: "Agreements and roll call — Newworldcargo HRM" },
+      { property: "og:title", content: "Agreements and roll call — Kuubu HRM" },
       { property: "og:description", content: "Collective agreements and their terms, plus emergency roll call." },
     ],
   }),

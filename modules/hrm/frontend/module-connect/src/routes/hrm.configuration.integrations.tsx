@@ -16,7 +16,7 @@ export const Route = createFileRoute("/hrm/configuration/integrations")({
   beforeLoad: () => { throw redirect({ to: "/hrm/workspace/settings/$slug", params: { slug: "integrations" }, replace: true }); },
   head: () => ({
     meta: [
-      { title: "Integration operations — Newworldcargo HRM" },
+      { title: "Integration operations — Kuubu HRM" },
       {
         name: "description",
         content: "Finance, payment, statutory, storage and workforce identity hand-offs.",

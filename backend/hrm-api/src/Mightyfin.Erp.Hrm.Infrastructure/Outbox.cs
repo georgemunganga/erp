@@ -94,6 +94,7 @@ public sealed class EfOutboxPublisherStore(HrmDbContext db, ITenantAccessor tena
             .FromSqlInterpolated($@"
                 SELECT * FROM hrm.outbox_messages
                 WHERE available_at <= now()
+                  AND event_type <> 'core.company.invitation.delivery.requested.v1'
                   AND (status IN ('pending', 'failed')
                        OR (status = 'publishing' AND updated_at < {staleBefore}))
                 ORDER BY created_at
@@ -128,6 +129,8 @@ public sealed class EfOutboxPublisherStore(HrmDbContext db, ITenantAccessor tena
     {
         var publisherTenant = PublisherTenant;
         var row = await db.OutboxMessages.IgnoreQueryFilters().FirstAsync(x => x.Id == id, ct);
+        if(row.EventType==CompanyInvitationDeliveryStore.EventType)
+            throw new InvalidOperationException("Invitation delivery belongs to its dedicated worker.");
         using var binding = publisherTenant.BindAuthoritativeRow(row);
         row.PublishAttempts++;
         row.LastTransport = transport;
@@ -157,7 +160,7 @@ public sealed class NotificationDeliveryService(
     {
         authz.RequireAnyRole("hr_admin");
         limit = Math.Clamp(limit, 1, 200);
-        var tenantRows = db.OutboxMessages.AsNoTracking();
+        var tenantRows = db.OutboxMessages.AsNoTracking().Where(x=>x.EventType!=CompanyInvitationDeliveryStore.EventType);
         var pending = await tenantRows.CountAsync(x => x.Status == "pending", ct);
         var publishing = await tenantRows.CountAsync(x => x.Status == "publishing", ct);
         var published = await tenantRows.CountAsync(x => x.Status == "published", ct);
@@ -182,6 +185,8 @@ public sealed class NotificationDeliveryService(
         authz.RequireAnyRole("hr_admin");
         var row = await db.OutboxMessages.FirstOrDefaultAsync(x => x.Id == id, ct)
             ?? throw new DomainException("notification-not-found", $"Notification {id} does not exist.");
+        if(row.EventType==CompanyInvitationDeliveryStore.EventType)
+            throw new DomainException("invitation-delivery-owned", "Invitation delivery retries belong to Core.");
         if (row.Status != "failed")
             throw new DomainException("notification-not-retryable", $"Notification is {row.Status}; only failed notifications can be retried.");
         row.Status = "pending";

@@ -24,12 +24,12 @@ import { PageHeader } from "@/platform/components/PageHeader";
 export const Route = createFileRoute("/hrm/requests/new")({
   head: () => ({
     meta: [
-      { title: "Raise an HR request — Newworldcargo HRM" },
+      { title: "Raise an HR request — Kuubu HRM" },
       {
         name: "description",
         content: "Guided case submission with purpose, details, evidence and next steps.",
       },
-      { property: "og:title", content: "Raise an HR request — Newworldcargo HRM" },
+      { property: "og:title", content: "Raise an HR request — Kuubu HRM" },
       {
         property: "og:description",
         content: "Guided case submission with purpose, details, evidence and next steps.",

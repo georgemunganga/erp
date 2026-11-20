@@ -16,7 +16,7 @@ public static class ProcurementItemEndpoints
 {
     public static void MapRoutes(WebApplication app)
     {
-        var items = app.MapGroup("/api/procurement/v1/items");
+        var items = app.MapGroup("/api/procurement/v1/items").ProductProcurement();
         items.AddEndpointFilter(ProcurementCatalogFencing.Write);
         items.MapGet("", List).RequireAuthorization("procurement-item-manage");
         items.MapGet("/export", Export).RequireAuthorization("procurement-item-manage")
@@ -31,7 +31,7 @@ public static class ProcurementItemEndpoints
         items.MapPut("/{id:guid}/catalog-entries/{entryId:guid}", UpdateEntry).Accepts<EntryUpdate>("application/json").RequireAuthorization("procurement-item-manage");
         items.MapPost("/{id:guid}/catalog-entries/{entryId:guid}/publish", PublishEntry).RequireAuthorization("procurement-catalog-approve");
         items.MapPost("/{id:guid}/catalog-entries/{entryId:guid}/withdraw", WithdrawEntry).RequireAuthorization("procurement-item-manage");
-        app.MapGet("/api/procurement/v1/catalog", Catalog).RequireAuthorization("procurement-item-read");
+        app.MapGet("/api/procurement/v1/catalog", Catalog).RequireAuthorization("procurement-item-read").ProductProcurement();
     }
 
     private static async Task<IResult> List(ProcurementDbContext db, string? search, string? status, int? page, int? pageSize, CancellationToken ct)

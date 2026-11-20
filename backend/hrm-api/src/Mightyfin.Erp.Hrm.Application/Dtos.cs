@@ -264,7 +264,7 @@ public sealed record OrgUnitDto(Guid Id, string Code, string Name, Guid? ParentI
 public sealed record WorkCalendarDto(Guid Id, string Name, int StandardWeeklyHours, string WeekendDays, int HolidayCount);
 public sealed record LeaveTypeDto(Guid Id, string Code, string Name, string Category, int DefaultDaysPerYear, bool IsActive);
 public sealed record CapabilityDto(string FeatureKey, string Tier, bool IsEnabled);
-public sealed record PayGroupDto(Guid Id, string Code, string Name, string Frequency, string Currency, int CalendarDayOfMonth);
+public sealed record PayGroupDto(Guid Id, string Code, string Name, string Frequency, string Currency, int CalendarDayOfMonth, string PaydayRule = "calendar-day");
 
 // ===================== Recruitment (M7) =====================
 
@@ -569,7 +569,7 @@ public sealed record WizardLeaveInput(List<WizardLeaveTypeInput> LeaveTypes);
 public sealed record WizardPayrollInput(
     string Frequency = "monthly", int PaydayDay = 25, string Currency = "ZMW",
     bool PayBasisTimesheet = false, bool ConfirmStatutory = false,
-    decimal? BasicDefaultAmount = null);
+    decimal? BasicDefaultAmount = null, string PaydayRule = "calendar-day");
 
 /// Step 7 — Policies (optional): contract types with probation and notice periods.
 public sealed record WizardContractTypeInput(string Name, int ProbationDays = 0, int NoticeDays = 0);
@@ -592,4 +592,5 @@ public sealed record WizardEmployeeError(int Row, string Detail);
 /// Pay group creation surface (M50: wizard + future admin UI).
 public sealed record PayGroupCreateRequest(
     string Code, string Name, string Frequency = "monthly", string Currency = "ZMW",
-    int CalendarDayOfMonth = 25, int InputCutoffDaysBeforePayday = 5, bool IsDefault = true);
+    int CalendarDayOfMonth = 25, int InputCutoffDaysBeforePayday = 5, bool IsDefault = true,
+    string PaydayRule = "calendar-day");

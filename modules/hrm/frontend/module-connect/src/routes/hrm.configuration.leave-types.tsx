@@ -17,7 +17,7 @@ import { realApi, useApi } from "@/platform/use-api";
 
 export const Route = createFileRoute("/hrm/configuration/leave-types")({
   beforeLoad: () => { throw redirect({ to: "/hrm/workspace/settings/$slug", params: { slug: "leave-types" }, replace: true }); },
-  head: () => ({ meta: [{ title: "Leave Types — Newworldcargo HRM" }, { name: "description", content: "Live leave entitlement and policy master data." }] }),
+  head: () => ({ meta: [{ title: "Leave Types — Kuubu HRM" }, { name: "description", content: "Live leave entitlement and policy master data." }] }),
   component: LeaveTypesPage,
 });
 

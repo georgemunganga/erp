@@ -30,6 +30,7 @@ import { EmptyState } from "@/platform/components/States";
 import { adaptOrgUnits, realApi, useApi } from "@/platform/use-api";
 import { useMock } from "@/platform/use-mock";
 import { feedback } from "@/platform/feedback";
+import { useAuth } from "@/platform/auth";
 
 const USE_REAL = import.meta.env.VITE_USE_REAL_API === "true";
 
@@ -38,11 +39,13 @@ function CreateOrgUnitDialog({
   onOpenChange,
   onCreated,
   units,
+  legalEntityId,
 }: {
   open: boolean;
   onOpenChange: (o: boolean) => void;
   onCreated: () => void;
   units: OrgUnit[];
+  legalEntityId?: string;
 }) {
   const [name, setName] = useState("");
   const [code, setCode] = useState("");
@@ -103,8 +106,10 @@ function CreateOrgUnitDialog({
                 feedback.blocked("Missing details", "Name and code are required.");
                 return;
               }
+              if (!legalEntityId) { feedback.blocked("Choose a company", "Select the legal entity before creating an organisation unit."); return; }
               try {
                 await realApi.createOrgUnit({
+                  legalEntityId,
                   code: code.trim(),
                   name: name.trim(),
                   unitType: kind,
@@ -132,13 +137,13 @@ function CreateOrgUnitDialog({
 export const Route = createFileRoute("/hrm/people/org")({
   head: () => ({
     meta: [
-      { title: "Organisation structure — Newworldcargo HRM" },
+      { title: "Organisation structure — Kuubu HRM" },
       {
         name: "description",
         content:
           "Indented tree of entities, branches, departments and teams with headcount, vacancies and the lead of each unit.",
       },
-      { property: "og:title", content: "Organisation structure — Newworldcargo HRM" },
+      { property: "og:title", content: "Organisation structure — Kuubu HRM" },
       {
         property: "og:description",
         content:
@@ -479,6 +484,7 @@ function UnitPanel({ unit, units }: { unit: OrgUnit; units: OrgUnit[] }) {
 }
 
 function OrgStructurePage() {
+  const { coreWorkspace } = useAuth();
   const demo = useMock(() => import("@/mock/structure").then((m) => m.orgUnits));
   const [entityId, setEntityId] = useState("all");
   const [selectedId, setSelectedId] = useState("");
@@ -584,6 +590,7 @@ function OrgStructurePage() {
           open={createOpen}
           onOpenChange={setCreateOpen}
           units={state.data ?? []}
+          legalEntityId={entityId !== "all" ? entityId : coreWorkspace?.companies.length === 1 ? coreWorkspace.companies[0].id : undefined}
           onCreated={() => setTick((t) => t + 1)}
         />
       )}

@@ -22,31 +22,72 @@ import { AuthGate } from "@/platform/components/AuthGate";
 import { GuidedFlow, NextSteps } from "@/platform/components/GuidedFlow";
 import type { FlowStep } from "@/platform/components/GuidedFlow";
 import { PageHeader } from "@/platform/components/PageHeader";
-import { realApi } from "@/platform/use-api";
+import { realApi, useApi } from "@/platform/use-api";
+import { Async } from "@/platform/components/Async";
+import { useAuth } from "@/platform/auth";
 import { feedback } from "@/platform/feedback";
 
 const USE_REAL = import.meta.env.VITE_USE_REAL_API === "true";
 export const Route = createFileRoute("/hrm/recruitment/requisitions/new")({
   head: () => ({
     meta: [
-      { title: "Raise a requisition — Newworldcargo HRM" },
+      { title: "Raise a requisition — Kuubu HRM" },
       {
         name: "description",
         content:
           "Guided requisition: replacement or new position, role details, establishment and budget check, approvers, then review and submit.",
       },
-      { property: "og:title", content: "Raise a requisition — Newworldcargo HRM" },
+      { property: "og:title", content: "Raise a requisition — Kuubu HRM" },
       {
         property: "og:description",
         content: "Guided requisition with an establishment check before anyone spends time on approval.",
       },
     ],
   }),
-  component: NewRequisition,
+  component: () => USE_REAL ? <LiveRequisition /> : <NewRequisition />,
 });
 
 const departments = ["Operations", "Manufacturing", "Logistics", "Finance", "People"];
 const employmentTypes = ["Permanent", "Fixed term", "Contractor", "Intern", "Part time"];
+
+function LiveRequisition() {
+  const navigate = useNavigate();
+  const { coreWorkspace } = useAuth();
+  const units = useApi(() => realApi.orgUnits());
+  const [jobTitle, setJobTitle] = useState("");
+  const [reason, setReason] = useState("new");
+  const [unitId, setUnitId] = useState("");
+  const [locationId, setLocationId] = useState("");
+  const [headcount, setHeadcount] = useState("1");
+  const [grade, setGrade] = useState("");
+  const [budget, setBudget] = useState("");
+  const [businessCase, setBusinessCase] = useState("");
+  const rows = (units.data ?? []) as { id: string; name: string }[];
+  const locations = coreWorkspace?.branches ?? [];
+  const steps: FlowStep[] = [{
+    id: "details", title: "Role and placement", purpose: "Create a hiring draft for your company. Approval and vacancy creation happen separately.",
+    validate: () => !jobTitle.trim() ? "Enter the job title." : !rows.some(row => row.id === unitId) ? "Choose a configured department." : !Number.isInteger(Number(headcount)) || Number(headcount) < 1 ? "Enter a positive whole number of posts." : budget && (!Number.isFinite(Number(budget)) || Number(budget) < 0) ? "Enter a valid annual budget." : null,
+    render: () => <div className="grid max-w-lg gap-4 sm:grid-cols-2">
+      <div className="sm:col-span-2"><Label htmlFor="live-job">Job title</Label><Input id="live-job" value={jobTitle} onChange={event => setJobTitle(event.target.value)} /></div>
+      <div><Label>Reason</Label><Select value={reason} onValueChange={setReason}><SelectTrigger aria-label="Reason"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="new">New position</SelectItem><SelectItem value="replacement">Replacement</SelectItem></SelectContent></Select></div>
+      <div><Label htmlFor="live-posts">Number of posts</Label><Input id="live-posts" type="number" min="1" step="1" value={headcount} onChange={event => setHeadcount(event.target.value)} /></div>
+      <div><Label>Department</Label><Select value={unitId} onValueChange={setUnitId}><SelectTrigger aria-label="Department"><SelectValue placeholder="Choose department" /></SelectTrigger><SelectContent>{rows.map(row => <SelectItem key={row.id} value={row.id}>{row.name}</SelectItem>)}</SelectContent></Select></div>
+      <div><Label>Work location (optional)</Label><Select value={locationId || "none"} onValueChange={value => setLocationId(value === "none" ? "" : value)}><SelectTrigger aria-label="Work location"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="none">Not specified</SelectItem>{locations.map(row => <SelectItem key={row.id} value={row.id}>{row.name}</SelectItem>)}</SelectContent></Select></div>
+      <div><Label htmlFor="live-grade">Grade (optional)</Label><Input id="live-grade" value={grade} onChange={event => setGrade(event.target.value)} /></div>
+      <div><Label htmlFor="live-budget">Annual budget (optional)</Label><Input id="live-budget" type="number" min="0" value={budget} onChange={event => setBudget(event.target.value)} /></div>
+      <div className="sm:col-span-2"><Label htmlFor="live-case">Business case</Label><Textarea id="live-case" value={businessCase} onChange={event => setBusinessCase(event.target.value)} /></div>
+      {!rows.length ? <p className="sm:col-span-2 text-sm text-muted-foreground">Create a department in <Link to="/hrm/people/org" className="text-primary underline">Organisation structure</Link> first.</p> : null}
+    </div>,
+  }, { id: "review", title: "Review draft", purpose: "Saving creates a draft. It does not approve recruitment or publish a vacancy.",
+    render: () => <dl className="space-y-3 text-sm"><div><dt>Job title</dt><dd>{jobTitle}</dd></div><div><dt>Department</dt><dd>{rows.find(row => row.id === unitId)?.name}</dd></div><div><dt>Posts</dt><dd>{headcount}</dd></div><div><dt>Business case</dt><dd>{businessCase || "Not recorded"}</dd></div></dl>,
+  }];
+  return <AuthGate><AppShell><PageHeader eyebrow="Recruitment" title="Raise a requisition" description="Use your company's departments and locations to prepare a hiring request." /><Async state={units}>{() => <GuidedFlow flowId="live-requisition-new" steps={steps} submitLabel="Save draft" busyLabel="Saving…" submitHint="This saves a draft only. Submit it for approval from Requisitions when ready." onSubmit={async () => {
+    if (!rows.some(row => row.id === unitId) || locationId && !locations.some(row => row.id === locationId)) throw new Error("Review your company placement before saving.");
+    await realApi.createRequisition({ jobTitle: jobTitle.trim(), reason, orgUnitId: unitId, locationId: locationId || null, headcount: Number(headcount), grade: grade.trim() || null, budgetAnnual: budget ? Number(budget) : null, businessCase: businessCase.trim() || null });
+    feedback.saved("Hiring draft saved. Open it from Requisitions to submit for approval.");
+    await navigate({ to: "/hrm/recruitment/requisitions" });
+  }} />}</Async></AppShell></AuthGate>;
+}
 
 function NewRequisition() {
   const navigate = useNavigate();

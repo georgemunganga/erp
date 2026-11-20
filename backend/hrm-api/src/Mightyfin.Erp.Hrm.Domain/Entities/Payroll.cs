@@ -170,6 +170,7 @@ public class PayGroup : Entity
     public string Frequency { get; set; } = "monthly"; // monthly | semi-monthly | biweekly | weekly
     public string Currency { get; set; } = "ZMW";
     public int CalendarDayOfMonth { get; set; } = 25;  // standard payday
+    public string PaydayRule { get; set; } = "calendar-day"; // calendar-day | last-working-day
     public int InputCutoffDaysBeforePayday { get; set; } = 5;
     public bool IsDefault { get; set; }
 }

@@ -1,3 +1,4 @@
+import { FULL_PRODUCT_HRM } from "@/modules/core/product-hrm-session";
 import type { ReactNode } from "react";
 import { BrandIdentity } from "@/platform/components/BrandIdentity";
 import { ModuleSwitcher } from "@/platform/components/ModuleSwitcher";
@@ -13,7 +14,7 @@ export function ErpTopNav({ current, navigation, context, actions }: {
   return <ErpTopBar>
     <div className="flex h-14 min-w-0 items-center gap-1 px-2 sm:gap-2 sm:px-3">
       {navigation}
-      <a href="/" aria-label="ERP home" className="flex shrink-0 items-center gap-2 rounded-md px-1.5 py-1 text-primary-foreground hover:bg-primary-foreground/10 sm:px-2">
+      <a href={FULL_PRODUCT_HRM ? "https://www.kuubuerp.com/account/#/companies" : "/"} aria-label="ERP home" className="flex shrink-0 items-center gap-2 rounded-md px-1.5 py-1 text-primary-foreground hover:bg-primary-foreground/10 sm:px-2">
         <BrandIdentity onDark showName={false} />
       </a>
       <div className="flex shrink-0 items-center"><ModuleSwitcher current={current} /></div>

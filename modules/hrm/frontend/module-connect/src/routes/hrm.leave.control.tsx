@@ -9,7 +9,7 @@ import { ScopeBadge } from "@/platform/components/ScopeBadge";
 import { realApi, useApi } from "@/platform/use-api";
 
 export const Route = createFileRoute("/hrm/leave/control")({
-  head: () => ({ meta: [{ title: "Leave Control Panel — Newworldcargo HRM" }, { name: "description", content: "Live leave operations control panel." }] }),
+  head: () => ({ meta: [{ title: "Leave Control Panel — Kuubu HRM" }, { name: "description", content: "Live leave operations control panel." }] }),
   component: LeaveControlPage,
 });
 

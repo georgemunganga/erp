@@ -20,13 +20,13 @@ import { feedback } from "@/platform/feedback";
 export const Route = createFileRoute("/hrm/recruitment/candidates/$id")({
   head: () => ({
     meta: [
-      { title: "Candidate — Newworldcargo HRM" },
+      { title: "Candidate — Kuubu HRM" },
       {
         name: "description",
         content:
           "Selection pipeline, interview scorecards, reference and background checks, retention basis and the offer decision.",
       },
-      { property: "og:title", content: "Candidate — Newworldcargo HRM" },
+      { property: "og:title", content: "Candidate — Kuubu HRM" },
       {
         property: "og:description",
         content: "Pipeline, scorecards, checks, retention basis and the offer decision for one candidate.",

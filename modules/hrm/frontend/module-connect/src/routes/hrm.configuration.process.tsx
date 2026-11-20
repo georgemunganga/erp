@@ -14,9 +14,9 @@ export const Route = createFileRoute("/hrm/configuration/process")({
   beforeLoad: () => { throw redirect({ to: "/hrm/workspace/settings/$slug", params: { slug: "process" }, replace: true }); },
   head: () => ({
     meta: [
-      { title: "Process design — Newworldcargo HRM" },
+      { title: "Process design — Kuubu HRM" },
       { name: "description", content: "Leave policies, shift rules, approval routing, request categories, forms, automation and templates." },
-      { property: "og:title", content: "Process design — Newworldcargo HRM" },
+      { property: "og:title", content: "Process design — Kuubu HRM" },
       { property: "og:description", content: "Leave policies, shift rules, approval routing, request categories, forms, automation and templates." },
     ],
   }),

@@ -1,5 +1,6 @@
 import { Input } from "@/components/ui/input";
 import { RecordTable } from "@/platform/components/RecordTable";
+import { isPathEnabled } from "@/modules/hrm/scope";
 import { createFileRoute, Link, Outlet, useChildMatches } from "@tanstack/react-router";
 import { Fragment, useEffect, useState } from "react";
 import {
@@ -51,13 +52,13 @@ const payrollRunTabKey = (runId: string) => `hrm.payroll.run.${runId}.active-tab
 export const Route = createFileRoute("/hrm/payroll/runs/$id")({
   head: () => ({
     meta: [
-      { title: "Pay run — Newworldcargo HRM" },
+      { title: "Pay run — Kuubu HRM" },
       {
         name: "description",
         content:
           "A pay run stage by stage: population, calculation, variances, approval and controlled release.",
       },
-      { property: "og:title", content: "Pay run — Newworldcargo HRM" },
+      { property: "og:title", content: "Pay run — Kuubu HRM" },
       {
         property: "og:description",
         content:
@@ -1128,7 +1129,7 @@ function PayLines({
                       type="button"
                       onClick={() => setOpen(shown ? null : l.id)}
                       aria-expanded={shown}
-                      className="text-left"
+                      className="text-left text-foreground"
                     >
                       <span className="block font-medium underline-offset-2 hover:underline">
                         {l.employee}
@@ -1241,7 +1242,7 @@ function CalculationReview({
     .filter((item) => item.variance !== null && Math.abs(item.variance) >= 2);
   const allComponents = rows.flatMap((line) => line.components);
   const statutoryTotal = allComponents
-    .filter((component) => component.source === "Statutory")
+    .filter((component) => component.source === "Statutory" && component.kind !== "Employer")
     .reduce((sum, component) => sum + component.amount, 0);
   const overtimeTotal = allComponents
     .filter(
@@ -1514,7 +1515,7 @@ type OperationalPayRun = PayRun & {
   reconciliationReference?: string;
 };
 
-function adaptRun(raw: unknown, auditRows: unknown[] = []): OperationalPayRun {
+function adaptRun(raw: unknown, auditRows: unknown[] = [], employerName = "Company details unavailable"): OperationalPayRun {
   const r = raw as Record<string, unknown>;
   const statusMap: Record<string, string> = {
     draft: "Draft",
@@ -1532,7 +1533,7 @@ function adaptRun(raw: unknown, auditRows: unknown[] = []): OperationalPayRun {
     id: String(r.id ?? ""),
     period: String(r.periodLabel ?? r.period ?? ""),
     entityId: "",
-    entityName: String(r.entityName ?? "Demo Zambia Ltd"),
+    entityName: String(r.entityName ?? employerName),
     payGroup: String(r.payGroup ?? "Monthly ZMW"),
     currency: String(r.currency ?? "ZMW"),
     status: status as PayRun["status"],
@@ -1795,8 +1796,11 @@ function RunDetail() {
         : null;
     }
     try {
-      const [run, audit] = await Promise.all([realApi.payrollRun(id), realApi.payrollRunAudit(id)]);
-      return adaptRun(run, audit);
+      const [run, audit, employers] = await Promise.all([realApi.payrollRun(id), realApi.payrollRunAudit(id), realApi.legalEntities()]);
+      const data = run as Record<string, unknown>;
+      const list = (Array.isArray(employers) ? employers : ((employers as unknown as { items?: unknown[] })?.items ?? [])) as Record<string, unknown>[];
+      const company = list.find(e => String(e.id) === String(data.legalEntityId ?? "")) ?? (list.length === 1 ? list[0] : undefined);
+      return adaptRun(run, audit, company ? String(company.registeredName ?? company.name) : undefined);
     } catch {
       return null;
     }
@@ -2170,13 +2174,13 @@ function RunDetail() {
                     <DetailSection
                       title="Pay lines"
                       description="Every employee in this run. Open a name to see how each figure was derived — no line is a black box."
-                      action={
+                      action={isPathEnabled(`/hrm/payroll/runs/${run.id}/edit`) ? (
                         <Button variant="outline" size="sm" asChild>
                           <Link to="/hrm/payroll/runs/$id/edit" params={{ id: run.id }}>
                             Edit this run
                           </Link>
                         </Button>
-                      }
+                      ) : undefined}
                     >
                       <Async state={lines} rows={4}>
                         {(rows) =>

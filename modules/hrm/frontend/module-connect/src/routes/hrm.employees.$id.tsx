@@ -21,6 +21,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { adaptWorkerProfile, adaptWorkers, realApi, useApi } from "@/platform/use-api";
+import { employeePayGroupLabel } from "@/platform/employee-pay-group";
 import { entities } from "@/mock/data";
 import { employeeProfileApi } from "@/mock/employeeprofile";
 import { balanceFor } from "@/mock/leavebalance";
@@ -891,6 +892,19 @@ function EmployeeReportsTab({ employee, profile }: { employee: EmployeeRecord; p
  * usually after a single thing — a phone number, a NAPSA number, who to ring
  * in an emergency — and should not have to scroll past everything else.
  */
+function LiveEmployeePayGroup({ workerId }: { workerId: string }) {
+  const state = useApi(async () => {
+    const [profiles, groups] = await Promise.all([
+      realApi.payrollProfiles({ workerId }), realApi.payrollPayGroups(),
+    ]);
+    const day = new Date().toLocaleDateString("en-CA");
+    return employeePayGroupLabel(dataRows(profiles), dataRows(groups), workerId, day);
+  }, [workerId]);
+  return <Field label="Pay group" value={state.loading ? "Checking salary profile…"
+    : state.error ? "Unavailable with your current payroll access" : state.data}
+    hint="Owned by Compensation; effective for today." />;
+}
+
 function ProfileTabs({
   employee: e,
   profile: p,
@@ -1066,7 +1080,7 @@ function ProfileTabs({
           description="Payroll reads these directly. A wrong account number is the most common cause of a failed payment."
         >
           <FieldGrid>
-            <Field label="Pay group" value={p.payGroup} />
+            {USE_REAL ? <LiveEmployeePayGroup workerId={e.id} /> : <Field label="Pay group" value={p.payGroup} />}
             <Field label="Payment method" value={p.paymentMethod} />
             <Field label="Account holder" value={p.accountName} />
             <Field label="Bank" value={p.bankName} />
@@ -1080,7 +1094,7 @@ function ProfileTabs({
 
         <DetailSection
           title="Statutory registrations"
-          description="Zambian registrations. A missing NAPSA or NHIMA number stops the employee being included in a run."
+          description="Zambian registrations. Complete NRC, TPIN, NAPSA and NHIMA details before payslip release. Payroll calculation and bank-file readiness are checked separately."
         >
           <dl className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             <MaskedValue label="TPIN (ZRA)" value={p.tpin} />
@@ -1207,6 +1221,21 @@ async function loadLiveProfile(id: string): Promise<EmployeeProfile | null> {
   return adaptWorkerProfile(raw);
 }
 
+function EmployeePayrollChecklist({ workerId }: { workerId: string }) {
+  const checks = useApi(async () => {
+    const [assignments, profiles] = await Promise.all([realApi.workerAssignments(workerId), realApi.payrollProfiles({ workerId })]);
+    const terms = assignments as Record<string, unknown>[];
+    const pay = (profiles as Record<string, unknown>[]).filter(p => String(p.workerId) === workerId);
+    return { contract: terms.some(a => a.status !== "ended" && Boolean(a.contractType)), salary: pay.some(p => Array.isArray(p.values) && (p.values as Record<string, unknown>[]).some(v => String(v.componentCode ?? v.code).toLowerCase() === "basic" && Number(v.amount) > 0)) };
+  }, [workerId]);
+  return <section aria-label="Employee setup and payroll readiness" className="rounded-lg border bg-card p-5 space-y-3">
+    <h2 className="font-semibold">Complete employee setup</h2>
+    {checks.loading ? <p role="status">Checking contract and salary assignments…</p> : checks.error ? <p role="alert">Readiness could not be checked with your current access. Ask an authorised payroll administrator or retry.</p> : <ul className="list-disc pl-5 text-sm"><li>{checks.data?.contract ? "Contract terms recorded." : "Contract terms need completion. Open Edit details to record the employment agreement."}</li><li>{checks.data?.salary ? "Salary profile recorded. Check the effective date and payroll eligibility for the selected period." : "Salary profile needs attention. Assign basic pay, pay group and effective date in Compensation."}</li></ul>}
+    <p className="text-sm text-muted-foreground">Complete statutory registrations before payslip release and primary bank details before generating a payment file. Employee setup does not create a login account.</p>
+    <div className="flex flex-wrap gap-2"><Button variant="outline" asChild><Link to="/hrm/employees/$id/edit" params={{ id: workerId }}>Complete contract and details</Link></Button><Button asChild><Link to="/hrm/pay/compensation">Set salary and pay group</Link></Button><Button variant="outline" asChild><Link to="/hrm/payroll/runs/new">Check payroll eligibility</Link></Button><Button variant="outline" onClick={checks.reload}>Recheck readiness</Button></div>
+  </section>;
+}
+
 function EmployeePage() {
   const { id } = Route.useParams();
   const [confirmEnd, setConfirmEnd] = useState(false);
@@ -1320,7 +1349,7 @@ function EmployeePage() {
         ? `<tr><td>Corrected payslip net pay</td><td class="r">${currentNet.toFixed(2)}</td></tr><tr><td>Actual payment already made</td><td class="r">${Number(paidRow.actualPaidNetAmount).toFixed(2)}</td></tr><tr><td>Current reconciliation difference</td><td class="r">${(Number(paidRow.actualPaidNetAmount) - currentNet).toFixed(2)}</td></tr>`
         : `<tr><td>Corrected payslip net pay</td><td class="r">${currentNet.toFixed(2)}</td></tr>${rows.map((row) => `<tr><td>${escapeHtml(row.component ?? "Payroll adjustment")}</td><td class="r">${Number(row.netAdjustmentPaid ?? row.grossAdjustment ?? 0).toFixed(2)}</td></tr>`).join("")}`;
       const displayedTotal = paidRow ? Number(paidRow.actualPaidNetAmount) : currentNet + adjustment;
-      const html = `<!doctype html><html><head><title>Newworldcargo HRM payroll correction statement</title><style>@page{margin:16mm}body{font:13px Arial,sans-serif;color:#17212b;margin:0}.brand{background:#012642;color:#fff;padding:22px 24px;border-bottom:6px solid #ffcc04}.brand strong{font-size:22px;display:block}.brand span{font-size:11px;opacity:.88}.document{margin:24px}.document h1{font-size:19px;color:#012642;margin:0 0 4px}.muted{color:#59636d;font-size:11px}table{width:100%;border-collapse:collapse;margin:18px 0}td,th{border:1px solid #cfd6dc;padding:8px;text-align:left}th{background:#e8f0f5;color:#012642}.r{text-align:right}.total th{background:#012642;color:#fff;font-size:14px}.notice{border-left:4px solid #ffcc04;background:#fff9df;padding:9px 12px;font-size:11px}</style></head><body><header class="brand"><strong>Newworldcargo HRM</strong><span>Human Resources &middot; Payroll Correction Statement</span></header><main class="document"><h1>Payroll Correction Statement</h1><p class="muted">This document supplements, and does not replace, the released payslip.</p><table><tr><td>Employee</td><td>${escapeHtml(employeeName)}</td><td>Employee no.</td><td>${escapeHtml(employeeNo)}</td></tr><tr><td>Period</td><td>${escapeHtml(slip.periodLabel)}</td><td>Corrected payslip</td><td>${escapeHtml(slip.payslipNo)}</td></tr></table><table><tr><th>Description</th><th class="r">Amount (ZMW)</th></tr>${paymentRows}<tr class="total"><th>Actual payment total</th><th class="r">${displayedTotal.toFixed(2)}</th></tr></table><p class="notice">Generated from the HRM audit trail on ${new Date().toLocaleString()}. Statutory treatment remains recorded on the corrected payslip.</p></main><script>window.onload=()=>window.print()</script></body></html>`;
+      const html = `<!doctype html><html><head><title>Kuubu HRM payroll correction statement</title><style>@page{margin:16mm}body{font:13px Arial,sans-serif;color:#17212b;margin:0}.brand{background:#012642;color:#fff;padding:22px 24px;border-bottom:6px solid #ffcc04}.brand strong{font-size:22px;display:block}.brand span{font-size:11px;opacity:.88}.document{margin:24px}.document h1{font-size:19px;color:#012642;margin:0 0 4px}.muted{color:#59636d;font-size:11px}table{width:100%;border-collapse:collapse;margin:18px 0}td,th{border:1px solid #cfd6dc;padding:8px;text-align:left}th{background:#e8f0f5;color:#012642}.r{text-align:right}.total th{background:#012642;color:#fff;font-size:14px}.notice{border-left:4px solid #ffcc04;background:#fff9df;padding:9px 12px;font-size:11px}</style></head><body><header class="brand"><strong>Kuubu HRM</strong><span>Human Resources &middot; Payroll Correction Statement</span></header><main class="document"><h1>Payroll Correction Statement</h1><p class="muted">This document supplements, and does not replace, the released payslip.</p><table><tr><td>Employee</td><td>${escapeHtml(employeeName)}</td><td>Employee no.</td><td>${escapeHtml(employeeNo)}</td></tr><tr><td>Period</td><td>${escapeHtml(slip.periodLabel)}</td><td>Corrected payslip</td><td>${escapeHtml(slip.payslipNo)}</td></tr></table><table><tr><th>Description</th><th class="r">Amount (ZMW)</th></tr>${paymentRows}<tr class="total"><th>Actual payment total</th><th class="r">${displayedTotal.toFixed(2)}</th></tr></table><p class="notice">Generated from the HRM audit trail on ${new Date().toLocaleString()}. Statutory treatment remains recorded on the corrected payslip.</p></main><script>window.onload=()=>window.print()</script></body></html>`;
       tab.document.write(html); tab.document.close();
     } catch (error) {
       tab.close();
@@ -1354,7 +1383,7 @@ function EmployeePage() {
                       ? `Clearance and final pay before ${e.endDate}`
                       : e.endDate
                         ? `Confirm contract intention before ${e.endDate}`
-                        : "No action required"
+                        : "Review employment, salary and payroll readiness below"
                 }
                 primaryAction={
                   <div className="flex flex-wrap justify-end gap-2">
@@ -1506,6 +1535,7 @@ function EmployeePage() {
                   </>
                 }
               >
+                {USE_REAL ? <EmployeePayrollChecklist workerId={e.id} /> : null}
                 <Async state={profileState} rows={4}>
                   {(profile) =>
                     profile ? (

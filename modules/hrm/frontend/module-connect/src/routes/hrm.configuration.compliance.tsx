@@ -14,7 +14,7 @@ export const Route = createFileRoute("/hrm/configuration/compliance")({
   beforeLoad: () => { throw redirect({ to: "/hrm/workspace/settings/$slug", params: { slug: "compliance" }, replace: true }); },
   head: () => ({
     meta: [
-      { title: "Security and compliance — Newworldcargo HRM" },
+      { title: "Security and compliance — Kuubu HRM" },
       {
         name: "description",
         content:

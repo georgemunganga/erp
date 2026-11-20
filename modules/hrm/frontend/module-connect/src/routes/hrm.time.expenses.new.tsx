@@ -17,9 +17,9 @@ import { feedback } from "@/platform/feedback";
 export const Route = createFileRoute("/hrm/time/expenses/new")({
   head: () => ({
     meta: [
-      { title: "New expense claim — Newworldcargo HRM" },
+      { title: "New expense claim — Kuubu HRM" },
       { name: "description", content: "Add lines, see policy findings beside each one, and reconcile against any advance before submitting." },
-      { property: "og:title", content: "New expense claim — Newworldcargo HRM" },
+      { property: "og:title", content: "New expense claim — Kuubu HRM" },
       { property: "og:description", content: "Add lines, see policy findings beside each one, and reconcile against any advance before submitting." },
     ],
   }),

@@ -1,0 +1,31 @@
+-- TEMPLATE: run prepare_mobile_workday_extension.py to produce complete SQL.
+-- Independently versioned extension for a reviewed older ERP publication.
+-- No existing business row, existing table column or ERP migration history changes.
+-- Rehearse on a private restored schema first. Runtime needs SELECT/INSERT only.
+BEGIN;
+SELECT pg_advisory_xact_lock(hashtextextended('greenwebb.mobile.workday.schema.v1',0));
+CREATE TABLE IF NOT EXISTS hrm.__mobile_workday_schema(
+ version integer PRIMARY KEY, profile text NOT NULL, applied_at timestamptz NOT NULL DEFAULT now()
+);
+DO $guard$ BEGIN
+ IF to_regclass('hrm.mobile_workday_events') IS NOT NULL AND NOT EXISTS(
+   SELECT 1 FROM hrm.__mobile_workday_schema WHERE version=1 AND profile='manual-workday-v1')
+ THEN RAISE EXCEPTION 'Unrecognised workday table; refuse implicit schema adoption'; END IF;
+ IF EXISTS(SELECT 1 FROM hrm.__mobile_workday_schema WHERE version<>1 OR profile<>'manual-workday-v1')
+ THEN RAISE EXCEPTION 'Unrecognised workday schema receipt'; END IF;
+END $guard$;
+CREATE TABLE IF NOT EXISTS hrm.mobile_workday_events(
+ id uuid PRIMARY KEY, legal_entity_id uuid NOT NULL REFERENCES hrm.legal_entities(id) ON DELETE RESTRICT,
+ worker_id uuid NOT NULL REFERENCES hrm.workers(id) ON DELETE RESTRICT,
+ attendance_record_id uuid NOT NULL REFERENCES hrm.attendance_records(id) ON DELETE RESTRICT,
+ location_id uuid NOT NULL REFERENCES hrm.work_locations(id) ON DELETE RESTRICT,
+ request_id uuid NOT NULL, request_hash varchar(64) NOT NULL, revision integer NOT NULL,
+ kind varchar(32) NOT NULL, state_after varchar(32) NOT NULL, recorded_at timestamptz NOT NULL,
+ reason varchar(300) NOT NULL, summary varchar(2000) NOT NULL, blockers varchar(1000) NOT NULL,
+ actor_subject_id text NOT NULL, tenant_id text NOT NULL, created_at timestamptz NOT NULL,
+ created_by text NOT NULL, updated_at timestamptz, updated_by text, is_archived boolean NOT NULL
+);
+CREATE UNIQUE INDEX IF NOT EXISTS ix_mobile_workday_request ON hrm.mobile_workday_events(tenant_id,worker_id,request_id);
+CREATE UNIQUE INDEX IF NOT EXISTS ix_mobile_workday_revision ON hrm.mobile_workday_events(tenant_id,attendance_record_id,revision);
+CREATE INDEX IF NOT EXISTS ix_mobile_workday_company_worker_time ON hrm.mobile_workday_events(tenant_id,legal_entity_id,worker_id,recorded_at);
+-- The preparation tool appends the canonical database guard and schema receipt.

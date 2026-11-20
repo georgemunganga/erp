@@ -90,7 +90,8 @@ public sealed class TimeServiceImpl(
     Application.ShellContext? scope = null,
     IPayrollRepository? payroll = null,
     IOutboxWriter? outbox = null,
-    IUnitOfWork? unitOfWork = null) : ITimeService
+    IUnitOfWork? unitOfWork = null,
+    IMobileAttendanceEmployeeAuthority? mobileAuthority = null) : ITimeService, IMobileAttendanceService
 {
     private bool IsEmployeeOnly =>
         authz.IsRole("employee") && !authz.IsRole("hr_ops", "hr_admin", "manager", "payroll");
@@ -215,8 +216,8 @@ public sealed class TimeServiceImpl(
             total = items.Count;
         }
         return new Paged<AttendanceCorrectionDto>(items.Select(c => new AttendanceCorrectionDto(
-            c.Id, c.WorkerId, c.Worker?.FullName ?? "", c.WorkDate.ToString(), c.IssueType,
-            c.ProposedClockIn?.ToString(), c.ProposedClockOut?.ToString(), c.ProposedStatus,
+            c.Id, c.WorkerId, c.Worker?.FullName ?? "", c.WorkDate.ToString("yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture), c.IssueType,
+            c.ProposedClockIn?.ToString("HH:mm", System.Globalization.CultureInfo.InvariantCulture), c.ProposedClockOut?.ToString("HH:mm", System.Globalization.CultureInfo.InvariantCulture), c.ProposedStatus,
             c.Reason, c.Status, c.CreatedAt, c.LocationId)).ToList(), total, 1, 50);
     }
 
@@ -241,8 +242,8 @@ public sealed class TimeServiceImpl(
         await workflow.OpenAsync("attendance-correction", created.Id, created.WorkerId,
             JsonSerializer.Serialize(new { created.WorkDate, created.IssueType, created.ProposedClockIn, created.ProposedClockOut, created.ProposedStatus }), ct);
         return new AttendanceCorrectionDto(created.Id, created.WorkerId, created.Worker?.FullName ?? "",
-            created.WorkDate.ToString(), created.IssueType, created.ProposedClockIn?.ToString(),
-            created.ProposedClockOut?.ToString(), created.ProposedStatus, created.Reason, created.Status, created.CreatedAt, created.LocationId);
+            created.WorkDate.ToString("yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture), created.IssueType, created.ProposedClockIn?.ToString("HH:mm", System.Globalization.CultureInfo.InvariantCulture),
+            created.ProposedClockOut?.ToString("HH:mm", System.Globalization.CultureInfo.InvariantCulture), created.ProposedStatus, created.Reason, created.Status, created.CreatedAt, created.LocationId);
     }
 
     // ===================== M3: attendance, roster, decisions =====================
@@ -344,7 +345,7 @@ public sealed class TimeServiceImpl(
                     {
                         overtime_id = record.Id,
                         worker_id = record.WorkerId,
-                        work_date = record.WorkDate.ToString("yyyy-MM-dd"),
+                        work_date = record.WorkDate.ToString("yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture),
                         overtime_hours = record.OvertimeHours,
                         overtime_multiplier = record.OvertimeMultiplier,
                         status = record.OvertimeStatus,
@@ -396,10 +397,10 @@ public sealed class TimeServiceImpl(
             if (att is not null) status = att.DerivedStatus;
             else if (d <= DateOnly.FromDateTime(DateTime.UtcNow) && !isWeekend && !isHoliday) status = "missing-punch";
 
-            days.Add(new RosterDayDto(d.ToString(), d.DayOfWeek.ToString("d"), !isWeekend && !isHoliday,
-                att?.ClockIn?.ToString(), att?.ClockOut?.ToString(), status,
-                shift?.Name, shift?.StartTime.ToString(), shift?.EndTime.ToString(), dayCalendar?.Name, isHoliday, hol?.Name,
-                cutoff?.ToString(), cor?.Status));
+            days.Add(new RosterDayDto(d.ToString("yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture), d.DayOfWeek.ToString("d"), !isWeekend && !isHoliday,
+                att?.ClockIn?.ToString("HH:mm", System.Globalization.CultureInfo.InvariantCulture), att?.ClockOut?.ToString("HH:mm", System.Globalization.CultureInfo.InvariantCulture), status,
+                shift?.Name, shift?.StartTime.ToString("HH:mm", System.Globalization.CultureInfo.InvariantCulture), shift?.EndTime.ToString("HH:mm", System.Globalization.CultureInfo.InvariantCulture), dayCalendar?.Name, isHoliday, hol?.Name,
+                cutoff?.ToString("yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture), cor?.Status));
         }
         return days;
     }
@@ -489,7 +490,7 @@ public sealed class TimeServiceImpl(
             EffectiveFrom = from, EffectiveTo = to,
         }, ct);
         return new ShiftAssignmentDto(created.Id, workerId, shift.Id, shift.Name, created.CalendarId,
-            created.Calendar?.Name, from.ToString(), to?.ToString());
+            created.Calendar?.Name, from.ToString("yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture), to?.ToString("yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture));
     }
 
     public async Task<List<AttendanceRecordDto>> CreateManualAttendanceAsync(ManualAttendanceRequest request,
@@ -722,6 +723,8 @@ public sealed class TimeServiceImpl(
         if (leaveTypes.Count == 0)
             throw new DomainException("accrual-no-types", "No monthly-accrual leave types are enabled for this period.");
         var workersToAccrue = await repo.ListAccrualWorkersAsync(periodDate, ct);
+        if (workersToAccrue.Count == 0)
+            throw new DomainException("accrual-no-workers", "No eligible employees exist for this month yet. Add employees before running accrual.");
         var run = new LeaveAccrualRun
         {
             Period = request.Period, Status = "processing", WorkerCount = workersToAccrue.Count,
@@ -972,8 +975,8 @@ public sealed class TimeServiceImpl(
         }
         var decided = await repo.UpdateCorrectionAsync(c, ct);
         return new AttendanceCorrectionDto(decided.Id, decided.WorkerId, decided.Worker?.FullName ?? "",
-            decided.WorkDate.ToString(), decided.IssueType, decided.ProposedClockIn?.ToString(),
-            decided.ProposedClockOut?.ToString(), decided.ProposedStatus, decided.Reason,
+            decided.WorkDate.ToString("yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture), decided.IssueType, decided.ProposedClockIn?.ToString("HH:mm", System.Globalization.CultureInfo.InvariantCulture),
+            decided.ProposedClockOut?.ToString("HH:mm", System.Globalization.CultureInfo.InvariantCulture), decided.ProposedStatus, decided.Reason,
             decided.Status, decided.CreatedAt, decided.LocationId);
     }
 
@@ -1020,6 +1023,71 @@ public sealed class TimeServiceImpl(
         return Map(decided);
     }
 
+    public async Task<PunchResultDto> PunchMobileAsync(Guid workerId, bool clockIn, DateTimeOffset serverTime,
+        string timeZone, string? expectedDate, Guid? expectedRecord, CancellationToken ct)
+    {
+        authz.RequireAnyRole("employee");
+        // LocalUser.WorkerId is a distinct explicit account link. A legacy IdP
+        // subject on Worker must not be rewritten to make mobile attendance work.
+        if (mobileAuthority?.Allows(workerId, authz.CurrentSubjectId ?? "") != true)
+            await RequireWorkerScopeAsync(workerId, ct);
+        var (today, now) = MobileAttendanceTime.Local(serverTime, timeZone);
+        if (repo is not IMobileAttendanceRepository mobile)
+            throw new DomainException("mobile-attendance-unavailable", "Mobile attendance is unavailable.");
+        // Search every open shift, including old/future bad data, rather than hiding
+        // it behind the legacy bounded history list. The repository returns at most2.
+        var open = (await mobile.OpenMobilePunchesAsync(workerId, ct)).ToArray();
+        if (open.Length > 1) throw new DomainException("mobile-attendance-conflict", "HR must review the open attendance records.");
+        AttendanceRecord? rec;
+        if (clockIn)
+        {
+            if (expectedDate != today.ToString("yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture))
+                throw new DomainException("mobile-workday-changed", "Refresh attendance before checking in.");
+            if (open.Length != 0 && open[0].WorkDate != today)
+                throw new DomainException("mobile-attendance-open", "Check out of the open shift before checking in.");
+            rec = await repo.GetAttendanceAsync(workerId, today, ct);
+            if (rec?.ClockIn is not null) return MobilePunch(rec); // Converge retries, including another device's checkout.
+            if (rec is not null && (rec.ClockOut.HasValue || rec.OvertimePayrollRunId.HasValue || rec.Source != "mobile"))
+                throw new DomainException("mobile-attendance-managed", "HR must review this attendance record.");
+            rec ??= await repo.CreateAttendanceAsync(new AttendanceRecord {
+                WorkerId = workerId, WorkDate = today, LocationId = scope?.LocationId, Source = "mobile"
+            }, ct);
+            rec.ClockIn = now;
+        }
+        else
+        {
+            rec = open.SingleOrDefault(x => x.Id == expectedRecord);
+            if (rec is null) {
+                // Replayed checkout can converge only to that exact persisted record.
+                var closed = await repo.GetAttendanceAsync(workerId, today, ct);
+                if (closed?.Id == expectedRecord) rec = closed;
+                else {
+                    closed = await repo.GetAttendanceAsync(workerId, today.AddDays(-1), ct);
+                    if (closed?.Id == expectedRecord) rec = closed;
+                }
+            }
+            if (rec?.ClockIn is null) throw new DomainException("mobile-check-in-required", "Refresh attendance and check in first.");
+            if (rec.Source != "mobile" || rec.OvertimePayrollRunId.HasValue)
+                throw new DomainException("mobile-attendance-managed", "HR must review this attendance record.");
+            if (rec.ClockOut.HasValue) return MobilePunch(rec); // Lost-response retry cannot change its time or audit twice.
+            var started = MobileAttendanceTime.Instant(rec, false, timeZone)!.Value;
+            if (serverTime < started || serverTime - started > TimeSpan.FromHours(24))
+                throw new DomainException("mobile-attendance-aged", "HR must review this shift before it can be closed.");
+            rec.ClockOut = now;
+        }
+        await ApplyHoursAsync(rec, ct);
+        rec = await repo.UpdateAttendanceAsync(rec, ct);
+        await WriteTimeAuditAsync("time.attendance", rec.Id.ToString("D"), rec.WorkerId,
+            clockIn ? "mobile-clock-in" : "mobile-clock-out", authz.CurrentSubjectId ?? "unknown", null, AttendanceSnapshot(rec), ct);
+        await RecalculateWeeklyOvertimeAsync(rec.WorkerId, rec.WorkDate, ct);
+        rec = await repo.GetAttendanceAsync(workerId, rec.WorkDate, ct) ?? rec;
+        return MobilePunch(rec);
+    }
+
+    private static PunchResultDto MobilePunch(AttendanceRecord r) => new(r.Id, r.WorkerId, r.WorkDate.ToString("yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture),
+        r.ClockIn?.ToString("HH:mm",System.Globalization.CultureInfo.InvariantCulture) ?? "", r.ClockOut?.ToString("HH:mm",System.Globalization.CultureInfo.InvariantCulture) ?? "", r.Source, r.DerivedStatus, r.TotalHours,
+        r.ClockIn is null ? "out" : r.ClockOut is null ? "in" : "done");
+
     private async Task<PunchResultDto> GetOrCreatePunchAsync(Guid workerId, DateOnly date, bool? clockIn, CancellationToken ct)
     {
         var rec = await repo.GetAttendanceAsync(workerId, date, ct);
@@ -1047,8 +1115,8 @@ public sealed class TimeServiceImpl(
         await RecalculateWeeklyOvertimeAsync(rec.WorkerId, rec.WorkDate, ct);
         rec = await repo.GetAttendanceAsync(workerId, date, ct) ?? rec;
         var state = rec.ClockIn is null ? "out" : rec.ClockOut is null ? "in" : "done";
-        return new PunchResultDto(rec.Id, rec.WorkerId, rec.WorkDate.ToString(),
-            rec.ClockIn?.ToString() ?? "", rec.ClockOut?.ToString() ?? "",
+        return new PunchResultDto(rec.Id, rec.WorkerId, rec.WorkDate.ToString("yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture),
+            rec.ClockIn?.ToString("HH:mm", System.Globalization.CultureInfo.InvariantCulture) ?? "", rec.ClockOut?.ToString("HH:mm", System.Globalization.CultureInfo.InvariantCulture) ?? "",
             rec.Source, rec.DerivedStatus, rec.TotalHours, state);
     }
 
@@ -1287,8 +1355,8 @@ public sealed class TimeServiceImpl(
             return new MyLeaveDto(Guid.Empty, "", null, false, [], []);
         var balances = await GetBalancesAsync(worker.Id, ct);
         var (items, _) = await repo.ListLeaveRequestsAsync(worker.Id, null, ct);
-        var requests = items.Select(r => new SelfLeaveRequestDto(r.Id, r.LeaveTypeCode, r.StartDate.ToString(),
-            r.EndDate.ToString(), r.RequestedDays, r.Status, r.RejectionReason, r.CrossesCutoff, r.CreatedAt)).ToList();
+        var requests = items.Select(r => new SelfLeaveRequestDto(r.Id, r.LeaveTypeCode, r.StartDate.ToString("yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture),
+            r.EndDate.ToString("yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture), r.RequestedDays, r.Status, r.RejectionReason, r.CrossesCutoff, r.CreatedAt)).ToList();
         return new MyLeaveDto(worker.Id, worker.FullName, worker.EmployeeNo, true, balances, requests);
     }
 
@@ -1354,8 +1422,8 @@ public sealed class TimeServiceImpl(
                 leave_id = leave.Id.ToString("D"),
                 worker_id = worker.Id.ToString("D"),
                 leave_type_code = leave.LeaveTypeCode,
-                start_date = leave.StartDate.ToString("yyyy-MM-dd"),
-                end_date = leave.EndDate.ToString("yyyy-MM-dd"),
+                start_date = leave.StartDate.ToString("yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture),
+                end_date = leave.EndDate.ToString("yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture),
                 status = leave.Status,
                 email = worker.Email ?? "",
                 first_name = worker.FirstName,
@@ -1365,18 +1433,18 @@ public sealed class TimeServiceImpl(
     }
 
     private static LeaveRequestDto Map(LeaveRequest r) => new(
-        r.Id, r.WorkerId, r.Worker?.FullName ?? "", r.LeaveTypeCode, r.StartDate.ToString(),
-        r.EndDate.ToString(), r.RequestedDays, r.Status, r.BalanceReserved, r.CrossesCutoff, r.CreatedAt, r.LocationId);
+        r.Id, r.WorkerId, r.Worker?.FullName ?? "", r.LeaveTypeCode, r.StartDate.ToString("yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture),
+        r.EndDate.ToString("yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture), r.RequestedDays, r.Status, r.BalanceReserved, r.CrossesCutoff, r.CreatedAt, r.LocationId);
 
     private static AttendanceRecordDto MapAttendance(AttendanceRecord a) => new(
-        a.Id, a.WorkerId, a.Worker?.FullName ?? "", a.WorkDate.ToString(),
-        a.ClockIn?.ToString(), a.ClockOut?.ToString(), a.Source, a.DerivedStatus, a.TotalHours,
+        a.Id, a.WorkerId, a.Worker?.FullName ?? "", a.WorkDate.ToString("yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture),
+        a.ClockIn?.ToString("HH:mm", System.Globalization.CultureInfo.InvariantCulture), a.ClockOut?.ToString("HH:mm", System.Globalization.CultureInfo.InvariantCulture), a.Source, a.DerivedStatus, a.TotalHours,
         a.ScheduledHours, a.RegularHours, a.OvertimeHours, a.OvertimeMultiplier, a.ShiftId, a.ImportBatchId,
         a.OvertimeStatus, a.OvertimeDecisionReason, a.OvertimeDecidedBySubjectId,
         a.OvertimeDecidedAt, a.OvertimePayrollRunId, a.OvertimePayrollLineId, a.Worker?.EmployeeNo ?? "");
 
     private static ShiftDto MapShift(ShiftDefinition shift) => new(
-        shift.Id, shift.Code, shift.Name, shift.StartTime.ToString(), shift.EndTime.ToString(),
+        shift.Id, shift.Code, shift.Name, shift.StartTime.ToString("HH:mm", System.Globalization.CultureInfo.InvariantCulture), shift.EndTime.ToString("HH:mm", System.Globalization.CultureInfo.InvariantCulture),
         shift.UnpaidBreakMinutes, shift.StandardHours, shift.DailyOvertimeThresholdHours,
         shift.WeekdayOvertimeMultiplier, shift.RestDayOvertimeMultiplier,
         shift.HolidayOvertimeMultiplier, shift.IsActive);

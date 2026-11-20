@@ -86,6 +86,10 @@ public sealed class WorkerRepository(HrmDbContext db) : IWorkerRepository
 
     public async Task<Worker> UpdateAsync(Worker worker, CancellationToken ct)
     {
+        // New profile children have client-generated GUIDs. Explicitly track
+        // them as inserts before updating the already-loaded worker graph.
+        foreach(var child in worker.EmergencyContacts.Cast<Entity>().Concat(worker.BankDetails))
+            if(db.Entry(child).State==EntityState.Detached)db.Add(child);
         db.Workers.Update(worker);
         await db.SaveChangesAsync(ct);
         return worker;
@@ -123,7 +127,7 @@ public sealed class WorkerRepository(HrmDbContext db) : IWorkerRepository
     }
 
     public async Task<bool> ExistsAsync(string employeeNo, CancellationToken ct)
-        => await db.Workers.AnyAsync(w => w.EmployeeNo == employeeNo, ct);
+        => db.HasProductWorkerScope?await db.ProductEmployeeNumberExistsAsync(employeeNo,ct):await db.Workers.AnyAsync(w => w.EmployeeNo == employeeNo, ct);
 
     // M31: natural-key lookup used by Update-mode import matching — employee
     // number first, then NRC, then NAPSA number. Null keys are ignored and
@@ -352,7 +356,7 @@ public sealed class WorkerRepository(HrmDbContext db) : IWorkerRepository
 }
 
 // ===================== Time =====================
-public sealed class TimeRepository(HrmDbContext db) : ITimeRepository
+public sealed class TimeRepository(HrmDbContext db) : ITimeRepository, IMobileAttendanceRepository
 {
     public async Task<(List<LeaveRequest> Items, int Total)> ListLeaveRequestsAsync(Guid? workerId, string? status, CancellationToken ct)
     {
@@ -427,6 +431,9 @@ public sealed class TimeRepository(HrmDbContext db) : ITimeRepository
     }
 
     // ----- M3 attendance, roster, decisions -----
+    public Task<List<AttendanceRecord>> OpenMobilePunchesAsync(Guid workerId, CancellationToken ct)
+        => db.AttendanceRecords.Where(x => x.WorkerId == workerId && x.ClockIn != null && x.ClockOut == null)
+            .OrderBy(x => x.WorkDate).Take(2).ToListAsync(ct);
     public async Task<AttendanceRecord?> GetAttendanceAsync(Guid workerId, DateOnly workDate, CancellationToken ct)
         => await db.AttendanceRecords.FirstOrDefaultAsync(a => a.WorkerId == workerId && a.WorkDate == workDate, ct);
 
@@ -2382,6 +2389,7 @@ public sealed class AnalyticsRepository(HrmDbContext db) : IAnalyticsRepository
 // ===================== Setup (M49: first-time setup wizard) =====================
 public sealed class SetupRepository(HrmDbContext db) : ISetupRepository
 {
+    public Task<bool> IsProductWorkspaceAsync(CancellationToken ct) => db.WorkspaceBindings.AsNoTracking().AnyAsync(ct);
     public Task<SetupState?> GetStateAsync(CancellationToken ct) =>
         db.SetupStates.FirstOrDefaultAsync(ct);
 

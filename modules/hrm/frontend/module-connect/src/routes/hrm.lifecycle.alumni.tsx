@@ -13,9 +13,9 @@ import { useMock } from "@/platform/use-mock";
 export const Route = createFileRoute("/hrm/lifecycle/alumni")({
   head: () => ({
     meta: [
-      { title: "Alumni and rehire — Newworldcargo HRM" },
+      { title: "Alumni and rehire — Kuubu HRM" },
       { name: "description", content: "Former colleagues, whether they can be rehired, and their previous service." },
-      { property: "og:title", content: "Alumni and rehire — Newworldcargo HRM" },
+      { property: "og:title", content: "Alumni and rehire — Kuubu HRM" },
       { property: "og:description", content: "Former colleagues and rehire eligibility." },
     ],
   }),

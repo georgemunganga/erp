@@ -1,0 +1,31 @@
+-- Apply as the database owner after genuine Procurement migrations.
+-- psql -v runtime_role=EXISTING_RUNTIME_ROLE -v ON_ERROR_STOP=1 ...
+-- Core and Procurement must use the same physical database/company fence.
+GRANT USAGE ON SCHEMA procurement TO :"runtime_role";
+GRANT SELECT ON TABLE
+ procurement.__procurement_migrations,
+ procurement.suppliers, procurement.supplier_contacts, procurement.supplier_sites,
+ procurement.supplier_qualifications, procurement.supplier_attributes,
+ procurement.supplier_categories, procurement.supplier_decisions,
+ procurement.catalog_items, procurement.catalog_entries,
+ procurement.purchase_requests, procurement.purchase_request_lines,
+ procurement.purchase_request_allocations, procurement.attachment_refs,
+ procurement.policy_versions, procurement.policy_evaluations,
+ procurement.budget_check_snapshots, procurement.purchase_request_approval_submissions,
+ procurement.purchase_request_finance_release_requests,
+ procurement.purchase_request_finance_release_confirmations,
+ procurement.audit_events, procurement.outbox_events
+TO :"runtime_role";
+GRANT INSERT, UPDATE, DELETE ON TABLE
+ procurement.suppliers, procurement.supplier_contacts, procurement.supplier_sites,
+ procurement.supplier_qualifications, procurement.supplier_attributes,
+ procurement.supplier_categories, procurement.supplier_decisions,
+ procurement.catalog_items, procurement.catalog_entries,
+ procurement.purchase_requests, procurement.purchase_request_lines,
+ procurement.purchase_request_allocations, procurement.attachment_refs,
+ procurement.policy_evaluations, procurement.budget_check_snapshots,
+ procurement.purchase_request_approval_submissions,
+ procurement.audit_events, procurement.outbox_events
+TO :"runtime_role";
+-- No schema creation, migration-history write, Finance execution, or automatic
+-- grants for future tables. Existing application action/readiness gates remain.

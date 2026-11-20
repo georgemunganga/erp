@@ -17,6 +17,100 @@ namespace Mightyfin.Erp.Hrm.Tests;
 /// correction and leave decisions) over EF InMemory with a fixed tenant.</summary>
 public class TimeServiceTests
 {
+    [Theory]
+    [InlineData("en-US")]
+    [InlineData("en-GB")]
+    [InlineData("fr-FR")]
+    [InlineData("ar-EG")]
+    public async Task MobilePunch_WireClockAndWorkDateAreIndependentOfServerCulture(string culture)
+    {
+        var previous = System.Globalization.CultureInfo.CurrentCulture;
+        try
+        {
+            System.Globalization.CultureInfo.CurrentCulture = new System.Globalization.CultureInfo(culture);
+            await MobilePunch_UsesCompanyDate_AndRetriesDoNotChangeTimesOrAudit();
+        }
+        finally { System.Globalization.CultureInfo.CurrentCulture = previous; }
+    }
+
+    [Fact]
+    public async Task MobilePunch_UsesCompanyDate_AndRetriesDoNotChangeTimesOrAudit()
+    {
+        var (svc,db,worker,_,_)=Build(authz:new EmployeeAuthz("subject-001"));
+        using (db) {
+            var start=DateTimeOffset.Parse("2026-11-15T22:30:00Z", System.Globalization.CultureInfo.InvariantCulture); //16Nov00:30 in Lusaka
+            var first=await svc.PunchMobileAsync(worker.Id,true,start,"Africa/Lusaka","2026-11-16",null,default);
+            Assert.Equal("2026-11-16",first.WorkDate);Assert.Equal("00:30",first.ClockIn);
+            var audits=await db.AuditEntries.CountAsync();
+            var retry=await svc.PunchMobileAsync(worker.Id,true,start.AddMinutes(10),"Africa/Lusaka","2026-11-16",null,default);
+            Assert.Equal(first.Id,retry.Id);Assert.Equal(first.ClockIn,retry.ClockIn);Assert.Equal(audits,await db.AuditEntries.CountAsync());
+            var end=await svc.PunchMobileAsync(worker.Id,false,start.AddHours(2),"Africa/Lusaka",null,first.Id,default);
+            Assert.Equal("done",end.State);Assert.Equal(2,end.TotalHours);
+            audits=await db.AuditEntries.CountAsync();
+            var again=await svc.PunchMobileAsync(worker.Id,false,start.AddHours(3),"Africa/Lusaka",null,first.Id,default);
+            Assert.Equal(end.ClockOut,again.ClockOut);Assert.Equal(audits,await db.AuditEntries.CountAsync());Assert.Single(db.AttendanceRecords);
+        }
+    }
+
+    [Fact]
+    public async Task MobilePunch_ClosesAnOvernightShiftWithoutCreatingTheNextDay()
+    {
+        var (svc,db,worker,_,_)=Build(authz:new EmployeeAuthz("subject-001"));
+        using(db) {
+            var start=DateTimeOffset.Parse("2026-11-16T20:00:00Z");
+            var first=await svc.PunchMobileAsync(worker.Id,true,start,"Africa/Lusaka","2026-11-16",null,default);
+            var end=await svc.PunchMobileAsync(worker.Id,false,start.AddHours(8),"Africa/Lusaka",null,first.Id,default);
+            Assert.Equal("2026-11-16",end.WorkDate);Assert.Equal(8,end.TotalHours);Assert.Single(db.AttendanceRecords);
+            var row=await db.AttendanceRecords.SingleAsync();
+            Assert.Equal(start,MobileAttendanceTime.Instant(row,false,"Africa/Lusaka"));
+            Assert.Equal(start.AddHours(8),MobileAttendanceTime.Instant(row,true,"Africa/Lusaka"));
+        }
+    }
+
+    [Fact]
+    public async Task MobilePunch_RejectsStaleWorkdayOtherEmployeeAndCheckoutWithoutCheckin()
+    {
+        var (svc,db,worker,_,_)=Build(authz:new EmployeeAuthz("subject-001"));
+        using(db) {
+            var now=DateTimeOffset.Parse("2026-11-16T08:00:00Z");
+            var stale=await Assert.ThrowsAsync<DomainException>(()=>svc.PunchMobileAsync(worker.Id,true,now,"Africa/Lusaka","2026-11-15",null,default));
+            Assert.Equal("mobile-workday-changed",stale.Code);
+            await Assert.ThrowsAsync<DomainException>(()=>svc.PunchMobileAsync(worker.Id,false,now,"Africa/Lusaka",null,Guid.NewGuid(),default));
+            var other=new Worker{EmployeeNo="OTHER-MOBILE",FirstName="Other",LastName="Worker",SubjectId="another-person"};db.Workers.Add(other);await db.SaveChangesAsync();
+            var denied=await Assert.ThrowsAsync<DomainException>(()=>svc.PunchMobileAsync(other.Id,true,now,"Africa/Lusaka","2026-11-16",null,default));
+            Assert.Equal("worker-access-denied",denied.Code);Assert.Empty(db.AttendanceRecords);
+        }
+    }
+
+    [Fact]
+    public async Task MobilePunch_DoesNotIgnoreAnOldOpenShiftOrOverwriteManagedAttendance()
+    {
+        var (svc,db,worker,_,_)=Build(authz:new EmployeeAuthz("subject-001"));
+        using(db) {
+            var now=DateTimeOffset.Parse("2026-11-16T08:00:00Z");
+            var old=new AttendanceRecord{WorkerId=worker.Id,WorkDate=new(2026,1,1),ClockIn=new(8,0),Source="mobile"};db.AttendanceRecords.Add(old);await db.SaveChangesAsync();
+            var conflict=await Assert.ThrowsAsync<DomainException>(()=>svc.PunchMobileAsync(worker.Id,true,now,"Africa/Lusaka","2026-11-16",null,default));
+            Assert.Equal("mobile-attendance-open",conflict.Code);
+            await Assert.ThrowsAsync<DomainException>(()=>svc.PunchMobileAsync(worker.Id,false,now,"Africa/Lusaka",null,old.Id,default));
+            Assert.Null(old.ClockOut);Assert.Single(db.AttendanceRecords);
+        }
+    }
+
+    [Fact]
+    public async Task Empty_accrual_does_not_consume_the_month_before_the_first_employee_is_added()
+    {
+        var (service, ctx, worker, _, _) = Build();
+        worker.Status = "pre-hire"; await ctx.SaveChangesAsync();
+        var error = await Assert.ThrowsAsync<DomainException>(() =>
+            service.RunScheduledLeaveAccrualAsync(new LeaveAccrualRunRequest("2026-08"), default));
+        Assert.Equal("accrual-no-workers", error.Code);
+        Assert.Empty(await ctx.LeaveAccrualRuns.ToListAsync());
+        worker.Status = "active"; await ctx.SaveChangesAsync();
+        var run = await service.RunScheduledLeaveAccrualAsync(new LeaveAccrualRunRequest("2026-08"), default);
+        Assert.Equal(1, run.WorkerCount);
+        Assert.Equal("system:monthly-leave-accrual", run.RunBySubjectId);
+    }
+
     private sealed class TimesheetAuthz : IAuthzService
     {
         public string CurrentSubjectId => "timesheet-clerk";

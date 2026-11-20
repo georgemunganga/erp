@@ -86,7 +86,45 @@
   --color-chart-5: var(--accent);
 }
 
+/* Public Kuubu onboarding uses product branding before any company is selected.
+   Keep these semantic overrides here, separate from tenant branding. */
+.kuubu-product-shell {
+  --erp-font-family: "Poppins", Arial, sans-serif;
+  --radius: 0.75rem;
+  --secondary: #f2f7ed;
+  --secondary-foreground: #004b3b;
+  --surface-foreground: #004b3b;
+  --surface-muted: #f4f7ef;
+  --primary-soft: #eff6e9;
+  --rail: #073e2e;
+  --rail-foreground: #ffffff;
+  --rail-muted: #b6cfbf;
+  --rail-active: #69c829;
+  --primary: #004b3b;
+  --primary-foreground: #ffffff;
+  --button-primary: #004b3b;
+  --button-primary-foreground: #ffffff;
+  --accent: #69c829;
+  --accent-foreground: #004b3b;
+  --background: #fcfdf9;
+  --foreground: #004b3b;
+  --card: #ffffff;
+  --card-foreground: #004b3b;
+  --popover: #ffffff;
+  --popover-foreground: #004b3b;
+  --surface: #f4f7ef;
+  --muted: #f4f7ef;
+  --muted-foreground: #54675c;
+  --border: #dce4d9;
+  --input: #c4d2c0;
+  --ring: #004b3b;
+  font-family: var(--erp-font-family);
+}
+
 :root {
+  /* Public Kuubu product identity, matching the maintained website mark.
+     Separate from the configurable employer/tenant accent surface. */
+  --product-kuubu-mark: #69c829;
   --radius: 0.5rem;
 
   /* brand — Newworldcargo */
@@ -190,4 +228,85 @@
   --rail-foreground: #ffffff;
   --rail-muted: #a7c7da;
   --rail-active: #0b3a5d;
+}
+
+/* Website/account design carried through the product app. Legacy tenant themes retain their controls. */
+html.kuubu-document { font-size: 16px; }
+.kuubu-product-shell { background: var(--background); color: var(--foreground); -webkit-font-smoothing: antialiased; }
+.kuubu-product-shell [data-erp-button] { min-height: 44px; border-radius: 16px; padding: 12px 16px; font-size: 12px; font-weight: 600; box-shadow: none; }
+.kuubu-product-shell [data-erp-button="default"]:hover { background: #17614d; }
+.kuubu-product-shell [data-erp-button="outline"] { background: #ffffff; color: var(--foreground); border-color: var(--border); }
+.kuubu-product-shell [data-erp-button="outline"]:hover { background: var(--secondary); }
+.kuubu-product-shell input:not([type="checkbox"]):not([type="radio"]),
+.kuubu-product-shell textarea,
+.kuubu-product-shell [role="combobox"] { border-radius: 12px; font-family: inherit; font-size: 13px; }
+.kuubu-product-shell [data-slot="card"] { border-radius: 22px; box-shadow: none; }
+
+/* Product workspace has light surfaces even when a previous tenant used dark mode.
+   Keep complete semantic pairs together instead of inheriting dark status tokens. */
+.kuubu-product-shell {
+  --success: #226b32; --success-soft: #eaf5eb; --success-foreground: #ffffff;
+  --warning: #785000; --warning-soft: #fff4d6; --warning-foreground: #ffffff;
+  --danger: #b42318; --danger-soft: #fef0ed; --danger-foreground: #ffffff;
+  --info: #235775; --info-soft: #eaf3fa; --info-foreground: #ffffff;
+}
+
+/* Shared table chrome consumes the color aliases directly. Resolve them in the
+   product scope so root dark-mode values cannot leak into light tables. */
+.kuubu-product-shell {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-surface: var(--surface);
+  --color-surface-foreground: var(--surface-foreground);
+  --color-surface-muted: var(--surface-muted);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-button-primary: var(--button-primary);
+  --color-button-primary-foreground: var(--button-primary-foreground);
+  --color-primary-soft: var(--primary-soft);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-success: var(--success);
+  --color-success-foreground: var(--success-foreground);
+  --color-success-soft: var(--success-soft);
+  --color-warning: var(--warning);
+  --color-warning-foreground: var(--warning-foreground);
+  --color-warning-soft: var(--warning-soft);
+  --color-danger: var(--danger);
+  --color-danger-foreground: var(--danger-foreground);
+  --color-danger-soft: var(--danger-soft);
+  --color-destructive: var(--danger);
+  --color-destructive-foreground: var(--danger-foreground);
+  --color-info: var(--info);
+  --color-info-foreground: var(--info-foreground);
+  --color-info-soft: var(--info-soft);
+  --color-border: var(--border);
+  --color-border-strong: var(--border-strong);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-rail: var(--rail);
+  --color-rail-foreground: var(--rail-foreground);
+  --color-rail-muted: var(--rail-muted);
+  --color-rail-active: var(--rail-active);
+  --color-sidebar: var(--rail);
+  --color-sidebar-foreground: var(--rail-foreground);
+  --color-sidebar-primary: var(--primary);
+  --color-sidebar-primary-foreground: var(--primary-foreground);
+  --color-sidebar-accent: var(--rail-active);
+  --color-sidebar-accent-foreground: var(--rail-foreground);
+  --color-sidebar-border: var(--border);
+  --color-sidebar-ring: var(--ring);
+  --color-chart-1: var(--primary);
+  --color-chart-2: var(--info);
+  --color-chart-3: var(--success);
+  --color-chart-4: var(--warning);
+  --color-chart-5: var(--accent);
 }

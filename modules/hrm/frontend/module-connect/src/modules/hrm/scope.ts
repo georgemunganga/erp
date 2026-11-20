@@ -1,3 +1,4 @@
+import { FULL_PRODUCT_HRM } from "@/modules/core/product-hrm-session";
 /**
  * Release scope — the single switch that decides what ships now.
  *
@@ -97,6 +98,7 @@ export function isSectionEnabled(id: string) {
 }
 
 export function isPathEnabled(pathname: string) {
+  if (FULL_PRODUCT_HRM && ["/hrm/configuration/branch-access", "/hrm/configuration/compliance", "/hrm/configuration/integrations", "/hrm/workspace/settings/compliance", "/hrm/workspace/settings/integrations"].some(path => pathname === path || pathname.startsWith(path + "/"))) return false;
   if (PRODUCTION && /^\/hrm\/payroll\/runs\/[^/]+\/edit$/.test(pathname)) return false;
   if (PRODUCTION && DEMO_ONLY_PREFIXES.some((p) => pathname === p || pathname.startsWith(p + "/")))
     return false;

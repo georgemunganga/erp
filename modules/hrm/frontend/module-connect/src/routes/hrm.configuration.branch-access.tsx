@@ -31,9 +31,9 @@ const description =
 export const Route = createFileRoute("/hrm/configuration/branch-access")({
   head: () => ({
     meta: [
-      { title: "Branch access — Newworldcargo HRM" },
+      { title: "Branch access — Kuubu HRM" },
       { name: "description", content: description },
-      { property: "og:title", content: "Branch access — Newworldcargo HRM" },
+      { property: "og:title", content: "Branch access — Kuubu HRM" },
     ],
   }),
   component: () => <Navigate to="/core/workspace/settings/$slug" params={{ slug: "branch-access" }} replace />,

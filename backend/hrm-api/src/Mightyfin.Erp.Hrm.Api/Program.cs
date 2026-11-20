@@ -22,6 +22,10 @@ using Mightyfin.Erp.Hrm.Application.Integration;
 // Reject contradictory process authority before configuring any database access.
 var startupMode = CoreHostStartupPolicy.Parse(args);
 var builder = WebApplication.CreateBuilder(args);
+if(startupMode==CoreHostMode.InvitationDeliveryOperations) {
+    Environment.ExitCode=await CoreCompanyInvitationOperations.RunAsync(builder.Configuration,args);
+    return;
+}
 
 // ---------- Logging: structured JSON in production, console otherwise ----------
 builder.Logging.ClearProviders();
@@ -49,6 +53,18 @@ builder.Services.AddHealthChecks();
 builder.Services.AddRateLimiter(options =>
 {
     options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+    options.AddPolicy("onprem-mobile-read", http => RateLimitPartition.GetFixedWindowLimiter(
+        OnPremMobileApi.RateKey(http), _ => new FixedWindowRateLimiterOptions {
+            PermitLimit=120, Window=TimeSpan.FromMinutes(1), QueueLimit=0, AutoReplenishment=true
+        }));
+    options.AddPolicy("onprem-mobile-login", http => RateLimitPartition.GetFixedWindowLimiter(
+        OnPremMobileApi.RateKey(http), _ => new FixedWindowRateLimiterOptions {
+            PermitLimit=60, Window=TimeSpan.FromMinutes(1), QueueLimit=0, AutoReplenishment=true
+        }));
+    options.AddPolicy("native-attendance", http => RateLimitPartition.GetFixedWindowLimiter(
+        http.Connection.RemoteIpAddress?.ToString() ?? "unknown", _ => new FixedWindowRateLimiterOptions {
+            PermitLimit=300, Window=TimeSpan.FromMinutes(1), QueueLimit=0, AutoReplenishment=true
+        }));
     options.AddPolicy("password-reset-request", http => RateLimitPartition.GetFixedWindowLimiter(
         // Nginx overwrites X-Real-IP with the connected client address. The API
         // port is bound to loopback, so direct internet callers cannot set it.
@@ -71,16 +87,33 @@ if (string.IsNullOrEmpty(connStr))
 if (connStr.StartsWith("postgresql", StringComparison.OrdinalIgnoreCase) && connStr.Contains('?'))
     connStr = NpgsqlConnectionStringNormalizer.Normalize(connStr);
 builder.Services.AddScoped<AuditInterceptor>();
+builder.Services.AddScoped<ProductHrmCommitGuard>();
+builder.Services.AddScoped<ProductHrmWriteGuard>();
 builder.Services.AddDbContext<HrmDbContext>((services, options) =>
 {
     options.UseNpgsql(connStr, npgsql => npgsql.MigrationsHistoryTable("__hrm_migrations", "hrm"));
-    options.AddInterceptors(services.GetRequiredService<AuditInterceptor>());
+    options.AddInterceptors(services.GetRequiredService<AuditInterceptor>(), services.GetRequiredService<ProductHrmCommitGuard>(), services.GetRequiredService<ProductHrmWriteGuard>());
+    if (NativeAttendanceApi.Enabled(builder.Configuration)) options.AddInterceptors(services.GetRequiredService<NativeAttendanceSaveGuard>());
 });
 // Company business date belongs to Core organisation and is available even without Procurement.
 builder.Services.AddCoreCompanyBusinessDate();
 // Procurement is a bounded module in this ERP host. Its schema still has an
 // independent migration command and credential; normal HRM startup never migrates it.
 var procurementConnStr = builder.Configuration.GetConnectionString("Procurement");
+if (Mightyfin.Erp.Hrm.Api.ProductProcurementAdmission.Enabled(builder.Configuration))
+{
+    if (string.IsNullOrWhiteSpace(procurementConnStr))
+        throw new InvalidOperationException("Product Procurement requires its owning database connection.");
+    var procurementValue = procurementConnStr.StartsWith("postgres", StringComparison.OrdinalIgnoreCase)
+        ? NpgsqlConnectionStringNormalizer.Normalize(procurementConnStr) : procurementConnStr;
+    var coreValue = connStr.StartsWith("postgres", StringComparison.OrdinalIgnoreCase)
+        ? NpgsqlConnectionStringNormalizer.Normalize(connStr) : connStr;
+    var coreDatabase = new Npgsql.NpgsqlConnectionStringBuilder(coreValue);
+    var procurementDatabase = new Npgsql.NpgsqlConnectionStringBuilder(procurementValue);
+    if (coreDatabase.Host != procurementDatabase.Host || coreDatabase.Port != procurementDatabase.Port
+        || coreDatabase.Database != procurementDatabase.Database)
+        throw new InvalidOperationException("Product Procurement must share the existing Core database and company fence.");
+}
 if (!string.IsNullOrWhiteSpace(procurementConnStr))
 {
     if (procurementConnStr.StartsWith("postgresql", StringComparison.OrdinalIgnoreCase) && procurementConnStr.Contains('?'))
@@ -115,6 +148,7 @@ builder.Services.AddScoped<IAuthzService, AuthzServiceImpl>();
 builder.Services.AddSingleton<IIdProvider, IdProvider>();
 
 // ---------- Services ----------
+builder.Services.AddScoped<Mightyfin.Erp.Hrm.Application.Workers.IWorkerDataScope,ProductWorkerScope>();
 builder.Services.AddScoped<IWorkerRepository, WorkerRepository>();
 builder.Services.AddScoped<IWorkerService, WorkerServiceImpl>();
 builder.Services.AddScoped<IWorkerImportService, WorkerImportService>();
@@ -190,7 +224,11 @@ builder.Services.AddSingleton<ISmtpNotificationFallback, SmtpNotificationFallbac
 
 // ---------- AuthN: local PostgreSQL sessions by default; OIDC is optional ----------
 var authMode = builder.Configuration["ERP:AuthMode"] ?? builder.Configuration["HRM:AuthMode"] ?? "local";
-if (authMode.Equals("local", StringComparison.OrdinalIgnoreCase))
+if (authMode.Equals("product", StringComparison.OrdinalIgnoreCase))
+{
+    ProductRequestAuthentication.Add(builder.Services,builder.Configuration);
+}
+else if (authMode.Equals("local", StringComparison.OrdinalIgnoreCase))
 {
     builder.Services.AddAuthentication(LocalAuthenticationHandler.Scheme)
         .AddScheme<LocalAuthOptions, LocalAuthenticationHandler>(LocalAuthenticationHandler.Scheme, _ => { });
@@ -233,6 +271,18 @@ else
             };
         });
 }
+builder.Services.AddProductIdentity(builder.Configuration);
+builder.Services.AddProductCommercialLicense(builder.Configuration);
+NativeAttendanceApi.Register(builder.Services,builder.Configuration,connStr);
+OnPremMobileApi.Register(builder.Services,builder.Configuration,connStr);
+CoreOperationalCompanies.Register(builder.Services,builder.Configuration);
+ProductModuleAccessFlow.Register(builder.Services,builder.Configuration,connStr);
+ProductErpSessionFlow.Register(builder.Services,builder.Configuration,connStr);
+builder.Services.AddProductWorkspaceSetup(builder.Configuration);
+builder.Services.AddCoreWorkspaceProvisioning(builder.Configuration, connStr);
+builder.Services.AddCoreCompanyTeamApi(builder.Configuration, connStr,startupMode==CoreHostMode.Api);
+if(startupMode==CoreHostMode.Api && CoreCompanyInvitationDeliveryWorker.Enabled(builder.Configuration))
+    builder.Services.AddHostedService(provider=>provider.GetRequiredService<CoreCompanyInvitationDeliveryWorker>());
 builder.Services.AddAuthorization(options =>
 {
     // Authentication proves the shared platform identity. Admission to HRM
@@ -260,7 +310,7 @@ builder.Services.AddHealthChecks()
 var allowedOrigins = (builder.Configuration["HRM:AllowedOrigins"] ?? "http://localhost:3000")
     .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
 builder.Services.AddCors(o => o.AddDefaultPolicy(p =>
-    p.WithOrigins(allowedOrigins)
+    p.WithOrigins(allowedOrigins.Concat(ProductAccountHub.Enabled(builder.Configuration) ? new[] { ProductAccountHub.Origin } : Array.Empty<string>()).Distinct(StringComparer.Ordinal).ToArray())
      .AllowAnyHeader()
      .AllowAnyMethod()
      .AllowCredentials()
@@ -275,6 +325,10 @@ builder.Services.AddScoped<ICoreCurrencyPrecisionSchemaReadiness, CoreCurrencyPr
 // Admission checks the actual caller transaction; registration does not enable new writes.
 builder.Services.AddScoped<IProcurementInvoiceReplacementSchemaReadiness, ProcurementInvoiceReplacementSchemaReadiness>();
 
+if(OnPremMobileOnlyHost.Enabled(builder.Configuration)) {
+    await OnPremMobileOnlyHost.RunAsync(builder,args);
+    return;
+}
 var app = builder.Build();
 
 // ---------- Verify the owning Core/HRM schema before startup ----------
@@ -352,6 +406,11 @@ app.MapGet("/", () => Results.Ok(new
 // Standalone identity surface. These routes use the application database and
 // same-origin HttpOnly sessions; no external provider redirect is involved.
 LocalIdentityRoutes.Map(app);
+app.MapProductIdentity();
+app.MapProductCompanyTeam();
+app.MapProductSetup();
+NativeAttendanceApi.Map(app);
+OnPremMobileApi.Map(app);
 
 // Global error handler: DomainException -> structured ApiError
 app.Use(async (ctx, next) =>
@@ -377,7 +436,10 @@ app.Use(async (ctx, next) =>
 });
 
 app.UseRouting();
+OnPremMobileApi.UseBoundary(app);
 app.UseRateLimiter();
+app.UseProductIdentityOriginGuard();
+app.UseProductRequestBoundary();
 app.UseAuthentication();
 // Current Procurement Core grants must precede named route authorization.
 if (!string.IsNullOrWhiteSpace(procurementConnStr))
@@ -464,7 +526,8 @@ Mightyfin.Erp.Hrm.Api.CoreCurrencyPrecisionRoutes.MapRoutes(app);
 if (!string.IsNullOrWhiteSpace(procurementConnStr))
     Mightyfin.Erp.Hrm.Api.ProcurementHostIntegration.MapRoutes(app);
 
-// M28: seed tenant role assignments for the known HRM roles if this tenant has none yet.
+// M28: standalone/legacy role bootstrap is never product authority.
+if (!ProductRequestAuthentication.Enabled(builder.Configuration))
 {
     try
     {

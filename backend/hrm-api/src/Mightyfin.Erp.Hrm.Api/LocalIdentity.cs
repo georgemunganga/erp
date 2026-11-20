@@ -30,8 +30,9 @@ internal static class LocalPasswordHash
         return $"pbkdf2-sha256${Iterations}${Convert.ToBase64String(salt)}${Convert.ToBase64String(key)}";
     }
 
-    public static bool Verify(string password, string encoded)
+    public static bool Verify(string password, string? encoded)
     {
+        if (string.IsNullOrWhiteSpace(encoded)) return false;
         try
         {
             var parts = encoded.Split('$');
@@ -88,6 +89,10 @@ internal sealed class LocalAuthenticationHandler(
             x.Id == session.LocalUserId && x.TenantId == session.TenantId && x.IsActive && !x.IsArchived,
             Context.RequestAborted);
         if (user is null) return AuthenticateResult.Fail("Account inactive.");
+        // A local session row must never bypass product proof/licensing for a
+        // federated principal. Product-bound operational sessions are separate work.
+        if (user.CredentialMode != LocalCredentialModes.Local || !LocalCredentialModes.IsValid(user))
+            return AuthenticateResult.Fail("Local authentication is unavailable for this account.");
         if (user.LockedUntil is { } lockedUntil && lockedUntil > now)
             return AuthenticateResult.Fail("Account locked.");
 
@@ -104,8 +109,8 @@ internal sealed class LocalAuthenticationHandler(
         var identity = new ClaimsIdentity(Scheme);
         identity.AddClaim(new Claim(ClaimTypes.NameIdentifier, user.Id.ToString("D")));
         identity.AddClaim(new Claim("sub", user.Id.ToString("D")));
-        identity.AddClaim(new Claim("preferred_username", user.Email));
-        identity.AddClaim(new Claim(ClaimTypes.Email, user.Email));
+        identity.AddClaim(new Claim("preferred_username", user.Email!));
+        identity.AddClaim(new Claim(ClaimTypes.Email, user.Email!));
         identity.AddClaim(new Claim(ClaimTypes.Name, user.DisplayName));
         identity.AddClaim(new Claim("tenant", user.TenantId));
         identity.AddClaim(new Claim("environment", "standalone"));
@@ -208,6 +213,9 @@ internal static class LocalIdentityRoutes
     {
         id = user.Id,
         email = user.Email,
+        credentialMode = user.CredentialMode,
+        passwordLoginAvailable = user.CredentialMode == LocalCredentialModes.Local,
+        passwordManagementAvailable = user.CredentialMode == LocalCredentialModes.Local,
         displayName = user.DisplayName,
         roles = roles ?? ParseRoles(user.RolesCsv),
         workerId = user.WorkerId,
@@ -226,7 +234,8 @@ internal static class LocalIdentityRoutes
     private static async Task<IResult> LoginAsync(LoginRequest request, HrmDbContext db, HttpContext http, IConfiguration config, CancellationToken ct)
     {
         var email = request.Email?.Trim() ?? "";
-        var user = await db.LocalUsers.FirstOrDefaultAsync(x => x.NormalizedEmail == NormalizeEmail(email), ct);
+        var user = await db.LocalUsers.FirstOrDefaultAsync(x => x.CredentialMode == LocalCredentialModes.Local
+            && x.NormalizedEmail == NormalizeEmail(email), ct);
         var now = DateTimeOffset.UtcNow;
         if (user is null || !user.IsActive || user.IsArchived || (user.LockedUntil is not null && user.LockedUntil > now)
             || !LocalPasswordHash.Verify(request.Password ?? "", user.PasswordHash))
@@ -296,6 +305,7 @@ internal static class LocalIdentityRoutes
     private static async Task<IResult> ChangePasswordAsync(ChangePasswordRequest request, HttpContext http, HrmDbContext db, CancellationToken ct)
     {
         var user = await CurrentUserAsync(http, db, ct);
+        if (user is not null && user.CredentialMode != LocalCredentialModes.Local) return ManagedIdentityCredentials();
         if (user is null || !LocalPasswordHash.Verify(request.CurrentPassword ?? "", user.PasswordHash))
             return Results.Json(new { code = "invalid-password", message = "Current password is incorrect." }, statusCode: StatusCodes.Status400BadRequest);
         user.PasswordHash = LocalPasswordHash.Hash(request.NewPassword ?? "");
@@ -372,6 +382,9 @@ internal static class LocalIdentityRoutes
         if (user is null) return Results.NotFound(new { code = "user-not-found", message = "User account not found." });
         if (request.Email is not null)
         {
+            if (user.CredentialMode != LocalCredentialModes.Local) return ManagedIdentityCredentials();
+            if (string.IsNullOrWhiteSpace(request.Email) || !request.Email.Contains('@'))
+                return Results.BadRequest(new { code = "invalid-email", message = "A valid email is required." });
             var normalized = NormalizeEmail(request.Email);
             if (await db.LocalUsers.AnyAsync(x => x.Id != id && x.NormalizedEmail == normalized, ct))
                 return Results.Conflict(new { code = "email-taken", message = "An account with that email already exists." });
@@ -397,6 +410,7 @@ internal static class LocalIdentityRoutes
     {
         var user = await db.LocalUsers.FirstOrDefaultAsync(x => x.Id == id, ct);
         if (user is null) return Results.NotFound(new { code = "user-not-found", message = "User account not found." });
+        if (user.CredentialMode != LocalCredentialModes.Local) return ManagedIdentityCredentials();
         user.PasswordHash = LocalPasswordHash.Hash(request.NewPassword ?? "");
         user.MustChangePassword = true;
         user.FailedLoginCount = 0;
@@ -410,6 +424,7 @@ internal static class LocalIdentityRoutes
     {
         var user = await db.LocalUsers.FirstOrDefaultAsync(x => x.Id == id && x.IsActive && !x.IsArchived, ct);
         if (user is null) return Results.NotFound(new { code = "user-not-found", message = "Active user account not found." });
+        if (user.CredentialMode != LocalCredentialModes.Local) return ManagedIdentityCredentials();
         await QueueCredentialLinkAsync(user, db, outbox, config, ct);
         return Results.Ok(new { sent = true });
     }
@@ -426,7 +441,8 @@ internal static class LocalIdentityRoutes
             if ((mode is "local" or "hybrid") && email.Length is > 3 and <= 254 && email.Contains('@'))
             {
                 var user = await db.LocalUsers.FirstOrDefaultAsync(x =>
-                    x.NormalizedEmail == NormalizeEmail(email) && x.IsActive && !x.IsArchived, ct);
+                    x.CredentialMode == LocalCredentialModes.Local && x.NormalizedEmail == NormalizeEmail(email)
+                    && x.IsActive && !x.IsArchived, ct);
                 if (user is not null)
                 {
                     var recent = await db.LocalCredentialLinks.AnyAsync(x =>
@@ -456,7 +472,8 @@ internal static class LocalIdentityRoutes
         catch { link = null; }
         if (link is null) return Results.BadRequest(new { code = "invalid-link", message = "This account link is invalid or has expired." });
         var user = await db.LocalUsers.FirstOrDefaultAsync(x => x.Id == link.LocalUserId && x.IsActive && !x.IsArchived, ct);
-        if (user is null) return Results.BadRequest(new { code = "invalid-link", message = "This account link is invalid or has expired." });
+        if (user is null || user.CredentialMode != LocalCredentialModes.Local)
+            return Results.BadRequest(new { code = "invalid-link", message = "This account link is invalid or has expired." });
         user.PasswordHash = LocalPasswordHash.Hash(request.NewPassword ?? "");
         user.MustChangePassword = false;
         user.PasswordChangedAt = DateTimeOffset.UtcNow;
@@ -470,6 +487,8 @@ internal static class LocalIdentityRoutes
 
     private static async Task QueueCredentialLinkAsync(LocalUser user, HrmDbContext db, IOutboxWriter outbox, IConfiguration config, CancellationToken ct)
     {
+        if (user.CredentialMode != LocalCredentialModes.Local || !LocalCredentialModes.IsValid(user))
+            throw new DomainException("managed-identity-credentials", "Use the product identity account for credential management.");
         var now = DateTimeOffset.UtcNow;
         await db.LocalCredentialLinks.Where(x => x.LocalUserId == user.Id && x.UsedAt == null).ExecuteUpdateAsync(s => s.SetProperty(x => x.UsedAt, now), ct);
         var token = LocalSessionTokens.Create();
@@ -487,6 +506,10 @@ internal static class LocalIdentityRoutes
     }
 
     private static string CreateUnusablePassword() => Convert.ToBase64String(RandomNumberGenerator.GetBytes(32)) + "aA1!";
+
+    private static IResult ManagedIdentityCredentials() => Results.Json(new {
+        code = "managed-identity-credentials", message = "Manage this identity through the Kuubu account sign-in flow."
+    }, statusCode: StatusCodes.Status409Conflict);
 
     private static async Task<LocalUser?> CurrentUserAsync(HttpContext http, HrmDbContext db, CancellationToken ct)
     {

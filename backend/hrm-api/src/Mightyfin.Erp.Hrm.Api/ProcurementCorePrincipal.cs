@@ -57,7 +57,7 @@ public static class ProcurementCorePrincipals
 }
 
 /// <summary>Refresh module identity before named authorization, for additions as well as revocations.</summary>
-public sealed class ProcurementCorePrincipalRefreshMiddleware(RequestDelegate next)
+public sealed class ProcurementCorePrincipalRefreshMiddleware(RequestDelegate next, IConfiguration? configuration = null)
 {
     public async Task InvokeAsync(HttpContext http, HrmDbContext db)
     {
@@ -67,8 +67,13 @@ public sealed class ProcurementCorePrincipalRefreshMiddleware(RequestDelegate ne
         }
         var tenant = http.User.FindFirstValue("tenant");
         var subject = http.User.FindFirstValue("sub") ?? http.User.FindFirstValue(ClaimTypes.NameIdentifier);
-        var principal = tenant is null || subject is null ? null
-            : await ProcurementCorePrincipals.CurrentAsync(db, tenant, subject, http.RequestAborted);
+        var product = http.User.Identity?.AuthenticationType == ProductRequestAuthentication.Scheme
+            || configuration is not null && ProductRequestAuthentication.Enabled(configuration);
+        var principal = product
+            ? configuration is not null && ProductProcurementAdmission.Enabled(configuration)
+                ? await ProductProcurementAdmission.PrincipalAsync(http, db) : null
+            : tenant is null || subject is null ? null
+                : await ProcurementCorePrincipals.CurrentAsync(db, tenant, subject, http.RequestAborted);
         if (principal is null)
         {
             http.Response.StatusCode = StatusCodes.Status403Forbidden;

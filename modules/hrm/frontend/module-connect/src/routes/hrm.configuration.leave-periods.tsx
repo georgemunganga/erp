@@ -19,7 +19,7 @@ const val = (row: Row, key: string, fallback = "—") => row[key] == null || row
 
 export const Route = createFileRoute("/hrm/configuration/leave-periods")({
   beforeLoad: () => { throw redirect({ to: "/hrm/workspace/settings/$slug", params: { slug: "leave-periods" }, replace: true }); },
-  head: () => ({ meta: [{ title: "Leave Periods — Newworldcargo HRM" }, { name: "description", content: "Live leave accrual periods and runs." }] }),
+  head: () => ({ meta: [{ title: "Leave Periods — Kuubu HRM" }, { name: "description", content: "Live leave accrual periods and runs." }] }),
   component: LeavePeriodsPage,
 });
 

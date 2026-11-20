@@ -1,3 +1,4 @@
+import { FULL_PRODUCT_HRM, productHrmHeaders } from "@/modules/core/product-hrm-session";
 /**
  * Real HTTP client for the ASP.NET Core HRM backend.
  *
@@ -173,6 +174,7 @@ async function handleResponse<T>(res: Response): Promise<T> {
 }
 
 function headers(extra?: Record<string, string>): Record<string, string> {
+  if (FULL_PRODUCT_HRM) return productHrmHeaders(extra);
   // M44 branch scoping: the top-nav org switcher writes the selected scope
   // into localStorage (`erp.shell.state.v1` → { entityId?, branch? }). When a
   // branch is selected the operator works inside that branch; when only an
@@ -263,6 +265,7 @@ export const hrmApi = {
   async get<T>(path: string, params?: Record<string, unknown>): Promise<T> {
     const res = await fetch(`${BASE}${path}${qs(params ?? {})}`, {
       credentials: "include",
+      ...(FULL_PRODUCT_HRM ? { cache: "no-store" as const, redirect: "error" as const } : {}),
       headers: headers(),
     });
     return handleResponse<T>(res);
@@ -272,6 +275,7 @@ export const hrmApi = {
     const res = await fetch(`${BASE}${path}`, {
       method: "POST",
       credentials: "include",
+      ...(FULL_PRODUCT_HRM ? { cache: "no-store" as const, redirect: "error" as const } : {}),
       headers: { ...headers(), "Content-Type": "application/json" },
       body: JSON.stringify(body),
     });
@@ -283,6 +287,7 @@ export const hrmApi = {
     const res = await fetch(`${BASE}${path}`, {
       method: "POST",
       credentials: "include",
+      ...(FULL_PRODUCT_HRM ? { cache: "no-store" as const, redirect: "error" as const } : {}),
       headers: { ...headers({ "Idempotency-Key": key }), "Content-Type": "application/json" },
       body: JSON.stringify(body),
     });
@@ -293,6 +298,7 @@ export const hrmApi = {
     const res = await fetch(`${BASE}${path}`, {
       method: "PUT",
       credentials: "include",
+      ...(FULL_PRODUCT_HRM ? { cache: "no-store" as const, redirect: "error" as const } : {}),
       headers: { ...headers(), "Content-Type": "application/json" },
       body: JSON.stringify(body),
     });
@@ -303,6 +309,7 @@ export const hrmApi = {
     const res = await fetch(`${BASE}${path}`, {
       method: "PATCH",
       credentials: "include",
+      ...(FULL_PRODUCT_HRM ? { cache: "no-store" as const, redirect: "error" as const } : {}),
       headers: { ...headers(), "Content-Type": "application/json" },
       body: JSON.stringify(body),
     });
@@ -313,7 +320,9 @@ export const hrmApi = {
     const res = await fetch(`${BASE}${path}`, {
       method: "DELETE",
       credentials: "include",
-      headers: headers(),
+      ...(FULL_PRODUCT_HRM ? { cache: "no-store" as const, redirect: "error" as const } : {}),
+      headers: FULL_PRODUCT_HRM ? { ...headers(), "Content-Type": "application/json" } : headers(),
+      ...(FULL_PRODUCT_HRM ? { body: "{}" } : {}),
     });
     return handleResponse<T>(res);
   },
@@ -456,6 +465,7 @@ export const hrmApi = {
   ): Promise<Blob> {
     const res = await fetch(`${BASE}${path}${qs(params ?? {})}`, {
       credentials: "include",
+      ...(FULL_PRODUCT_HRM ? { cache: "no-store" as const, redirect: "error" as const } : {}),
       headers: { ...headers(), Accept: "text/csv", ...extra },
     });
     if (!res.ok) {

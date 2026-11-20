@@ -18,7 +18,7 @@ const list = (value: unknown): Row[] => Array.isArray(value) ? value as Row[] : 
 const val = (row: Row, key: string, fallback = "—") => row[key] == null || row[key] === "" ? fallback : String(row[key]);
 
 export const Route = createFileRoute("/hrm/time/schedules")({
-  head: () => ({ meta: [{ title: "Schedules and Shift Assignments — Newworldcargo HRM" }, { name: "description", content: "Live shifts, roster visibility, and worker assignments." }] }),
+  head: () => ({ meta: [{ title: "Schedules and Shift Assignments — Kuubu HRM" }, { name: "description", content: "Live shifts, roster visibility, and worker assignments." }] }),
   component: SchedulePage,
 });
 

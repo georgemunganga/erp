@@ -5,9 +5,9 @@ import { AreaOverview } from "@/platform/components/AreaOverview";
 export const Route = createFileRoute("/hrm/talent/")({
   head: () => ({
     meta: [
-      { title: "Talent — Newworldcargo HRM" },
+      { title: "Talent — Kuubu HRM" },
       { name: "description", content: "Performance, learning, succession and skills." },
-      { property: "og:title", content: "Talent — Newworldcargo HRM" },
+      { property: "og:title", content: "Talent — Kuubu HRM" },
       { property: "og:description", content: "Performance, learning, succession and skills." },
     ],
   }),

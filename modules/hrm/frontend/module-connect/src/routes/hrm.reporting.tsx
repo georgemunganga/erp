@@ -26,7 +26,7 @@ import type { ColumnDef } from "@/platform/components/ListPage";
 export const Route = createFileRoute("/hrm/reporting")({
   head: () => ({
     meta: [
-      { title: "Reporting lines — Newworldcargo HRM" },
+      { title: "Reporting lines — Kuubu HRM" },
       { name: "description", content: "Define who reports to whom: set and change reporting lines per worker, unit or search." },
     ],
   }),

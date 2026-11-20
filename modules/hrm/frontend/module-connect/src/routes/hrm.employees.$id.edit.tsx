@@ -48,7 +48,7 @@ const RELATIONSHIPS = ["Spouse", "Parent", "Sibling", "Child", "Friend", "Other"
 const SHIFTS = ["Day shift, Monday to Friday", "Rotating shift", "Night shift", "Site roster — 14 on 7 off"];
 const FALLBACK_CONTRACT_TYPES = ["permanent", "fixed-term", "part-time", "casual", "internship", "apprenticeship"];
 
-type AssignmentRecord = { id: string; contractType?: string; status?: string };
+type AssignmentRecord = { id: string; contractType?: string; status?: string; endDate?: string | null };
 type ContractTypeRecord = { code: string; name: string; isActive?: boolean };
 
 function paymentMethodKey(value: string) {
@@ -91,12 +91,14 @@ function EditEmployee() {
     [id],
   );
   const employmentState = useApi(async () => {
-    if (!USE_REAL) return { assignments: [] as AssignmentRecord[], types: [] as ContractTypeRecord[] };
-    const [contractTypes, assignments] = await Promise.all([realApi.contractTypes(), realApi.workerAssignments(id)]);
+    if (!USE_REAL) return { assignments: [] as AssignmentRecord[], types: [] as ContractTypeRecord[], worker: {} as Record<string, unknown>, locations: [] as Record<string, unknown>[] };
+    const [contractTypes, assignments, worker, locations] = await Promise.all([realApi.contractTypes(), realApi.workerAssignments(id), realApi.worker(id), realApi.locations()]);
     const data = contractTypes as { items?: ContractTypeRecord[] } | ContractTypeRecord[];
     return {
       types: Array.isArray(data) ? data : data.items ?? [],
       assignments: assignments as AssignmentRecord[],
+      worker: worker as Record<string, unknown>,
+      locations: (Array.isArray(locations) ? locations : []) as Record<string, unknown>[],
     };
   }, [id]);
 
@@ -251,8 +253,9 @@ function EditEmployee() {
                   type: "select",
                   options: contractTypeOptions,
                   required: !!activeAssignment?.contractType,
-                  hint: "Managed in Configuration > Contract types. This updates the employee's active assignment.",
+                  hint: "Choose the agreed contract type. If imported without a contract, this creates an assignment from the employee’s existing company, department, work location and start date.",
                 },
+                  { name: "contractEndDate", label: "Contract end date", type: "date", hint: "Required for a fixed-term agreement; leave empty for an open-ended contract.", validate: (value, all) => all.contractType === "fixed-term" && !value ? "Enter the agreed fixed-term end date." : value && all.startDate && value < all.startDate ? "Contract end must be on or after the start date." : null },
               ],
             },
             {
@@ -373,7 +376,7 @@ function EditEmployee() {
           ];
           const liveFields = new Set([
             "fullName", "preferredName", "nationality", "dateOfBirth", "nationalId",
-            "passportNo", "email", "personalEmail", "phone", "jobTitle", "grade", "contractType", "tpin",
+            "passportNo", "email", "personalEmail", "phone", "jobTitle", "grade", "contractType", "contractEndDate", "tpin",
             "napsaNumber", "nhimaNumber", "startDate", "paymentMethod", "accountName", "bankName",
             "bankBranch", "bankAccount", "mobileMoneyNumber", "salutation", "gender", "maritalStatus",
             "homeTown", "passportExpiry", "alternatePhone", "residentialAddress", "postalAddress",
@@ -455,6 +458,7 @@ function EditEmployee() {
                 grade: employee.grade,
                 employmentType: employee.employmentType,
                 contractType: activeAssignment?.contractType ?? "",
+                  contractEndDate: activeAssignment?.endDate ?? "",
                 startDate: employee.startDate ?? "",
                 reportsTo: pr?.reportsTo ?? "",
                 costCentre: pr?.costCentre ?? "",
@@ -535,7 +539,7 @@ function EditEmployee() {
                           : "employee";
                     body.contractType = values.employmentType.toLowerCase().replace(/\s+/g, "-");
                   }
-                  if (changed.includes("contractType")) body.contractType = values.contractType;
+
                   const paymentChanged = changed.some((field) =>
                     ["paymentMethod", "accountName", "bankName", "bankBranch", "bankAccount", "mobileMoneyNumber"].includes(field),
                   );
@@ -557,9 +561,25 @@ function EditEmployee() {
                           await realApi.addEmergencyContact(id, contact);
                       }
                     }
-                    if (changed.includes("contractType")) {
-                      if (activeAssignment?.id)
-                        await realApi.updateWorkerAssignment(id, activeAssignment.id, { contractType: values.contractType });
+                    if (changed.includes("contractType") || changed.includes("contractEndDate")) {
+                      if (!values.contractType) throw new Error("Choose the agreed contract type; the contract cannot be left blank.");
+                      if (values.contractType === "fixed-term" && !values.contractEndDate) throw new Error("Enter the agreed fixed-term end date.");
+                      // Re-read before creating: an earlier uncertain acknowledgement may have saved it.
+                      const currentTerms = await realApi.workerAssignments(id) as AssignmentRecord[];
+                      const current = currentTerms.find(a => a.status === "current" || a.status === "proposed");
+                      if (current?.id) await realApi.updateWorkerAssignment(id, current.id, { contractType: values.contractType, endDate: values.contractEndDate || null });
+                      else {
+                        const raw = employmentState.data?.worker;
+                        const location = employmentState.data?.locations.find(l => String(l.id) === String(raw?.locationId));
+                        if (!raw?.orgUnitId || !raw?.locationId || !location?.legalEntityId || !values.startDate)
+                          throw new Error("Set the employee’s department, work location and start date before recording the contract. No contract was created.");
+                        await realApi.createWorkerAssignment(id, { workerId: id, legalEntityId: location.legalEntityId,
+                          orgUnitId: raw.orgUnitId, locationId: raw.locationId, managerId: raw.managerId ?? null,
+                          startDate: values.startDate, endDate: values.contractEndDate || null, jobTitle: values.jobTitle || raw.jobTitle || null,
+                          grade: values.grade || raw.grade || null, contractType: values.contractType,
+                          workPattern: values.contractType === "part-time" ? "part-time" : "full-time",
+                          noticeDays: Number(values.noticePeriodDays || 0) });
+                      }
                     }
                     if (paymentChanged) {
                       const method = paymentMethodKey(values.paymentMethod);

@@ -54,8 +54,8 @@ public sealed class WorkersImportSchema : IImportSchemaWithExport
         new("grade", "Grade", false, Example: "G5"),
         new("jobTitle", "Job title", false, Example: "Accounts Officer"),
         new("startDate", "Start date", false, FormatNote: "DD-MM-YYYY"),
-        new("locationId", "Branch", false, FormatNote: "guid of the work location, optional — current work scope is used when empty"),
-        new("workerType", "Employment type", true, Example: "employee | contingent | intern | volunteer"),
+        new("locationId", "Branch", false, FormatNote: "existing branch name or GUID, case-insensitive; current work scope is used when empty"),
+        new("workerType", "Employment type", true, Example: "Permanent / Employee | Contractor / Contingent | Intern | Volunteer", FormatNote: "case-insensitive; contract terms are configured separately"),
         new("orgUnitName", "Department", false, FormatNote: "exact department name, e.g. Finance"),
         new("payGroup", "Pay group", false, FormatNote: "required when Basic salary is supplied, e.g. Monthly ZMW"),
         new("basicSalary", "Basic salary", false, FormatNote: "plain ZMW amount; creates or updates the basic pay assignment"),
@@ -128,6 +128,7 @@ public sealed class WorkersImportSchema : IImportSchemaWithExport
                 : "employee number, NRC or NAPSA number";
             return new ImportRowOutcome("error", $"No existing employee matches {key}. Check the identifier or switch to Insert mode.");
         }
+        var formatErrors = new List<string>();
         if (target is null)
         {
             var missing = new List<string>();
@@ -135,34 +136,54 @@ public sealed class WorkersImportSchema : IImportSchemaWithExport
                 if (field.Required && string.IsNullOrWhiteSpace(row.Get(field.Key)))
                     missing.Add(field.Label);
             if (missing.Count > 0)
-                return new ImportRowOutcome("error",
-                    $"Missing required { (missing.Count == 1 ? "field" : "fields") }: {string.Join(", ", missing)}. The row cannot be imported until they are filled in.");
+                formatErrors.Add($"Missing required { (missing.Count == 1 ? "field" : "fields") }: {string.Join(", ", missing)}. The row cannot be imported until they are filled in.");
         }
 
         var firstName = row.Get("firstName");
         var lastName = row.Get("lastName");
         var email = row.Get("email").Trim();
         var phone = row.Get("phone").Trim();
-        var workerType = row.Get("workerType").Trim().ToLowerInvariant();
+        var workerType = NormalizeWorkerType(row.Get("workerType"));
 
         // ---- Format checks with explicit what-is-wrong wording.
         // In Update mode a blank value means "leave the record's existing
         // value untouched", so only non-blank values are checked. ----
         if (EmailInvalid(email))
-            return new ImportRowOutcome("error", $"Work email '{email}' is not a valid email address.");
+            formatErrors.Add($"Work email '{email}' is not a valid email address.");
         if (isUpdate && string.IsNullOrWhiteSpace(phone))
             phone = null; // blank in Update mode means "keep the existing phone"
         if (!string.IsNullOrWhiteSpace(phone) && !PhoneValid(phone))
-            return new ImportRowOutcome("error", $"Phone '{phone}' is not valid — use 9–15 digits, e.g. 0971234567.");
+            formatErrors.Add($"Phone '{phone}' is not valid — use 9–15 digits, e.g. 0971234567.");
         if (!string.IsNullOrWhiteSpace(workerType) &&
             workerType is not ("employee" or "contingent" or "intern" or "volunteer"))
-            return new ImportRowOutcome("error", $"Employment type '{row.Get("workerType")}' is not valid — use one of: employee, contingent, intern, volunteer.");
+            formatErrors.Add($"Employment type '{row.Get("workerType")}' is not valid — use Permanent / Employee, Contractor / Contingent, Intern or Volunteer (any letter case).");
         var tpin = row.Get("tpin").Trim();
         if (!string.IsNullOrWhiteSpace(tpin) && !TpinValid(tpin))
-            return new ImportRowOutcome("error", $"TPIN '{tpin}' is not valid — use exactly 10 digits.");
+            formatErrors.Add($"TPIN '{tpin}' is not valid — use exactly 10 digits.");
         var startDate = row.Get("startDate").Trim();
         if (!string.IsNullOrWhiteSpace(startDate) && !TryParseImportDate(startDate, out _))
-            return new ImportRowOutcome("error", $"Start date '{startDate}' is not valid — use DD-MM-YYYY, e.g. 02-01-2026.");
+            formatErrors.Add($"Start date '{startDate}' is not valid — use DD-MM-YYYY, e.g. 02-01-2026.");
+
+        foreach (var (key, label) in new[] { ("firstName", "First name"), ("middleName", "Middle name"), ("lastName", "Last name") })
+            if (!string.IsNullOrWhiteSpace(row.Get(key)) && !System.Text.RegularExpressions.Regex.IsMatch(row.Get(key), @"\p{L}"))
+                formatErrors.Add($"{label} must contain letters.");
+        if (!string.IsNullOrWhiteSpace(nrc) && !System.Text.RegularExpressions.Regex.IsMatch(nrc, @"^\d{6}/\d{2}/\d$"))
+            formatErrors.Add("NRC must use the format 123456/78/1.");
+        Guid? resolvedLocation = null;
+        var branch = row.Get("locationId").Trim();
+        if (!string.IsNullOrWhiteSpace(branch))
+        {
+            var locations = await repo.ListAllLocationsAsync(ct);
+            var matches = locations.Where(location => !location.IsArchived).Where(location => Guid.TryParse(branch, out var id)
+                ? location.Id == id : string.Equals(location.Name, branch, StringComparison.OrdinalIgnoreCase)).ToArray();
+            if (matches.Length != 1)
+                formatErrors.Add(matches.Length == 0 ? $"Branch '{branch}' does not exist in your company access. Choose an existing branch." : $"Branch '{branch}' is ambiguous. Use its branch ID.");
+            else if ((scope.EntityId.HasValue && matches[0].LegalEntityId != scope.EntityId.Value)
+                || (scope.IsConfined && !scope.AllowedLocationIds.Contains(matches[0].Id)))
+                formatErrors.Add("The selected branch is outside your company or assigned branch access.");
+            else resolvedLocation = matches[0].Id;
+        }
+        if (formatErrors.Count > 0) return new ImportRowOutcome("error", string.Join(" ", formatErrors));
 
         // ---- Cross-field uniqueness: never import two rows that collide with each
         // other, so a bad spreadsheet cannot mass-duplicate identities in one batch.
@@ -235,14 +256,24 @@ public sealed class WorkersImportSchema : IImportSchemaWithExport
                 return new ImportRowOutcome("error", $"NRC '{nrc}' appears twice in this file. Each employee must have a unique NRC.");
         }
 
+        if (!string.IsNullOrWhiteSpace(napsa))
+        {
+            var targetOwnsThis = target is not null && string.Equals(target.NapsaNumber, napsa, StringComparison.OrdinalIgnoreCase);
+            if (!targetOwnsThis && !SeenNapsas.Add(napsa))
+                return new ImportRowOutcome("error", $"NAPSA number '{napsa}' appears twice in this file. Correct the duplicate before importing.");
+        }
+
         // ---- Reference data that must exist before payroll-relevant rows land. ----
         var orgUnits = await repo.ListAllOrgUnitsAsync(ct);
-        var orgUnitName = row.Get("orgUnitName");
+        var orgUnitName = row.Get("orgUnitName").Trim();
         if (!string.IsNullOrWhiteSpace(orgUnitName) &&
             !orgUnits.Any(u => u.Name.Equals(orgUnitName, StringComparison.OrdinalIgnoreCase)))
             return new ImportRowOutcome("error", $"No department named '{orgUnitName}' exists. Create it under Organisation structure first.");
 
         var resolved = new Dictionary<string, string>(row, StringComparer.OrdinalIgnoreCase);
+        if (!string.IsNullOrWhiteSpace(workerType)) resolved["workerType"] = workerType;
+        if (resolvedLocation.HasValue) resolved["locationId"] = resolvedLocation.Value.ToString();
+        if (!string.IsNullOrWhiteSpace(orgUnitName)) resolved["orgUnitName"] = orgUnitName;
         var enrichmentError = await ValidateEnrichmentAsync(resolved, target, ct);
         if (enrichmentError is not null) return new ImportRowOutcome("error", enrichmentError);
         if (target is not null) resolved["__workerId"] = target.Id.ToString();
@@ -257,6 +288,7 @@ public sealed class WorkersImportSchema : IImportSchemaWithExport
     private readonly HashSet<string> SeenEmails = new(StringComparer.OrdinalIgnoreCase);
     private readonly HashSet<string> SeenEmployeeNos = new(StringComparer.OrdinalIgnoreCase);
     private readonly HashSet<string> SeenNrcs = new(StringComparer.OrdinalIgnoreCase);
+    private readonly HashSet<string> SeenNapsas = new(StringComparer.OrdinalIgnoreCase);
     private readonly HashSet<string> SeenPhones = new(StringComparer.OrdinalIgnoreCase);
     private readonly HashSet<string> SeenTpins = new(StringComparer.OrdinalIgnoreCase);
     private readonly HashSet<string> ExistingEmails = new(StringComparer.OrdinalIgnoreCase);
@@ -266,6 +298,15 @@ public sealed class WorkersImportSchema : IImportSchemaWithExport
     private readonly HashSet<string> ExistingTpins = new(StringComparer.OrdinalIgnoreCase);
     private bool IdentitiesLoaded;
     private List<Worker> ExistingWorkers = [];
+
+    private static string NormalizeWorkerType(string value) => value.Trim().ToLowerInvariant() switch
+    {
+        "permanent" or "employee" => "employee",
+        "contractor" or "contingent" => "contingent",
+        "intern" => "intern",
+        "volunteer" => "volunteer",
+        var other => other,
+    };
 
     private static readonly System.Text.RegularExpressions.Regex EmailRx = new(@"^[^@\s]+@[^@\s]+\.[^@\s]+$", System.Text.RegularExpressions.RegexOptions.Compiled);
     private static bool EmailInvalid(string email) => !string.IsNullOrWhiteSpace(email) && !EmailRx.IsMatch(email);
@@ -323,14 +364,15 @@ public sealed class WorkersImportSchema : IImportSchemaWithExport
             target = await repo.GetByIdAsync(workerId, ct);
         target ??= await ResolveTargetAsync(row.Get("employeeNo"), row.Get("nrc"), row.Get("napsaNumber"), row.Get("email"), row.Get("phone"), row.Get("tpin"), ct);
         var orgUnits = await repo.ListAllOrgUnitsAsync(ct);
-        var orgUnitName = row.Get("orgUnitName");
+        var orgUnitName = row.Get("orgUnitName").Trim();
         Guid? orgUnitId = null;
         if (!string.IsNullOrWhiteSpace(orgUnitName))
             orgUnitId = orgUnits.FirstOrDefault(u => u.Name.Equals(orgUnitName, StringComparison.OrdinalIgnoreCase))?.Id;
         if (!string.IsNullOrWhiteSpace(orgUnitName) && orgUnitId is null)
             throw new DomainException("org-unit-not-found", $"No department named '{orgUnitName}' exists.");
-        var workerType = row.Get("workerType");
-        if (workerType is not ("employee" or "contingent" or "intern" or "volunteer")) workerType = "employee";
+        var workerType = NormalizeWorkerType(row.Get("workerType"));
+        if (workerType is not ("employee" or "contingent" or "intern" or "volunteer") && (target is null || !string.IsNullOrWhiteSpace(workerType)))
+            throw new DomainException("import-worker-type", "Employment type must be recognized before importing. Preview the corrected row again.");
 
         if (target is not null)
         {
@@ -349,7 +391,9 @@ public sealed class WorkersImportSchema : IImportSchemaWithExport
                 NhimaNumber: ValueToApply(target.NhimaNumber, row.Get("nhimaNumber"), fillMissing),
                 Grade: ValueToApply(target.Grade, row.Get("grade"), fillMissing),
                 JobTitle: ValueToApply(target.JobTitle, row.Get("jobTitle"), fillMissing),
-                OrgUnitId: orgUnitId);
+                OrgUnitId: orgUnitId,
+                LocationId: Guid.TryParse(row.Get("locationId"), out var updateLocation)
+                    && (!fillMissing || !target.LocationId.HasValue) ? updateLocation : null);
             await workers.UpdateAsync(target.Id, patch, ct);
             await ApplyChildRowsAsync(target.Id, row, orgUnits, ct);
         }

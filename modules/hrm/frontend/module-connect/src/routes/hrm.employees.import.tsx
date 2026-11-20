@@ -11,7 +11,7 @@ import { PageHeader } from "@/platform/components/PageHeader";
 export const Route = createFileRoute("/hrm/employees/import")({
   head: () => ({
     meta: [
-      { title: "Import employees — Newworldcargo HRM" },
+      { title: "Import employees — Kuubu HRM" },
       {
         name: "description",
         content: "Import employees from CSV or Excel with mapping, preview and server validation.",

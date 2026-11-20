@@ -46,7 +46,7 @@ import { realApi, useApi } from "@/platform/use-api";
 export const Route = createFileRoute("/hrm/reports/")({
   head: () => ({
     meta: [
-      { title: "Management reports — Newworldcargo HRM" },
+      { title: "Management reports — Kuubu HRM" },
       {
         name: "description",
         content:

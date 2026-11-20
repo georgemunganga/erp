@@ -15,9 +15,9 @@ import { useMock } from "@/platform/use-mock";
 export const Route = createFileRoute("/hrm/reports/builder")({
   head: () => ({
     meta: [
-      { title: "Report builder — Newworldcargo HRM" },
+      { title: "Report builder — Kuubu HRM" },
       { name: "description", content: "Build a report by picking a base, fields and filters. It only ever returns what you could already see." },
-      { property: "og:title", content: "Report builder — Newworldcargo HRM" },
+      { property: "og:title", content: "Report builder — Kuubu HRM" },
       { property: "og:description", content: "Build a report by picking a base, fields and filters." },
     ],
   }),

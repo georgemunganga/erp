@@ -15,7 +15,7 @@ import { feedback } from "@/platform/feedback";
 import { realApi, useApi } from "@/platform/use-api";
 
 export const Route = createFileRoute("/hrm/time/toil")({
-  head: () => ({ meta: [{ title: "Leave Encashment — Newworldcargo HRM" }, { name: "description", content: "Request and approve leave balance encashment." }] }),
+  head: () => ({ meta: [{ title: "Leave Encashment — Kuubu HRM" }, { name: "description", content: "Request and approve leave balance encashment." }] }),
   component: EncashmentPage,
 });
 

@@ -139,3 +139,9 @@
 /* Schedules and pivot matrices keep their cell geometry and sticky axes. */
 .erp-record-table--matrix thead th,
 .erp-record-table--matrix tbody :is(td, th) { padding: revert-layer; }
+
+/* Bundled product font: no third-party font request is needed for Kuubu. */
+@font-face { font-family: "Poppins"; font-style: normal; font-weight: 400; font-display: swap; src: url("/fonts/poppins/poppins-400.ttf") format("truetype"); }
+@font-face { font-family: "Poppins"; font-style: normal; font-weight: 500; font-display: swap; src: url("/fonts/poppins/poppins-500.ttf") format("truetype"); }
+@font-face { font-family: "Poppins"; font-style: normal; font-weight: 600; font-display: swap; src: url("/fonts/poppins/poppins-600.ttf") format("truetype"); }
+@font-face { font-family: "Poppins"; font-style: normal; font-weight: 700; font-display: swap; src: url("/fonts/poppins/poppins-700.ttf") format("truetype"); }

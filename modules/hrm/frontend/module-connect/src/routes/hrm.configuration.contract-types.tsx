@@ -15,7 +15,7 @@ import { realApi, useApi } from "@/platform/use-api";
 
 export const Route = createFileRoute("/hrm/configuration/contract-types")({
   beforeLoad: () => { throw redirect({ to: "/hrm/workspace/settings/$slug", params: { slug: "contract-types" }, replace: true }); },
-  head: () => ({ meta: [{ title: "Contract Types - Newworldcargo HRM" }] }),
+  head: () => ({ meta: [{ title: "Contract Types - Kuubu HRM" }] }),
   component: ContractTypesPage,
 });
 

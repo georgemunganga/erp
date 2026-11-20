@@ -17,7 +17,7 @@ import type { ColumnDef } from "@/platform/components/ListPage";
 export const Route = createFileRoute("/hrm/performance/")({
   head: () => ({
     meta: [
-      { title: "Performance cycles — Newworldcargo HRM" },
+      { title: "Performance cycles — Kuubu HRM" },
       { name: "description", content: "Manage review cycles, goals and assessments for every employee." },
     ],
   }),

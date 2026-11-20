@@ -14,7 +14,7 @@ export const Route = createFileRoute("/hrm/configuration/go-live")({
   beforeLoad: () => { throw redirect({ to: "/hrm/workspace/settings/$slug", params: { slug: "go-live" }, replace: true }); },
   head: () => ({
     meta: [
-      { title: "Production readiness — Newworldcargo HRM" },
+      { title: "Production readiness — Kuubu HRM" },
       { name: "description", content: "Controlled go-live gates, evidence and formal acceptance." },
     ],
   }),

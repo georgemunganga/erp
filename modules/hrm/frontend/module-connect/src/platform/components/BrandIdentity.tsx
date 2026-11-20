@@ -1,3 +1,5 @@
+import { FULL_PRODUCT_HRM } from "@/modules/core/product-hrm-session";
+import { KuubuMark } from "./KuubuIdentity";
 import { useBranding } from "@/platform/branding";
 
 export function BrandIdentity({
@@ -16,6 +18,7 @@ export function BrandIdentity({
     ? branding?.logoLightDataUri || branding?.logoDarkDataUri
     : branding?.logoDarkDataUri || branding?.logoLightDataUri;
 
+  if (FULL_PRODUCT_HRM && !logo) return <span className="inline-flex items-center gap-2 font-bold" aria-label="Kuubu"><KuubuMark /></span>;
   return (
     <>
       {logo ? (

@@ -58,3 +58,9 @@ docker compose up --build
 ```bash
 dotnet test src/Mightyfin.Erp.Hrm.Tests
 ```
+
+## Production notification credentials
+
+The Amizopower Compose override uses `smtp.amizopower.co.zm` on port587 with STARTTLS. Supply `ERP_SMTP_PASSWORD` through the deployment's private `.env` or secret environment; Compose intentionally fails if it is missing. Never put the mailbox password in a tracked override, issue, log or rendered configuration output. Keep private environment files permissioned to their deployment owner.
+
+The API queues account setup invitations; the outbox publisher sends them. Updating an environment file does not change a running container: recreate only the affected worker with the same qualified image and database/network/resource settings, retain its rollback container, and verify the specific notification reaches SMTP-delivered status. SMTP acceptance is not proof that the recipient opened the message. Preserve expiry checks and the existing retry workflow; do not create duplicate account links just to retry delivery.

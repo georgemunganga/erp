@@ -14,9 +14,9 @@ import { useMock } from "@/platform/use-mock";
 export const Route = createFileRoute("/hrm/time/expenses/")({
   head: () => ({
     meta: [
-      { title: "Expenses — Newworldcargo HRM" },
+      { title: "Expenses — Kuubu HRM" },
       { name: "description", content: "Expense claims and outstanding advances, reconciled so you always know who owes whom." },
-      { property: "og:title", content: "Expenses — Newworldcargo HRM" },
+      { property: "og:title", content: "Expenses — Kuubu HRM" },
       { property: "og:description", content: "Expense claims and outstanding advances, reconciled so you always know who owes whom." },
     ],
   }),

@@ -14,9 +14,9 @@ import { useMock } from "@/platform/use-mock";
 export const Route = createFileRoute("/hrm/lifecycle/offboarding")({
   head: () => ({
     meta: [
-      { title: "Offboarding — Newworldcargo HRM" },
+      { title: "Offboarding — Kuubu HRM" },
       { name: "description", content: "Separation cases with notice, last working date and clearance progress, owner, next action and due date." },
-      { property: "og:title", content: "Offboarding — Newworldcargo HRM" },
+      { property: "og:title", content: "Offboarding — Kuubu HRM" },
       { property: "og:description", content: "Separation cases with notice, last working date and clearance progress, owner, next action and due date." },
     ],
   }),
