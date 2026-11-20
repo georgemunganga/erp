@@ -1372,3 +1372,8 @@ Read this with [the workflow and release gates](PUBLIC-LAUNCH-READINESS-20261120
 - Direct realApi references in route source: None in this route file; trace imported component, redirect or layout before concluding no backend.
 - Source: `modules/hrm/frontend/module-connect/src/routes/core.workspace.settings.$slug.tsx`.
 
+
+
+## Targeted deployed correction retests — 20 November 2026
+
+API12ca4a95/webffeb04a6 are live and pushed. Owner HR Core organisation/central Team entry, live company labels/date, ISO compensation same-value save/reopen and readable payroll run passed.16 reload/navigation observations had no reconnect; sampled session log31 HTTP200/no429 plus one cancellation500. Rapid-navigation cancellation errors are retained. Immediate disk headroom3233.4MiB; both health hosts200 and backup timeractive. Original route counts/untested cases stay unchanged; Core entity/location edit CRUD, Procurement-only Core, negative actors, full compensation history, closeout and restore/growth are not qualified. See [exact deployment evidence and remaining gates](PUBLIC-LAUNCH-READINESS-20261120.md). No blanket launch acceptance.
