@@ -1797,7 +1797,7 @@ function RunDetail() {
     try {
       const [run, audit, employers] = await Promise.all([realApi.payrollRun(id), realApi.payrollRunAudit(id), realApi.legalEntities()]);
       const data = run as Record<string, unknown>;
-      const list = (Array.isArray(employers) ? employers : []) as Record<string, unknown>[];
+      const list = (Array.isArray(employers) ? employers : ((employers as unknown as { items?: unknown[] })?.items ?? [])) as Record<string, unknown>[];
       const company = list.find(e => String(e.id) === String(data.legalEntityId ?? "")) ?? (list.length === 1 ? list[0] : undefined);
       return adaptRun(run, audit, company ? String(company.registeredName ?? company.name) : undefined);
     } catch {

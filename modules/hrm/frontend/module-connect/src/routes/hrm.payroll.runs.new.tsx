@@ -198,7 +198,7 @@ function NewRun() {
       const rules = USE_REAL ? await realApi.payrollContributionRules() : [];
       const slabs = USE_REAL ? await realApi.payrollTaxSlabs("2026") : [];
       const legalEntities = USE_REAL ? await realApi.legalEntities() : [];
-      const employers = (Array.isArray(legalEntities) ? legalEntities : []) as Record<string, unknown>[];
+      const employers = (Array.isArray(legalEntities) ? legalEntities : ((legalEntities as unknown as { items?: unknown[] })?.items ?? [])) as Record<string, unknown>[];
       return { periods, groupId, groupName, tree, workers, profiles, components, rules, slabs, employers };
     },
     [],
