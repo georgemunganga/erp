@@ -1,5 +1,6 @@
 import { Input } from "@/components/ui/input";
 import { RecordTable } from "@/platform/components/RecordTable";
+import { isPathEnabled } from "@/modules/hrm/scope";
 import { createFileRoute, Link, Outlet, useChildMatches } from "@tanstack/react-router";
 import { Fragment, useEffect, useState } from "react";
 import {
@@ -2173,13 +2174,13 @@ function RunDetail() {
                     <DetailSection
                       title="Pay lines"
                       description="Every employee in this run. Open a name to see how each figure was derived — no line is a black box."
-                      action={
+                      action={isPathEnabled(`/hrm/payroll/runs/${run.id}/edit`) ? (
                         <Button variant="outline" size="sm" asChild>
                           <Link to="/hrm/payroll/runs/$id/edit" params={{ id: run.id }}>
                             Edit this run
                           </Link>
                         </Button>
-                      }
+                      ) : undefined}
                     >
                       <Async state={lines} rows={4}>
                         {(rows) =>

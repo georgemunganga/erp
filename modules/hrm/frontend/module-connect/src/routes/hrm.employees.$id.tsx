@@ -21,6 +21,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { adaptWorkerProfile, adaptWorkers, realApi, useApi } from "@/platform/use-api";
+import { employeePayGroupLabel } from "@/platform/employee-pay-group";
 import { entities } from "@/mock/data";
 import { employeeProfileApi } from "@/mock/employeeprofile";
 import { balanceFor } from "@/mock/leavebalance";
@@ -891,6 +892,19 @@ function EmployeeReportsTab({ employee, profile }: { employee: EmployeeRecord; p
  * usually after a single thing — a phone number, a NAPSA number, who to ring
  * in an emergency — and should not have to scroll past everything else.
  */
+function LiveEmployeePayGroup({ workerId }: { workerId: string }) {
+  const state = useApi(async () => {
+    const [profiles, groups] = await Promise.all([
+      realApi.payrollProfiles({ workerId }), realApi.payrollPayGroups(),
+    ]);
+    const day = new Date().toLocaleDateString("en-CA");
+    return employeePayGroupLabel(dataRows(profiles), dataRows(groups), workerId, day);
+  }, [workerId]);
+  return <Field label="Pay group" value={state.loading ? "Checking salary profile…"
+    : state.error ? "Unavailable with your current payroll access" : state.data}
+    hint="Owned by Compensation; effective for today." />;
+}
+
 function ProfileTabs({
   employee: e,
   profile: p,
@@ -1066,7 +1080,7 @@ function ProfileTabs({
           description="Payroll reads these directly. A wrong account number is the most common cause of a failed payment."
         >
           <FieldGrid>
-            <Field label="Pay group" value={p.payGroup} />
+            {USE_REAL ? <LiveEmployeePayGroup workerId={e.id} /> : <Field label="Pay group" value={p.payGroup} />}
             <Field label="Payment method" value={p.paymentMethod} />
             <Field label="Account holder" value={p.accountName} />
             <Field label="Bank" value={p.bankName} />
