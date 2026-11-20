@@ -1,3 +1,5 @@
+import { PRODUCT_ERP } from "@/modules/core/product-worker-api";
+import { Button } from "@/components/ui/button";
 import { createFileRoute, Outlet, useRouterState } from "@tanstack/react-router";
 import { ArrowLeft, CircleDashed } from "lucide-react";
 import { AuthGate, CoreAdminGate } from "@/platform/components/AuthGate";
@@ -19,6 +21,13 @@ export const Route = createFileRoute("/core/workspace/settings/$slug")({
 function CoreSettingPage() {
   const { slug } = Route.useParams();
   const pathname = useRouterState({ select: (state) => state.location.pathname });
+  // SaaS identity and module grants remain Kuubu-owned. Never expose the
+  // standalone local-login or legacy role editors as a second authority.
+  if (PRODUCT_ERP && ["users", "roles", "branch-access"].includes(slug)) return <CoreAdminGate><CoreShell>
+    <h1 className="text-2xl font-semibold">Team and access</h1>
+    <p className="text-sm text-muted-foreground">Manage invitations, module roles and permitted locations from your Kuubu account. Core is included with your active company modules.</p>
+    <Button asChild><a href="https://www.kuubuerp.com/account/#/team">Manage team and access in Kuubu</a></Button>
+  </CoreShell></CoreAdminGate>;
   if (slug === "workflows") return <CoreAdminGate><CoreShell currencyContext><WorkflowConfigurationPage /></CoreShell></CoreAdminGate>;
   if (slug === "currencies") return <AuthGate module="authenticated"><CoreShell currencyContext><CurrencyPrecisionsPage /></CoreShell></AuthGate>;
   if (slug === "branding") return <BrandingPage />;

@@ -203,7 +203,7 @@ public sealed class PayrollServiceImpl(IPayrollRepository repo, IAuthzService au
     {
         authz.RequireAnyRole("hr_ops", "hr_admin", "payroll");
         var items = await repo.ListPeriodsAsync(payGroupId, ct);
-        return items.Select(p => new PayPeriodDto(p.Id, p.PeriodLabel, p.StartDate.ToString(), p.EndDate.ToString(), p.CutoffDate.ToString(), p.PayDate.ToString(), p.Status, p.IsHistorical)).ToList();
+        return items.Select(p => new PayPeriodDto(p.Id, p.PeriodLabel, p.StartDate.ToString("yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture), p.EndDate.ToString("yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture), p.CutoffDate.ToString("yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture), p.PayDate.ToString("yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture), p.Status, p.IsHistorical)).ToList();
     }
 
     public async Task<PayPeriodDto> CreateHistoricalPeriodAsync(HistoricalPayPeriodCreateRequest request, CancellationToken ct)
@@ -224,7 +224,7 @@ public sealed class PayrollServiceImpl(IPayrollRepository repo, IAuthzService au
         if (existing.Any(p => p.StartDate == start && p.EndDate == end))
             throw new DomainException("historical-period-duplicate", "A pay period already covers those dates for this pay group.");
         var created = await repo.CreatePeriodAsync(new PayPeriod { PayGroupId = group.Id, PeriodLabel = request.PeriodLabel.Trim(), StartDate = start, EndDate = end, CutoffDate = cutoff, PayDate = payDate, Status = "historical", IsHistorical = true, HistoricalReason = reason, IsCurrent = false }, ct);
-        return new PayPeriodDto(created.Id, created.PeriodLabel, created.StartDate.ToString(), created.EndDate.ToString(), created.CutoffDate.ToString(), created.PayDate.ToString(), created.Status, true);
+        return new PayPeriodDto(created.Id, created.PeriodLabel, created.StartDate.ToString("yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture), created.EndDate.ToString("yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture), created.CutoffDate.ToString("yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture), created.PayDate.ToString("yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture), created.Status, true);
     }
 
     public async Task<List<TaxSlabDto>> ListTaxSlabsAsync(string taxYear, CancellationToken ct)
@@ -2200,7 +2200,7 @@ public sealed class PayrollServiceImpl(IPayrollRepository repo, IAuthzService au
         r.PayPeriodId, r.PayGroupId, r.ApprovalNote, r.IsHistorical, r.HistoricalReason);
 
     private static WorkerPayrollProfileDto MapProfile(WorkerPayrollProfile p) => new(
-        p.Id, p.WorkerId, p.Worker?.FullName, p.PayGroupId, p.PayGroup?.Name, p.EffectiveFrom.ToString(),
+        p.Id, p.WorkerId, p.Worker?.FullName, p.PayGroupId, p.PayGroup?.Name, p.EffectiveFrom.ToString("yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture),
         p.ComponentValues.Select(v => new WorkerComponentValueDto(v.ComponentId,
             v.Component?.Code ?? "", v.Component?.Name ?? "", v.Amount)).ToList(),
         p.PayBasis ?? "salary", p.OvertimeCategory ?? "ordinary",

@@ -1,3 +1,4 @@
+import { canRenderProductWorkspace } from "@/platform/product-workspace-route";
 import { FULL_PRODUCT_HRM } from "@/modules/core/product-hrm-session";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import {
@@ -203,7 +204,7 @@ function RootComponent() {
     <QueryClientProvider client={queryClient}>
       {productIdentityPage || (PRODUCT_ERP && !FULL_PRODUCT_HRM && path === "/hrm/employees") ? (
         <Outlet />
-      ) : PRODUCT_ERP && (!FULL_PRODUCT_HRM || !path.startsWith("/hrm")) ? (
+      ) : PRODUCT_ERP && !canRenderProductWorkspace(path, FULL_PRODUCT_HRM) ? (
         <main className="mx-auto min-h-dvh max-w-6xl space-y-6 px-5 py-8">
           <KuubuIdentity />
           <h1 className="text-2xl font-semibold">Kuubu ERP</h1>

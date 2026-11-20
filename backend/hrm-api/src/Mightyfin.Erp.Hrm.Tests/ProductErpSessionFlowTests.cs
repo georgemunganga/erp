@@ -147,9 +147,18 @@ public sealed class ProductErpSessionFlowTests
         await using var f=await Fixture.Start();var t=f.Core.Target;
         var review=await f.Http.Get(ProductOperationalFlow.Prefix+ProductErpSessionFlow.Path+$"/review?company_id={t.Company:D}&link_id={t.Link:D}&module=hrm",f.Cookies);
         Assert.Equal(HttpStatusCode.OK,review.StatusCode);NoSessionCookie(review);var data=await review.Content.ReadFromJsonAsync<JsonElement>();
-        Assert.Equal(t.Version,data.GetProperty("grant_version_id").GetGuid());Assert.Equal(1,data.GetProperty("grant_revision").GetInt32());
+        // The deployed owner-default policy updates a narrow owner grant through
+        // Core's audited command. Reviewing still never issues an ERP session.
+        await using var db=f.Core.Core.Context(t.Tenant);
+        var grant=await db.ModuleAccessVersions.OrderByDescending(x=>x.Revision).FirstAsync();
+        Assert.NotEqual(t.Version,grant.Id);Assert.Equal(2,grant.Revision);Assert.Equal("company",grant.ScopeKind);
+        Assert.Contains("hr_admin",CoreModuleAccessCatalog.Parse(grant.RoleKeysCsv));Assert.Contains("hrm-admin",CoreModuleAccessCatalog.Parse(grant.ActionCodesCsv));
+        Assert.Equal(grant.Id,data.GetProperty("grant_version_id").GetGuid());Assert.Equal(grant.Revision,data.GetProperty("grant_revision").GetInt32());
         Assert.False(data.GetProperty("session_established").GetBoolean());Assert.False(data.GetProperty("operational_access_granted").GetBoolean());
-        await using var db=f.Core.Core.Context(t.Tenant);Assert.Empty(await db.ProductSessions.ToArrayAsync());
+        Assert.Empty(await db.ProductSessions.ToArrayAsync());
+        var repeated=await f.Http.Get(ProductOperationalFlow.Prefix+ProductErpSessionFlow.Path+$"/review?company_id={t.Company:D}&link_id={t.Link:D}&module=hrm",f.Cookies);
+        Assert.Equal(HttpStatusCode.OK,repeated.StatusCode);NoSessionCookie(repeated);
+        Assert.Equal(grant.Id,(await repeated.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("grant_version_id").GetGuid());
         f.LicenseStatus=CommercialLicenseStatus.Denied;
         Assert.Equal(HttpStatusCode.Forbidden,(await f.Http.Get(ProductOperationalFlow.Prefix+ProductErpSessionFlow.Path+$"/review?company_id={t.Company:D}&link_id={t.Link:D}&module=hrm",f.Cookies)).StatusCode);
     }

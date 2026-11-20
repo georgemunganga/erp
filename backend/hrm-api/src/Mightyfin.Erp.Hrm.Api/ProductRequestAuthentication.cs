@@ -91,7 +91,7 @@ internal sealed class ProductRequestAuthenticationHandler(IOptionsMonitor<Produc
         if (Request.Headers.TryGetValue(ProductRequestAuthentication.SessionContextHeader, out var expected)
             && (expected.Count != 1 || expected[0] != ProductRequestAuthentication.SessionContext(token)))
             return Deny(409);
-        if(!Context.RequestServices.GetRequiredService<OperationalRequestBudget>().Budget.TryAcquire(ProductInvitationGuestBudget.Operation.Session,Context.Connection.RemoteIpAddress))return Deny(429);
+        if(!await Context.RequestServices.GetRequiredService<OperationalRequestBudget>().TryAcquireAsync(Context,ProductInvitationGuestBudget.Operation.Session))return Deny(429);
         var identity=await ProductOperationalFlow.ObserveAsync(Context);
         if(identity.Status!=OperationalCredentialStatus.Verified)return Deny(identity.Status is OperationalCredentialStatus.Unavailable or OperationalCredentialStatus.Busy?503:401);
         var admission=Context.RequestServices.GetRequiredService<CoreProductSessionAdmission>();

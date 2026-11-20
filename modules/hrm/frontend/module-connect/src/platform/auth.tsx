@@ -429,15 +429,16 @@ function ProductHrmAuthProvider({ children }: { children: ReactNode }) {
     let request: AbortController | undefined;
     let retry: ReturnType<typeof setTimeout> | undefined;
     let failures = 0;
+    let notBefore = 0;
     let marker: string | undefined = expectedMarker.current;
     async function check() {
-      if (document.hidden || request || stopped) return;
+      if (document.hidden || request || stopped || Date.now() < notBefore) return;
       const controller = new AbortController(); request = controller;
       try {
         const result = await loadProductHrmSession(controller.signal, marker);
         if (!stopped && !controller.signal.aborted) {
           marker = result.marker; expectedMarker.current = result.marker;
-          failures = 0; setError(""); setTemporary(false); setPaused(false);
+          failures = 0; notBefore = 0; setError(""); setTemporary(false); setPaused(false);
           setSelected(result);
         }
       } catch (failure) {
@@ -447,7 +448,8 @@ function ProductHrmAuthProvider({ children }: { children: ReactNode }) {
           setTemporary(unavailable); setPaused(true);
           if (!unavailable) setSelected(null);
           setError(failure instanceof Error ? failure.message : "Return to Kuubu to choose your company.");
-          if (unavailable && ++failures <= 3) retry = setTimeout(() => void check(), failures * 1000);
+          const delay = failure instanceof ProductHrmSessionError && failure.status === 429 ? 60000 : (failures + 1) * 1000;
+          if (unavailable && ++failures <= 3) { notBefore = Date.now() + delay; retry = setTimeout(() => void check(), delay); }
         }
       } finally { if (request === controller) request = undefined; }
     }
