@@ -1377,3 +1377,8 @@ Read this with [the workflow and release gates](PUBLIC-LAUNCH-READINESS-20261120
 ## Targeted deployed correction retests — 20 November 2026
 
 API12ca4a95/webffeb04a6 are live and pushed. Owner HR Core organisation/central Team entry, live company labels/date, ISO compensation same-value save/reopen and readable payroll run passed.16 reload/navigation observations had no reconnect; sampled session log31 HTTP200/no429 plus one cancellation500. Rapid-navigation cancellation errors are retained. Immediate disk headroom3233.4MiB; both health hosts200 and backup timeractive. Original route counts/untested cases stay unchanged; Core entity/location edit CRUD, Procurement-only Core, negative actors, full compensation history, closeout and restore/growth are not qualified. See [exact deployment evidence and remaining gates](PUBLIC-LAUNCH-READINESS-20261120.md). No blanket launch acceptance.
+
+
+## Expanded test pass — 20 November 2026
+
+All81 previously unvisited static route entries have a new observation in the completion packet. These include access/loading captures, exclusions and planned editors, not81 CRUD passes. Original observations remain retained; employee/profile/payroll contextual checks are separate. See [the current completion report](PUBLIC-LAUNCH-COMPLETION-20261120.md) for2891 ERP passes/52 skips,15 additional native PostgreSQL passes,157 frontend passes,166 Laravel passes/1 skip, restore/application/PDF checks and remaining live-account/feature/capacity gates. Full launch remains HOLD.

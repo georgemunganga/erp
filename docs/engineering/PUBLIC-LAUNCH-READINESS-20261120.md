@@ -1,6 +1,8 @@
 # Kuubu public-launch readiness checklist
 
-**Release decision: HOLD — public production acceptance is incomplete.**
+**Release decision: HOLD — remaining live-account acceptance and unfinished features are explicit below.**
+
+Latest evidence: [completion test report](PUBLIC-LAUNCH-COMPLETION-20261120.md).
 
 ## 1. Outcome
 A new customer can subscribe or use an operator-issued trial, create a company, set up HR/payroll manually or by import, invite staff and reach the correct ERP workflow without assistance or access leakage.
@@ -18,7 +20,7 @@ Company owner, HR administrator, payroll maker/reviewer, manager, employee, bill
 CHECKED means actual recorded evidence for the named action only. OBSERVED means the page rendered. NOT TESTED and REQUIRES CONTEXT are release holds for included features. A denied unsafe action can be an expected PASS; a generic error/empty list is not permission proof. Prior evidence is labelled prior rather than rerun.
 
 ## 6. Current baselines
-Functional web source53ac66da; documentation successor6152bcbe. Public SSR29005/proxy kuubu-hr-journey-fixes03-proxy01. Owning API f081d5a3/28999. Account website dpl_J9ossGTjxZnvxYbK5ww63eNWXWDA. Capture exact runtime baselines again before final acceptance; this audit does not change production.
+API correction679b01c179ff7d9ae8d5559c3ffa50f2498d17d3 overlays deployed d41303dd + ownerf081d5a3 + rate/date12ca4a95; webcf64a06f3676064c12fa6e64af061484c5b52c13. Live API29009/web29011, proxy kuubu-launch-completion02-proxy01, backup25. Laravel current native-identity-8e6c3a9-deploy02 matches99 application/config/route/migration/lock files in local Git source. Earlier baseline pins in audit entries are historical; this section supersedes them.
 
 ## 7. Customer entry and identity
 - [ ] Fresh verified registration, email verification, password login/recovery and logout.
