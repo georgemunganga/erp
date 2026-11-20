@@ -1,3 +1,54 @@
+## 2026-11-20 — First-time HR manual/import workflow audit; NO fixes applied
+
+The user requested testing two fresh HR-only trial companies through their first
+pay run before changing implementation. Both normal live browser journeys reached
+persisted Calculated runs: one synthetic salaried worker each, ZMW5000 gross,
+300 employee deductions and4700 net. Read-only PostgreSQL verification confirmed
+distinct owning tenants, employee profiles, pay groups, runs and pay lines. No
+approval, payslip release, bank file, salary payment or reconciliation was executed.
+Test records are retained; do not recreate/reset them on continuation. Trial
+issuance used existing owning services, not manufactured settlement or new logins.
+
+Automatic owner access and first-time HR entry passed in both companies. Manual
+department creation and the full employee+permanent-assignment form saved through
+normal UI. Manual salary needed the separate Compensation screen. Full CSV import
+accepted mixed-case Permanent, created its missing department through Check missing
+data/Create and recheck, and saved location/department plus the salary profile.
+Import does not create the employment contract assignment; directory Type remains
+Not recorded even though worker classification is employee and payroll calculates.
+
+Confirmed gaps: missing-department navigation loses manual name/contact inputs
+despite saved-draft copy; manual employee profile says No action required without
+a payroll profile; setup completion has no direct full-import action; wizard
+minimal employee entry has no location/full contract/explicit salary fields;
+workflow step positions survive completion and company switching (blank employee
+review step5 and second-company payroll review step4). No previous employee field
+values were observed leaking into the second company.
+
+Both pay-run reviews retain hardcoded New World Cargo/Monthly salaried labels
+and20878.88-per-person indicative gross. Run detail falls back to Demo Zambia Ltd.
+Actual writes/calculated totals remained in the correct synthetic company: this
+is observed presentation error, not evidence of a cross-company write. Review's
+Statutory deductions card also totals employee+employer statutory components600
+while employee deductions are300; employer additions300 appear separately.
+Employee/profile bank/statutory readiness copy disagrees with the separate actual
+calculation, release and bank-file gates. Existing completed trial subscriptions
+still offer Continue trial setup with unfinished-setup wording.
+
+Private evidence: inspection/qualifications/hr-first-run-20261118-01/ contains
+41 browser snapshots/screenshots, both-calculated01.private.json, the asserted
+final-audit-20261120-01.private.json and WORKFLOW-AUDIT-20261120-01.txt. Browser date
+locator.fill displayed a value without committing React state until keyboard
+editing; the earlier wizard worker's missing start date is explicitly a harness
+caveat, NOT classified as a product date-entry defect. Overnight session expiry
+required normal user sign-in; no identity bypass or session-policy change.
+
+Next implementation must remain separate from this audit: preserve/scoped-reset
+drafts and step memory; connect manual/import completion to salary and stage-specific
+readiness; reconcile wizard entry contracts; replace mock payroll projections;
+make imported-contract completion explicit; retest both journeys. No app/backend/
+schema/proxy/deployment fixes or new monitoring capability were enabled here.
+
 ## 2026-11-18 — Vcron manual workday Android acceptance passed; release held
 
 Supersedes the in-progress Android/QA statements in the 17 November checkpoint
