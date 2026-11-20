@@ -30,7 +30,7 @@ import {
   adminConfigApi,
   canDeleteUnit,
   shortEntityName,
-  todayIso,
+  todayIso as demoTodayIso,
   unitState,
   unitStateExplanation,
 } from "@/mock/adminconfig";
@@ -81,6 +81,7 @@ interface DraftClosure {
 }
 
 const USE_REAL = import.meta.env.VITE_USE_REAL_API === "true";
+const todayIso = USE_REAL ? new Date().toLocaleDateString("en-CA") : demoTodayIso;
 
 const kindMap: Record<string, LocationKind> = {
   branch: "Office",
@@ -601,9 +602,7 @@ function LocationTable({ rows, asAt, canAct }: { rows: WorkLocationWithEntity[];
                 </span>
               </th>
               <td className="px-3 py-3">
-                {l._entityName
-                  ? shortEntityName(l._entityName || l.entityId)
-                  : shortEntityName(l.entityId)}
+                {USE_REAL ? l._entityName || "Company details unavailable" : shortEntityName(l.entityId)}
               </td>
               <td className="px-3 py-3">{l.kind}</td>
               <td className="px-3 py-3 whitespace-nowrap">
@@ -733,10 +732,15 @@ async function loadOrganisation() {
     const location = row as Record<string, unknown>;
     return [String(location.id ?? ""), String(location.legalEntityId ?? "")];
   }));
-  for (const unit of adaptedUnits)
+  for (const unit of adaptedUnits as OrgUnitWithEntity[]) {
     unit.employees = workers.filter((worker) => String(worker.orgUnitId ?? "") === unit.id).length;
-  for (const location of adaptedLocations)
+    unit._entityName = adaptedEntities.find(e => e.id === unit.entityId)?.registeredName;
+    unit.references = [unit.employees ? `${unit.employees} employee record(s)` : "Historical and configuration references not verified"];
+  }
+  for (const location of adaptedLocations as WorkLocationWithEntity[]) {
     location.employees = workers.filter((worker) => String(worker.locationId ?? "") === location.id).length;
+    location._entityName = adaptedEntities.find(e => e.id === location.entityId)?.registeredName;
+  }
   for (const entity of adaptedEntities) {
     entity.branches = adaptedLocations.filter((location) => location.entityId === entity.id).length;
     entity.employees = workers.filter((worker) => locationEntity.get(String(worker.locationId ?? "")) === entity.id).length;
@@ -783,9 +787,7 @@ export function OrganisationConfig() {
       id: "entity",
       header: "Entity",
       cell: (u) =>
-        u._entityName
-          ? shortEntityName(u._entityName || u.entityId)
-          : shortEntityName(u.entityId),
+        USE_REAL ? u._entityName || "Company details unavailable" : shortEntityName(u.entityId),
     },
     { id: "branch", header: "Location", cell: (u) => u.branch },
     {
@@ -1043,7 +1045,7 @@ export function OrganisationConfig() {
 
                 <DetailSection
                   title="Removing a unit safely"
-                  description="Deletion is only offered where nothing at all points at the unit."
+                  description={USE_REAL ? "Live units retain their history. Review references and use effective-dated closure." : "Deletion is only offered where nothing at all points at the unit."}
                 >
                   <div className="space-y-4">
                     <p className="flex items-start gap-2 rounded-md border border-warning/40 bg-warning-soft px-3 py-2 text-sm text-warning">
@@ -1134,8 +1136,7 @@ export function OrganisationConfig() {
                 >
                   <div className="flex flex-wrap items-center gap-2 pb-3 text-xs text-muted-foreground">
                     <History className="size-3.5" aria-hidden />
-                    Showing the last {data.audit.length} structural changes across all three
-                    entities.
+                    {USE_REAL ? "Structural history is not connected to this view. Recorded changes remain in the owning audit trail." : <>Showing the last {data.audit.length} structural changes across all three entities.</>}
                   </div>
                   <StatusTimeline events={data.audit} title="Recent structural changes" />
                   <dl className="mt-5 grid gap-3 border-t pt-4 text-xs sm:grid-cols-2">
