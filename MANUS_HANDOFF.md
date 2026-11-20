@@ -4081,3 +4081,8 @@ Actual executable sourcec93/tree `adbcb5c396deba114fe57659e04349dc49e129c7` pass
 ### HR first-payroll audit UI corrections — 20 November 2026
 
 The Kuubu product-consumer branch contains the authorized first-payroll audit corrections documented in docs/engineering/HRM-FIRST-ENTRY-20261117.md. Scope is HR frontend only: scoped in-memory drafts and retry recovery, full-employee/contract/salary guidance, truthful payroll employer/totals, and readable light-shell text. Existing backend owner-policy f081d5a3 and gateway remain authoritative; no new migration or role grant. Seven isolated actual-form browser checks and TypeScript pass; public web publication/live proof follow separately. Original audit b5862ccd and all retained build attempts remain unchanged. This does not publish a new ERP main baseline or authorize another Manus milestone.
+
+
+### HR first-payroll public acceptance — 20 November 2026
+
+Published product-consumer functional source53ac66da (not a new ERP main baseline) runs as kuubu-hr-journey-fixes03-web01 on29005; proxy same release03, immutable publication03. Backend owner-policy f081d5a3 and native gateway unchanged. Seven form checks, TypeScript, build, compiled CSS table/hover checks and authenticated synthetic manual/import read paths passed; imported contract persisted, both pay runs remain calculated/unpaid. Account website production dpl_J9ossGTjxZnvxYbK5ww63eNWXWDA fixes trial routing/owner guidance; its source manifest is separate from this Git checkout. Read the current HRM-FIRST-ENTRY document for exact acceptance scope, retained successor builds, one recovered uncertain workspace selection and remaining capacity limitation. No new Manus milestone or full main deployment follows from this scoped web release.
