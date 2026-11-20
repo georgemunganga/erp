@@ -1,6 +1,7 @@
 import { AlertCircle, Check, ChevronLeft, ChevronRight } from "lucide-react";
 import { useEffect, useState } from "react";
 import type { ReactNode } from "react";
+import { useApp } from "@/platform/app-context";
 import { Button } from "@/components/ui/button";
 
 export interface FlowStep {
@@ -27,7 +28,12 @@ export interface FlowStep {
  * their field state and must not claim server-side draft persistence unless
  * they implement it explicitly.
  */
-export function GuidedFlow({
+export function GuidedFlow(props: Parameters<typeof ScopedGuidedFlow>[0]) {
+  const { draftScope } = useApp();
+  return <ScopedGuidedFlow key={draftScope} {...props} />;
+}
+
+function ScopedGuidedFlow({
   flowId,
   steps,
   onSubmit,
@@ -36,6 +42,7 @@ export function GuidedFlow({
   allowSkip,
   submitHint,
   busyLabel = "Submitting…",
+  disabled = false,
 }: {
   flowId: string;
   steps: FlowStep[];
@@ -45,23 +52,20 @@ export function GuidedFlow({
   allowSkip?: boolean;
   submitHint?: string;
   busyLabel?: string;
+  disabled?: boolean;
 }) {
-  const [index, setIndex] = useState(0);
+  const { drafts } = useApp();
+  const memoryKey = `flow:${flowId}`;
+  const [index, setIndex] = useState(() => {
+    const saved = Number(drafts.get(memoryKey));
+    return Number.isInteger(saved) && saved >= 0 && saved < steps.length ? saved : 0;
+  });
   const [busy, setBusy] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [savedAt, setSavedAt] = useState<string | null>(null);
   // Which step is currently showing a blocking validation message. Keys are
   // step indices; the message is recomputed live as the user types.
   const [stepError, setStepError] = useState<string | null>(null);
-
-  useEffect(() => {
-    const raw = sessionStorage.getItem(`flow:${flowId}`);
-    if (raw) {
-      const n = Number(raw);
-      if (!Number.isNaN(n) && n < steps.length) setIndex(n);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [flowId]);
 
   // Recompute the current step's blocking error on every render so the hint
   // and Continue button stay in sync as the user types. Skipping optional
@@ -77,9 +81,10 @@ export function GuidedFlow({
   });
 
   useEffect(() => {
-    sessionStorage.setItem(`flow:${flowId}`, String(index));
+    if (submitted) drafts.delete(memoryKey);
+    else drafts.set(memoryKey, index);
     setSavedAt(new Date().toLocaleTimeString());
-  }, [index, flowId]);
+  }, [index, drafts, memoryKey, submitted]);
 
   if (submitted) return <>{submitted}</>;
 
@@ -120,7 +125,7 @@ export function GuidedFlow({
           })}
         </ol>
         <p className="mt-3 border-t pt-3 text-xs text-muted-foreground">
-          Step remembered for this tab{savedAt ? ` at ${savedAt}` : ""}. Finish before closing it.
+          Step remembered while you stay signed in to this company{savedAt ? ` at ${savedAt}` : ""}. Unsaved forms are cleared on reload, company switch or sign-out.
         </p>
       </nav>
 
@@ -145,7 +150,7 @@ export function GuidedFlow({
           </Button>
           {last ? (
             <Button
-              disabled={busy || Boolean(stepError)}
+              disabled={disabled || busy || Boolean(stepError)}
               onClick={async () => {
                 setSubmitError(null);setBusy(true);
                 try { await onSubmit(); }
@@ -156,7 +161,7 @@ export function GuidedFlow({
               {busy ? busyLabel : submitLabel}
             </Button>
           ) : (
-            <Button disabled={Boolean(stepError)} onClick={() => setIndex((i) => i + 1)}>
+            <Button disabled={disabled || Boolean(stepError)} onClick={() => setIndex((i) => i + 1)}>
               Continue
               <ChevronRight className="size-4" aria-hidden />
             </Button>

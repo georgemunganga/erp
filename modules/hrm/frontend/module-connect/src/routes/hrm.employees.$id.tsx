@@ -1080,7 +1080,7 @@ function ProfileTabs({
 
         <DetailSection
           title="Statutory registrations"
-          description="Zambian registrations. A missing NAPSA or NHIMA number stops the employee being included in a run."
+          description="Zambian registrations. Complete NRC, TPIN, NAPSA and NHIMA details before payslip release. Payroll calculation and bank-file readiness are checked separately."
         >
           <dl className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             <MaskedValue label="TPIN (ZRA)" value={p.tpin} />
@@ -1205,6 +1205,21 @@ async function loadLiveProfile(id: string): Promise<EmployeeProfile | null> {
     raw = (await realApi.worker(String(match.id))) as Record<string, unknown>;
   }
   return adaptWorkerProfile(raw);
+}
+
+function EmployeePayrollChecklist({ workerId }: { workerId: string }) {
+  const checks = useApi(async () => {
+    const [assignments, profiles] = await Promise.all([realApi.workerAssignments(workerId), realApi.payrollProfiles({ workerId })]);
+    const terms = assignments as Record<string, unknown>[];
+    const pay = (profiles as Record<string, unknown>[]).filter(p => String(p.workerId) === workerId);
+    return { contract: terms.some(a => a.status !== "ended" && Boolean(a.contractType)), salary: pay.some(p => Array.isArray(p.values) && (p.values as Record<string, unknown>[]).some(v => String(v.componentCode ?? v.code).toLowerCase() === "basic" && Number(v.amount) > 0)) };
+  }, [workerId]);
+  return <section aria-label="Employee setup and payroll readiness" className="rounded-lg border bg-card p-5 space-y-3">
+    <h2 className="font-semibold">Complete employee setup</h2>
+    {checks.loading ? <p role="status">Checking contract and salary assignments…</p> : checks.error ? <p role="alert">Readiness could not be checked with your current access. Ask an authorised payroll administrator or retry.</p> : <ul className="list-disc pl-5 text-sm"><li>{checks.data?.contract ? "Contract terms recorded." : "Contract terms need completion. Open Edit details to record the employment agreement."}</li><li>{checks.data?.salary ? "Salary profile recorded. Check the effective date and payroll eligibility for the selected period." : "Salary profile needs attention. Assign basic pay, pay group and effective date in Compensation."}</li></ul>}
+    <p className="text-sm text-muted-foreground">Complete statutory registrations before payslip release and primary bank details before generating a payment file. Employee setup does not create a login account.</p>
+    <div className="flex flex-wrap gap-2"><Button variant="outline" asChild><Link to="/hrm/employees/$id/edit" params={{ id: workerId }}>Complete contract and details</Link></Button><Button asChild><Link to="/hrm/pay/compensation">Set salary and pay group</Link></Button><Button variant="outline" asChild><Link to="/hrm/payroll/runs/new">Check payroll eligibility</Link></Button><Button variant="outline" onClick={checks.reload}>Recheck readiness</Button></div>
+  </section>;
 }
 
 function EmployeePage() {
@@ -1354,7 +1369,7 @@ function EmployeePage() {
                       ? `Clearance and final pay before ${e.endDate}`
                       : e.endDate
                         ? `Confirm contract intention before ${e.endDate}`
-                        : "No action required"
+                        : "Review employment, salary and payroll readiness below"
                 }
                 primaryAction={
                   <div className="flex flex-wrap justify-end gap-2">
@@ -1506,6 +1521,7 @@ function EmployeePage() {
                   </>
                 }
               >
+                {USE_REAL ? <EmployeePayrollChecklist workerId={e.id} /> : null}
                 <Async state={profileState} rows={4}>
                   {(profile) =>
                     profile ? (

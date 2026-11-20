@@ -1128,7 +1128,7 @@ function PayLines({
                       type="button"
                       onClick={() => setOpen(shown ? null : l.id)}
                       aria-expanded={shown}
-                      className="text-left"
+                      className="text-left text-foreground"
                     >
                       <span className="block font-medium underline-offset-2 hover:underline">
                         {l.employee}
@@ -1241,7 +1241,7 @@ function CalculationReview({
     .filter((item) => item.variance !== null && Math.abs(item.variance) >= 2);
   const allComponents = rows.flatMap((line) => line.components);
   const statutoryTotal = allComponents
-    .filter((component) => component.source === "Statutory")
+    .filter((component) => component.source === "Statutory" && component.kind !== "Employer")
     .reduce((sum, component) => sum + component.amount, 0);
   const overtimeTotal = allComponents
     .filter(
@@ -1514,7 +1514,7 @@ type OperationalPayRun = PayRun & {
   reconciliationReference?: string;
 };
 
-function adaptRun(raw: unknown, auditRows: unknown[] = []): OperationalPayRun {
+function adaptRun(raw: unknown, auditRows: unknown[] = [], employerName = "Company details unavailable"): OperationalPayRun {
   const r = raw as Record<string, unknown>;
   const statusMap: Record<string, string> = {
     draft: "Draft",
@@ -1532,7 +1532,7 @@ function adaptRun(raw: unknown, auditRows: unknown[] = []): OperationalPayRun {
     id: String(r.id ?? ""),
     period: String(r.periodLabel ?? r.period ?? ""),
     entityId: "",
-    entityName: String(r.entityName ?? "Demo Zambia Ltd"),
+    entityName: String(r.entityName ?? employerName),
     payGroup: String(r.payGroup ?? "Monthly ZMW"),
     currency: String(r.currency ?? "ZMW"),
     status: status as PayRun["status"],
@@ -1795,8 +1795,11 @@ function RunDetail() {
         : null;
     }
     try {
-      const [run, audit] = await Promise.all([realApi.payrollRun(id), realApi.payrollRunAudit(id)]);
-      return adaptRun(run, audit);
+      const [run, audit, employers] = await Promise.all([realApi.payrollRun(id), realApi.payrollRunAudit(id), realApi.legalEntities()]);
+      const data = run as Record<string, unknown>;
+      const list = (Array.isArray(employers) ? employers : []) as Record<string, unknown>[];
+      const company = list.find(e => String(e.id) === String(data.legalEntityId ?? "")) ?? (list.length === 1 ? list[0] : undefined);
+      return adaptRun(run, audit, company ? String(company.registeredName ?? company.name) : undefined);
     } catch {
       return null;
     }

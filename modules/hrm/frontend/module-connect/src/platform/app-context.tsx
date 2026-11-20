@@ -1,4 +1,7 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
+import type { Dispatch, SetStateAction } from "react";
+import { useAuth } from "./auth";
+import { selectedCoreCompanyId } from "@/modules/core/core-workspace-context";
 import type { ReactNode } from "react";
 import { entities, workspaces } from "@/mock/data";
 import type { Role } from "@/mock/types";
@@ -16,6 +19,9 @@ interface AppState {
   completeSetup: () => void;
   resetSetup: () => void;
   hydrated: boolean;
+  draftScope: string;
+  drafts: Map<string, unknown>;
+  clearDraft: (prefix: string) => void;
 }
 
 const Ctx = createContext<AppState | null>(null);
@@ -28,6 +34,17 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [theme, setTheme] = useState<"light" | "dark">("light");
   const [setupComplete, setSetupComplete] = useState(false);
   const [hydrated, setHydrated] = useState(false);
+  const { user, authenticated, coreWorkspace } = useAuth();
+  const company = coreWorkspace ? selectedCoreCompanyId(coreWorkspace, entityId) : entityId;
+  const draftScope = `${authenticated ? user?.subject ?? "local" : "signed-out"}:${company}`;
+  const draftStore = useRef({ scope: draftScope, values: new Map<string, unknown>() });
+  // Memory only: never persist personnel inputs in browser storage or on the server.
+  // Replace the store synchronously so an old company cannot read or write the new one.
+  if (draftStore.current.scope !== draftScope) draftStore.current = { scope: draftScope, values: new Map() };
+  const drafts = draftStore.current.values;
+  const clearDraft = useCallback((prefix: string) => {
+    for (const key of drafts.keys()) if (key.startsWith(prefix)) drafts.delete(key);
+  }, [drafts]);
 
   useEffect(() => {
     try {
@@ -69,8 +86,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
       completeSetup: () => setSetupComplete(true),
       resetSetup: () => setSetupComplete(false),
       hydrated,
+      draftScope,
+      drafts,
+      clearDraft,
     }),
-    [role, entityId, branch, theme, setupComplete, hydrated],
+    [role, entityId, branch, theme, setupComplete, hydrated, draftScope, drafts, clearDraft],
   );
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
@@ -80,6 +100,20 @@ export function useApp() {
   const ctx = useContext(Ctx);
   if (!ctx) throw new Error("useApp must be used inside AppProvider");
   return ctx;
+}
+
+/** A tab-memory field, retained across route detours only in the current identity/company scope. */
+export function useDraftField<T>(key: string, initial: T): [T, Dispatch<SetStateAction<T>>] {
+  const { drafts } = useApp();
+  const [value, setValue] = useState<T>(() => drafts.has(key) ? drafts.get(key) as T : initial);
+  const current = useRef(value);
+  const update = useCallback<Dispatch<SetStateAction<T>>>((next) => {
+    const resolved = typeof next === "function" ? (next as (value: T) => T)(current.current) : next;
+    current.current = resolved;
+    drafts.set(key, resolved);
+    setValue(resolved);
+  }, [drafts, key]);
+  return [value, update];
 }
 
 export function useWorkspace() {

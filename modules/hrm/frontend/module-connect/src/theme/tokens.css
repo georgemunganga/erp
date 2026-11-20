@@ -241,3 +241,12 @@ html.kuubu-document { font-size: 16px; }
 .kuubu-product-shell textarea,
 .kuubu-product-shell [role="combobox"] { border-radius: 12px; font-family: inherit; font-size: 13px; }
 .kuubu-product-shell [data-slot="card"] { border-radius: 22px; box-shadow: none; }
+
+/* Product workspace has light surfaces even when a previous tenant used dark mode.
+   Keep complete semantic pairs together instead of inheriting dark status tokens. */
+.kuubu-product-shell {
+  --success: #226b32; --success-soft: #eaf5eb; --success-foreground: #ffffff;
+  --warning: #785000; --warning-soft: #fff4d6; --warning-foreground: #ffffff;
+  --danger: #b42318; --danger-soft: #fef0ed; --danger-foreground: #ffffff;
+  --info: #235775; --info-soft: #eaf3fa; --info-foreground: #ffffff;
+}

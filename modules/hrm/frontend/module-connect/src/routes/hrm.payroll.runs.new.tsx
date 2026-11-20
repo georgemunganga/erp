@@ -22,6 +22,7 @@ import {
 import { GuidedFlow, NextSteps } from "@/platform/components/GuidedFlow";
 import type { FlowStep } from "@/platform/components/GuidedFlow";
 import { PageHeader } from "@/platform/components/PageHeader";
+import { useAuth } from "@/platform/auth";
 import { feedback } from "@/platform/feedback";
 
 export const Route = createFileRoute("/hrm/payroll/runs/new")({
@@ -152,12 +153,13 @@ function overlapsPeriod(start: string | null, end: string | null, periodStart: s
 
 function NewRun() {
   const navigate = useNavigate();
+  const { coreWorkspace } = useAuth();
   const [ref, setRef] = useState<string | null>(null);
   const [entityId, setEntityId] = useState(ENTITIES[0].id);
   const [payGroup, setPayGroup] = useState(PAY_GROUPS[0]);
-  const [period, setPeriod] = useState("2026-08");
-  const [payDate, setPayDate] = useState("2026-08-28");
-  const [cutoff, setCutoff] = useState("2026-08-24");
+  const [period, setPeriod] = useState(USE_REAL ? "" : "2026-08");
+  const [payDate, setPayDate] = useState(USE_REAL ? "" : "2026-08-28");
+  const [cutoff, setCutoff] = useState(USE_REAL ? "" : "2026-08-24");
   const [excluded, setExcluded] = useState<string[]>(
     DEMO_POPULATION.filter((p) => !p.in).map((p) => p.name),
   );
@@ -195,7 +197,9 @@ function NewRun() {
       const components = USE_REAL ? await realApi.payrollComponents() : [];
       const rules = USE_REAL ? await realApi.payrollContributionRules() : [];
       const slabs = USE_REAL ? await realApi.payrollTaxSlabs("2026") : [];
-      return { periods, groupId, groupName, tree, workers, profiles, components, rules, slabs };
+      const legalEntities = USE_REAL ? await realApi.legalEntities() : [];
+      const employers = (Array.isArray(legalEntities) ? legalEntities : []) as Record<string, unknown>[];
+      return { periods, groupId, groupName, tree, workers, profiles, components, rules, slabs, employers };
     },
     [],
   );
@@ -215,8 +219,11 @@ function NewRun() {
     (setup.data?.periods ?? [])[0];
   const periodStart = dateInput(chosenPeriod?.startDate) || `${periodKey(period) ?? period}-01`;
   const periodEnd = dateInput(chosenPeriod?.endDate) || monthEnd(period);
-  const entity = ENTITIES.find((e) => e.id === entityId) ?? ENTITIES[0];
-  const entityEntityId = placementUnits.find((p) => p.unitType === "entity")?.entityId ?? entityId;
+  const entityEntityId = placementUnits.find((p) => p.unitType === "entity" && p.entityId === entityId)?.entityId
+    ?? placementUnits.find((p) => p.unitType === "entity")?.entityId ?? entityId;
+  const employer = setup.data?.employers.find(e => String(e.id) === entityEntityId);
+  const coreEmployer = coreWorkspace?.companies.find(e => e.id === entityEntityId);
+  const entity = USE_REAL ? { id: entityEntityId, name: String(employer?.registeredName ?? coreEmployer?.name ?? "Company details unavailable"), currency: String(employer?.currency ?? coreEmployer?.currency ?? "ZMW") } : ENTITIES.find(e => e.id === entityId) ?? ENTITIES[0];
   const periodCutoff = dateInput(chosenPeriod?.cutoffDate);
   const periodPayDate = dateInput(chosenPeriod?.payDate);
   useEffect(() => {
@@ -323,7 +330,8 @@ function NewRun() {
       { id: "previous-period", label: "Previous period closed", detail: previous ? `${previous.periodLabel} is ${previous.status}.` : "No prior period is registered for this pay group; verify the opening payroll period manually.", state: previousClosed ? "pass" : "warn" },
     ];
   }, [chosenPeriod?.periodLabel, duplicateProfileWorkers, included, includedWorkers, period, periodStart, setup.data]);
-  const estimate = included.length * 20_878.88;
+  // Never manufacture an estimate or claim that a first company has a previous run.
+  const estimate = USE_REAL ? null : included.length * 20_878.88;
   const dateProblem = useMemo(
     () => effectiveCutoff && effectivePayDate && effectiveCutoff > effectivePayDate
       ? "The attendance approval deadline is after the pay date, so approved time would miss this run."
@@ -341,6 +349,7 @@ function NewRun() {
           <div>
             <Label htmlFor="entity">Legal entity</Label>
             <Select
+              disabled={USE_REAL}
               value={USE_REAL && setup.data?.tree ? `entity:${entityEntityId}` : entityId}
               onValueChange={(v) =>
                 v.startsWith("entity:") ? setEntityId(v.slice(7)) : setEntityId(v)
@@ -375,7 +384,7 @@ function NewRun() {
               </SelectTrigger>
               <SelectContent>
                 {(USE_REAL && setup.data?.periods.length
-                  ? [{ id: setup.data.groupId, name: "Monthly ZMW" }]
+                  ? [{ id: setup.data.groupId, name: setup.data.groupName }]
                   : PAY_GROUPS.map((g) => ({ id: g, name: g }))
                 ).map((g) => (
                   <SelectItem key={g.id} value={g.id}>
@@ -537,7 +546,7 @@ function NewRun() {
           <dl className="grid gap-3 sm:grid-cols-2">
             {[
               ["Entity", entity.name],
-              ["Pay group", payGroup],
+              ["Pay group", USE_REAL ? setup.data?.groupName ?? "Unavailable" : payGroup],
               ["Period", period],
               ["Pay date", effectivePayDate],
               ["Employees included", String(included.length)],
@@ -552,12 +561,11 @@ function NewRun() {
 
           <div className="rounded-md border bg-surface-muted p-3">
             <p className="text-sm">
-              Indicative gross, based on the last period:{" "}
-              <span className="tabular font-medium">{money(estimate, entity.currency)}</span>
+              {estimate === null ? "Gross pay will be available after calculation." : <>Preview estimate: <span className="tabular font-medium">{money(estimate, entity.currency)}</span></>}
             </p>
             <p className="mt-1 text-xs text-muted-foreground">
-              An estimate to sense-check the population, not a calculation. The real figures come out
-              of the calculate stage.
+              The calculation uses saved salary profiles, attendance and configured statutory rules.
+              Review its results before approval; opening a run does not send money.
             </p>
           </div>
 
@@ -604,7 +612,11 @@ function NewRun() {
         flowId="payroll-run-new"
         steps={steps}
         submitLabel="Open the run"
+        disabled={USE_REAL && (setup.loading || Boolean(setup.error) || !chosenPeriod)}
         onSubmit={async () => {
+            if (USE_REAL && (setup.loading || setup.error)) {
+              feedback.blocked("Payroll setup is not ready", "Wait for current company inputs to load, or retry the failed lookup."); return;
+            }
             if (dateProblem) {
               feedback.blocked("Cannot open this run", dateProblem);
               return;
@@ -618,6 +630,7 @@ function NewRun() {
               return;
             }
             try {
+              if (included.length === 0) { feedback.blocked("No eligible employees", "Assign salary, pay group and effective dates in Compensation before opening this run."); return; }
               const r = await realApi.createPayrollRun({ payPeriodId: chosenPeriod.id, payGroupId: setup.data.groupId });
               setRef(String((r as { id?: string }).id ?? chosenPeriod.id));
               feedback.submitted(

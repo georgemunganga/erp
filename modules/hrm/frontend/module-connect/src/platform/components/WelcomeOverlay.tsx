@@ -408,6 +408,7 @@ export function WelcomeOverlay({ pageMode = false }: { pageMode?: boolean } = {}
             </CardContent>
             <CardFooter className="flex justify-center gap-3 pb-8">
               {FULL_PRODUCT_HRM ? <Button size="lg" asChild><a href="/hrm/employees/new">Add employees</a></Button> : null}
+              {FULL_PRODUCT_HRM ? <><Button variant="outline" asChild><a href="/hrm/employees/import">Import employees</a></Button><Button variant="outline" asChild><a href="/hrm/pay/compensation">Set salaries and pay groups</a></Button><Button variant="outline" asChild><a href="/hrm/payroll/runs/new">Review first payroll</a></Button></> : null}
               <Button size="lg" onClick={() => routerRef.current.navigate({ to: "/hrm" })}>
                 Go to home
               </Button>
@@ -525,7 +526,13 @@ export function WelcomeOverlay({ pageMode = false }: { pageMode?: boolean } = {}
           className="w-full outline-none"
           style={pageMode ? undefined : { animation: "wizardModalIn 260ms ease-out both" }}
         >
-          {FULL_PRODUCT_HRM && active === "structure" ? <Card><CardHeader>
+          {FULL_PRODUCT_HRM && active === "employees" ? <Card><CardHeader>
+            <CardTitle>Add employees and prepare their pay</CardTitle>
+            <CardDescription>Use the full employee form or CSV/Excel importer. HR configuration can finish before employees are added; payroll checks each employee separately.</CardDescription>
+          </CardHeader><CardContent className="space-y-4">
+            <ol className="list-decimal pl-5 space-y-2 text-sm"><li>Assign company, location, department and contract terms.</li><li>Set salary, pay group and effective date in Compensation, or include them in the full import.</li><li>Review payroll eligibility before calculating. Complete statutory registrations before payslip release and bank details before a payment file.</li></ol>
+            <p className="text-sm">Finish HR configuration below, then continue with either employee entry route.</p>
+          </CardContent></Card> : FULL_PRODUCT_HRM && active === "structure" ? <Card><CardHeader>
             <CardTitle>Branches and departments</CardTitle>
             <CardDescription>Your company already exists. Review your assigned locations and manage departments in the organisation structure.</CardDescription>
           </CardHeader><CardContent className="space-y-4">

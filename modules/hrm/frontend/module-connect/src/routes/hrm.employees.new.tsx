@@ -1,6 +1,7 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { AlertTriangle, Info } from "lucide-react";
+import { useApp, useDraftField } from "@/platform/app-context";
 import { feedback } from "@/platform/feedback";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -67,47 +68,55 @@ const maritalStatuses = ["Single", "Married", "Divorced", "Widowed", "Prefer not
 const USE_REAL = import.meta.env.VITE_USE_REAL_API === "true";
 
 function NewEmployee() {
+  const { draftScope } = useApp();
+  return <NewEmployeeForm key={draftScope} />;
+}
+
+function NewEmployeeForm() {
+  const { clearDraft } = useApp();
   const navigate = useNavigate();
   const [ref, setRef] = useState<string | null>(null);
   const [createdId, setCreatedId] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
 
-  const [firstName, setFirstName] = useState("");
-  const [lastName, setLastName] = useState("");
-  const [middleName, setMiddleName] = useState("");
-  const [salutation, setSalutation] = useState("");
-  const [gender, setGender] = useState("");
-  const [maritalStatus, setMaritalStatus] = useState("");
-  const [nationality, setNationality] = useState("");
-  const [homeTown, setHomeTown] = useState("");
-  const [email, setEmail] = useState("");
-  const [personalEmail, setPersonalEmail] = useState("");
-  const [phone, setPhone] = useState("");
-  const [alternatePhone, setAlternatePhone] = useState("");
-  const [residentialAddress, setResidentialAddress] = useState("");
-  const [postalAddress, setPostalAddress] = useState("");
-  const [nrc, setNrc] = useState("");
-  const [passportNo, setPassportNo] = useState("");
-  const [passportExpiry, setPassportExpiry] = useState("");
-  const [bloodGroup, setBloodGroup] = useState("");
-  const [dateOfBirth, setDateOfBirth] = useState("");
-  const [tpin, setTpin] = useState("");
-  const [napsaNumber, setNapsaNumber] = useState("");
-  const [nhimaNumber, setNhimaNumber] = useState("");
-  const [grade, setGrade] = useState("");
-  const [emergencyName, setEmergencyName] = useState("");
-  const [emergencyRelationship, setEmergencyRelationship] = useState("");
-  const [emergencyPhone, setEmergencyPhone] = useState("");
-  const [entityId, setEntityId] = useState("");
-  const [locationId, setLocationId] = useState("");
-  const [jobTitle, setJobTitle] = useState("");
-  const [orgUnitId, setOrgUnitId] = useState("");
-  const [managerId, setManagerId] = useState("");
-  const [employmentType, setEmploymentType] = useState<string>("Permanent");
-  const [startDate, setStartDate] = useState("");
-  const [endDate, setEndDate] = useState("");
-  const [noticePeriodDays, setNoticePeriodDays] = useState("30");
+  const [firstName, setFirstName] = useDraftField("employee-new:firstName", "");
+  const [lastName, setLastName] = useDraftField("employee-new:lastName", "");
+  const [middleName, setMiddleName] = useDraftField("employee-new:middleName", "");
+  const [salutation, setSalutation] = useDraftField("employee-new:salutation", "");
+  const [gender, setGender] = useDraftField("employee-new:gender", "");
+  const [maritalStatus, setMaritalStatus] = useDraftField("employee-new:maritalStatus", "");
+  const [nationality, setNationality] = useDraftField("employee-new:nationality", "");
+  const [homeTown, setHomeTown] = useDraftField("employee-new:homeTown", "");
+  const [email, setEmail] = useDraftField("employee-new:email", "");
+  const [personalEmail, setPersonalEmail] = useDraftField("employee-new:personalEmail", "");
+  const [phone, setPhone] = useDraftField("employee-new:phone", "");
+  const [alternatePhone, setAlternatePhone] = useDraftField("employee-new:alternatePhone", "");
+  const [residentialAddress, setResidentialAddress] = useDraftField("employee-new:residentialAddress", "");
+  const [postalAddress, setPostalAddress] = useDraftField("employee-new:postalAddress", "");
+  const [nrc, setNrc] = useDraftField("employee-new:nrc", "");
+  const [passportNo, setPassportNo] = useDraftField("employee-new:passportNo", "");
+  const [passportExpiry, setPassportExpiry] = useDraftField("employee-new:passportExpiry", "");
+  const [bloodGroup, setBloodGroup] = useDraftField("employee-new:bloodGroup", "");
+  const [dateOfBirth, setDateOfBirth] = useDraftField("employee-new:dateOfBirth", "");
+  const [tpin, setTpin] = useDraftField("employee-new:tpin", "");
+  const [napsaNumber, setNapsaNumber] = useDraftField("employee-new:napsaNumber", "");
+  const [nhimaNumber, setNhimaNumber] = useDraftField("employee-new:nhimaNumber", "");
+  const [grade, setGrade] = useDraftField("employee-new:grade", "");
+  const [emergencyName, setEmergencyName] = useDraftField("employee-new:emergencyName", "");
+  const [emergencyRelationship, setEmergencyRelationship] = useDraftField("employee-new:emergencyRelationship", "");
+  const [emergencyPhone, setEmergencyPhone] = useDraftField("employee-new:emergencyPhone", "");
+  const [entityId, setEntityId] = useDraftField("employee-new:entityId", "");
+  const [locationId, setLocationId] = useDraftField("employee-new:locationId", "");
+  const [jobTitle, setJobTitle] = useDraftField("employee-new:jobTitle", "");
+  const [orgUnitId, setOrgUnitId] = useDraftField("employee-new:orgUnitId", "");
+  const [managerId, setManagerId] = useDraftField("employee-new:managerId", "");
+  const [employmentType, setEmploymentType] = useDraftField("employee-new:employmentType", "Permanent");
+  const [startDate, setStartDate] = useDraftField("employee-new:startDate", "");
+  const [endDate, setEndDate] = useDraftField("employee-new:endDate", "");
+  const [noticePeriodDays, setNoticePeriodDays] = useDraftField("employee-new:noticePeriodDays", "30");
 
+  const [savedCreation, setSavedCreation] = useDraftField<{ worker: Record<string, unknown>; input: string } | null>("employee-new:savedCreation", null);
+  const [creationUncertain, setCreationUncertain] = useDraftField("employee-new:uncertain", false);
   const references = useApi(async () => {
     if (!USE_REAL) return { legalEntities: [], orgUnits: [], locations: [], workers: [], grades: [] as string[] };
     const [legalEntities, orgUnits, locations, workerPage, stepData] = await Promise.all([
@@ -372,7 +381,7 @@ function buildOrgTree(
     {
       id: "statutory",
       title: "Statutory registrations",
-      purpose: "Zambian registrations a pay run cannot run without — complete them now, or finish them on the profile later.",
+      purpose: "Complete statutory registrations now, or finish them on the profile before releasing payslips.",
       validate: () => {
         if (emergencyName.trim() || emergencyRelationship || emergencyPhone.trim()) {
           if (!emergencyName.trim()) return "Give a name for this emergency contact.";
@@ -420,8 +429,8 @@ function buildOrgTree(
           <p className="sm:col-span-2 flex gap-2 rounded-md border border-info/30 bg-info-soft p-3 text-xs text-info">
             <Info className="mt-0.5 size-3.5 shrink-0" aria-hidden />
             <span>
-              Bank details are collected on the profile under Pay and bank — a pay run needs a
-              payment account before it can include this employee.
+              Bank details are collected on the profile under Pay and bank — a bank payment file needs a
+              primary payment account. Payroll calculation can be reviewed before this is complete.
             </span>
           </p>
         </div>
@@ -661,7 +670,7 @@ function buildOrgTree(
               ))}
             </ul>
             <p className="mt-1.5 text-xs text-muted-foreground">
-              A pay run will not include an employee missing any of these. You can complete them on
+              Salary and pay-group assignment control payroll inclusion. Complete statutory registrations before payslip release and payment details before a bank file. You can complete these on
               the profile, or the employee supplies them during onboarding.
             </p>
           </div>
@@ -679,13 +688,14 @@ function buildOrgTree(
           reference={ref}
           title={`${fullName || "The employee"} has been added as ${startDate > TODAY_ISO ? "Pre-hire" : "Active"}`}
           steps={[
-            "Complete the profile — bank details and the NAPSA, NHIMA and TPIN numbers, without which payroll cannot include them.",
-            "Record an emergency contact. It is the one field that should never be left blank.",
+            "Assign a salary and pay group in Compensation before calculating this employee in payroll.",
+            "Complete contract, statutory and payment details on the profile. Statutory registrations are checked before payslip release; bank details before a bank file.",
             startDate > TODAY_ISO ? "Review onboarding before the start date." : "Review the profile and finish any missing payroll details.",
           ]}
           actions={
             <>
-              <Button asChild>
+              <Button asChild><Link to="/hrm/pay/compensation">Set salary and pay group</Link></Button>
+              <Button variant="outline" asChild>
                 {createdId ? <Link to="/hrm/employees/$id" params={{ id: createdId }}>Complete the profile</Link> : <Link to="/hrm/employees">Employees</Link>}
               </Button>
               <Button variant="outline" asChild>
@@ -748,7 +758,7 @@ function buildOrgTree(
           setCreating(true);
           try {
             if (USE_REAL) {
-              const created = await realApi.createWorker({
+              const payload = {
                 employeeNo: "",
                 firstName: firstName.trim(),
                 middleName: middleName.trim() || null,
@@ -778,8 +788,28 @@ function buildOrgTree(
                   ? [{ relationship: emergencyRelationship || "Other", fullName: emergencyName.trim(), phone: emergencyPhone.trim() || null, isPrimary: true }]
                   : [],
                 bankDetails: [],
-              });
-              await realApi.createWorkerAssignment(String(created.id), {
+              };
+              const input = JSON.stringify(payload);
+              if (creationUncertain) {
+                feedback.blocked("The previous employee save is unconfirmed", "Check the employee directory before starting another record. No create request was repeated."); return;
+              }
+              if (savedCreation && savedCreation.input !== input) {
+                feedback.blocked("The employee record was already saved", "Open the existing employee in the directory to edit details. The employment assignment still needs completion."); return;
+              }
+              let created = savedCreation?.worker;
+              if (!created) {
+                setCreationUncertain(true);
+                try {
+                  created = await realApi.createWorker(payload);
+                  setSavedCreation({ worker: created, input });
+                  setCreationUncertain(false);
+                } catch (error) {
+                  if (error instanceof ApiError && error.status >= 400 && error.status < 500) setCreationUncertain(false);
+                  throw error;
+                }
+              }
+              const recordedTerms = await realApi.workerAssignments(String(created.id)) as Record<string, unknown>[];
+              const desiredTerms = {
                 workerId: created.id,
                 legalEntityId: entityId,
                 orgUnitId,
@@ -801,7 +831,12 @@ function buildOrgTree(
                           : "permanent",
                 workPattern: employmentType === "Part time" ? "part-time" : "full-time",
                 noticeDays: Number(noticePeriodDays),
-              });
+              };
+              const sameTerms = recordedTerms.some(a => String(a.contractType) === desiredTerms.contractType && String(a.locationId) === locationId && String(a.orgUnitId) === orgUnitId && String(a.startDate).slice(0, 10) === startDate);
+              if (recordedTerms.length && !sameTerms) throw new Error("Employee saved with different employment terms. Open the existing employee to review the assignment before continuing.");
+              if (!sameTerms) await realApi.createWorkerAssignment(String(created.id), desiredTerms);
+              clearDraft("employee-new:");
+              clearDraft("flow:employee-new");
               setRef(String(created.employeeNo || created.id));
               setCreatedId(String(created.id));
               return;
@@ -810,7 +845,7 @@ function buildOrgTree(
             setRef(`TMP-${r.id}`);
           } catch (err) {
             const msg = err instanceof ApiError ? err.message : String(err);
-            feedback.blocked("The employee could not be created.", msg);
+            feedback.blocked(savedCreation ? "Employee saved; employment setup needs attention." : "Employee creation needs attention.", msg);
             throw err;
           } finally {
             setCreating(false);

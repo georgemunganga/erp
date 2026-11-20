@@ -924,7 +924,7 @@ export function ImportDialog({ typeKey, onDone, demoSample, presentation = "dial
           {completion.remainingRows.length ? <p>{completion.remainingRows.length} rows need a fresh review before another import.</p> : null}
           {completion.issues.length ? <ul className="list-disc pl-5 text-sm">{completion.issues.slice(0,10).map((issue,index)=><li key={`${issue.row}-${index}`}>Row {issue.row}: {issue.message || issue.status}</li>)}</ul> : null}
           <div className="flex flex-wrap gap-2">
-            {typeKey === "workers" ? <Button asChild><a href="/hrm/employees">View employees</a></Button> : null}
+            {typeKey === "workers" ? <><p className="w-full text-sm">Next: open each employee to complete contract terms, statutory registrations and payment details. Imported employment type sets the worker classification; it does not create a contract. Check salary assignments in Compensation before payroll.</p><Button asChild><a href="/hrm/employees">Complete employee profiles</a></Button><Button variant="outline" asChild><a href="/hrm/pay/compensation">Review salaries and pay groups</a></Button><Button variant="outline" asChild><a href="/hrm/payroll/runs/new">Review first payroll</a></Button></> : null}
             {completion.remainingRows.length ? <Button variant="outline" onClick={()=>{
               setManualRows(completion.remainingRows); setEntryMode("manual"); setPreview(null); setCompletion(null); setStep("upload");
             }}>Review remaining rows</Button> : null}
