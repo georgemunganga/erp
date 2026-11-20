@@ -17,12 +17,28 @@ namespace Mightyfin.Erp.Hrm.Tests;
 /// correction and leave decisions) over EF InMemory with a fixed tenant.</summary>
 public class TimeServiceTests
 {
+    [Theory]
+    [InlineData("en-US")]
+    [InlineData("en-GB")]
+    [InlineData("fr-FR")]
+    [InlineData("ar-EG")]
+    public async Task MobilePunch_WireClockAndWorkDateAreIndependentOfServerCulture(string culture)
+    {
+        var previous = System.Globalization.CultureInfo.CurrentCulture;
+        try
+        {
+            System.Globalization.CultureInfo.CurrentCulture = new System.Globalization.CultureInfo(culture);
+            await MobilePunch_UsesCompanyDate_AndRetriesDoNotChangeTimesOrAudit();
+        }
+        finally { System.Globalization.CultureInfo.CurrentCulture = previous; }
+    }
+
     [Fact]
     public async Task MobilePunch_UsesCompanyDate_AndRetriesDoNotChangeTimesOrAudit()
     {
         var (svc,db,worker,_,_)=Build(authz:new EmployeeAuthz("subject-001"));
         using (db) {
-            var start=DateTimeOffset.Parse("2026-11-15T22:30:00Z"); //16Nov00:30 in Lusaka
+            var start=DateTimeOffset.Parse("2026-11-15T22:30:00Z", System.Globalization.CultureInfo.InvariantCulture); //16Nov00:30 in Lusaka
             var first=await svc.PunchMobileAsync(worker.Id,true,start,"Africa/Lusaka","2026-11-16",null,default);
             Assert.Equal("2026-11-16",first.WorkDate);Assert.Equal("00:30",first.ClockIn);
             var audits=await db.AuditEntries.CountAsync();
