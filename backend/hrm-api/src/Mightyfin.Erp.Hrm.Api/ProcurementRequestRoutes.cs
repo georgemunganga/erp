@@ -18,6 +18,8 @@ public static class ProcurementRequestRoutes
     public static void Map(WebApplication app)
     {
         var group = app.MapGroup("/api/procurement/v1/requests");
+        group.MapGet("/lookups/categories", LookupCategories).RequireAuthorization("procurement-request-create");
+        group.MapGet("/lookups/items", LookupItems).RequireAuthorization("procurement-request-create");
         group.MapGet("", List).RequireAuthorization("procurement-request-read");
         group.MapGet("/{id:guid}", Get).RequireAuthorization("procurement-request-read");
         group.MapGet("/{id:guid}/review", GetForReview).RequireAuthorization("procurement-request-return");
@@ -27,6 +29,44 @@ public static class ProcurementRequestRoutes
         group.MapPost("/{id:guid}/return-for-changes", ReturnForChanges)
             .RequireAuthorization("procurement-request-return");
         group.MapPost("/{id:guid}/withdraw", Withdraw).RequireAuthorization("procurement-request-edit");
+    }
+
+    // Request creators may search safe item/category descriptions without receiving
+    // configuration or item-stewardship access. The caller may still type a new value.
+    private static async Task<IResult> LookupCategories(ProcurementDbContext db, string? search,
+        int? limit, CancellationToken ct)
+    {
+        var take = Math.Clamp(limit ?? 20, 1, 50);
+        var query = db.ProcurementCategories.AsNoTracking().Where(x => x.Status == "Active");
+        var term = Clean(search);
+        if (term is not null)
+        {
+            if (term.Length > 100) term = term[..100];
+            query = query.Where(x => EF.Functions.ILike(x.Code, $"%{term}%")
+                || EF.Functions.ILike(x.Name, $"%{term}%"));
+        }
+        var items = await query.OrderBy(x => x.Code).Take(take)
+            .Select(x => new RequestCategoryLookup(x.Code, x.Name)).ToListAsync(ct);
+        return Results.Ok(new { items });
+    }
+
+    private static async Task<IResult> LookupItems(ProcurementDbContext db, string? search,
+        int? limit, CancellationToken ct)
+    {
+        var take = Math.Clamp(limit ?? 20, 1, 50);
+        var query = db.CatalogItems.AsNoTracking();
+        var term = Clean(search);
+        if (term is not null)
+        {
+            if (term.Length > 100) term = term[..100];
+            query = query.Where(x => EF.Functions.ILike(x.Code, $"%{term}%")
+                || EF.Functions.ILike(x.Name, $"%{term}%")
+                || EF.Functions.ILike(x.CategoryCode, $"%{term}%"));
+        }
+        var items = await query.OrderBy(x => x.Name).ThenBy(x => x.Code).Take(take)
+            .Select(x => new RequestItemLookup(x.Code, x.Name, x.Kind, x.CategoryCode,
+                x.UnitCode, x.Status, x.IsPurchasable)).ToListAsync(ct);
+        return Results.Ok(new { items });
     }
 
     private static async Task<IResult> List(ProcurementDbContext db, ProcurementRequestScope scope,
@@ -571,6 +611,9 @@ public static class ProcurementRequestRoutes
 
     public sealed record RequestSummary(Guid Id, string Number, string Purpose, string Status,
         string CurrencyCode, DateOnly? NeededBy, DateTimeOffset CreatedAt, long Version, int LineCount, Guid? BranchRef = null);
+    public sealed record RequestCategoryLookup(string Code, string Name);
+    public sealed record RequestItemLookup(string Code, string Name, string Kind, string CategoryCode,
+        string UnitCode, string Status, bool IsPurchasable);
     public record NewRequest(string? Purpose, string? CurrencyCode, DateOnly? NeededBy,
         string? CostCenterRef, string? ProjectRef, string? DeliveryLocationRef,
         string? DeliveryAddressText, string? FundingSourceRef, string? NotesToApprover,

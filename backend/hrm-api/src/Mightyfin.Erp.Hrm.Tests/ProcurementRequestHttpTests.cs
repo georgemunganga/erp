@@ -3710,6 +3710,16 @@ public sealed partial class ProcurementRequestHttpTests
             var category = new ProcurementCategory { Code = code, Name = "Receiving category " + code, Status = status };
             db.AddScoped(category); await db.SaveChangesAsync(); return category.Id;
         }
+        public async Task<Guid> SeedRequestLookupItem(string code, string status, bool purchasable, bool foreignCompany = false)
+        {
+            using var services = app.Services.CreateScope();
+            services.ServiceProvider.GetRequiredService<ProcurementRequestScope>().Set("tenant-a",
+                foreignCompany ? OtherCompany : company, Other.ToString(), null, null, false, "request-item-lookup-test");
+            var db = services.ServiceProvider.GetRequiredService<ProcurementDbContext>();
+            var item = new CatalogItem { Code = code, Name = "Lookup item " + code, Kind = "Goods",
+                CategoryCode = "SAFETY", UnitCode = "each", Status = status, IsPurchasable = purchasable };
+            db.AddScoped(item); await db.SaveChangesAsync(); return item.Id;
+        }
         // Explicit persisted preconditions. Authentication headers below remain presentation claims only.
         public Task ConfigureCoreRole(Guid actor, string role) => ConfigureCoreActions(actor,
             string.Join(",", role == "erp_admin" ? ProcurementActionCatalog.BootstrapGrants.Keys
