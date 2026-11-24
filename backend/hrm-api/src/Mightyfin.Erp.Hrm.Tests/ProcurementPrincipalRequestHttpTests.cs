@@ -167,6 +167,47 @@ public sealed partial class ProcurementRequestHttpTests
         Assert.Equal(before, await fixture.OriginalValueFootprint());
     }
 
+    [Fact]
+    public async Task Request_creator_can_search_company_items_and_categories_without_catalog_steward_access()
+    {
+        await using var fixture = await Fixture.Start();
+        await fixture.ConfigurePrincipalRequester(fixture.Owner, linkedEmployee: false);
+        await fixture.SeedReceivingLookupCategory("ELECTRICAL", "Active");
+        await fixture.SeedReceivingLookupCategory("FOREIGN", "Active", foreignCompany: true);
+        await fixture.SeedRequestLookupItem("IMPORTED-INACTIVE", "Inactive", purchasable: false);
+        await fixture.SeedRequestLookupItem("FOREIGN-ITEM", "Active", purchasable: true, foreignCompany: true);
+
+        var categoriesResponse = await Send(fixture.Client, HttpMethod.Get,
+            PrincipalRequests + "/lookups/categories?search=elect&limit=20", fixture.Owner);
+        Assert.Equal(HttpStatusCode.OK, categoriesResponse.StatusCode);
+        var categories = await categoriesResponse.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.Equal(1, categories.GetProperty("items").GetArrayLength());
+        Assert.Equal("ELECTRICAL", categories.GetProperty("items")[0].GetProperty("code").GetString());
+
+        var itemsResponse = await Send(fixture.Client, HttpMethod.Get,
+            PrincipalRequests + "/lookups/items?search=imported&limit=20", fixture.Owner);
+        Assert.Equal(HttpStatusCode.OK, itemsResponse.StatusCode);
+        var items = await itemsResponse.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.Equal(1, items.GetProperty("items").GetArrayLength());
+        var imported = items.GetProperty("items")[0];
+        Assert.Equal("IMPORTED-INACTIVE", imported.GetProperty("code").GetString());
+        Assert.Equal("Inactive", imported.GetProperty("status").GetString());
+        Assert.False(imported.GetProperty("isPurchasable").GetBoolean());
+        Assert.False(imported.TryGetProperty("supplier", out _));
+        Assert.False(imported.TryGetProperty("price", out _));
+    }
+
+    [Fact]
+    public async Task Request_lookup_requires_request_create_permission()
+    {
+        await using var fixture = await Fixture.Start();
+        await fixture.ConfigurePrincipalRequester(fixture.Owner, linkedEmployee: false);
+        await fixture.ConfigureCoreActions(fixture.Other, "procurement-access,procurement-request-read");
+        var response = await Send(fixture.Client, HttpMethod.Get,
+            PrincipalRequests + "/lookups/items", fixture.Other);
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+    }
+
     private sealed partial class Fixture
     {
         public async Task ConfigurePrincipalRequester(Guid actor, bool linkedEmployee)
